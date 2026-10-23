@@ -17,28 +17,28 @@
    ============================================================ */
 
 const CONSOLE_FOCUS = {
-  exec:     ['Overview','Leadership','Reporting','Patients & field','Ministry & teams','People','Assurance'],
-  admin:    ['Overview','Patients & field','Ministry & teams','Hospital operations','Care centre','People','Reporting','System'],
-  medical:  ['Overview','Patients & field','Clinical & pharmacy','Hospital operations','Care centre','Reporting','Ministry & teams'],
-  ministry: ['Overview','Patients & field','Ministry & teams','Care centre','Clinical & pharmacy','Reporting','People'],
-  media:    ['Overview','Media & governance','Reporting','People'],
+  exec:     ['Overview','Partner & referral','Leadership','Reporting','Patients & field','Ministry & teams','People','Assurance'],
+  admin:    ['Overview','Patients & field','Partner & referral','Ministry & teams','Hospital operations','Care centre','People','Reporting','System'],
+  medical:  ['Overview','Patients & field','Clinical & pharmacy','Partner & referral','Hospital operations','Care centre','Reporting','Ministry & teams'],
+  ministry: ['Overview','Patients & field','Ministry & teams','Partner & referral','Care centre','Clinical & pharmacy','Reporting','People'],
+  media:    ['Overview','Media & governance','Partner & referral','Reporting','Department life','People'],
   finance:  ['Overview','Finance & procurement','Reporting','Ministry & teams','People'],
   procure:  ['Overview','Finance & procurement','Reporting','Ministry & teams','People'],
-  me:       ['Overview','Reporting','Patients & field','Assurance','Ministry & teams'],
+  me:       ['Overview','Reporting','Partner & referral','Patients & field','Assurance','Ministry & teams'],
   audit:    ['Overview','Assurance','Reporting','Finance & procurement','Ministry & teams','People'],
   hr:       ['Overview','People','Reporting'],
   welfare:  ['Overview','People','Reporting'],
   vehicle:  ['Overview','Fleet & transport','Ministry & teams','People'],
-  pr:       ['Overview','Media & governance','Reporting','Ministry & teams','People'],
-  hospital: ['Overview','Hospital operations','Patients & field','Clinical & pharmacy','Ministry & teams','Reporting'],
+  pr:       ['Overview','Media & governance','Partner & referral','Reporting','Ministry & teams','People'],
+  hospital: ['Overview','Partner & referral','Hospital operations','Patients & field','Clinical & pharmacy','Ministry & teams','Reporting'],
   pharmacy: ['Overview','Clinical & pharmacy','Patients & field','Ministry & teams','Reporting'],
   it:       ['Overview','System','Assurance','Ministry & teams'],
-  intldata: ['Overview','Reporting','Assurance','Ministry & teams'],
+  intldata: ['Overview','Clinical & pharmacy','Partner & referral','Reporting','Assurance','Ministry & teams'],
   homestay: ['Overview','Care centre','Patients & field','Ministry & teams']
 };
 
 const NAV_GROUP_ICON = {
-  'Overview':'home', 'Patients & field':'users', 'Clinical & pharmacy':'package', 'Hospital operations':'hospital',
+  'Overview':'home', 'Patients & field':'users', 'Partner & referral':'hospital', 'Clinical & pharmacy':'package', 'Hospital operations':'hospital',
   'Care centre':'bed', 'Reporting':'file', 'Finance & procurement':'wallet', 'Media & governance':'image',
   'People':'idcard', 'Fleet & transport':'car', 'Assurance':'shieldcheck', 'System':'settings', 'Leadership':'chart',
   'Ministry & teams':'route', 'Department life':'book'
@@ -111,7 +111,7 @@ const NAVP = {
     return `<nav class="npane" id="npane" aria-label="Pages in this console" data-rail="${pr.rail?1:0}">
       <div class="np-brand">
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
-        <div class="np-id"><b>${esc(role.consoleTitle||role.name||'Console')}</b>
+        <div class="np-id"><div class="np-os">CareLink OS</div><b>${esc(role.consoleTitle||role.name||'Console')}</b>
           <span><i class="np-dot" style="background:${esc(dept.accent)}"></i>${esc(role.name||'')}</span></div>
         <button class="np-x" data-act="nav-close" aria-label="Close navigation">${ic('x',18)}</button>
       </div>

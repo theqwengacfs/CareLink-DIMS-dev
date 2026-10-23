@@ -102,7 +102,7 @@ const COST_UNIT_DEFAULTS = [
 /* ---------------- 3. State ---------------- */
 const COST_STATE = {
   tab:'overview', from:'', to:'', countyId:'', areaId:'', cat:'', disease:'', dept:'',
-  q:'', sort:'total', page:1, perPage:25
+  q:'', sort:'total', page:1, perPage:25, viewMode:'charts'
 };
 
 /* ---------------- 4. The engine ---------------- */
@@ -599,7 +599,8 @@ const COSTX = {
     const head = pageHead('Cost per patient',
       `Attributed programme expenditure per patient, ministry area, county, disease category and department · reach: <b>${esc(lens.label)}</b>` +
       (s.anonLines? ` · <b>${num(s.anonLines)}</b> line${s.anonLines===1?'':'s'} of your own service, de-identified` : ''),
-      `${RBAC.has(user,'cost.export')?`<button class="btn btn-sm btn-ghost" data-act="cost-export">${ic('download',15)} Export CSV</button>`:''}
+      `<button class="btn btn-sm ${st.viewMode==='table'?'btn-primary':'btn-ghost'}" data-act="go" data-v="costing" data-view-mode="${st.viewMode==='table'?'charts':'table'}">${ic('columns',15)} ${st.viewMode==='table'?'Charts & tables view':'View all as tables'}</button>
+       ${RBAC.has(user,'cost.export')?`<button class="btn btn-sm btn-ghost" data-act="cost-export">${ic('download',15)} Export CSV</button>`:''}
        <button class="btn btn-sm btn-ghost" data-act="do-print">${ic('file',15)} Print</button>
        <button class="btn btn-sm btn-primary" data-act="cost-report">${ic('receipt',15)} Full cost report</button>`)
     + `<div class="tabs cost-tabs" role="tablist">${shown.map(([id,label])=>`<button class="tab ${st.tab===id?'active':''}" role="tab" data-act="cost-tab" data-tab="${id}">${esc(label)}</button>`).join('')}</div>`

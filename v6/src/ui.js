@@ -61,41 +61,59 @@ function ic(name, size=18, cls=''){
 
 /* ---------------- Navigation model ---------------- */
 function navModel(user){
-  const has = c => RBAC.has(user,c);
-  const s = has('patient.list')? repo.stats(user) : { pipeline:0, openConcerns:0, active:0 };
+  const has = c => RBAC.can(user,c).ok;
+  const role = roleObj(user.roleId) || {};
+  const isExternal = Boolean(role.external);
+  const nonFieldRoles = ['mediahead','pr','finance','procurement','hr','welfare','vehicle','auditor','it','gov.partner','president'];
+  const isFieldOrClinical = has('patient.list') && !nonFieldRoles.includes(user.roleId);
+  const s = isFieldOrClinical ? repo.stats(user) : { pipeline:0, openConcerns:0, active:0 };
   const isStaffOps = has('hr.view') || has('welfare.view') || has('delegation.manage');
   const isAssuranceOps = has('audit.view') || has('system.audit') || has('indicator.manage') || has('dq.manage');
   const isSystemAdmin = has('user.view') || has('system.health') || has('user.approve') || has('system.config');
   const showDualCheck = typeof DUALCHECK !== 'undefined' && DUALCHECK.canAccess(user);
-  const canMsg = has('message.use') && !((roleObj(user.roleId)||{}).scope||{}).readOnly;
+  const canMsg = has('message.use') && !((role.scope||{}).readOnly);
+  const canSeeVisits = isFieldOrClinical && (has('visit.view')||has('visit.create')||has('patient.view.clinical')||['countyadmin','assistant','director','program.admin','depthead','me'].includes(user.roleId));
+  const canSeePdca = isFieldOrClinical && (has('pdca.create')||has('pdca.review')||['countyadmin','assistant','director','program.admin','depthead','me'].includes(user.roleId));
+  const canSeeBmi = isFieldOrClinical && (has('patient.view.clinical')||has('visit.create')||has('hosp.visit.record')||['coordinator','countyadmin','assistant','depthead','director','program.admin'].includes(user.roleId));
   const groups = [
     { label:'Overview', items:[
       { id:'home', label:'Console home', icon:'home', show:true },
-      { id:'attention', label:'Requiring attention', icon:'alert', show:has('patient.list'), count:s.openConcerns, tone:'crit' },
+      { id:'monday', label:'Monday meeting', icon:'users', show:has('monday.meeting') },
+      { id:'attention', label:'Requiring attention', icon:'alert', show:isFieldOrClinical && user.roleId!=='me' && user.roleId!=='chief', count:s.openConcerns, tone:'crit' },
       { id:'dualcheck', label:'Admin / Intl Co-Work Lock', icon:'shield', show:showDualCheck },
       { id:'messages', label:'Messages', icon:'send', show:canMsg },
       { id:'calendar', label:'Calendar', icon:'calendar', show:true },
-      { id:'leave', label:'Leave & off-days', icon:'calendar', show:!isStaffOps },
-      { id:'workplans', label:'Monthly work plans', icon:'clipboard', show:!isStaffOps && user.roleId!=='president' },
+      { id:'leave', label:'Leave & off-days', icon:'calendar', show:!isStaffOps && !isExternal },
+      { id:'handover', label:'Delegation & handover', icon:'key', show:has('handover.use') && !isStaffOps && !isExternal },
+      { id:'workplans', label:'Monthly work plans', icon:'clipboard', show:!isStaffOps && !isExternal && user.roleId!=='president' },
       { id:'settings', label:'Settings', icon:'settings', show:!isSystemAdmin }
     ]},
-    { label:'Patients & field', show:has('patient.list'), items:[
-      { id:'patients', label:'Patient register', icon:'users' },
+    { label:'Patients & field', show:isFieldOrClinical, items:[
+      { id:'patients', label:'Patient register', icon:'users', show:isFieldOrClinical },
       { id:'pipeline', label:'Assessment pipeline', icon:'clipboard', show:has('patient.digitise'), count:s.pipeline },
-      { id:'waiting', label:'Waiting list', icon:'clock', show:has('patient.list')&&has('waiting.view') },
-      { id:'visits', label:'Visits & progress', icon:'activity' },
+      { id:'hardcopy', label:'Hard-copy intake & scans', icon:'upload', show:has('hardcopy.intake') },
+      { id:'waiting', label:'Waiting list', icon:'clock', show:isFieldOrClinical&&has('waiting.view') },
+      { id:'visits', label:'Visits & progress', icon:'activity', show:canSeeVisits },
+      { id:'bmiboard', label:'BMI nutritional status', icon:'pulse', show:canSeeBmi },
       { id:'schedule', label:'Visit planning', icon:'route', show:has('visit.create')||has('pdca.create') },
       { id:'visitplan', label:'Visit order learner', icon:'sparkles', show:has('visit.create')||has('pdca.create') },
-      { id:'forms', label:'Paper forms', icon:'clipboard', show:has('form.view') },
-      { id:'pdca', label:'PDCA follow-up', icon:'repeat' },
-      { id:'households', label:'Households & care chains', icon:'users', show:has('patient.list')&&has('household.view') },
-      { id:'repeat', label:'Returning patient check', icon:'search' },
-      { id:'programdays', label:'Programme days', icon:'clock' }
+      { id:'forms', label:'Paper forms', icon:'clipboard', show:isFieldOrClinical&&has('form.view') },
+      { id:'pdca', label:'PDCA follow-up', icon:'repeat', show:canSeePdca },
+      { id:'households', label:'Households & care chains', icon:'users', show:isFieldOrClinical&&has('household.view') },
+      { id:'repeat', label:'Returning patient check', icon:'search', show:has('pmi.check') && user.roleId!=='ccc.clinician' },
+      { id:'programdays', label:'Programme days', icon:'clock', show:isFieldOrClinical }
+    ]},
+    { label:'Partner & referral', show:has('ccc.desk')||has('gov.oversight')||(isExternal&&has('pmi.check')), items:[
+      { id:'cccdesk', label:'CCC / PSC referral desk', icon:'hospital', show:has('ccc.desk') },
+      { id:'repeat', label:'Returning patient check', icon:'search', show:user.roleId==='ccc.clinician' && has('pmi.check') },
+      { id:'govdashboard', label:'Government partnership', icon:'building2', show:has('gov.oversight') }
     ]},
     { label:'Ministry & teams', show:has('team.view'), items:[
       { id:'teams', label:'Ministry teams & visit days', icon:'route', show:has('team.view') }
     ]},
-    { label:'Clinical & pharmacy', show:has('pharmacy.view')||has('careplan.view'), items:[
+    { label:'Clinical & pharmacy', show:has('clinical.mcm')||has('pharmacy.view')||has('careplan.view')||has('intl.medical'), items:[
+      { id:'clinicalmcm', label:'Case manager & clinical', icon:'activity', show:has('clinical.mcm') },
+      { id:'intlmedical', label:'120+ day PDCA & intl review', icon:'pulse', show:has('intl.medical') },
       { id:'pharmacy', label:'Pharmacy', icon:'package', show:has('pharmacy.view') },
       { id:'tbcare', label:'TB dispensing control', icon:'shieldcheck', show:has('tb.view') },
       { id:'careplans', label:'Care plans', icon:'clipboard', show:has('careplan.view') }
@@ -124,7 +142,8 @@ function navModel(user){
       { id:'finance', label:'Expenditure', icon:'wallet', show:has('finance.view') },
       { id:'costing', label:'Cost per patient', icon:'receipt', show:has('cost.view') },
       { id:'budget', label:'Budget lines', icon:'layers', show:has('finance.budget.manage') },
-      { id:'procurement', label:'Procurement', icon:'package', show:has('procurement.view') }
+      { id:'procurement', label:'Procurement', icon:'package', show:has('procurement.view') },
+      { id:'foodbudget', label:'Projected food & hygiene budget', icon:'clipboard', show:has('procurement.view')||has('finance.view') }
     ]},
     { label:'Media & governance', show:has('media.view')||has('pr.view'), items:[
       { id:'media', label:'Media library', icon:'image', show:has('media.view') },
@@ -137,6 +156,7 @@ function navModel(user){
     { label:'People', show:isStaffOps, items:[
       { id:'staff', label:'Staff register', icon:'idcard', show:has('hr.view') },
       { id:'leave', label:'Leave & off-days', icon:'calendar', show:isStaffOps },
+      { id:'handover', label:'Delegation & handover', icon:'key', show:isStaffOps && has('handover.use') },
       { id:'workplans', label:'Monthly work plans', icon:'clipboard', show:isStaffOps && user.roleId!=='president' },
       { id:'welfare', label:'Staff welfare', icon:'heart', show:has('welfare.view') },
       { id:'delegation', label:'Delegation', icon:'key', show:has('delegation.manage') }
@@ -213,9 +233,9 @@ function card(title, body, opts={}){
   </section>`;
 }
 function pageHead(title, sub, actions=''){
-  return `<div class="spread" style="margin-bottom:18px;align-items:flex-start">
-    <div><h2 style="font-size:22px">${esc(title)}</h2><div class="muted small" style="margin-top:3px">${sub}</div></div>
-    <div class="row">${actions}</div></div>`;
+  return `<div class="spread page-head" style="margin-bottom:18px;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div class="page-head-copy" style="min-width:220px;flex:1 1 280px"><h2 style="font-size:22px">${esc(title)}</h2><div class="muted small" style="margin-top:3px">${sub}</div></div>
+    ${actions?`<div class="row page-head-actions" style="flex-wrap:wrap;gap:8px">${actions}</div>`:''}</div>`;
 }
 function emptyState(title, msg, icon='info', action=''){
   return `<div class="empty"><div class="ico">${ic(icon,24)}</div><h4>${esc(title)}</h4><p>${msg}</p>${action}</div>`;

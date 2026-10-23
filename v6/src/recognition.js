@@ -135,25 +135,89 @@ function renderRecognition(user){
           <span class="small">${esc(BADGE_DETAIL[b].blurb)}</span></div>`).join('')}
       </div>`)}
   </div>
-  ${card('Leaderboard', `<div class="lb">
-      ${board.slice(0,12).map((b,i)=>`<div class="lb-row">
-        <span class="lb-rank">${i+1}</span>
-        <span class="avatar" style="background:${esc((deptObj(b.u.departmentId)||{}).accent||'#334155')}">${initials(b.u.name)}</span>
-        <div class="lb-id"><b>${esc(b.u.name)}</b><span>${esc((roleObj(b.u.roleId)||{}).name||'')} · ${esc(countyName(b.u.countyId))}</span></div>
-        <div class="lb-bar"><span style="width:${b.s.score}%"></span></div>
-        <b class="mono">${b.s.score}%</b>
-        <span class="badge b-neutral nodot">${num(CREDITS.earned(b.u).balance)} coins</span>
-      </div>`).join('')}
-    </div>`, {sub:'Scored from records in the register, refreshed on every monthly close.'})}
-  ${card('Rewards you can spend coins on', `<div class="perks">
-      ${PERKS.map(p=>`<div class="perk">
-        <div><b>${esc(p.name)}</b><div class="xs muted">${esc(p.note)}</div>
-          <div class="xs muted" style="margin-top:4px">Owned by ${esc(titleCase(p.owner))}</div></div>
-        <div style="text-align:right"><b class="mono">${p.cost}</b><div class="xs muted">coins</div>
-          <button class="btn btn-xs ${bal.balance>=p.cost?'btn-primary':'btn-ghost'}" data-act="coins-redeem" data-id="${p.id}"
-            ${bal.balance>=p.cost?'':'disabled'}>${bal.balance>=p.cost?'Redeem':'Need '+(p.cost-bal.balance)}</button></div>
-      </div>`).join('')}
-    </div>`, {sub:'A coin buys time with equipment the Foundation already owns. It never buys access to a patient record.'})}
+  ${card('Leaderboard', (()=>{
+      const top3 = board.slice(0,3);
+      const podiumOrder = top3.length>=3 ? [top3[1], top3[0], top3[2]] : top3;
+      const medalMeta = rank => rank===1
+        ? { label:'1st · Gold Laureate', fill:'#F59E0B', ring:'#FEF3C7', ink:'#78350F', svg:`<svg viewBox="0 0 36 36" width="32" height="32" aria-hidden="true"><circle cx="18" cy="20" r="11" fill="#F59E0B" stroke="#B45309" stroke-width="2"/><path d="M12 4h5l2 6h-5zM24 4h-5l-2 6h5z" fill="#DC2626"/><text x="18" y="24" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">1</text></svg>` }
+        : rank===2
+        ? { label:'2nd · Silver Merit', fill:'#64748B', ring:'#F1F5F9', ink:'#1E293B', svg:`<svg viewBox="0 0 36 36" width="28" height="28" aria-hidden="true"><circle cx="18" cy="20" r="10.5" fill="#94A3B8" stroke="#475569" stroke-width="2"/><path d="M12 5h5l2 6h-5zM24 5h-5l-2 6h5z" fill="#2563EB"/><text x="18" y="24" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">2</text></svg>` }
+        : { label:'3rd · Bronze Honour', fill:'#B45309', ring:'#FFEDD5', ink:'#7C2D12', svg:`<svg viewBox="0 0 36 36" width="28" height="28" aria-hidden="true"><circle cx="18" cy="20" r="10.5" fill="#D97706" stroke="#92400E" stroke-width="2"/><path d="M12 5h5l2 6h-5zM24 5h-5l-2 6h5z" fill="#0F766E"/><text x="18" y="24" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">3</text></svg>` };
+      const podiumHtml = top3.length ? `<div class="coins-podium">
+        ${podiumOrder.map(item=>{
+          const rk = board.indexOf(item) + 1;
+          const m = medalMeta(rk);
+          const uCoins = CREDITS.earned(item.u).balance;
+          const uBand = scoreBand(item.s.score);
+          return `<div class="podium-card podium-r${rk} ${item.u.id===user.id?'is-me':''}">
+            <div class="podium-medal">${m.svg}<span class="podium-rank-lbl">${esc(m.label)}</span></div>
+            <div class="podium-avatar-wrap">
+              <span class="avatar podium-avatar" style="background:${esc(WTHEME.safeFill((deptObj((roleObj(item.u.roleId)||{}).dept||item.u.departmentId)||{}).accent||'#334155'))}">${initials(item.u.name)}</span>
+              <span class="podium-score-pill">${item.s.score}%</span>
+            </div>
+            <b class="podium-name">${esc(item.u.name.replace(/^Demo - /,''))}</b>
+            <span class="podium-role">${esc((roleObj(item.u.roleId)||{}).name||'')} · ${esc(countyName(item.u.countyId))}</span>
+            <div class="podium-foot">
+              <span class="badge ${uBand.tone}">${uBand.name}</span>
+              <span class="podium-coins">${ic('sparkles',13)} ${num(uCoins)} coins</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>` : '';
+      return podiumHtml + `<div class="lb">
+        ${board.slice(0,12).map((b,i)=>{
+          const uCoins = CREDITS.earned(b.u).balance;
+          const uBand = scoreBand(b.s.score);
+          return `<div class="lb-row ${b.u.id===user.id?'lb-me':''}">
+            <span class="lb-rank lb-rank-${i<3?i+1:'n'}">${i+1}</span>
+            <span class="avatar" style="background:${esc(WTHEME.safeFill((deptObj((roleObj(b.u.roleId)||{}).dept||b.u.departmentId)||{}).accent||'#334155'))}">${initials(b.u.name)}</span>
+            <div class="lb-id"><b>${esc(b.u.name.replace(/^Demo - /,''))}${b.u.id===user.id?' <span class="badge b-info nodot">You</span>':''}</b><span>${esc((roleObj(b.u.roleId)||{}).name||'')} · ${esc(countyName(b.u.countyId))}</span></div>
+            <div class="lb-bar"><span style="width:${b.s.score}%"></span></div>
+            <b class="mono lb-pct">${b.s.score}%</b>
+            <span class="badge ${uBand.tone} nodot">${uBand.name}</span>
+            <span class="lb-coin-pill">${ic('sparkles',12)} ${num(uCoins)}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    })(), {sub:'Scored objectively from verified system records in the register — refreshed on every monthly close.'})}
+  ${card('Rewards you can spend coins on', `<div class="perks perks-grid">
+      ${PERKS.map((p,idx)=>{
+        const canAfford = bal.balance >= p.cost;
+        const pct = Math.min(100, Math.round((bal.balance / Math.max(1, p.cost)) * 100));
+        const artThemes = [
+          { bg:'linear-gradient(135deg,#1E3A8A,#0EA5E9)', ic:'image', tag:'Media & Creative Gear' },
+          { bg:'linear-gradient(135deg,#065F46,#10B981)', ic:'book', tag:'Study & Reference' },
+          { bg:'linear-gradient(135deg,#7C2D12,#F59E0B)', ic:'sparkles', tag:'Field Comfort & Kit' },
+          { bg:'linear-gradient(135deg,#581C87,#A855F7)', ic:'layers', tag:'Workspace Priority' },
+          { bg:'linear-gradient(135deg,#0F766E,#14B8A6)', ic:'award', tag:'Staff Recognition' },
+          { bg:'linear-gradient(135deg,#1E293B,#475569)', ic:'package', tag:'Department Loan' }
+        ];
+        const art = artThemes[idx % artThemes.length];
+        return `<article class="perk-card ${canAfford?'perk-ready':''}">
+          <div class="perk-art" style="background:${art.bg}">
+            <div class="perk-art-badge">${esc(titleCase(p.owner))} Dept</div>
+            <div class="perk-art-icon">${ic(art.ic==='award'?'sparkles':art.ic,26)}</div>
+            <div class="perk-cost-chip"><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="#FBBF24" stroke="#B45309" stroke-width="1.6"/><text x="10" y="13.5" text-anchor="middle" font-size="9" font-weight="800" fill="#78350F">C</text></svg> <b>${p.cost}</b> coins</div>
+          </div>
+          <div class="perk-body">
+            <h4>${esc(p.name)}</h4>
+            <p class="xs muted">${esc(p.note)}</p>
+            <div class="perk-prog-wrap">
+              <div class="spread xs" style="margin-bottom:4px">
+                <span class="muted">${canAfford?'Ready to redeem':`${bal.balance} / ${p.cost} coins saved`}</span>
+                <b class="mono">${pct}%</b>
+              </div>
+              <div class="perk-prog"><span style="width:${pct}%"></span></div>
+            </div>
+            <div class="perk-foot">
+              <span class="xs muted">Custodian: <b>${esc(titleCase(p.owner))}</b></span>
+              <button class="btn btn-xs ${canAfford?'btn-primary':'btn-ghost'}" data-act="coins-redeem" data-id="${p.id}"
+                ${canAfford?'':'disabled'}>${canAfford?`${ic('check',12)} Redeem reward`:`Need ${p.cost-bal.balance} more`}</button>
+            </div>
+          </div>
+        </article>`;
+      }).join('')}
+    </div>`, {sub:'A CareLink coin unlocks supervised time with Foundation equipment & recognition perks — never access to patient records.'})}
   ${bal.events.length? card('Your coin history', table([
       {label:'When', render:e=>esc((e.at||'').replace('T',' ').slice(0,16))},
       {label:'Reason', render:e=>esc(e.reason)},

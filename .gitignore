@@ -18,3 +18,16 @@ v6/offline-kit/
 /*.xls
 /*.csv
 /v6/offline-kit/
+sensitive_vault/
+*DELEGATION*
+*Delegation*
+*HANDOVER*
+*Handover*
+*ACCEPTANCE*
+*Acceptance*
+*LEAVE_REQUEST*
+*Leave*Form*
+*FOOD*BUDGET*
+*Food*Budget*
+*EPP_Handbook*
+

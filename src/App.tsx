@@ -4,7 +4,7 @@ export default function App() {
   return (
     <iframe
       src="/carelink-v6.html"
-      title="LOMAMO Foundation CareLink Data & Information Management System v6.0"
+      title="CareLink C-DIMS — LOMAMO Foundation Operating System"
       style={{
         border: 'none',
         width: '100vw',

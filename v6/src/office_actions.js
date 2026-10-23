@@ -48,7 +48,40 @@ const FORMS_ACTIONS = {
     openFormEditor(fd.get('kind'), fd.get('patientId'));
   },
   'open-form':(d)=>go('form',{id:d.id}),
-  'open-forms':(d)=>go('forms',{kind:d.kind||''}),
+  'open-forms':(d)=>{
+    const k = d.kind || '';
+    go('forms', k ? {kind:k} : {});
+    if(k){
+      const rows = FORMSX.records(AUTH.user, {kind:k});
+      if(!rows.length && FORM_KINDS[k]){
+        toast(FORM_KINDS[k].short+' opened', 'Showing the '+FORM_KINDS[k].short+' register. Use "+ New" to enter a patient record or "Blank sheet" to view/print the paper template.', 'info');
+      }
+    }
+  },
+  'preview-blank-form':(d)=>{
+    const meta = FORM_KINDS[d.kind];
+    if(!meta) return;
+    const blankRec = { id:'BLANK-'+meta.id.toUpperCase(), kind:meta.id, title:meta.title, status:'template', enteredBy:AUTH.user?.id||'', createdAt:todayISO(), data:{} };
+    printDoc(meta.title+' (Blank Physical Form Template)', formDoc(blankRec));
+  },
+  'proofread-form':()=>{
+    const f = document.querySelector('#formDoc');
+    if(!f) return;
+    const fd = new FormData(f);
+    const kind = fd.get('kind');
+    const data = formDataFrom(fd);
+    const v = FORMSX.validate(kind, data);
+    const filled = formFields(kind).filter(x=>data[x.k]!==undefined && String(data[x.k]).trim()!=='');
+    let box = f.querySelector('#proofreadBanner');
+    if(!box){ box = document.createElement('div'); box.id='proofreadBanner'; f.prepend(box); }
+    box.innerHTML = `<div class="alert ${v.ok?'ok':'warn'}" style="margin-bottom:12px">
+      ${ic(v.ok?'check':'alert',16)}
+      <div><b>Offline Proofread Check · ${filled.length} field(s) completed${data.bmi?` · Calculated BMI: ${esc(data.bmi)} kg/m²`:''}</b>
+        <div class="xs" style="margin-top:3px">${v.ok ? 'All required Trial Report fields & skip-logic dependencies pass validation. Ready to submit for County Admin Assistant verification.' : 'Please review before submitting: '+v.errors.map(esc).join(' · ')}</div>
+      </div>
+    </div>`;
+    box.scrollIntoView({behavior:'smooth', block:'nearest'});
+  },
   'edit-form':(d)=>{
     const rec=(DB.db.formRecords||[]).find(r=>r.id===d.id);
     if(!rec) return;

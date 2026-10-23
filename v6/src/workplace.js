@@ -23,7 +23,7 @@ const LIBRARY = {
   canBorrow(user, item){
     if(!RBAC.has(user,'library.borrow')) return { ok:false, why:'Your role may read the library but not borrow from it.' };
     if(item.borrowable === false) return { ok:false, why:'This item is reference-only.' };
-    if(item.ownerDepartment === (deptObj(user.departmentId)||{}).name) return { ok:true, own:true };
+    if((item.department||item.ownerDepartment) === (deptObj(user.departmentId)||{}).name) return { ok:true, own:true };
     const n = this.active(user).length;
     if(n >= this.MAX_ACTIVE) return { ok:false, why:`You already hold ${n} loans. Return one before requesting another.` };
     return { ok:true };
@@ -69,73 +69,102 @@ function renderLibrary(user){
   LIBRARY.closeExpired();
   const tab = (APPX.params||{}).tab || 'catalogue';
   const q = ((APPX.params||{}).q||'').toLowerCase();
-  const items = (DB.db.libraryItems||[]).filter(i=>!q || (i.title+' '+i.summary+' '+i.department).toLowerCase().includes(q));
+  const deptFilter = (APPX.params||{}).dept || '';
+  const allItems = DB.db.libraryItems||[];
+  const depts = Array.from(new Set(allItems.map(i=>i.department).filter(Boolean))).sort();
+  const items = allItems.filter(i=>(!deptFilter || i.department===deptFilter) && (!q || (i.title+' '+i.summary+' '+i.department+' '+(i.type||'')).toLowerCase().includes(q)));
   const mine = (DB.db.borrowRequests||[]).filter(r=>r.requestedBy===user.id);
+  const myActive = mine.filter(r=>['approved','requested'].includes(r.status));
   const inbox = (DB.db.borrowRequests||[]).filter(r=>r.status==='requested' &&
     ((deptObj(user.departmentId)||{}).name===r.owner || RBAC.has(user,'library.manage')));
+  const activeLoans = (DB.db.borrowRequests||[]).filter(r=>r.status==='approved');
+  const over = LIBRARY.overdue();
   const tabBtn = (id,label)=>`<button class="tab ${tab===id?'active':''}" data-act="go" data-v="library" data-tab="${id}">${label}</button>`;
   const badgeCls = st => st==='approved'?'b-ok':st==='requested'?'b-warn':st==='declined'?'b-crit':'b-neutral';
 
   let body = '';
   if(tab==='catalogue'){
-    body = `<form class="lib-search" data-form="lib-search">
-        <input class="input" name="q" value="${esc((APPX.params||{}).q||'')}" placeholder="Search titles, departments, topics…">
+    body = `<div class="card"><div class="card-b">
+      <form class="lib-search" data-form="lib-search">
+        <input class="input" name="q" value="${esc((APPX.params||{}).q||'')}" placeholder="Search titles, departments, topics...">
+        <select class="input" name="dept" style="max-width:240px">
+          <option value="">All owning departments (${allItems.length})</option>
+          ${depts.map(dn=>`<option value="${esc(dn)}" ${deptFilter===dn?'selected':''}>${esc(dn)}</option>`).join('')}
+        </select>
         <button class="btn btn-primary btn-sm" type="submit">${ic('search',15)} Search</button>
+        ${(q||deptFilter)?`<button class="btn btn-ghost btn-sm" type="button" data-act="go" data-v="library" data-tab="catalogue">Clear</button>`:''}
       </form>
       <div class="lib-grid">
         ${items.map(i=>{
           const gate = LIBRARY.canBorrow(user, i);
+          const loanCount = activeLoans.filter(r=>r.itemId===i.id).length;
           return `<article class="lib-card">
-            <div class="lib-type">${ic(i.type==='policy'?'shield':i.type==='form'?'clipboard':i.type==='workbook'?'columns':'file',14)} ${esc(titleCase(i.type))}</div>
+            <div class="row" style="justify-content:space-between;gap:8px">
+              <div class="lib-type">${ic(i.type==='policy'?'shield':i.type==='form'?'clipboard':i.type==='workbook'?'columns':'file',14)} ${esc(titleCase(i.type||'document'))}</div>
+              <span class="badge ${i.classification==='public'?'b-ok':i.classification==='restricted'?'b-warn':'b-neutral'} nodot">${esc(titleCase(i.classification||'internal'))}</span>
+            </div>
             <h4>${esc(i.title)}</h4>
-            <p>${esc(i.summary)}</p>
-            <div class="lib-meta"><span>${esc(i.department)}</span><span>${esc(i.version)}</span><span>${esc(i.classification)}</span></div>
+            <p>${esc(i.summary||'Departmental reference material.')}</p>
+            <div class="lib-meta"><span><b>${esc(i.department||'Foundation')}</b></span><span>${esc(i.version||'v1')}</span><span>${i.borrowable===false?'Reference only':'Borrowable'}</span></div>
             <div class="lib-foot">
-              <span class="xs muted">${(DB.db.borrowRequests||[]).filter(r=>r.itemId===i.id && r.status==='approved').length} on loan</span>
+              <span class="xs muted">${loanCount? `${loanCount} on loan` : 'Available in archive'}</span>
               <button class="btn btn-xs ${gate.ok?'btn-primary':'btn-ghost'}" data-act="lib-ask" data-id="${i.id}" ${gate.ok?'':'disabled title="'+esc(gate.why||'')+'"'}>
                 ${gate.ok?(gate.own?'Open':'Request'):'Restricted'}</button>
             </div>
           </article>`;
-        }).join('') || emptyState('Nothing matches','Try a shorter search.','search')}
-      </div>`;
+        }).join('') || emptyState('Nothing matches','Try clearing the department filter or using a shorter search.','search')}
+      </div>
+    </div></div>`;
   }
   if(tab==='mine'){
-    body = table([
+    body = card('My borrowed & requested material', table([
       {label:'Item', render:r=>`<b>${esc(r.item)}</b><div class="xs muted">${esc(r.owner||'')}</div>`},
-      {label:'Period', render:r=>`${esc((r.from||'').slice(0,10))} → ${esc((r.to||'').slice(0,10))}`},
+      {label:'Period', render:r=>`${esc((r.from||'').slice(0,10))} -> ${esc((r.to||'').slice(0,10))}`},
       {label:'Purpose', render:r=>esc(r.purpose||r.note||' - ')},
       {label:'Status', render:r=>`<span class="badge ${badgeCls(r.status)}">${esc(titleCase(r.status))}</span>`},
       {label:'', render:r=>['approved','requested'].includes(r.status)
         ? `<button class="btn btn-xs btn-ghost" data-act="lib-return" data-id="${r.id}">Return</button>` : ''}
-    ], mine, {empty:emptyState('No loans','Nothing is borrowed on your account.','book')});
+    ], mine, {empty:emptyState('No loans','Nothing is borrowed on your account. Open the Catalogue tab to request material from another department.','book')}),
+    {sub:`Up to ${LIBRARY.MAX_ACTIVE} concurrent cross-department loans per account · expired loans auto-return.`});
   }
   if(tab==='requests'){
-    body = table([
+    body = card('Departmental loan requests awaiting decision', table([
       {label:'Item', render:r=>`<b>${esc(r.item)}</b><div class="xs muted">${esc(r.owner||'')}</div>`},
       {label:'Requested by', render:r=>esc(userName(r.requestedBy))},
       {label:'Purpose', render:r=>esc(r.purpose||r.note||' - ')},
-      {label:'Period', render:r=>`${esc((r.from||'').slice(0,10))} → ${esc((r.to||'').slice(0,10))}`},
-      {label:'Decision', render:r=>`<button class="btn btn-xs btn-primary" data-act="lib-decide" data-id="${r.id}" data-do="approve">Approve</button>
-        <button class="btn btn-xs btn-ghost" data-act="lib-decide" data-id="${r.id}" data-do="decline">Decline</button>`}
-    ], inbox, {empty:emptyState('No requests','Nothing is waiting for your department.','check')});
+      {label:'Period', render:r=>`${esc((r.from||'').slice(0,10))} -> ${esc((r.to||'').slice(0,10))}`},
+      {label:'Decision', render:r=>`<div class="row" style="gap:6px"><button class="btn btn-xs btn-primary" data-act="lib-decide" data-id="${r.id}" data-do="approve">Approve</button>
+        <button class="btn btn-xs btn-ghost" data-act="lib-decide" data-id="${r.id}" data-do="decline">Decline</button></div>`}
+    ], inbox, {empty:emptyState('No pending requests','Nothing is waiting for your department to approve or decline.','check')}),
+    {sub:'Only the owning department or a library custodian may approve or decline inter-department loans.'});
   }
   if(tab==='manage'){
-    const over = LIBRARY.overdue();
-    body = `${over.length?`<div class="alert warn">${ic('clock',16)}<div><b>${over.length} loan(s) past their return date</b>
+    body = `${over.length?`<div class="alert warn" style="margin-bottom:14px">${ic('clock',16)}<div><b>${over.length} loan(s) past their return date</b>
         <span class="small">${over.map(o=>esc(o.item)).slice(0,4).join(', ')}</span></div></div>`:''}
-      ${table([
+      ${card('Active loans & catalogue custody', table([
         {label:'Item', render:r=>`<b>${esc(r.item)}</b><div class="xs muted">${esc(r.owner||'')}</div>`},
         {label:'Held by', render:r=>esc(userName(r.requestedBy))},
         {label:'Due', render:r=>{ const late = r.to && new Date(r.to)<new Date(); return `<span class="${late?'badge b-crit':'small'}">${esc((r.to||'').slice(0,10))}</span>`; }},
-        {label:'Status', render:r=>`<span class="badge ${badgeCls(r.status)}">${esc(titleCase(r.status))}</span>`}
-      ], (DB.db.borrowRequests||[]).filter(r=>r.status==='approved'), {empty:emptyState('No active loans','Nothing is out on loan.','check')})}
-      <div style="margin-top:14px"><button class="btn btn-primary btn-sm" data-act="lib-add-form">${ic('plus',15)} Add library material</button></div>`;
+        {label:'Status', render:r=>`<span class="badge ${badgeCls(r.status)}">${esc(titleCase(r.status))}</span>`},
+        {label:'', render:r=>`<button class="btn btn-xs btn-ghost" data-act="lib-return" data-id="${r.id}">Mark returned</button>`}
+      ], activeLoans, {empty:emptyState('No active loans','Nothing is currently out on loan across departments.','check')}),
+      {right:`<button class="btn btn-primary btn-sm" data-act="lib-add-form">${ic('plus',15)} Add library material</button>`,
+       sub:'Custody register of approved loans across Foundation departments.'})}`;
   }
 
   return pageHead('Department library & archive',
     'Material the Foundation owns, held by the department that owns it. Borrowing is by request, for a stated purpose, and expires.',
-    RBAC.has(user,'library.manage')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="library" data-tab="manage">${ic('settings',15)} Manage loans</button>`:'') +
-    `<div class="tabs">${tabBtn('catalogue','Catalogue')}${tabBtn('mine','My loans')}${tabBtn('requests','Requests'+(inbox.length?' ('+inbox.length+')':''))}${RBAC.has(user,'library.manage')?tabBtn('manage','Manage'):''}</div>` +
+    `<div class="row" style="gap:8px;flex-wrap:wrap">
+      ${RBAC.has(user,'library.manage')?`<button class="btn btn-sm btn-primary" data-act="lib-add-form">${ic('plus',15)} Add material</button>`:''}
+      ${RBAC.has(user,'library.manage')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="library" data-tab="manage">${ic('settings',15)} Manage loans</button>`:''}
+    </div>`) +
+    `<div class="grid g4" style="margin-bottom:14px">
+      ${kpi('Catalogue material', num(allItems.length), `${depts.length} departments`,'','book')}
+      ${kpi('My active loans', num(myActive.length), `limit ${LIBRARY.MAX_ACTIVE} items`, myActive.length>=LIBRARY.MAX_ACTIVE?'warn':'ok','clipboard')}
+      ${kpi('Department inbox', num(inbox.length), inbox.length?'awaiting decision':'all clear', inbox.length?'warn':'ok','bell')}
+      ${kpi('Overdue loans', num(over.length), `${num(activeLoans.length)} active overall`, over.length?'crit':'ok','clock')}
+    </div>` +
+    `<div class="tabs">${tabBtn('catalogue',`Catalogue (${items.length})`)}${tabBtn('mine',`My loans (${mine.length})`)}${tabBtn('requests',`Requests (${inbox.length})`)}${RBAC.has(user,'library.manage')?tabBtn('manage',`Manage (${activeLoans.length})`):''}</div>` +
     body;
 }
 
@@ -199,9 +228,10 @@ function renderInventory(user){
   const slice = items.slice((page-1)*per, page*per);
   const pages = Math.max(1, Math.ceil(items.length/per));
   return pageHead('Office equipment register',
-    'Every item the Foundation counts, in the categories and on the count sheets the October 2026 inventory workbooks define. The media department holds the register; ICT, procurement and administration may also record movements. Device identifiers, registration plates and monetary values are recorded on the office host, not published with the application.',
+    'Media-governed equipment & asset register across Kisumu and Homa Bay offices (October 2026 count structure).',
     RBAC.has(user,'inventory.manage')?`<button class="btn btn-sm btn-primary" data-act="inv-add-form">${ic('plus',15)} Add item</button>`:'') +
-  `<div class="grid g4">
+  `<div class="note" style="margin-bottom:14px">${ic('shield',15)}<span>Every item the Foundation counts, in the categories and on the count sheets the October 2026 inventory workbooks define. The media department holds the register; ICT, procurement and administration may also record movements. Device identifiers, registration plates and monetary values are recorded on the office host, not published with the application.</span></div>
+  <div class="grid g4">
     ${kpi('Items in register', num(all.length), `${num(units)} individual units`,'','package')}
     ${kpi('New in 2026', num(all.filter(i=>String(i.exist||'').toUpperCase()==='NEW').length), 'purchased or donated this year','ok','plus')}
     ${kpi('Missing or unlocated', num(missing.length), missing.length?'requires a physical count':'all located', missing.length?'warn':'ok','search')}
@@ -610,7 +640,7 @@ Object.assign(ACTIONS, {
 });
 
 Object.assign(FORMS, {
-  'lib-search': d => go('library', {tab:'catalogue', q:String(d.get('q')||'')}),
+  'lib-search': d => go('library', {tab:'catalogue', q:String(d.get('q')||''), dept:String(d.get('dept')||'')}),
   'lib-ask': (d, f) => {
     const item = (DB.db.libraryItems||[]).find(i=>i.id===f.dataset.id);
     if(!item) return;

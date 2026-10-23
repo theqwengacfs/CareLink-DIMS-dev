@@ -100,11 +100,12 @@ const LEAVE_PATTERN = [
 
 const LEAVE_RULES = {
   entitlement:[
-    { id:'E1', text:'Annual leave: 15 working days for a completed year of service, prorated in the first year.' },
-    { id:'E2', text:'Casual leave: 3 days a year, single-day requests only.' },
-    { id:'E3', text:'Annual or casual leave should be applied for at least 7 days before the start date. A shorter notice is recorded as an exception.' },
-    { id:'E4', text:'Sick leave of more than two consecutive days needs a medical certificate.' },
-    { id:'E5', text:'Unused annual leave lapses at the end of the leave year unless a written deferral is approved.' }
+    { id:'E1', text:'Annual leave (EPPH v2.2): 21 working days per completed year (1.75 days/month accrued), with up to 10 days carry-over permitted until 31 March of the following year.' },
+    { id:'E2', text:'Casual leave: up to 3 single-day requests per year. Planned annual leave requires at least 14 days advance written notice (Part I(A)); shorter notice is logged as an exception.' },
+    { id:'E3', text:'Sick leave: up to 3 days before review; absence beyond 2 consecutive days requires a medical certificate attached to the HR record (Employment Act s.30).' },
+    { id:'E4', text:'Statutory family & bereavement leave: Maternity 90 days, Paternity 14 days, Compassionate leave up to 7 days.' },
+    { id:'E5', text:'Absence without leave or lawful cause exceeding 7 consecutive days triggers Employment Act 2007 s.44(4)(a) disciplinary review.' },
+    { id:'E6', text:'Mandatory Delegation Plan (Part I(B)): every field, clinical or departmental officer proceeding on leave must file a Scoped Reliever Delegation Plan in the Delegation & Handover workspace.' }
   ],
   coverage:[
     { id:'R1', text:'Monday is Management Meeting Day: everyone is at the office. Leave on a Monday is refused for everyone except a person on sick leave.' },
@@ -185,7 +186,7 @@ const LEAVE = {
     if(!emp) return {ok:false, reasons:['Choose a member of staff.'], warnings, cover, days:0};
     if(!from || !to) return {ok:false, reasons:['Record both the first and the last day of the leave.'], warnings, cover, days:0};
     if(String(from).slice(0,10) > String(to).slice(0,10)) return {ok:false, reasons:['The last day cannot be before the first day.'], warnings, cover, days:0};
-    if(!['annual','casual','sick','unpaid','compassionate'].includes(type))
+    if(!['annual','casual','sick','unpaid','compassionate','maternity','paternity'].includes(type))
       return {ok:false, reasons:['Choose a leave type.'], warnings, cover, days:0};
 
     const dates=this.datesIn(from,to);
@@ -216,10 +217,12 @@ const LEAVE = {
     if(type==='casual' && days>bal.casualRemaining)
       reasons.push(`Only ${bal.casualRemaining} casual day(s) remain for ${bal.year}.`);
 
-    /* --- notice --- */
+    /* --- notice (EPPH v2.2: >=14 days for planned annual leave, >=7 days for casual) --- */
     const notice=Math.floor((new Date(from)-new Date(todayISO()))/86400000);
-    if(['annual','casual'].includes(type) && notice<7 && !emergency)
-      warnings.push(`Only ${Math.max(0,notice)} day(s) of notice. Annual and casual leave should be applied for at least 7 days ahead; the short notice is recorded as an exception.`);
+    if(type==='annual' && notice<14 && !emergency)
+      warnings.push(`Only ${Math.max(0,notice)} day(s) of notice. EPPH v2.2 Part I(A) requires at least 14 days advance written notice for planned annual leave; recorded as a short-notice exception.`);
+    else if(type==='casual' && notice<7 && !emergency)
+      warnings.push(`Only ${Math.max(0,notice)} day(s) of notice. Casual leave should be applied for at least 7 days ahead; recorded as an exception.`);
     if(type==='sick' && days>2)
       warnings.push('Sick leave beyond two consecutive days needs a medical certificate attached to the staff record.');
 
@@ -282,8 +285,11 @@ const LEAVE = {
     const taken=rows.filter(l=>l.status==='approved').reduce((n,l)=>n+l.days,0);
     const pending=rows.filter(l=>l.status==='pending').reduce((n,l)=>n+l.days,0);
     const casualEnt=Number(emp.casualEntitlement||3);
-    return { year:y, annualEntitlement:entitlement, annualTaken:taken, annualPending:pending,
-      annualRemaining:Math.max(0, entitlement-taken-pending),
+    const monthsElapsed = y < new Date().getFullYear() ? 12 : (y > new Date().getFullYear() ? 0 : (new Date().getMonth()+1));
+    const accruedYtd = Math.min(entitlement, Math.round(monthsElapsed * (entitlement/12) * 100)/100);
+    const carryOver = Math.min(10, Number(emp.carryOverDays||0));
+    return { year:y, annualEntitlement:entitlement, accruedYtd, carryOver, annualTaken:taken, annualPending:pending,
+      annualRemaining:Math.max(0, entitlement+carryOver-taken-pending),
       casualEntitlement:casualEnt, casualRemaining:casualEnt-rowText(rows,'casual','approved')-rowText(rows,'casual','pending'),
       serviceYears: emp.start? Math.max(0,Math.floor((new Date()-new Date(emp.start))/(365.25*86400000))):0 };
   },
@@ -396,7 +402,7 @@ const LEAVE = {
   },
 
   csv(user, week){
-    const days=this.week(from||todayISO());
+    const days=this.week(week||todayISO());
     const rows=[];
     days.forEach(day=>day.rows.forEach(r=>r.slots.forEach(s=>{
       rows.push({date:day.date,site:r.site.name,person:s.name,away:s.away?'On leave':'',cover:s.coveredByName||''});
@@ -429,9 +435,12 @@ function renderLeave(user){
     <div class="xs muted" style="margin-top:10px">Service: ${bal.serviceYears} completed year(s). ${me.canLeaveMonday?'May be away on a Monday (R2).':'Monday is the office day (R1).'}</div>`)
     : null;
 
-  return pageHead('Leave & field coverage','Two rule sets, both enforced: entitlement and field coverage. Nothing is approved that leaves a location uncovered.',
-    `${me||hrView?`<button class="btn btn-sm btn-primary" data-act="apply-leave">${ic('plus',15)} Apply for leave</button>`:''}
-     <button class="btn btn-sm btn-ghost" data-act="download-leave-week">${ic('download',15)} Export this week</button>`)
+  return pageHead('Leave & field coverage','Two rule sets enforced together: EPPH v2.2 statutory entitlement (Parts I(A)-III(C)) and field visit-day coverage. Nothing is approved that leaves a location uncovered.',
+    `<div class="row" style="gap:8px;flex-wrap:wrap">
+      ${me||hrView?`<button class="btn btn-sm btn-primary" data-act="apply-leave">${ic('plus',15)} Apply for leave</button>`:''}
+      ${RBAC.can(user,'handover.use').ok?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="handover">${ic('key',15)} Delegation &amp; Handover</button>`:''}
+      <button class="btn btn-sm btn-ghost" data-act="download-leave-week">${ic('download',15)} Export this week</button>
+    </div>`)
   + `<div class="grid g4" style="margin-bottom:16px">
       ${kpi('Pending', num(pending.length),'Awaiting an HR decision','warn','clock')}
       ${kpi('Approved', num(rowsDuring.filter(r=>r.status==='approved').length),'This leave year','ok','check')}
@@ -473,13 +482,17 @@ function renderLeave(user){
       ], rowsDuring, {emptyMsg:'No leave requests recorded. Applications appear here for decision.'}),
         {foot:'<span>Nothing is approved that would leave a field location without its required cover.</span>'})}
     </div>`
-  + (hrView? `<div style="margin-top:16px">${card('Staff balances', table([
+  + (hrView? `<div style="margin-top:16px">${card('6-Column Staff Leave Balance Ledger (Part III(A) · EPPH v2.2)', table([
         {label:'Staff',render:e=>`${esc(e.name)}<div class="xs muted">${esc(e.staffGroup||e.role||'')}</div>`},
         {label:'Type',render:e=>badge(e.staffType==='casual'?'Casual':'Permanent',e.staffType==='casual'?'b-warn':'b-neutral')},
-        {label:'Annual left',cls:'num',render:e=>{const b=LEAVE.balance(e.id); return b.annualRemaining+' d';}},
-        {label:'Casual left',cls:'num',render:e=>{const b=LEAVE.balance(e.id); return b.casualRemaining+' d';}},
+        {label:'Entitlement',cls:'num',render:e=>{const b=LEAVE.balance(e.id); return b.annualEntitlement+' d';}},
+        {label:'Accrued YTD',cls:'num',render:e=>{const b=LEAVE.balance(e.id); return b.accruedYtd+' d';}},
+        {label:'Carry-over',cls:'num',render:e=>{const b=LEAVE.balance(e.id); return b.carryOver+' d';}},
+        {label:'Days Taken',cls:'num',render:e=>{const b=LEAVE.balance(e.id); return b.annualTaken+' d';}},
+        {label:'Days Applied',cls:'num',render:e=>{const b=LEAVE.balance(e.id); return b.annualPending+' d';}},
+        {label:'Remaining Balance',cls:'num',render:e=>{const b=LEAVE.balance(e.id); return `<b>${b.annualRemaining} d</b>`;}},
         {label:'Office day',render:e=>e.canLeaveMonday?badge('Monday exception','b-warn'):badge('Monday','b-neutral')}
       ], LEAVE.staff(user).slice().sort((a,b)=>LEAVE.balance(a.id).annualRemaining-LEAVE.balance(b.id).annualRemaining).slice(0,12),
         {emptyMsg:'No staff records yet.'}),
-        {foot:`<span>Balances are computed from the start date and the approved register; they are not typed in. Showing the twelve smallest balances of ${LEAVE.staff(user).length} staff.</span>`})}</div>`:'')
+        {foot:`<span>6-column Part III(A) ledger computed from contract start date, carry-over cap (<=10 days to 31 March) and approved register. Showing twelve smallest balances of ${LEAVE.staff(user).length} staff.</span>`})}</div>`:'')
 }

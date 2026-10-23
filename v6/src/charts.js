@@ -12,44 +12,65 @@ function fmtNum(n){
   return Number(n).toLocaleString('en-KE');
 }
 
+function fmtCompact(n){
+  if(n===null || n===undefined || isNaN(n)) return '-';
+  const v = Number(n), abs = Math.abs(v);
+  if(abs >= 1e6) return (v/1e6).toFixed(abs>=1e7?1:2).replace(/\.0+$/,'') + 'M';
+  if(abs >= 1e4) return Math.round(v/1e3).toLocaleString('en-KE') + 'k';
+  if(abs >= 1e3) return (v/1e3).toFixed(1).replace(/\.0$/,'') + 'k';
+  return fmtNum(Math.round(v));
+}
+
+function chartTable(cols, rows){
+  const tableOpen = (typeof COST_STATE!=='undefined' && COST_STATE.viewMode==='table') ? ' open' : '';
+  return `<details class="chart-table"${tableOpen}><summary class="chart-table-btn small"><span>View as a table</span><span class="ct-count">${rows.length} row${rows.length===1?'':'s'}</span></summary>
+    <div class="tbl-wrap" style="margin-top:8px"><table class="tbl compact"><thead><tr>${cols.map(c=>`<th class="${c.cls||''}">${esc(c.label)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${cols.map((c,ci)=>{
+      const k = c.key !== undefined ? c.key : (ci===0 && r.period!==undefined ? 'period' : ci===0 && r.axis!==undefined ? 'axis' : c.label);
+      return `<td class="${c.cls||''}">${esc(String(r[k]??r[c.label]??''))}</td>`;
+    }).join('')}</tr>`).join('')}</tbody></table></div></details>`;
+}
+
 /* Vertical bars. rows: [{label, value, note}] */
 function chartBars(opts){
   const rows = (opts.rows||[]).filter(r=>r.value!==null && r.value!==undefined);
   if(!rows.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
-  const W = 720, H = opts.height || 220, padL = 8, padB = 34, padT = 18;
+  const W = 840, H = opts.height || 268, padL = 70, padR = 24, padB = 48, padT = 30;
   const max = opts.max || Math.max(...rows.map(r=>r.value), 1);
-  const bw = (W - padL*2) / rows.length;
+  const plotW = W - padL - padR;
+  const bw = plotW / rows.length;
   const inner = H - padB - padT;
+  const dense = rows.length > 7;
+  const fmtV = v => opts.fmt ? opts.fmt(v) : fmtNum(v);
+  const fmtTop = v => (rows.length > 6 || String(fmtV(v)).length > 9) ? fmtCompact(v) : fmtV(v);
   const bars = rows.map((r,i)=>{
     const h = Math.max(2, Math.round(inner * (r.value/max)));
     const x = padL + i*bw + bw*0.18;
-    const w = bw*0.64;
+    const w = Math.min(72, bw*0.64);
+    const bx = padL + i*bw + (bw - w)/2;
     const y = padT + inner - h;
     const alt = i % 2 ? ' alt' : '';
+    const yLbl = dense && (i % 2 === 1) ? Math.max(12, y - 16) : Math.max(12, y - 7);
     return `<g>
-      <rect class="bar${alt}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="3"></rect>
-      <text class="val" x="${(x+w/2).toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle">${fmtNum(r.value)}</text>
-      <text x="${(x+w/2).toFixed(1)}" y="${H-12}" text-anchor="middle">${esc(String(r.label).slice(0,14))}</text>
+      <rect class="bar${alt}" x="${bx.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="4"><title>${esc(r.label)}: ${esc(fmtV(r.value))}</title></rect>
+      <text class="val" x="${(bx+w/2).toFixed(1)}" y="${yLbl.toFixed(1)}" text-anchor="middle">${esc(fmtTop(r.value))}</text>
+      <text class="axis-x" x="${(bx+w/2).toFixed(1)}" y="${H-(dense && i%2===1 ? 8 : 21)}" text-anchor="middle">${esc(String(r.label).slice(0,15))}</text>
     </g>`;
   }).join('');
-  const grid = [0.25,0.5,0.75,1].map(f=>{
+  const grid = [0,0.25,0.5,0.75,1].map(f=>{
     const y = padT + inner - inner*f;
-    return `<line class="grid-line" x1="${padL}" x2="${W-padL}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"></line>
-      <text x="${W-padL}" y="${(y-4).toFixed(1)}" text-anchor="end" opacity=".65">${fmtNum(Math.round(max*f))}</text>`;
+    return `<line class="grid-line" x1="${padL}" x2="${W-padR}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"></line>
+      <text class="axis-y" x="${padL-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end">${esc(fmtCompact(Math.round(max*f)))}</text>`;
   }).join('');
-  const summary = `${opts.title||'Chart'}: ${rows.map(r=>`${r.label} ${fmtNum(r.value)}`).join(', ')}.`;
+  const summary = `${opts.title||'Chart'}: ${rows.map(r=>`${r.label} ${fmtV(r.value)}`).join(', ')}.`;
+  const tblRows = rows.map(r=>({ period:r.label, val:fmtV(r.value)+(opts.unit && !opts.fmt ? ' '+opts.unit : '') }));
 
   return `<figure class="chart-fig" style="margin:0">
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">
       ${grid}${bars}
     </svg>
-    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
-    <details class="chart-table"><summary class="small">View as a table</summary>
-      <table style="width:100%;border-collapse:collapse;margin-top:8px">
-        <thead><tr><th>${esc(opts.labelHead||'Category')}</th><th style="text-align:right">${esc(opts.valueHead||'Value')}</th></tr></thead>
-        <tbody>${rows.map(r=>`<tr><td>${esc(r.label)}</td><td style="text-align:right" class="mono">${fmtNum(r.value)}${opts.unit?' '+esc(opts.unit):''}</td></tr>`).join('')}</tbody>
-      </table>
-    </details>
+    <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
+    ${chartTable([{key:'period',label:opts.labelHead||'Category'},{key:'val',label:opts.valueHead||'Value',cls:'num mono'}], tblRows)}
   </figure>`;
 }
 
@@ -58,26 +79,23 @@ function chartRows(opts){
   const rows = (opts.rows||[]).filter(r=>r.value!==null && r.value!==undefined);
   if(!rows.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
   const max = opts.max || Math.max(...rows.map(r=>r.value), 1);
-  const summary = `${opts.title||'Breakdown'}: ${rows.map(r=>`${r.label} ${fmtNum(r.value)}`).join(', ')}.`;
-  return `<div role="img" aria-label="${esc(summary)}">
+  const fmtV = v => opts.fmt ? opts.fmt(v) : fmtNum(v);
+  const summary = `${opts.title||'Breakdown'}: ${rows.map(r=>`${r.label} ${fmtV(r.value)}`).join(', ')}.`;
+  const tblRows = rows.map(r=>({ period:r.label, val:fmtV(r.value) }));
+  return `<div role="img" aria-label="${esc(summary)}" class="chart-rows-list">
     ${rows.map((r,i)=>{
       const pct = Math.max(2, Math.round(100*r.value/max));
       const colour = opts.colours? (opts.colours[i%opts.colours.length]) : ((typeof WTHEME!=='undefined' && WTHEME.chartPalette()) || CHART_PALETTE)[i%CHART_PALETTE.length];
-      return `<div style="display:grid;grid-template-columns:minmax(110px,180px) minmax(0,1fr) 64px;gap:10px;align-items:center;margin-bottom:9px">
-        <div class="small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.label)}</div>
-        <div style="height:14px;background:var(--line-2);border-radius:7px;overflow:hidden">
+      return `<div class="chart-row-item">
+        <div class="small chart-row-lbl" title="${esc(r.label)}">${esc(r.label)}</div>
+        <div class="chart-row-track">
           <div style="height:100%;width:${pct}%;background:${colour};border-radius:7px"></div>
         </div>
-        <div class="mono small" style="text-align:right">${fmtNum(r.value)}</div>
+        <div class="mono small chart-row-val">${esc(fmtV(r.value))}</div>
       </div>`;
     }).join('')}
   </div>
-  <details class="chart-table"><summary class="small">View as a table</summary>
-    <table style="width:100%;border-collapse:collapse;margin-top:8px">
-      <thead><tr><th>${esc(opts.labelHead||'Category')}</th><th style="text-align:right">${esc(opts.valueHead||'Value')}</th></tr></thead>
-      <tbody>${rows.map(r=>`<tr><td>${esc(r.label)}</td><td style="text-align:right" class="mono">${fmtNum(r.value)}</td></tr>`).join('')}</tbody>
-    </table>
-  </details>`;
+  ${chartTable([{key:'period',label:opts.labelHead||'Category'},{key:'val',label:opts.valueHead||'Value',cls:'num mono'}], tblRows)}`;
 }
 
 /* A compact indicator strip, used inside report headers. */
@@ -121,15 +139,13 @@ function chartFrame(W,H,padL,padR,padT,padB,max,opts={}){
   for(let i=0;i<=lines;i++){
     const y = padT + inner - inner*(i/lines);
     g += `<line class="grid-line" x1="${padL}" x2="${W-padR}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"></line>`;
-    if(opts.yLabels!==false)
-      g += `<text class="axis-y" x="${padL-6}" y="${(y+3.5).toFixed(1)}" text-anchor="end">${opts.fmtY? opts.fmtY(max*i/lines) : fmtNum(Math.round(max*i/lines))}</text>`;
+    if(opts.yLabels!==false){
+      const raw = max*i/lines;
+      const lbl = opts.fmtY ? opts.fmtY(raw) : fmtCompact(Math.round(raw));
+      g += `<text class="axis-y" x="${padL-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end">${esc(lbl)}</text>`;
+    }
   }
   return { grid:g, inner, plotW:W-padL-padR };
-}
-function chartTable(cols, rows){
-  return `<details class="chart-table"><summary class="small">View as a table</summary>
-    <div class="tbl-wrap"><table class="tbl compact"><thead><tr>${cols.map(c=>`<th class="${c.cls||''}">${esc(c.label)}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td class="${c.cls||''}">${esc(String(r[c.key]??''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;
 }
 
 /* --- Line / area chart, one or more series ---------------------------- */
@@ -137,33 +153,40 @@ function chartLine(opts){
   const labels = opts.labels||[];
   const series = (opts.series||[]).filter(s=>s && Array.isArray(s.values));
   if(!labels.length || !series.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
-  const W=760, H=opts.height||250, padL=54, padR=14, padT=16, padB=40;
+  const W=860, H=opts.height||280, padL=74, padR=28, padT=28, padB=52;
   const colours = opts.colours || chartColours(series.length);
   const all = series.flatMap(s=>s.values.map(v=>Number(v)||0));
   const max = opts.max || Math.max(1, ...all);
   const min = opts.min!==undefined? opts.min : Math.min(0, ...all);
   const span = (max-min)||1;
-  const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:v=>opts.fmtY?opts.fmtY(v):fmtNum(Math.round(v)), ticks:opts.ticks||4});
+  const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY, ticks:opts.ticks||4});
   const xAt = i => padL + (labels.length===1? plotW/2 : plotW*i/(labels.length-1));
   const yAt = v => padT + inner - inner*((Number(v)||0)-min)/span;
+  const stepShow = labels.length > 9 ? 2 : 1;
   const paths = series.map((s,si)=>{
     const c = s.color || colours[si%colours.length];
     const pts = s.values.map((v,i)=>[xAt(i), yAt(v)]);
     const d = pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
     const area = opts.area!==false && series.length<=2
-      ? `<path d="${d} L${pts[pts.length-1][0].toFixed(1)} ${(padT+inner).toFixed(1)} L${pts[0][0].toFixed(1)} ${(padT+inner).toFixed(1)} Z" fill="${c}" opacity=".13"></path>` : '';
-    const marks = pts.map((p,i)=>chartMarker(s.marker||CHART_MARKERS[si%CHART_MARKERS.length], p[0], p[1], c, opts.markers===false?0.001:3.2)).join('');
-    const vals = opts.values!==false ? pts.map((p,i)=>`<text class="val" x="${p[0].toFixed(1)}" y="${(p[1]-9).toFixed(1)}" text-anchor="middle">${opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i])}</text>`).join('') : '';
-    return `${area}<path d="${d}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"></path>${marks}${vals}`;
+      ? `<path d="${d} L${pts[pts.length-1][0].toFixed(1)} ${(padT+inner).toFixed(1)} L${pts[0][0].toFixed(1)} ${(padT+inner).toFixed(1)} Z" fill="${c}" opacity=".11"></path>` : '';
+    const marks = pts.map((p,i)=>`<g><title>${esc(s.label)} · ${esc(labels[i])}: ${esc(opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]))}</title>${chartMarker(s.marker||CHART_MARKERS[si%CHART_MARKERS.length], p[0], p[1], c, opts.markers===false?0.001:3.6)}</g>`).join('');
+    const vals = opts.values!==false ? pts.map((p,i)=>{
+      if(i % stepShow !== 0 && i !== pts.length-1) return '';
+      const dy = si % 2 === 1 ? 16 : -10;
+      const yTxt = Math.max(12, Math.min(padT+inner-4, p[1]+dy));
+      return `<text class="val" x="${p[0].toFixed(1)}" y="${yTxt.toFixed(1)}" text-anchor="middle">${esc(fmtCompact(s.values[i]))}</text>`;
+    }).join('') : '';
+    return `${area}<path d="${d}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></path>${marks}${vals}`;
   }).join('');
-  const xlab = labels.map((l,i)=>`<text class="axis-x" x="${xAt(i).toFixed(1)}" y="${H-16}" text-anchor="middle">${esc(String(l).slice(0,12))}</text>`).join('');
+  const denseX = labels.length > 8;
+  const xlab = labels.map((l,i)=>`<text class="axis-x" x="${xAt(i).toFixed(1)}" y="${H-(denseX && i%2===1 ? 10 : 23)}" text-anchor="middle">${esc(String(l).slice(0,12))}</text>`).join('');
   const summary = `${opts.title||'Trend'}: ` + series.map(s=>`${s.label} (${s.values.map(v=>fmtNum(v)).join(', ')})`).join('; ');
   const key = series.length>1 ? `<div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>` : '';
   const rows = labels.map((l,i)=>{ const r={period:l}; series.forEach(s=>{ r[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); return r; });
   return `<figure class="chart-fig" style="margin:0">${key}
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${xlab}</svg>
-    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
-    ${chartTable([{label:opts.labelHead||'Period'},...series.map(s=>({label:s.label,cls:'num'}))], rows)}
+    <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
+    ${chartTable([{key:'period',label:opts.labelHead||'Period'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'}))], rows)}
   </figure>`;
 }
 
@@ -172,30 +195,33 @@ function chartStacked(opts){
   const labels = opts.labels||[];
   const series = (opts.series||[]).filter(s=>Array.isArray(s.values));
   if(!labels.length||!series.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
-  const W=760, H=opts.height||260, padL=54, padR=14, padT=16, padB=42;
+  const W=860, H=opts.height||288, padL=74, padR=24, padT=30, padB=52;
   const colours = opts.colours || chartColours(series.length);
   const totals = labels.map((l,i)=>series.reduce((n,s)=>n+(Number(s.values[i])||0),0));
   const max = opts.max || Math.max(1, ...totals);
   const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
   const bw = plotW/labels.length;
+  const dense = labels.length > 7;
   const bars = labels.map((l,i)=>{
-    const x = padL + i*bw + bw*0.16, w = bw*0.68;
+    const w = Math.min(68, bw*0.64);
+    const x = padL + i*bw + (bw - w)/2;
     let acc = 0;
     const segs = series.map((s,si)=>{
       const v = Number(s.values[i])||0; if(!v) return '';
       const h = inner*v/max, y = padT+inner-acc-h; acc += h;
-      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0.6,h).toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="1.5"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>`;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0.8,h).toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="2"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>`;
     }).join('');
-    return `${segs}<text class="val" x="${(x+w/2).toFixed(1)}" y="${(padT+inner-acc-6).toFixed(1)}" text-anchor="middle">${opts.fmt?opts.fmt(totals[i]):fmtNum(totals[i])}</text>
-      <text class="axis-x" x="${(x+w/2).toFixed(1)}" y="${H-16}" text-anchor="middle">${esc(String(l).slice(0,13))}</text>`;
+    const topY = Math.max(12, padT+inner-acc-(dense && i%2===1 ? 15 : 6));
+    return `${segs}<text class="val" x="${(x+w/2).toFixed(1)}" y="${topY.toFixed(1)}" text-anchor="middle">${esc(fmtCompact(totals[i]))}</text>
+      <text class="axis-x" x="${(x+w/2).toFixed(1)}" y="${H-(dense && i%2===1 ? 9 : 22)}" text-anchor="middle">${esc(String(l).slice(0,14))}</text>`;
   }).join('');
   const summary = `${opts.title||'Stacked breakdown'}: ` + labels.map((l,i)=>`${l} ${opts.fmt?opts.fmt(totals[i]):fmtNum(totals[i])}`).join(', ');
   const rows = labels.map((l,i)=>{ const r={period:l}; series.forEach(s=>{ r[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); r.Total=opts.fmt?opts.fmt(totals[i]):fmtNum(totals[i]); return r; });
   return `<figure class="chart-fig" style="margin:0">
     <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
-    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
-    ${chartTable([{label:opts.labelHead||'Category'},...series.map(s=>({label:s.label,cls:'num'})),{label:'Total',cls:'num'}], rows)}
+    <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
+    ${chartTable([{key:'period',label:opts.labelHead||'Category'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'})),{key:'Total',label:'Total',cls:'num mono'}], rows)}
   </figure>`;
 }
 
@@ -204,25 +230,27 @@ function chartGrouped(opts){
   const labels = opts.labels||[];
   const series = (opts.series||[]).filter(s=>Array.isArray(s.values));
   if(!labels.length||!series.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
-  const W=760, H=opts.height||250, padL=54, padR=14, padT=16, padB=42;
+  const W=860, H=opts.height||280, padL=74, padR=24, padT=28, padB=50;
   const colours = opts.colours || chartColours(series.length);
   const max = opts.max || Math.max(1, ...series.flatMap(s=>s.values.map(v=>Number(v)||0)));
   const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
-  const bw = plotW/labels.length, gw = (bw*0.72)/series.length;
+  const bw = plotW/labels.length, gw = Math.min(48, (bw*0.72)/series.length);
   const bars = labels.map((l,i)=>{
-    const x0 = padL + i*bw + bw*0.14;
+    const groupW = gw * series.length;
+    const x0 = padL + i*bw + (bw - groupW)/2;
     const g = series.map((s,si)=>{
-      const v = Number(s.values[i])||0, h = Math.max(1, inner*v/max), x = x0+si*gw, y = padT+inner-h;
-      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(gw*0.86).toFixed(1)}" height="${h.toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="2"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>`;
+      const v = Number(s.values[i])||0, h = Math.max(1.5, inner*v/max), x = x0+si*gw, y = padT+inner-h;
+      return `<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(gw*0.84).toFixed(1)}" height="${h.toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="3"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>
+        ${labels.length<=5?`<text class="val" x="${(x+gw*0.42).toFixed(1)}" y="${Math.max(12,y-5).toFixed(1)}" text-anchor="middle">${esc(fmtCompact(v))}</text>`:''}</g>`;
     }).join('');
-    return `${g}<text class="axis-x" x="${(x0+(gw*series.length)/2).toFixed(1)}" y="${H-16}" text-anchor="middle">${esc(String(l).slice(0,13))}</text>`;
+    return `${g}<text class="axis-x" x="${(x0+groupW/2).toFixed(1)}" y="${H-20}" text-anchor="middle">${esc(String(l).slice(0,15))}</text>`;
   }).join('');
   const rows = labels.map((l,i)=>{ const r={period:l}; series.forEach(s=>{ r[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); return r; });
   return `<figure class="chart-fig" style="margin:0">
     <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Comparison')}">${grid}${bars}</svg>
-    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||'Grouped comparison across '+labels.length+' categories.')}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
-    ${chartTable([{label:opts.labelHead||'Category'},...series.map(s=>({label:s.label,cls:'num'}))], rows)}
+    <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Grouped comparison across '+labels.length+' categories.')}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
+    ${chartTable([{key:'period',label:opts.labelHead||'Category'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'}))], rows)}
   </figure>`;
 }
 
@@ -231,7 +259,7 @@ function chartDonut(segments, opts={}){
   const seg = (segments||[]).filter(s=>Number(s.value)>0);
   if(!seg.length) return `<div class="empty small">${esc(opts.empty||'Nothing to plot yet.')}</div>`;
   const colours = opts.colours || chartColours(seg.length);
-  const size = opts.size||168, r = size*0.39, c = size/2, sw = opts.thickness||size*0.13;
+  const size = opts.size||184, r = size*0.39, c = size/2, sw = opts.thickness||size*0.13;
   const total = seg.reduce((n,s)=>n+Number(s.value),0)||1;
   let a=0; const circ = 2*Math.PI*r;
   const arcs = seg.map((s,i)=>{
@@ -247,15 +275,21 @@ function chartDonut(segments, opts={}){
       <span class="lg-l">${esc(s.label)}</span><span class="n mono">${opts.fmt?opts.fmt(s.value):fmtNum(s.value)}</span>
       <span class="pct mono">${(frac*100).toFixed(1)}%</span></div>`;
   }).join('');
-  return `<div class="donut-wrap">
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img"
-      aria-label="${esc(opts.title||'Share')}: ${seg.map(s=>s.label+' '+(opts.fmt?opts.fmt(s.value):fmtNum(s.value))).join(', ')}">
-      <circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" fill="none" stroke="var(--line-2)" stroke-width="${sw.toFixed(1)}"/>
-      ${arcs}
-      <text x="${c}" y="${c-2}" text-anchor="middle" class="dn-v">${esc(opts.centerValue!==undefined? String(opts.centerValue) : (opts.fmt?opts.fmt(total):fmtNum(total)))}</text>
-      <text x="${c}" y="${c+15}" text-anchor="middle" class="dn-l">${esc(opts.centerLabel||'TOTAL')}</text>
-    </svg>
-    <div class="legend donut-legend">${pct}</div>
+  const centerTxt = opts.centerValue!==undefined ? String(opts.centerValue) : (opts.fmt?opts.fmt(total):fmtNum(total));
+  const compactCenter = centerTxt.length > 11 ? ('KES '+fmtCompact(total)) : centerTxt;
+  const tblRows = seg.map(s=>({ period:s.label, val:opts.fmt?opts.fmt(s.value):fmtNum(s.value), share:(100*Number(s.value)/total).toFixed(1)+'%' }));
+  return `<div class="donut-block">
+    <div class="donut-wrap">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img"
+        aria-label="${esc(opts.title||'Share')}: ${seg.map(s=>s.label+' '+(opts.fmt?opts.fmt(s.value):fmtNum(s.value))).join(', ')}">
+        <circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" fill="none" stroke="var(--line-2)" stroke-width="${sw.toFixed(1)}"/>
+        ${arcs}
+        <text x="${c}" y="${c-2}" text-anchor="middle" class="dn-v">${esc(compactCenter)}</text>
+        <text x="${c}" y="${c+15}" text-anchor="middle" class="dn-l">${esc(opts.centerLabel||'TOTAL')}</text>
+      </svg>
+      <div class="legend donut-legend">${pct}</div>
+    </div>
+    ${chartTable([{key:'period',label:opts.labelHead||'Segment'},{key:'val',label:'Value',cls:'num mono'},{key:'share',label:'Share',cls:'num mono'}], tblRows)}
   </div>`;
 }
 
@@ -361,7 +395,7 @@ function chartSpark(values, opts={}){
 function chartWaterfall(steps, opts={}){
   const rows = (steps||[]).filter(s=>s && s.label);
   if(!rows.length) return `<div class="empty small">${esc(opts.empty||'Nothing to plot yet.')}</div>`;
-  const W=760,H=opts.height||240,padL=58,padR=14,padT=18,padB=48;
+  const W=860,H=opts.height||280,padL=74,padR=24,padT=30,padB=54;
   let run=0; const items = rows.map(r=>{
     const v = Number(r.value)||0;
     const from = r.kind==='total'? 0 : run;
@@ -373,17 +407,19 @@ function chartWaterfall(steps, opts={}){
   const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
   const bw = plotW/items.length;
   const bars = items.map((it,i)=>{
-    const x = padL+i*bw+bw*0.2, w = bw*0.6;
+    const w = Math.min(68, bw*0.58);
+    const x = padL+i*bw+(bw-w)/2;
     const y0 = padT+inner-inner*(Math.max(it.from,it.to)/max), y1 = padT+inner-inner*(Math.min(it.from,it.to)/max);
     const colour = it.kind==='total'? 'var(--ink-3)' : (it.v>=0? (it.color||'var(--crit)') : (it.color||'var(--ok)'));
-    return `<rect x="${x.toFixed(1)}" y="${y0.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(1.5,(y1-y0)).toFixed(1)}" fill="${colour}" rx="2" opacity="${it.kind==='total'?0.9:0.85}">
+    const topLbl = (it.v>=0&&it.kind!=='total'?'+':it.v<0?'-':'') + fmtCompact(Math.abs(it.v));
+    return `<rect x="${x.toFixed(1)}" y="${y0.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(2,(y1-y0)).toFixed(1)}" fill="${colour}" rx="3" opacity="${it.kind==='total'?0.92:0.86}">
         <title>${esc(it.label)}: ${opts.fmt?opts.fmt(it.v):fmtNum(it.v)}</title></rect>
-      <text class="val" x="${(x+w/2).toFixed(1)}" y="${(y0-6).toFixed(1)}" text-anchor="middle">${it.v>=0&&it.kind!=='total'?'+':''}${opts.fmt?opts.fmt(it.v):fmtNum(it.v)}</text>
+      <text class="val" x="${(x+w/2).toFixed(1)}" y="${Math.max(12,y0-(i%2===1?15:6)).toFixed(1)}" text-anchor="middle">${esc(topLbl)}</text>
       <text class="axis-x" x="${(x+w/2).toFixed(1)}" y="${H-22}" text-anchor="middle">${esc(String(it.label).slice(0,14))}</text>`;
   }).join('');
   return `<figure class="chart-fig" style="margin:0">
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Movement')}">${grid}${bars}</svg>
-    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||'Each step shows the movement from the previous balance.')}</figcaption>
-    ${chartTable([{label:'Step'},{label:'Amount',cls:'num'},{label:'Balance',cls:'num'}], items.map(i=>({Step:i.label, Amount:opts.fmt?opts.fmt(i.v):fmtNum(i.v), Balance:opts.fmt?opts.fmt(i.to):fmtNum(i.to)})))}
+    <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Each step shows the movement from the previous balance.')}</figcaption>
+    ${chartTable([{key:'Step',label:'Step'},{key:'Amount',label:'Amount',cls:'num mono'},{key:'Balance',label:'Balance',cls:'num mono'}], items.map(i=>({Step:i.label, Amount:opts.fmt?opts.fmt(i.v):fmtNum(i.v), Balance:opts.fmt?opts.fmt(i.to):fmtNum(i.to)})))}
   </figure>`;
 }

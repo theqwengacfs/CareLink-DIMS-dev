@@ -113,7 +113,11 @@ const CAP_DEPT = {
   'cost.standard.manage':  ['finance','procure','admin','exec'],
   'cost.standard.national':['finance','exec','admin'],
   'vehicle.manage':        ['vehicle','admin','procure'],
-  'inventory.manage':      ['it','admin','procure'],
+  'inventory.manage':      ['it','admin','procure','media'],
+  'pmi.check':             ['medical','pharmacy','ministry','hospital','admin','exec'],
+  'clinical.mcm':          ['medical','pharmacy','hospital','admin','exec'],
+  'hardcopy.intake':       ['admin','medical','exec'],
+  'intl.medical':          ['medical','intldata','admin','exec'],
   'system.config':         ['admin','it'],
   'role.manage':           ['admin'],
   'org.manage':            ['admin','it','exec'],
@@ -240,7 +244,7 @@ const ACCESS = {
     const U = un => (DB.db.users||[]).find(u=>u.username===un) || null;
     const t = (name, fn)=>{ try{ const r=fn(); out.push({name, ok:!!r.ok, detail:r.detail||''}); }catch(e){ out.push({name, ok:false, detail:e.message}); } };
     const me = U('me.kisumu'), ca = U('kisumu.admin'), dir = U('director'), cg = U('caregiver.nyalenda'),
-          fin = U('finance.kisumu'), co = U('coord.nyalenda'), chr = U('chief.admin');
+          fin = U('finance.kisumu'), co = U('coord.nyalenda'), chr = U('chief.admin'), med = U('media.head');
     t('M&E / Data Officer cannot set a county target', ()=>({ ok: me? !RBAC.can(me,'report.targets.manage',{level:'county',countyId:'kisumu'}).ok : true, detail: me? RBAC.can(me,'report.targets.manage',{level:'county',countyId:'kisumu'}).reason : 'no M&E account' }));
     t('M&E / Data Officer cannot set a national target', ()=>({ ok: me? !RBAC.can(me,'report.targets.manage',{level:'national'}).ok : true }));
     t('M&E / Data Officer can read targets in scope', ()=>({ ok: me? RBAC.can(me,'report.targets.view',{}).ok : true }));
@@ -254,6 +258,7 @@ const ACCESS = {
     t('A coordinator may propose an area target only for own area', ()=>({ ok: co? (!RBAC.can(co,'report.targets.area',{areaId:'makongeni'}).ok && RBAC.can(co,'report.targets.area',{areaId:'nyalenda'}).ok) : true }));
     t('Chief System Administrator does not hold clinical authority', ()=>({ ok: chr? !RBAC.can(chr,'patient.view.clinical',{}).ok : true }));
     t('Chief System Administrator cannot set programme targets', ()=>({ ok: chr? !RBAC.can(chr,'report.targets.county',{countyId:'kisumu'}).ok : true }));
+    t('Media Department Head cannot open Returning Patient Checker', ()=>({ ok: med? !RBAC.can(med,'pmi.check',{}).ok : true, detail: med? RBAC.can(med,'pmi.check',{}).reason : '' }));
     return out;
   },
 

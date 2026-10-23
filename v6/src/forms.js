@@ -312,48 +312,56 @@ const FORM_SPECS = {
   ],
 
   home_visit: [
-    { page:1, section:'Visit', fields:[
+    { page:1, section:'Visit & Dual Caregiver Team (Trial Report Standard)', fields:[
       F('visitDate','Today\'s date','date',{req:true,half:true}),
       F('lastVisitDate','Last visit date','date',{half:true}),
       F('contact','Patient contact information','text',{half:true}),
-      F('caregiverName','Caregiver name','text',{req:true,half:true}),
-      F('caregiverSignature','Caregiver signature','text',{half:true}),
+      F('caregiverName','Visiting Caregiver 1 name','text',{req:true,half:true}),
+      F('caregiverSignature','Visiting Caregiver 1 signature','text',{half:true}),
+      F('caregiver2Name','Visiting Caregiver 2 (co-visiting partner) name','text',{half:true,hint:'Trial Report rule: record both visiting caregivers in the pair'}),
+      F('caregiver2Signature','Visiting Caregiver 2 signature','text',{half:true}),
       F('atHome','1. Patient at home','select',{o:YESNO,req:true,half:true}),
+      F('weightVisitCycle','3-Visit Weight Check Rule','select',{o:['Scheduled 3rd-visit weigh-in','Clinical concern weigh-in','Not a 3rd-visit weigh-in day'],half:true,hint:'Trial Report rule: weigh patient every 3rd home visit or when clinically indicated'}),
+      F('weightKg','Weight today (kg)','number',{min:0.5,max:250,step:'0.1',half:true}),
+      F('heightCm','Baseline height (cm, for live BMI)','number',{min:30,max:250,step:'0.1',half:true}),
+      F('bmi','BMI (calculated)','computed',{half:true}),
       F('conditionToday','2. Describe the patient\'s condition today and comments shared by the patient','textarea',{req:true,full:true}),
       F('healthRisks','3. Any health risks such as communicable or highly infectious disease to the patient','select',{o:YESNO}),
-      F('riskExplain','If yes, explain','textarea',{full:true}),
+      F('riskExplain','If yes, explain','textarea',{full:true,showWhen:'healthRisks=Yes'}),
       F('referred','4. Has the patient been referred to clinic or hospital','select',{o:YESNO}),
-      F('whereReferred','Where referred to','text',{half:true}),
-      F('referralReasons','Reasons','text',{half:true}),
-      F('coveredByLomamo','Covered by LOMAMO','select',{o:YESNO,half:true}),
+      F('whereReferred','Where referred to','text',{half:true,showWhen:'referred=Yes'}),
+      F('referralReasons','Reasons','text',{half:true,showWhen:'referred=Yes'}),
+      F('coveredByLomamo','Covered by LOMAMO','select',{o:YESNO,half:true,showWhen:'referred=Yes'}),
       F('otherDrugs','5. Does the patient take any drugs other than prescribed ARVs or TB medication','select',{o:YESNO,hint:'Vitamins are not drugs'}),
-      F('otherDrugsExplain','If yes, explain','textarea',{full:true}),
+      F('otherDrugsExplain','If yes, explain','textarea',{full:true,showWhen:'otherDrugs=Yes'}),
       F('arvsAsPrescribed','6. Is the patient taking the ARVs as prescribed','select',{o:YNN,half:true}),
       F('arvList','List ARV medications currently taking','text',{full:true})
     ]},
-    { page:2, section:'Medication', fields:[
+    { page:2, section:'Medication & Adherence Skip Logic', fields:[
       F('tbMeds','7. Is the patient taking the TB medication as prescribed','select',{o:YNN,half:true}),
       F('medicationDefault','8. Is the patient in medication default','select',{o:YESNO,half:true}),
-      F('medsCounted','Meds counted','select',{o:YESNO,half:true}),
-      F('daysInDefault','How many days or pills in default','number',{min:0,half:true}),
-      F('defaultNumber','Number of defaults','select',{o:['1st time','2nd time','3rd time','Dismissal from programme']}),
+      F('medsCounted','Meds counted','select',{o:YESNO,half:true,showWhen:'medicationDefault=Yes'}),
+      F('daysInDefault','How many days or pills in default','number',{min:0,half:true,showWhen:'medicationDefault=Yes'}),
+      F('defaultNumber','Number of defaults','select',{o:['1st time','2nd time','3rd time','Dismissal from programme'],showWhen:'medicationDefault=Yes'}),
       F('woundCareNeeded','9. Wound care: patient needs wound care','select',{o:YNN,half:true}),
-      F('materialsLeft','Materials left for patient to dress wound','select',{o:YESNO,half:true}),
-      F('dressingsLeft','Number of dressings left','number',{min:0,half:true}),
-      F('salineLeft','Saline left','select',{o:YESNO,half:true}),
-      F('salineQty','How many saline','number',{min:0,half:true}),
-      F('woundPhotoTaken','Current picture of wound taken','select',{o:YESNO,half:true}),
-      F('photoSent','Sent to office','select',{o:YESNO,half:true})
+      F('materialsLeft','Materials left for patient to dress wound','select',{o:YESNO,half:true,showWhen:'woundCareNeeded=Yes'}),
+      F('dressingsLeft','Number of dressings left','number',{min:0,half:true,showWhen:'woundCareNeeded=Yes'}),
+      F('salineLeft','Saline left','select',{o:YESNO,half:true,showWhen:'woundCareNeeded=Yes'}),
+      F('salineQty','How many saline','number',{min:0,half:true,showWhen:'woundCareNeeded=Yes'}),
+      F('woundPhotoTaken','Current picture of wound taken','select',{o:YESNO,half:true,showWhen:'woundCareNeeded=Yes'}),
+      F('photoSent','Sent to office','select',{o:YESNO,half:true,showWhen:'woundCareNeeded=Yes'})
     ]},
-    { page:2, section:'Food, vitamins and frequency', fields:[
-      F('foodBagDelivered','10. Food bag delivered','select',{o:['Normal bag','Family bag','Couple bag','None'],half:true}),
+    { page:2, section:'Food Bag Rules (Bag 1 / Bag 2 / Couple / Family / Special) & 7-Day Multivitamin Logic', fields:[
+      F('foodBagDelivered','10. Food bag delivered','select',{o:['Normal bag','Couple bag','Family bag','Special bag','None'],half:true,hint:'Normal/Couple -> Bag 1 (BG1); Family -> Bag 2 (BG2); Clinical diet -> Special bag (SPB)'}),
       F('foodBagCode','Food bag type (master register code)','select',{o:['BG1','BG2','SPB','None'],half:true,
-        hint:'BG1 = Bag 1 (normal household), BG2 = Bag 2 (family / couple), SPB = Special bag. These are the codes the Administration\u2019s master register uses, and the cost engine prices the bag from them.'}),
+        hint:'BG1 = Bag 1 (normal/couple), BG2 = Bag 2 (family), SPB = Special dietary bag.'}),
+      F('specialBagDetail','Special dietary bag specification (if Special bag)','text',{half:true,showWhen:'foodBagDelivered=Special bag',hint:'e.g. Diabetic millet/oats, renal low-sodium, high-protein'}),
       F('foodBagExtra','Extra','text',{half:true}),
       F('personsSharing','Current number of persons living in the home sharing food bag contents','number',{min:0,half:true}),
       F('changeFromLastVisit','Is this a change from the last visit','select',{o:YESNO,half:true}),
-      F('multivitaminsGiven','11. Multivitamins given','select',{o:YESNO,half:true}),
-      F('multivitaminDate','Date given','date',{half:true}),
+      F('multivitaminsGiven','11. Multivitamins given (7-day / cycle rule)','select',{o:YESNO,half:true,hint:'Trial Report rule: verify >=7 days since prior course before re-issuing'}),
+      F('multivitaminDate','Date given','date',{half:true,showWhen:'multivitaminsGiven=Yes'}),
+      F('multivitaminDays','Course duration (days)','select',{o:['7 days (Trial standard)','14 days','30 days'],half:true,showWhen:'multivitaminsGiven=Yes'}),
       F('takingMultivitamins','Taking the multivitamins','select',{o:YNN,half:true}),
       F('frequencyStatus','12. Home visit frequency','select',{o:['Same','Change frequency'],half:true}),
       F('frequencyChoice','Frequency chosen','select',{o:FREQ,half:true})
@@ -458,29 +466,32 @@ const FORM_SPECS = {
   ],
 
   discharge: [
-    { page:1, section:'Patient', fields:[
+    { page:1, section:'Patient Discharge Protocol (Physical Hard Copy -> County Admin Entry)', fields:[
       F('dischargeDate','Date','date',{req:true,half:true}),
       F('residentialArea','Residential area','area',{req:true,half:true}),
-      F('hivCardNumber','HIV card number','text',{half:true}),
-      F('nhif','NHIF','select',{o:YESNO,half:true}),
-      F('lastPaymentDate','Last payment date','date',{half:true}),
+      F('hivCardNumber','HIV / CCC card number','text',{half:true}),
+      F('nhif','SHA / SHIF (formerly NHIF) active','select',{o:YESNO,half:true}),
+      F('lastPaymentDate','SHA / NHIF last payment date','date',{half:true}),
       F('intakeDate','Intake date','date',{half:true}),
       F('repeatPatient','Repeat patient','select',{o:YESNO,half:true}),
       F('daysInProgram','Days in programme','number',{min:0,half:true}),
       F('reasonDischarge','1. Reason the patient is being discharged','textarea',{req:true,full:true}),
       F('completedCycle','2. Patient completed the programme cycle','select',{o:YESNO,half:true}),
       F('otherPrograms','3. Attending any other assistance programmes at time of discharge','select',{o:YESNO,half:true}),
-      F('otherProgramsDetail','If yes, which programmes and for how long','textarea',{full:true}),
+      F('otherProgramsDetail','If yes, which programmes and for how long','textarea',{full:true,showWhen:'otherPrograms=Yes'}),
       F('believer','4. Spiritual growth: believer','select',{o:YESNO,half:true}),
       F('convertedDuring','Converted during LOMAMO','select',{o:YESNO,half:true}),
       F('orphansPrevented','5. Number of orphans prevented','number',{min:0,half:true}),
-      F('patientSignature','Discharged patient name and signature','text',{full:true}),
+      F('advisoryFlag','Caregiver discharge advisory / returning-patient watchlist','select',{o:['Clear - No advisory','Watchlist - Caregiver advisory','High Alert - Policy / conduct breach'],half:true}),
+      F('advisoryReason','If flagged, advisory reason & guidance for future returning-patient check','textarea',{full:true}),
+      F('patientSignature','Discharged patient name and signature (on physical hard copy)','text',{full:true}),
       F('caregiverName','Caregiver name','text',{half:true}),
       F('caregiverSignature','Caregiver signature','text',{half:true}),
       F('coordinatorName','Coordinator name','text',{half:true}),
       F('coordinatorSignature','Coordinator signature','text',{half:true}),
-      F('dateSigned','Date','date',{half:true}),
-      F('dataEnteredBy','Data entered by','text',{half:true}),
+      F('dateSigned','Date signed','date',{half:true}),
+      F('scannedPagesCount','Scanned physical pages uploaded (all signed pages)','number',{min:1,max:10,half:true}),
+      F('dataEnteredBy','Data entered by (County Admin Assistant)','text',{half:true}),
       F('dataEnteredDate','Date entered','date',{half:true})
     ]}
   ]
@@ -627,10 +638,53 @@ const FORMSX = {
     if(rec.enteredBy===user.id && !RBAC.has(user,'system.config'))
       return {ok:false,msg:'The person who entered a form cannot also verify it. A second officer must check it against the paper copy.'};
     rec.status='verified'; rec.verifiedBy=user.id; rec.verifiedAt=new Date().toISOString(); rec.verifyNote=(note||'').slice(0,500);
+    rec.publishedAt=rec.verifiedAt; rec.publishedBy=user.id;
+    /* Trial Report Verification -> Publish propagation to patient & ministry area */
+    const p = DB.db.patients.find(x=>x.id===rec.patientId);
+    if(p && rec.data){
+      const d = rec.data;
+      if(Number(d.weightKg)>0){
+        p.clinical = p.clinical || {};
+        if(!p.baselineWeightKg) p.baselineWeightKg = Number(p.clinical.weightKg || d.weightKg);
+        p.clinical.weightKg = Number(d.weightKg);
+        if(Number(d.heightCm)>0) p.clinical.heightCm = Number(d.heightCm);
+        const hCm = Number(d.heightCm || p.clinical.heightCm || 0);
+        if(hCm>0) p.clinical.bmi = +(Number(d.weightKg)/Math.pow(hCm/100,2)).toFixed(1);
+      }
+      if(rec.kind==='discharge'){
+        p.dischargeProtocol = Object.assign({}, p.dischargeProtocol||{}, {
+          shaActive: d.nhif || 'Yes',
+          shaLastPaymentDate: d.lastPaymentDate || rec.visitDate || todayISO().slice(0,10),
+          believer: d.believer || 'Yes',
+          convertedDuringLomamo: d.convertedDuring || 'No',
+          completedCycle: d.completedCycle || 'Yes',
+          repeatPatient: d.repeatPatient || 'No',
+          daysInProgram: Number(d.daysInProgram || PAT.days(p)) || 0,
+          orphansPrevented: Number(d.orphansPrevented ?? p.childrenCount ?? 0) || 0,
+          otherProgramsDetail: d.otherProgramsDetail || 'None',
+          enteredByName: d.dataEnteredBy || userName(rec.enteredBy),
+          updatedBy: user.id,
+          updatedAt: rec.verifiedAt
+        });
+        if(d.advisoryFlag && !/^Clear/i.test(d.advisoryFlag)){
+          p.dischargeAdvisory = {
+            flagged: true,
+            severity: /High/i.test(d.advisoryFlag) ? 'high' : 'watch',
+            category: d.advisoryFlag,
+            note: d.advisoryReason || 'Review prior discharge record before re-intake.',
+            recordedBy: user.id,
+            recordedByName: user.name,
+            recordedAt: rec.verifiedAt,
+            areaId: p.areaId,
+            countyId: p.countyId
+          };
+        }
+      }
+    }
     AUDIT.append({actor:user.id,action:'form.verified',entity:'form',entityId:rec.id,
-      detail:`${rec.title} · ${rec.patientName||rec.patientId}`});
+      detail:`${rec.title} · ${rec.patientName||rec.patientId} · published to ministry area`});
     DB.save();
-    return {ok:true, rec, msg:'Form verified against the paper copy.'};
+    return {ok:true, rec, msg:'Form verified against the paper copy and published to the ministry area register.'};
   },
 
   returnForCorrection(user, id, reason){
@@ -699,26 +753,81 @@ function formEditor(kind, patientId, recordId){
   const rec = recordId? (DB.db.formRecords||[]).find(r=>r.id===recordId):null;
   const p = patientId? DB.db.patients.find(x=>x.id===patientId): (rec? DB.db.patients.find(x=>x.id===rec.patientId):null);
   const me=AUTH.user? AUTH.user.name.replace(/^Demo - /,''):'';
+  const priorVisits = p ? (DB.db.visits||[]).filter(v=>v.patientId===p.id).length : 0;
+  const nextVisitNo = priorVisits + 1;
+  const weightDue = kind==='home_visit' && (nextVisitNo===1 || nextVisitNo%3===0);
   const data = rec? {...rec.data} : {assessmentDate:todayISO(), visitDate:todayISO(), dischargeDate:todayISO(), admissionDate:todayISO(),
     name:p?.name||'', areaLocation: p? areaName(p.areaId):'',
+    heightCm: p?.heightCm||'', visitCycleCount: kind==='home_visit' ? nextVisitNo : '',
     caregiverName:me, dataEnteredBy:me, enteredBy:me, providerName:me};
+  const evalShowWhen = expr => {
+    if(!expr) return true;
+    const eq = expr.indexOf('=');
+    if(eq<0) return true;
+    const key = expr.slice(0,eq), allowed = expr.slice(eq+1).split('|');
+    const cur = String(data[key]??'').trim();
+    if(!cur) return false;
+    return allowed.includes(cur);
+  };
+  const initBmi = (data.weightKg && data.heightCm && Number(data.heightCm)>0)
+    ? Math.round((Number(data.weightKg)/Math.pow(Number(data.heightCm)/100,2))*10)/10 : (data.bmi||'');
+  if(initBmi && !data.bmi) data.bmi = initBmi;
   let page = 0;
   const body = spec.map(sec=>{
     const pageHead = sec.page!==page? `<div class="form-page-mark">Page ${sec.page} of ${meta.pages}${meta.partial&&sec.page===1?' (page 2 not supplied)':''}</div>`:'';
     page = sec.page;
     return `${pageHead}<div class="form-section"><h4>${esc(sec.section)}</h4>
-      <div class="formgrid">${sec.fields.map(f=>`<div class="field ${f.full?'full':f.half?'half':''}">
-        <label for="ff_${f.k}">${esc(f.l)}${f.req?' <span style="color:var(--crit)">*</span>':''}</label>
-        ${formControl(f,data)}${f.hint?`<div class="hint">${esc(f.hint)}</div>`:''}</div>`).join('')}</div></div>`;
+      <div class="formgrid">${sec.fields.map(f=>{
+        const shown = evalShowWhen(f.showWhen);
+        const bmiExtra = f.k==='bmi' ? `<div id="ff_bmi_badge" style="margin-top:4px">${(typeof BMI_CLINICAL!=='undefined' && initBmi)? BMI_CLINICAL.badgeHTML(Number(initBmi)) : '<span class="xs muted">Auto-calculates from weight (kg) and height (cm)</span>'}</div>` : '';
+        return `<div class="field ${f.full?'full':f.half?'half':''}" ${f.showWhen?`data-show-when="${esc(f.showWhen)}"`:''} style="${shown?'':'display:none'}">
+          <label for="ff_${f.k}">${esc(f.l)}${f.req?' <span style="color:var(--crit)">*</span>':''}</label>
+          ${formControl(f,data)}${bmiExtra}${f.hint?`<div class="hint">${esc(f.hint)}</div>`:''}</div>`;
+      }).join('')}</div></div>`;
   }).join('');
+  const trialBanner = kind==='home_visit' ? `<div class="alert ${weightDue?'warn':'info'} no-print" style="margin-bottom:10px">${ic('activity',16)}<div>
+    <b>CareLink Trial Report Alignment · Home Visit #${nextVisitNo}</b>
+    <span class="small">${weightDue?'Weight check is DUE on this visit (mandatory every 3rd home visit: Visits 1, 3, 6, 9...).':'Routine interim home visit (weight check due every 3rd visit; record immediately if wasting is suspected).'} Multivitamins follow a 7-day cycle; record both Visiting Caregiver and Supporting Caregiver signatures.</span>
+  </div></div>` : '';
   return `<form data-form="form-save" id="formDoc">
     <input type="hidden" name="kind" value="${esc(kind)}">
     <input type="hidden" name="recordId" value="${esc(recordId||'')}">
     <input type="hidden" name="patientId" value="${esc(patientId||'')}">
+    ${trialBanner}
     ${meta.notes.map(n=>`<div class="note no-print" style="margin-bottom:8px">${ic('info',14)}<span>${esc(n)}</span></div>`).join('')}
     ${rec&&rec.status==='returned'?`<div class="alert warn">${ic('alert',16)}<div><b>Returned for correction</b><span class="small">${esc(rec.returnReason||'')}</span></div></div>`:''}
     ${body}
   </form>`;
+}
+if(typeof document!=='undefined' && !window.__formLiveWired){
+  window.__formLiveWired = true;
+  const syncFormDoc = e => {
+    const form = e.target && e.target.closest && e.target.closest('#formDoc');
+    if(!form) return;
+    form.querySelectorAll('[data-show-when]').forEach(wrap=>{
+      const expr = wrap.getAttribute('data-show-when')||'';
+      const eq = expr.indexOf('=');
+      if(eq<0) return;
+      const key = expr.slice(0,eq), allowed = expr.slice(eq+1).split('|');
+      const ctrl = form.elements[key];
+      const val = ctrl ? String(ctrl.value||'').trim() : '';
+      wrap.style.display = (val && allowed.includes(val)) ? '' : 'none';
+    });
+    const wEl = form.elements['weightKg'], hEl = form.elements['heightCm'], bEl = form.elements['bmi'];
+    if(wEl && hEl && bEl){
+      const w = parseFloat(wEl.value), h = parseFloat(hEl.value);
+      const badgeHost = form.querySelector('#ff_bmi_badge');
+      if(w>0 && h>0){
+        const bmi = Math.round((w/Math.pow(h/100,2))*10)/10;
+        bEl.value = bmi;
+        if(badgeHost && typeof BMI_CLINICAL!=='undefined') badgeHost.innerHTML = BMI_CLINICAL.badgeHTML(bmi);
+      } else {
+        bEl.value = '';
+      }
+    }
+  };
+  document.addEventListener('input', syncFormDoc);
+  document.addEventListener('change', syncFormDoc);
 }
 
 /* ---------------- printable document ---------------- */
@@ -777,30 +886,58 @@ function renderForms(user, params={}){
   (DB.db.formRecords||[]).filter(r=>FORMSX.canSee(user,r)).forEach(r=>{
     byKind[r.kind]=(byKind[r.kind]||0)+1; byStatus[r.status]=(byStatus[r.status]||0)+1;
   });
+  const activeKind = params.kind && FORM_KINDS[params.kind] ? params.kind : '';
+  const activeMeta = activeKind ? FORM_KINDS[activeKind] : null;
   const kinds = Object.values(FORM_KINDS);
-  return pageHead('Paper forms','The six LOMAMO forms, digitised field for field. The paper copy remains the primary field record.',
-    `<button class="btn btn-sm btn-ghost" data-act="download-forms-csv">${ic('download',15)} Export list</button>`)
+  return pageHead('Paper forms','The six LOMAMO physical forms, digitised field for field with Trial Report skip logic, dual caregiver signatures, 3-visit weight/BMI tracking, offline proofreading, and County Admin verification -> publish workflow.',
+    `${RBAC.has(user,'hardcopy.intake')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="hardcopy">${ic('upload',15)} Hard-Copy Intake & Scans</button>`:''}
+     <button class="btn btn-sm btn-ghost" data-act="download-forms-csv">${ic('download',15)} Export list</button>`)
   + `<div class="grid g4" style="margin-bottom:16px">
-      ${kpi('Records', num(rows.length),'In your scope','','clipboard')}
-      ${kpi('Awaiting verification', num(byStatus.submitted||0),'Submitted, not yet checked','warn','check')}
-      ${kpi('Verified', num(byStatus.verified||0),'Checked against paper','ok','shieldcheck')}
+      ${kpi('Records in scope', num(rows.length), activeMeta ? `Filtered: ${activeMeta.short}` : 'All 6 LOMAMO forms','','clipboard')}
+      ${kpi('Awaiting verification', num(byStatus.submitted||0),'Submitted, awaiting Admin check','warn','check')}
+      ${kpi('Verified & published', num(byStatus.verified||0),'Checked against signed paper','ok','shieldcheck')}
       ${kpi('Returned', num(byStatus.returned||0),'For correction','crit','alert')}
     </div>`
   + `<div class="grid g3" style="margin-bottom:16px">
-      ${kinds.map(k=>`<div class="card"><div class="card-h"><h3 style="font-size:13px">${esc(k.short)}</h3>
-        <div class="r">${badge(num(byKind[k.id]||0),'b-neutral','nodot')}</div></div>
-        <div class="card-b"><div class="xs muted">${esc(k.formNo||'No printed number')} · ${k.partial? 'page 1 of '+k.pages+' supplied' : k.pages+' printed page'+(k.pages===1?'':'s')}</div>
-        <div class="row" style="margin-top:10px"><button class="btn btn-xs btn-primary" data-act="new-form" data-kind="${k.id}">${ic('plus',13)} New</button>
-        <button class="btn btn-xs btn-ghost" data-act="open-forms" data-kind="${k.id}">Open</button></div></div></div>`).join('')}
+      ${kinds.map(k=>{
+        const isSel = activeKind === k.id;
+        return `<div class="card form-kind-card ${isSel?'form-kind-active':''}">
+          <div class="card-h"><h3 style="font-size:13.5px">${esc(k.short)}</h3>
+            <div class="r">${badge(num(byKind[k.id]||0)+' record'+((byKind[k.id]||0)===1?'':'s'), isSel?'b-info':'b-neutral', 'nodot')}</div>
+          </div>
+          <div class="card-b">
+            <div class="xs muted">${esc(k.formNo||'Official physical form')} · ${k.partial? 'page 1 of '+k.pages+' supplied' : k.pages+' printed page'+(k.pages===1?'':'s')}</div>
+            <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-xs btn-primary" data-act="new-form" data-kind="${k.id}">${ic('plus',13)} New</button>
+              <button class="btn btn-xs ${isSel?'btn-primary':'btn-ghost'}" data-act="open-forms" data-kind="${k.id}">${ic('book',13)} Open (${num(byKind[k.id]||0)})</button>
+              <button class="btn btn-xs btn-ghost" data-act="preview-blank-form" data-kind="${k.id}" title="View & print blank physical form template">${ic('eye',13)} Blank sheet</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
     </div>`
-  + card('Recent form records', table([
+  + (activeMeta ? `<div class="card form-open-drawer" style="margin-bottom:16px;border-color:var(--accent)">
+      <div class="card-b spread" style="flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="xs muted" style="text-transform:uppercase;letter-spacing:.08em">Opened Form Register · ${esc(activeMeta.formNo||activeMeta.code)}</div>
+          <h3 style="font-size:16px;margin-top:2px">${esc(activeMeta.title)} — ${num(rows.length)} record${rows.length===1?'':'s'} in your scope</h3>
+          <div class="xs muted" style="margin-top:2px">${esc(activeMeta.source)}</div>
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn btn-xs btn-ghost" data-act="preview-blank-form" data-kind="${activeMeta.id}">${ic('file',13)} View / Print Blank Form</button>
+          <button class="btn btn-xs btn-primary" data-act="new-form" data-kind="${activeMeta.id}">${ic('plus',13)} New ${esc(activeMeta.short)}</button>
+          <button class="btn btn-xs btn-ghost" data-act="open-forms" data-kind="">${ic('x',13)} Show all 6 forms</button>
+        </div>
+      </div>
+    </div>` : '')
+  + card(activeMeta ? `${activeMeta.short} records (${rows.length})` : 'Recent form records', table([
       {label:'Form',render:r=>`<b>${esc(FORM_KINDS[r.kind]?.short||r.kind)}</b><div class="xs muted">${esc(r.code||'')}</div>`},
       {label:'Patient',render:r=>`${esc(r.patientName||'')}<div class="xs muted">${esc(r.patientId||'')}</div>`},
       {label:'Visit date',render:r=>esc(r.visitDate?fmtDate(r.visitDate):'-')},
-      {label:'Status',render:r=>badge(titleCase(r.status), r.status==='verified'?'b-ok':r.status==='submitted'?'b-warn':r.status==='returned'?'b-crit':'b-neutral')},
+      {label:'Status',render:r=>badge(r.publishedAt?'Verified & Published':titleCase(r.status), r.status==='verified'?'b-ok':r.status==='submitted'?'b-warn':r.status==='returned'?'b-crit':'b-neutral')},
       {label:'Entered by',render:r=>esc(userName(r.enteredBy))},
       {label:'',cls:'act',render:r=>`<button class="btn btn-xs btn-ghost" data-act="open-form" data-id="${r.id}">Open</button>`}
-    ], rows.slice(0,60), {emptyMsg:'No forms recorded yet. Choose a form above to begin.'}),
+    ], rows.slice(0,60), {emptyMsg: activeMeta ? `No ${activeMeta.short.toLowerCase()} records entered in your scope yet — click "+ New ${activeMeta.short}" or "View / Print Blank Form" above.` : 'No forms recorded yet. Choose a form above to begin.'}),
     {foot:`<span>${ic('lock',13)} Clinical forms are visible only to roles with form access, scoped by county and ministry area.</span>`});
 }
 
@@ -838,6 +975,7 @@ function openFormEditor(kind, patientId, recordId){
   openModal({title:(recordId?'Edit ':'New ')+meta.short, sub:`${meta.code||''} · ${meta.source}`,
     wide:true, body:formEditor(kind, patientId, recordId),
     footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
+      <button class="btn btn-ghost" data-act="proofread-form" data-kind="${kind}">${ic('eye',14)} Proofread offline</button>
       <button class="btn btn-ghost" data-act="save-form-draft" data-kind="${kind}">Save draft</button>
       <button class="btn btn-primary" data-act="submit-form" data-kind="${kind}">Submit for verification</button>`});
 }
