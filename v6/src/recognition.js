@@ -1,0 +1,209 @@
+/* ============================================================
+   recognition.js - C-DIMS coins, usage scores and staff evaluation
+
+   The Foundation asked for a module that encourages the system to be
+   used properly, and that rewards the people who do it. Three rules
+   keep it fair and legible:
+
+   1. The score is computed from records that already exist  -  patients
+      in scope, verified documentation, visits recorded, identities
+      captured, follow-up discipline. Nothing is typed in by hand.
+   2. The formula is shown to the person whose score it is, with the
+      weight and the evidence for every part.
+   3. Coins are earned by the score and spent on real things the
+      Foundation controls (equipment loans, studio time, a printed
+      photo). The catalogue has a cost and a balance; a person who has
+      spent everything must earn more. Nobody can buy access to
+      patient records with coins.
+   ============================================================ */
+
+const COIN_VALUE = { perPoint:1, monthCap:400 };
+
+const PERKS = [
+  { id:'perk-camera',  name:'Camera for a weekend',        cost:120, owner:'media',  note:'Canon SX720 HS, subject to the media department’s booking.' },
+  { id:'perk-studio',  name:'Two hours in the studio',     cost:180, owner:'media',  note:'Lighting, backdrop and the lapel microphones.' },
+  { id:'perk-laptop',  name:'Laptop for a field day',       cost:150, owner:'it',     note:'Any spare laptop in the ICT register, returned the same evening.' },
+  { id:'perk-print',   name:'A3 photo print',              cost:40,  owner:'media',  note:'Printed on the office printer, one per quarter.' },
+  { id:'perk-training',name:'Priority training seat',      cost:200, owner:'hr',     note:'First refusal on the next safeguarding or data-protection session.' },
+  { id:'perk-parking', name:'Reserved parking for a month',cost:60,  owner:'admin',  note:'The shaded bay beside the kitchen door.' }
+];
+
+const BADGE_DETAIL = {
+  Platinum:{ tone:'ok', blurb:'Above 90%: the console is complete and current. Coins at the highest rate; early access to new modules.' },
+  Gold:    { tone:'warn', blurb:'75-89%: strong use. Full library borrowing rights and priority on equipment.' },
+  Silver:  { tone:'neutral', blurb:'60-74%: working well, with gaps in documentation or follow-up.' },
+  Bronze:  { tone:'neutral', blurb:'40-59%: the console is in use but key records are missing.' },
+  Building:{ tone:'crit', blurb:'Below 40%: the score explains exactly what is missing. No penalty beyond the score itself.' }
+};
+
+const CREDITS = {
+  score(user){ return usageScore(user, DB.db); },
+  band(score){ return scoreBand(score); },
+
+  earned(user){
+    const c = (DB.db.credits||{})[user.id] || {};
+    const events = (DB.db.rewardEvents||[]).filter(e=>e.userId===user.id);
+    const awarded = events.filter(e=>e.delta>0).reduce((n,e)=>n+e.delta,0);
+    const spent = events.filter(e=>e.delta<0).reduce((n,e)=>n+Math.abs(e.delta),0);
+    return { awarded, spent, manual: c.manual||0, balance: Math.max(0, awarded - spent + (c.manual||0)),
+             events: events.slice().sort((a,b)=>new Date(b.at)-new Date(a.at)) };
+  },
+
+  award(userId, delta, reason, by){
+    DB.db.rewardEvents = DB.db.rewardEvents || [];
+    const e = { id:'ce-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+      userId, delta, reason, by:by||'system', at:todayISO() };
+    DB.db.rewardEvents.unshift(e);
+    if(DB.db.rewardEvents.length > 5000) DB.db.rewardEvents.length = 5000;
+    return e;
+  },
+
+  /* One monthly run. Idempotent for a given month and person. */
+  runMonthly(user){
+    if(!RBAC.has(user,'credit.manage')) return { ok:false, error:'Your role may not run the recognition cycle.' };
+    const month = new Date().toISOString().slice(0,7);
+    const results = [];
+    (DB.db.users||[]).filter(u=>['active','locked'].includes(u.status)).forEach(u=>{
+      const s = this.score(u);
+      if(!s.score) return;
+      const existing = (DB.db.rewardEvents||[]).find(e=>e.userId===u.id && e.month===month && e.kind==='monthly');
+      if(existing) return;
+      const coins = Math.min(COIN_VALUE.monthCap, Math.round(s.score * (scoreBand(s.score).coins||1) / 2));
+      const e = this.award(u.id, coins, `Monthly recognition  -  score ${s.score}%`, user.id);
+      e.month = month; e.kind = 'monthly'; e.score = s.score;
+      results.push({ user:u, score:s.score, coins });
+    });
+    AUDIT.append({ actor:user.id, action:'recognition.month_closed', entity:'system', entityId:month,
+      detail:`Recognition run for ${month}: ${results.length} people scored` });
+    DB.save();
+    return { ok:true, month, results };
+  },
+
+  redeem(user, perkId){
+    const perk = PERKS.find(p=>p.id===perkId);
+    if(!perk) return { ok:false, error:'That reward does not exist.' };
+    const bal = this.earned(user).balance;
+    if(bal < perk.cost) return { ok:false, error:`You need ${perk.cost - bal} more coins. The score page shows what earns them.` };
+    this.award(user.id, -perk.cost, `Redeemed: ${perk.name}`, user.id);
+    DB.db.borrowRequests = DB.db.borrowRequests || [];
+    DB.db.borrowRequests.unshift({ id:'br-'+Date.now().toString(36), item:`Reward · ${perk.name}`, owner:perk.owner,
+      requestedBy:user.id, requested:todayISO(), from:todayISO(),
+      to:new Date(Date.now()+7*86400000).toISOString(), status:'requested', note:`Redeemed with ${perk.cost} C-DIMS coins.`, coin:true });
+    AUDIT.append({ actor:user.id, action:'recognition.redeemed', entity:'reward', entityId:perk.id,
+      detail:`${perk.name} for ${perk.cost} coins` });
+    DB.save();
+    return { ok:true, perk };
+  }
+};
+
+/* ------------------------------------------------------------ views */
+function renderRecognition(user){
+  if(!RBAC.has(user,'credit.view')) return deniedPanel('credit.view');
+  const mine = CREDITS.score(user);
+  const band = scoreBand(mine.score);
+  const bal = CREDITS.earned(user);
+  const maySeeAll = RBAC.has(user,'credit.manage') || isGlobal(user) || ['director','program.admin','program.assistant'].includes(user.roleId);
+  const people = (DB.db.users||[]).filter(u=>u.status==='active' && (maySeeAll || u.id===user.id || u.countyId===user.countyId));
+  const board = people.map(u=>({ u, s:CREDITS.score(u) })).sort((a,b)=>b.s.score-a.s.score);
+
+  const ring = `<div class="score-ring" style="--p:${mine.score}">
+      <div class="sr-in"><b>${mine.score}<span>%</span></b><i>usage score</i></div>
+    </div>`;
+  const breakdown = mine.parts.map(p=>`
+    <div class="sc-part">
+      <div class="spread"><b>${esc(p.k)}</b><span class="mono">${Math.round(p.w*p.v)} / ${p.w}</span></div>
+      <div class="sc-bar"><span style="width:${Math.round(p.v*100)}%"></span></div>
+      <div class="xs muted">${esc(p.note)} · weight ${p.w}%</div>
+    </div>`).join('');
+
+  return pageHead('C-DIMS coins & recognition',
+    'Your score, how it is calculated, and the coins it earns. The same page is the Foundation’s staff evaluation record.',
+    RBAC.has(user,'credit.manage')?`<button class="btn btn-sm btn-primary" data-act="coins-run">${ic('sparkles',15)} Close this month</button>`:'') +
+  `<div class="grid g4">
+    ${kpi('Your score', mine.score+'%', scoreBand(mine.score).name+' standing', band.tone==='ok'?'ok':band.tone==='crit'?'crit':'','target')}
+    ${kpi('Coins available', num(bal.balance), `earned ${num(bal.awarded)} · spent ${num(bal.spent)}`,'','sparkles')}
+    ${kpi('Rank', maySeeAll? '#'+(board.findIndex(b=>b.u.id===user.id)+1) : ' - ', `of ${board.length} in scope`,'','chart')}
+    ${kpi('Standing', band.name, (BADGE_DETAIL[band.name]||{blurb:''}).blurb.split(':')[0],'','shield')}
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    ${card('How your score is built', `<div class="sc-wrap">${ring}<div class="sc-parts">${breakdown}</div></div>
+      <div class="note" style="margin-top:12px">${ic('info',15)}<span>Every part is read from records you already
+      created. Nothing here is typed in by an administrator, and the same formula is used for everyone in the same role.</span></div>`)}
+    ${card('What the standing unlocks', `<div class="badge-ladder">
+        ${['Platinum','Gold','Silver','Bronze','Building'].map(b=>`<div class="bl-row ${band.name===b?'on':''}">
+          <span class="badge ${BADGE_DETAIL[b].tone}" style="min-width:76px;justify-content:center">${b}</span>
+          <span class="small">${esc(BADGE_DETAIL[b].blurb)}</span></div>`).join('')}
+      </div>`)}
+  </div>
+  ${card('Leaderboard', `<div class="lb">
+      ${board.slice(0,12).map((b,i)=>`<div class="lb-row">
+        <span class="lb-rank">${i+1}</span>
+        <span class="avatar" style="background:${esc((deptObj(b.u.departmentId)||{}).accent||'#334155')}">${initials(b.u.name)}</span>
+        <div class="lb-id"><b>${esc(b.u.name)}</b><span>${esc((roleObj(b.u.roleId)||{}).name||'')} · ${esc(countyName(b.u.countyId))}</span></div>
+        <div class="lb-bar"><span style="width:${b.s.score}%"></span></div>
+        <b class="mono">${b.s.score}%</b>
+        <span class="badge b-neutral nodot">${num(CREDITS.earned(b.u).balance)} coins</span>
+      </div>`).join('')}
+    </div>`, {sub:'Scored from records in the register, refreshed on every monthly close.'})}
+  ${card('Rewards you can spend coins on', `<div class="perks">
+      ${PERKS.map(p=>`<div class="perk">
+        <div><b>${esc(p.name)}</b><div class="xs muted">${esc(p.note)}</div>
+          <div class="xs muted" style="margin-top:4px">Owned by ${esc(titleCase(p.owner))}</div></div>
+        <div style="text-align:right"><b class="mono">${p.cost}</b><div class="xs muted">coins</div>
+          <button class="btn btn-xs ${bal.balance>=p.cost?'btn-primary':'btn-ghost'}" data-act="coins-redeem" data-id="${p.id}"
+            ${bal.balance>=p.cost?'':'disabled'}>${bal.balance>=p.cost?'Redeem':'Need '+(p.cost-bal.balance)}</button></div>
+      </div>`).join('')}
+    </div>`, {sub:'A coin buys time with equipment the Foundation already owns. It never buys access to a patient record.'})}
+  ${bal.events.length? card('Your coin history', table([
+      {label:'When', render:e=>esc((e.at||'').replace('T',' ').slice(0,16))},
+      {label:'Reason', render:e=>esc(e.reason)},
+      {label:'Change', render:e=>`<b style="color:${e.delta>0?'var(--ok)':'var(--crit)'}">${e.delta>0?'+':''}${e.delta}</b>`}
+    ], bal.events.slice(0,15))) : ''}`;
+}
+
+/* A supervisor's view: every account, its use of the console, and the
+   correction the score implies. */
+function renderStaffEvaluation(user){
+  if(!RBAC.has(user,'credit.manage') && !RBAC.has(user,'hr.view') && !RBAC.has(user,'report.executive')) return deniedPanel('credit.manage');
+  const rows = (DB.db.users||[]).filter(u=>u.status==='active').map(u=>{
+    const s = CREDITS.score(u);
+    const b = scoreBand(s.score);
+    const last = u.lastLogin ? daysBetween(u.lastLogin) : null;
+    return { u, s, b, last, coins:CREDITS.earned(u).balance };
+  }).sort((a,b)=>b.s.score-a.s.score);
+  const avg = rows.length ? Math.round(rows.reduce((n,r)=>n+r.s.score,0)/rows.length) : 0;
+  return pageHead('Staff evaluation',
+    'System usage, data quality and follow-up discipline for every account  -  the evidence behind the recognition score.') +
+  `<div class="grid g4">
+    ${kpi('Accounts evaluated', num(rows.length), 'active accounts','','users')}
+    ${kpi('Average score', avg+'%', scoreBand(avg).name,'','chart')}
+    ${kpi('Above 90%', num(rows.filter(r=>r.s.score>=90).length), 'Platinum standing','ok','target')}
+    ${kpi('Not signed in for 14 days', num(rows.filter(r=>r.last===null||r.last>14).length), 'follow-up required',rows.filter(r=>r.last===null||r.last>14).length?'warn':'','clock')}
+  </div>
+  <div class="card" style="margin-top:16px"><div class="card-b">
+  ${table([
+    {label:'Person', render:r=>`<div class="cellname">${esc(r.u.name)}<span class="sm">${esc((roleObj(r.u.roleId)||{}).name||'')} · ${esc(countyName(r.u.countyId))}</span></div>`},
+    {label:'Score', render:r=>`<b class="mono">${r.s.score}%</b>`},
+    {label:'Standing', render:r=>`<span class="badge ${r.b.tone}">${r.b.name}</span>`},
+    {label:'Weakest part', render:r=>{ const w=r.s.parts.slice().sort((a,b)=>(a.w*a.v)-(b.w*b.v))[0]; return `<span class="small">${esc(w.k)}</span><div class="xs muted">${esc(w.note)}</div>`; }},
+    {label:'Coins', render:r=>num(r.coins)},
+    {label:'Last sign-in', render:r=>r.last===null?'<span class="badge b-warn">Never</span>':r.last+' days ago'}
+  ], rows)}
+  </div></div>`;
+}
+
+/* ------------------------------------------------------------ actions */
+Object.assign(ACTIONS, {
+  'coins-run': () => {
+    const r = CREDITS.runMonthly(AUTH.user);
+    if(!r.ok) return toast('Not run', r.error, 'err');
+    toast('Recognition closed', `${r.results.length} people scored for ${r.month}.`, 'ok');
+    render();
+  },
+  'coins-redeem': d => {
+    const r = CREDITS.redeem(AUTH.user, d.id);
+    if(!r.ok) return toast('Not redeemed', r.error, 'err');
+    toast('Reward requested', `${r.perk.name}  -  the ${titleCase(r.perk.owner)} department has been asked to release it.`, 'ok');
+    render();
+  }
+});

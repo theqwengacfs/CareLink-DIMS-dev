@@ -1,0 +1,389 @@
+/* ============================================================
+   charts.js - Accessible, dependency-free visualisations
+   Every chart is an inline SVG with a written summary, a key and a
+   full data table beneath it. Colour is never the only signal, and
+   a chart never shows a figure the reader is not allowed to see.
+   ============================================================ */
+
+const CHART_PALETTE = ['#1F3864','#C9A227','#0E7490','#0F7B4F','#9A5B00','#7C3AED','#B45309','#475569'];
+
+function fmtNum(n){
+  if(n===null || n===undefined || isNaN(n)) return '-';
+  return Number(n).toLocaleString('en-KE');
+}
+
+/* Vertical bars. rows: [{label, value, note}] */
+function chartBars(opts){
+  const rows = (opts.rows||[]).filter(r=>r.value!==null && r.value!==undefined);
+  if(!rows.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
+  const W = 720, H = opts.height || 220, padL = 8, padB = 34, padT = 18;
+  const max = opts.max || Math.max(...rows.map(r=>r.value), 1);
+  const bw = (W - padL*2) / rows.length;
+  const inner = H - padB - padT;
+  const bars = rows.map((r,i)=>{
+    const h = Math.max(2, Math.round(inner * (r.value/max)));
+    const x = padL + i*bw + bw*0.18;
+    const w = bw*0.64;
+    const y = padT + inner - h;
+    const alt = i % 2 ? ' alt' : '';
+    return `<g>
+      <rect class="bar${alt}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="3"></rect>
+      <text class="val" x="${(x+w/2).toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle">${fmtNum(r.value)}</text>
+      <text x="${(x+w/2).toFixed(1)}" y="${H-12}" text-anchor="middle">${esc(String(r.label).slice(0,14))}</text>
+    </g>`;
+  }).join('');
+  const grid = [0.25,0.5,0.75,1].map(f=>{
+    const y = padT + inner - inner*f;
+    return `<line class="grid-line" x1="${padL}" x2="${W-padL}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"></line>
+      <text x="${W-padL}" y="${(y-4).toFixed(1)}" text-anchor="end" opacity=".65">${fmtNum(Math.round(max*f))}</text>`;
+  }).join('');
+  const summary = `${opts.title||'Chart'}: ${rows.map(r=>`${r.label} ${fmtNum(r.value)}`).join(', ')}.`;
+
+  return `<figure class="chart-fig" style="margin:0">
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">
+      ${grid}${bars}
+    </svg>
+    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
+    <details class="chart-table"><summary class="small">View as a table</summary>
+      <table style="width:100%;border-collapse:collapse;margin-top:8px">
+        <thead><tr><th>${esc(opts.labelHead||'Category')}</th><th style="text-align:right">${esc(opts.valueHead||'Value')}</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr><td>${esc(r.label)}</td><td style="text-align:right" class="mono">${fmtNum(r.value)}${opts.unit?' '+esc(opts.unit):''}</td></tr>`).join('')}</tbody>
+      </table>
+    </details>
+  </figure>`;
+}
+
+/* Horizontal bars, better for long ministry-area names on a tablet. */
+function chartRows(opts){
+  const rows = (opts.rows||[]).filter(r=>r.value!==null && r.value!==undefined);
+  if(!rows.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
+  const max = opts.max || Math.max(...rows.map(r=>r.value), 1);
+  const summary = `${opts.title||'Breakdown'}: ${rows.map(r=>`${r.label} ${fmtNum(r.value)}`).join(', ')}.`;
+  return `<div role="img" aria-label="${esc(summary)}">
+    ${rows.map((r,i)=>{
+      const pct = Math.max(2, Math.round(100*r.value/max));
+      const colour = opts.colours? (opts.colours[i%opts.colours.length]) : ((typeof WTHEME!=='undefined' && WTHEME.chartPalette()) || CHART_PALETTE)[i%CHART_PALETTE.length];
+      return `<div style="display:grid;grid-template-columns:minmax(110px,180px) minmax(0,1fr) 64px;gap:10px;align-items:center;margin-bottom:9px">
+        <div class="small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.label)}</div>
+        <div style="height:14px;background:var(--line-2);border-radius:7px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${colour};border-radius:7px"></div>
+        </div>
+        <div class="mono small" style="text-align:right">${fmtNum(r.value)}</div>
+      </div>`;
+    }).join('')}
+  </div>
+  <details class="chart-table"><summary class="small">View as a table</summary>
+    <table style="width:100%;border-collapse:collapse;margin-top:8px">
+      <thead><tr><th>${esc(opts.labelHead||'Category')}</th><th style="text-align:right">${esc(opts.valueHead||'Value')}</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${esc(r.label)}</td><td style="text-align:right" class="mono">${fmtNum(r.value)}</td></tr>`).join('')}</tbody>
+    </table>
+  </details>`;
+}
+
+/* A compact indicator strip, used inside report headers. */
+function statStrip(items){
+  return `<div class="row" style="gap:18px;flex-wrap:wrap">${items.map(i=>
+    `<div><div class="xs muted" style="letter-spacing:.1em;text-transform:uppercase">${esc(i.label)}</div>
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.03em">${esc(String(i.value))}</div>
+      ${i.note?`<div class="xs muted">${esc(i.note)}</div>`:''}</div>`).join('')}</div>`;
+}
+
+/* ============================================================
+   Chart library extension (v6.1)
+   ------------------------------------------------------------
+   Every chart below is dependency-free inline SVG, uses theme
+   tokens rather than hard-coded ink, carries a written summary,
+   and offers the same figures as a table. Colour is never the
+   only signal: each series also carries a label and a marker
+   shape, and each bar or point prints its own value.
+   ============================================================ */
+
+/* A palette that always has enough contrast against the active surface. */
+function chartColours(n=8){
+  const themed = (typeof WTHEME!=='undefined' && WTHEME.chartPalette) ? WTHEME.chartPalette() : null;
+  const base = themed || CHART_PALETTE;
+  const extra = ['#0E7490','#B45309','#7C3AED','#0F7B4F','#BE123C','#1D4ED8','#CA8A04','#115E59','#9333EA','#475569','#DC2626','#059669'];
+  const out = base.slice();
+  for(let i=0; out.length<n; i++) out.push(extra[i%extra.length]);
+  return out.slice(0, Math.max(n, base.length));
+}
+const CHART_MARKERS = ['circle','rect','diamond','triangle'];
+function chartMarker(kind, x, y, colour, r=3.4){
+  if(kind==='rect') return `<rect x="${(x-r).toFixed(1)}" y="${(y-r).toFixed(1)}" width="${(r*2).toFixed(1)}" height="${(r*2).toFixed(1)}" fill="${colour}"/>`;
+  if(kind==='diamond') return `<path d="M${x.toFixed(1)} ${(y-r-0.6).toFixed(1)} L${(x+r+0.6).toFixed(1)} ${y.toFixed(1)} L${x.toFixed(1)} ${(y+r+0.6).toFixed(1)} L${(x-r-0.6).toFixed(1)} ${y.toFixed(1)} Z" fill="${colour}"/>`;
+  if(kind==='triangle') return `<path d="M${x.toFixed(1)} ${(y-r-1).toFixed(1)} L${(x+r+1).toFixed(1)} ${(y+r).toFixed(1)} L${(x-r-1).toFixed(1)} ${(y+r).toFixed(1)} Z" fill="${colour}"/>`;
+  return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${colour}"/>`;
+}
+function chartFrame(W,H,padL,padR,padT,padB,max,opts={}){
+  const inner = H-padT-padB;
+  const lines = (opts.ticks||4);
+  let g='';
+  for(let i=0;i<=lines;i++){
+    const y = padT + inner - inner*(i/lines);
+    g += `<line class="grid-line" x1="${padL}" x2="${W-padR}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"></line>`;
+    if(opts.yLabels!==false)
+      g += `<text class="axis-y" x="${padL-6}" y="${(y+3.5).toFixed(1)}" text-anchor="end">${opts.fmtY? opts.fmtY(max*i/lines) : fmtNum(Math.round(max*i/lines))}</text>`;
+  }
+  return { grid:g, inner, plotW:W-padL-padR };
+}
+function chartTable(cols, rows){
+  return `<details class="chart-table"><summary class="small">View as a table</summary>
+    <div class="tbl-wrap"><table class="tbl compact"><thead><tr>${cols.map(c=>`<th class="${c.cls||''}">${esc(c.label)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td class="${c.cls||''}">${esc(String(r[c.key]??''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;
+}
+
+/* --- Line / area chart, one or more series ---------------------------- */
+function chartLine(opts){
+  const labels = opts.labels||[];
+  const series = (opts.series||[]).filter(s=>s && Array.isArray(s.values));
+  if(!labels.length || !series.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
+  const W=760, H=opts.height||250, padL=54, padR=14, padT=16, padB=40;
+  const colours = opts.colours || chartColours(series.length);
+  const all = series.flatMap(s=>s.values.map(v=>Number(v)||0));
+  const max = opts.max || Math.max(1, ...all);
+  const min = opts.min!==undefined? opts.min : Math.min(0, ...all);
+  const span = (max-min)||1;
+  const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:v=>opts.fmtY?opts.fmtY(v):fmtNum(Math.round(v)), ticks:opts.ticks||4});
+  const xAt = i => padL + (labels.length===1? plotW/2 : plotW*i/(labels.length-1));
+  const yAt = v => padT + inner - inner*((Number(v)||0)-min)/span;
+  const paths = series.map((s,si)=>{
+    const c = s.color || colours[si%colours.length];
+    const pts = s.values.map((v,i)=>[xAt(i), yAt(v)]);
+    const d = pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    const area = opts.area!==false && series.length<=2
+      ? `<path d="${d} L${pts[pts.length-1][0].toFixed(1)} ${(padT+inner).toFixed(1)} L${pts[0][0].toFixed(1)} ${(padT+inner).toFixed(1)} Z" fill="${c}" opacity=".13"></path>` : '';
+    const marks = pts.map((p,i)=>chartMarker(s.marker||CHART_MARKERS[si%CHART_MARKERS.length], p[0], p[1], c, opts.markers===false?0.001:3.2)).join('');
+    const vals = opts.values!==false ? pts.map((p,i)=>`<text class="val" x="${p[0].toFixed(1)}" y="${(p[1]-9).toFixed(1)}" text-anchor="middle">${opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i])}</text>`).join('') : '';
+    return `${area}<path d="${d}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"></path>${marks}${vals}`;
+  }).join('');
+  const xlab = labels.map((l,i)=>`<text class="axis-x" x="${xAt(i).toFixed(1)}" y="${H-16}" text-anchor="middle">${esc(String(l).slice(0,12))}</text>`).join('');
+  const summary = `${opts.title||'Trend'}: ` + series.map(s=>`${s.label} (${s.values.map(v=>fmtNum(v)).join(', ')})`).join('; ');
+  const key = series.length>1 ? `<div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>` : '';
+  const rows = labels.map((l,i)=>{ const r={period:l}; series.forEach(s=>{ r[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); return r; });
+  return `<figure class="chart-fig" style="margin:0">${key}
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${xlab}</svg>
+    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
+    ${chartTable([{label:opts.labelHead||'Period'},...series.map(s=>({label:s.label,cls:'num'}))], rows)}
+  </figure>`;
+}
+
+/* --- Stacked bars ---------------------------------------------------- */
+function chartStacked(opts){
+  const labels = opts.labels||[];
+  const series = (opts.series||[]).filter(s=>Array.isArray(s.values));
+  if(!labels.length||!series.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
+  const W=760, H=opts.height||260, padL=54, padR=14, padT=16, padB=42;
+  const colours = opts.colours || chartColours(series.length);
+  const totals = labels.map((l,i)=>series.reduce((n,s)=>n+(Number(s.values[i])||0),0));
+  const max = opts.max || Math.max(1, ...totals);
+  const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
+  const bw = plotW/labels.length;
+  const bars = labels.map((l,i)=>{
+    const x = padL + i*bw + bw*0.16, w = bw*0.68;
+    let acc = 0;
+    const segs = series.map((s,si)=>{
+      const v = Number(s.values[i])||0; if(!v) return '';
+      const h = inner*v/max, y = padT+inner-acc-h; acc += h;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0.6,h).toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="1.5"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>`;
+    }).join('');
+    return `${segs}<text class="val" x="${(x+w/2).toFixed(1)}" y="${(padT+inner-acc-6).toFixed(1)}" text-anchor="middle">${opts.fmt?opts.fmt(totals[i]):fmtNum(totals[i])}</text>
+      <text class="axis-x" x="${(x+w/2).toFixed(1)}" y="${H-16}" text-anchor="middle">${esc(String(l).slice(0,13))}</text>`;
+  }).join('');
+  const summary = `${opts.title||'Stacked breakdown'}: ` + labels.map((l,i)=>`${l} ${opts.fmt?opts.fmt(totals[i]):fmtNum(totals[i])}`).join(', ');
+  const rows = labels.map((l,i)=>{ const r={period:l}; series.forEach(s=>{ r[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); r.Total=opts.fmt?opts.fmt(totals[i]):fmtNum(totals[i]); return r; });
+  return `<figure class="chart-fig" style="margin:0">
+    <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
+    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
+    ${chartTable([{label:opts.labelHead||'Category'},...series.map(s=>({label:s.label,cls:'num'})),{label:'Total',cls:'num'}], rows)}
+  </figure>`;
+}
+
+/* --- Grouped (clustered) bars ---------------------------------------- */
+function chartGrouped(opts){
+  const labels = opts.labels||[];
+  const series = (opts.series||[]).filter(s=>Array.isArray(s.values));
+  if(!labels.length||!series.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
+  const W=760, H=opts.height||250, padL=54, padR=14, padT=16, padB=42;
+  const colours = opts.colours || chartColours(series.length);
+  const max = opts.max || Math.max(1, ...series.flatMap(s=>s.values.map(v=>Number(v)||0)));
+  const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
+  const bw = plotW/labels.length, gw = (bw*0.72)/series.length;
+  const bars = labels.map((l,i)=>{
+    const x0 = padL + i*bw + bw*0.14;
+    const g = series.map((s,si)=>{
+      const v = Number(s.values[i])||0, h = Math.max(1, inner*v/max), x = x0+si*gw, y = padT+inner-h;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(gw*0.86).toFixed(1)}" height="${h.toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="2"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>`;
+    }).join('');
+    return `${g}<text class="axis-x" x="${(x0+(gw*series.length)/2).toFixed(1)}" y="${H-16}" text-anchor="middle">${esc(String(l).slice(0,13))}</text>`;
+  }).join('');
+  const rows = labels.map((l,i)=>{ const r={period:l}; series.forEach(s=>{ r[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); return r; });
+  return `<figure class="chart-fig" style="margin:0">
+    <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Comparison')}">${grid}${bars}</svg>
+    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||'Grouped comparison across '+labels.length+' categories.')}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
+    ${chartTable([{label:opts.labelHead||'Category'},...series.map(s=>({label:s.label,cls:'num'}))], rows)}
+  </figure>`;
+}
+
+/* --- Theme-aware donut with a written key ----------------------------- */
+function chartDonut(segments, opts={}){
+  const seg = (segments||[]).filter(s=>Number(s.value)>0);
+  if(!seg.length) return `<div class="empty small">${esc(opts.empty||'Nothing to plot yet.')}</div>`;
+  const colours = opts.colours || chartColours(seg.length);
+  const size = opts.size||168, r = size*0.39, c = size/2, sw = opts.thickness||size*0.13;
+  const total = seg.reduce((n,s)=>n+Number(s.value),0)||1;
+  let a=0; const circ = 2*Math.PI*r;
+  const arcs = seg.map((s,i)=>{
+    const frac = Number(s.value)/total, dash = frac*circ, off = a*circ; a += frac;
+    const colour = s.color || colours[i%colours.length];
+    return `<circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" fill="none" stroke="${colour}" stroke-width="${sw.toFixed(1)}"
+      stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 ${c} ${c})">
+      <title>${esc(s.label)}: ${opts.fmt?opts.fmt(s.value):fmtNum(s.value)} (${(frac*100).toFixed(1)}%)</title></circle>`;
+  }).join('');
+  const pct = seg.map((s,i)=>{
+    const frac = Number(s.value)/total;
+    return `<div class="li"><span class="sw" style="background:${s.color||colours[i%colours.length]}"></span>
+      <span class="lg-l">${esc(s.label)}</span><span class="n mono">${opts.fmt?opts.fmt(s.value):fmtNum(s.value)}</span>
+      <span class="pct mono">${(frac*100).toFixed(1)}%</span></div>`;
+  }).join('');
+  return `<div class="donut-wrap">
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img"
+      aria-label="${esc(opts.title||'Share')}: ${seg.map(s=>s.label+' '+(opts.fmt?opts.fmt(s.value):fmtNum(s.value))).join(', ')}">
+      <circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" fill="none" stroke="var(--line-2)" stroke-width="${sw.toFixed(1)}"/>
+      ${arcs}
+      <text x="${c}" y="${c-2}" text-anchor="middle" class="dn-v">${esc(opts.centerValue!==undefined? String(opts.centerValue) : (opts.fmt?opts.fmt(total):fmtNum(total)))}</text>
+      <text x="${c}" y="${c+15}" text-anchor="middle" class="dn-l">${esc(opts.centerLabel||'TOTAL')}</text>
+    </svg>
+    <div class="legend donut-legend">${pct}</div>
+  </div>`;
+}
+
+/* --- Horizontal share bar (100% stacked, one row) --------------------- */
+function chartShare(segments, opts={}){
+  const seg=(segments||[]).filter(s=>Number(s.value)>0);
+  if(!seg.length) return `<div class="empty small">${esc(opts.empty||'Nothing to plot yet.')}</div>`;
+  const colours = opts.colours||chartColours(seg.length);
+  const total = seg.reduce((n,s)=>n+Number(s.value),0)||1;
+  return `<div class="share-bar" role="img" aria-label="${esc(opts.title||'Share')}: ${seg.map(s=>`${s.label} ${(100*s.value/total).toFixed(1)}%`).join(', ')}">
+    ${seg.map((s,i)=>`<span style="width:${(100*Number(s.value)/total).toFixed(2)}%;background:${s.color||colours[i%colours.length]}" title="${esc(s.label)}: ${opts.fmt?opts.fmt(s.value):fmtNum(s.value)}"></span>`).join('')}
+  </div>
+  <div class="chart-key" style="margin-top:8px">${seg.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)} · <b class="mono">${(100*Number(s.value)/total).toFixed(1)}%</b></span>`).join('')}</div>`;
+}
+
+/* --- Gauge (single ratio against a target) ---------------------------- */
+function chartGauge(value, max, opts={}){
+  const v = Math.max(0, Number(value)||0), m = Math.max(1e-9, Number(max)||1);
+  const pct = Math.min(1.5, v/m);
+  const W=220,H=124,cx=110,cy=104,r=84;
+  const arc = (from,to,colour,width=14)=>{
+    const a0=Math.PI*(1-from), a1=Math.PI*(1-to);
+    const x0=cx+r*Math.cos(a0), y0=cy-r*Math.sin(a0), x1=cx+r*Math.cos(a1), y1=cy-r*Math.sin(a1);
+    const large = (to-from)>0.5?1:0;
+    return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="none" stroke="${colour}" stroke-width="${width}" stroke-linecap="round"/>`;
+  };
+  const tone = pct>=1? 'var(--ok)' : pct>=0.75? 'var(--warn)' : 'var(--crit)';
+  return `<div class="gauge">
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label||'Progress')}: ${opts.fmt?opts.fmt(v):fmtNum(v)} of ${opts.fmt?opts.fmt(m):fmtNum(m)} (${Math.round(pct*100)}%)">
+      ${arc(0,1,'var(--line-2)')}
+      ${arc(0,Math.min(1,pct),tone)}
+      ${opts.target!==undefined && Number(opts.target)>0 && Number(opts.target)<=m ? arc(Math.min(1,Number(opts.target)/m)-0.004, Math.min(1,Number(opts.target)/m)+0.004, 'var(--ink)', 20) : ''}
+      <text x="${cx}" y="${cy-16}" text-anchor="middle" class="gg-v">${esc(opts.fmt?opts.fmt(v):fmtNum(v))}</text>
+      <text x="${cx}" y="${cy+2}" text-anchor="middle" class="gg-l">${esc(opts.label||'')}</text>
+      <text x="${cx}" y="${cy+20}" text-anchor="middle" class="gg-s">${Math.round(pct*100)}% of ${esc(opts.fmt?opts.fmt(m):fmtNum(m))}</text>
+    </svg></div>`;
+}
+
+/* --- Heat grid (rows x columns, e.g. ministry area x month) ----------- */
+function chartHeat(opts){
+  const rows = opts.rows||[], cols = opts.cols||[];
+  if(!rows.length||!cols.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
+  const vals = rows.flatMap(r=>cols.map(c=>Number(r.values[c])||0));
+  const max = Math.max(1, ...vals);
+  const hue = opts.color || 'var(--accent)';
+  const cell = v => {
+    const t = v/max;
+    return `background:color-mix(in srgb, ${hue} ${(6+Math.round(t*88))}%, var(--surface));color:${t>0.55?'#FFFFFF':'var(--ink)'};`;
+  };
+  return `<div class="tbl-wrap"><table class="tbl heat">
+    <thead><tr><th>${esc(opts.rowHead||'')}</th>${cols.map(c=>`<th class="num">${esc(String(c))}</th>`).join('')}<th class="num">${esc(opts.totalHead||'Total')}</th></tr></thead>
+    <tbody>${rows.map(r=>{
+      const tot = cols.reduce((n,c)=>n+(Number(r.values[c])||0),0);
+      return `<tr><th scope="row">${esc(r.label)}</th>${cols.map(c=>{
+        const v = Number(r.values[c])||0;
+        return `<td class="num mono heat-c" style="${v?cell(v):''}">${v? (opts.fmt?opts.fmt(v):fmtNum(v)) : '<span class="muted">·</span>'}</td>`;
+      }).join('')}<td class="num mono"><b>${opts.fmt?opts.fmt(tot):fmtNum(tot)}</b></td></tr>`;
+    }).join('')}</tbody></table></div>
+  <div class="xs muted" style="margin-top:6px">${esc(opts.caption||'Shading is relative to the largest cell ('+(opts.fmt?opts.fmt(max):fmtNum(max))+').')}</div>`;
+}
+
+/* --- Radar (profile across axes) -------------------------------------- */
+function chartRadar(opts){
+  const axes = opts.axes||[]; const series = opts.series||[];
+  if(axes.length<3||!series.length) return `<div class="empty small">${esc(opts.empty||'At least three axes are needed.')}</div>`;
+  const size = opts.size||280, c=size/2, r=size*0.36;
+  const colours = opts.colours||chartColours(series.length);
+  const max = opts.max || Math.max(1, ...series.flatMap(s=>s.values.map(v=>Number(v)||0)));
+  const pt = (i,v)=>{ const a = -Math.PI/2 + 2*Math.PI*i/axes.length, rr = r*(Number(v)||0)/max; return [c+rr*Math.cos(a), c+rr*Math.sin(a)]; };
+  const rings = [0.25,0.5,0.75,1].map(f=>`<polygon points="${axes.map((a,i)=>{const p=pt(i,max*f);return p[0].toFixed(1)+','+p[1].toFixed(1)}).join(' ')}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join('');
+  const spokes = axes.map((a,i)=>{const p=pt(i,max);return `<line x1="${c}" y1="${c}" x2="${p[0].toFixed(1)}" y2="${p[1].toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`}).join('');
+  const labs = axes.map((a,i)=>{const p=pt(i,max*1.16);return `<text class="axis-x" x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" text-anchor="middle">${esc(String(a).slice(0,16))}</text>`}).join('');
+  const polys = series.map((s,si)=>{
+    const col = s.color||colours[si%colours.length];
+    const pts = s.values.map((v,i)=>pt(i,v).map(n=>n.toFixed(1)).join(',')).join(' ');
+    return `<polygon points="${pts}" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="2.2"/>`+
+      s.values.map((v,i)=>{const p=pt(i,v);return chartMarker(CHART_MARKERS[si%CHART_MARKERS.length],p[0],p[1],col,3)}).join('');
+  }).join('');
+  const rows = axes.map((a,i)=>{ const r0={axis:a}; series.forEach(s=>{ r0[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); return r0; });
+  return `<figure class="chart-fig" style="margin:0">
+    <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="${esc(opts.title||'Profile')}">${rings}${spokes}${polys}${labs}</svg>
+    ${chartTable([{label:opts.axisHead||'Axis'},...series.map(s=>({label:s.label,cls:'num'}))], rows)}
+  </figure>`;
+}
+
+/* --- Sparkline (inline trend inside a table cell) --------------------- */
+function chartSpark(values, opts={}){
+  const v = (values||[]).map(n=>Number(n)||0);
+  if(v.length<2) return '<span class="xs muted">–</span>';
+  const W=opts.width||96, H=opts.height||24, max=Math.max(...v), min=Math.min(...v), span=(max-min)||1;
+  const pts = v.map((n,i)=>[W*i/(v.length-1), H-2-(H-4)*(n-min)/span]);
+  const d = pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const last = pts[pts.length-1];
+  const up = v[v.length-1]>=v[0];
+  const colour = opts.color || (up? 'var(--ok)':'var(--crit)');
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label||'Trend')}: ${v.join(', ')}">
+    <path d="${d}" fill="none" stroke="${colour}" stroke-width="1.8" stroke-linejoin="round"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.2" fill="${colour}"/></svg>`;
+}
+
+/* --- Waterfall (budget -> commitments -> payments -> remaining) ------- */
+function chartWaterfall(steps, opts={}){
+  const rows = (steps||[]).filter(s=>s && s.label);
+  if(!rows.length) return `<div class="empty small">${esc(opts.empty||'Nothing to plot yet.')}</div>`;
+  const W=760,H=opts.height||240,padL=58,padR=14,padT=18,padB=48;
+  let run=0; const items = rows.map(r=>{
+    const v = Number(r.value)||0;
+    const from = r.kind==='total'? 0 : run;
+    const to = r.kind==='total'? v : run+v;
+    if(r.kind!=='total') run = to;
+    return {...r, from, to, v};
+  });
+  const max = Math.max(1, ...items.map(i=>Math.max(i.from,i.to)));
+  const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
+  const bw = plotW/items.length;
+  const bars = items.map((it,i)=>{
+    const x = padL+i*bw+bw*0.2, w = bw*0.6;
+    const y0 = padT+inner-inner*(Math.max(it.from,it.to)/max), y1 = padT+inner-inner*(Math.min(it.from,it.to)/max);
+    const colour = it.kind==='total'? 'var(--ink-3)' : (it.v>=0? (it.color||'var(--crit)') : (it.color||'var(--ok)'));
+    return `<rect x="${x.toFixed(1)}" y="${y0.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(1.5,(y1-y0)).toFixed(1)}" fill="${colour}" rx="2" opacity="${it.kind==='total'?0.9:0.85}">
+        <title>${esc(it.label)}: ${opts.fmt?opts.fmt(it.v):fmtNum(it.v)}</title></rect>
+      <text class="val" x="${(x+w/2).toFixed(1)}" y="${(y0-6).toFixed(1)}" text-anchor="middle">${it.v>=0&&it.kind!=='total'?'+':''}${opts.fmt?opts.fmt(it.v):fmtNum(it.v)}</text>
+      <text class="axis-x" x="${(x+w/2).toFixed(1)}" y="${H-22}" text-anchor="middle">${esc(String(it.label).slice(0,14))}</text>`;
+  }).join('');
+  return `<figure class="chart-fig" style="margin:0">
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Movement')}">${grid}${bars}</svg>
+    <figcaption class="small muted" style="margin-top:6px">${esc(opts.caption||'Each step shows the movement from the previous balance.')}</figcaption>
+    ${chartTable([{label:'Step'},{label:'Amount',cls:'num'},{label:'Balance',cls:'num'}], items.map(i=>({Step:i.label, Amount:opts.fmt?opts.fmt(i.v):fmtNum(i.v), Balance:opts.fmt?opts.fmt(i.to):fmtNum(i.to)})))}
+  </figure>`;
+}

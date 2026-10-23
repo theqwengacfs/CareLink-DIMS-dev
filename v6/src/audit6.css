@@ -1,0 +1,553 @@
+/* ============================================================
+   audit6.css - Visual, contrast and spacing audit fixes (v6.1)
+
+   This sheet is the result of a system-wide audit of every surface
+   a person reads. It is loaded last, so it corrects the literals
+   left behind by the earlier layers without rewriting them.
+
+   The audit found four classes of defect and fixes each one:
+
+   A. HARD-CODED LIGHT SURFACES. Panels written as `#fff` or
+      `#F7F8FA` before themes existed. In a dark theme they stayed
+      white while their text followed the theme, so the text
+      vanished. Fixed by re-pointing every one of them at a theme
+      token. (Message threads, message bubbles, the assistant panel,
+      modal header and footer, stage blocks, chips, key caps,
+      hover states, the mobile card form of a table.)
+
+   B. LEGIBILITY ON COLOURED FILLS. The jewel-gradient metric boxes
+      set white text on the box but the label and the detail line
+      kept `var(--muted)`: dark grey on deep blue, unreadable in
+      every light theme. Fixed by giving every child of a filled
+      surface a light ink, and by pinning the count pill.
+
+   C. SPACING AND OVERLAP IN THE FIXED CONSOLE BAR. The bar held a
+      logo, history buttons, the console identity, a search box, a
+      live pill, a sync chip, two assistant buttons, a theme button,
+      a notification button and the account button in one flex row
+      with `flex-wrap:nowrap`, so on a tablet they collided. Fixed
+      with a measured grid, one assistant button, a search box that
+      shrinks instead of pushing, and a defined collapse order.
+
+   D. ALIGNMENT AND SYMMETRY. Table headers were padded 14px and
+      cells 12px, so columns did not line up; figures were not all
+      tabular; report tables had no shared measure. Fixed with one
+      padding rhythm, tabular figures everywhere a number appears,
+      and a shared report-table style.
+
+   Contrast targets used throughout: 4.5:1 for body text, 3:1 for
+   large text and interface boundaries, 7:1 preferred for figures.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   A. Hard-coded light surfaces -> theme tokens
+   ------------------------------------------------------------ */
+.msg-thread{background:var(--surface);color:var(--ink)}
+.msg-thread:hover{background:var(--surface-2)}
+.msg-thread.on{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.msg-thread b{color:var(--ink)}
+.msg-thread span{color:var(--muted)}
+.msg-thread em{color:var(--muted-2)}
+.msg-list{background:var(--surface);border-color:var(--line)}
+.msg{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.msg.me{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 32%,transparent);color:var(--ink)}
+.msg-dot{background:var(--accent);color:var(--accent-ink)}
+
+/* The assistant: the panel, both bubble directions, the suggestion chips,
+   the welcome card and the input row all follow the theme now. */
+.ai-panel{background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+.ai-body{background:var(--surface-2)}
+.ai-msg{color:var(--ink)}
+.ai-msg.bot{background:var(--surface);border:1px solid var(--line);color:var(--ink);box-shadow:var(--shadow-sm)}
+.ai-msg.user{background:var(--action);color:var(--action-ink);border:1px solid transparent}
+html[data-wmode="dark"] .ai-msg.user{background:var(--accent);color:var(--accent-ink)}
+.ai-msg .ev{border-top-color:var(--line)}
+.ai-msg b,.ai-msg strong{color:inherit}
+.ai-msg a{color:inherit;text-decoration:underline}
+.ai-chips{background:var(--surface);border-top-color:var(--line)}
+.ai-chip{background:var(--surface-2);border-color:var(--line);color:var(--ink-2)}
+.ai-chip:hover{background:var(--surface);border-color:var(--accent);color:var(--accent-fg)}
+.ai-in{background:var(--surface);border-top-color:var(--line)}
+.ai-in input{background:var(--field);border-color:var(--field-line);color:var(--ink)}
+.ai-in input::placeholder{color:var(--muted)}
+.ai-in input:focus{background:var(--surface);border-color:var(--accent)}
+.ai-in button{background:var(--accent);color:var(--accent-ink)}
+.ai-h{background:linear-gradient(135deg,var(--chrome),var(--chrome-2));color:var(--chrome-ink)}
+.ai-h span{color:var(--chrome-muted)}
+.ai-h .x{background:rgba(255,255,255,.12);color:var(--chrome-ink)}
+/* The welcome / introductory card: it used to fill with the accent and keep
+   dark text. The fill now carries its own ink, and the body text is pinned. */
+.ai-welcome,.ai-intro,.ai-msg.bot:first-child{
+  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);color:var(--ink)}
+.ai-welcome b,.ai-intro b{color:var(--ink)}
+.ai-welcome .muted,.ai-intro .muted{color:var(--muted)}
+.ai-draft-tag{background:color-mix(in srgb,var(--gold) 22%,transparent);color:var(--ink)}
+.ai-dept-card{background:linear-gradient(135deg,var(--chrome),var(--chrome-2));border-color:var(--chrome-line);color:var(--chrome-ink)}
+.ai-dept-card b{color:var(--gold)}
+.ai-dept-card span{color:var(--chrome-muted)}
+.ai-conn-bar{background:var(--surface-2);border-color:var(--line);color:var(--ink-2)}
+
+/* Modal chrome */
+.modal-h{background:var(--surface);border-bottom:1px solid var(--line);color:var(--ink)}
+.modal-f{background:var(--surface);border-top:1px solid var(--line)}
+.modal{background:var(--surface);color:var(--ink)}
+
+/* Cards, blocks and hover states that were written white */
+.stage-block{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.consent-item{background:var(--surface);border-color:var(--line)}
+.consent-item:hover{background:var(--surface-2);border-color:var(--accent)}
+.consent-item.locked{background:var(--surface-2);opacity:1}
+.cmap-i{background:var(--surface-2);color:var(--ink)}
+.cmap-i:hover{background:var(--surface);border-color:var(--accent)}
+.cmap-i.on{background:var(--accent-soft);color:var(--ink);border-color:color-mix(in srgb,var(--accent) 34%,transparent)}
+.demo-chip{background:var(--surface-2);border-color:var(--line);color:var(--ink-2)}
+.demo-chip:hover{background:var(--surface);border-color:var(--accent);color:var(--ink)}
+.kbd{background:var(--chip);border-color:var(--line);color:var(--chip-ink)}
+.obj-n{background:var(--chip);color:var(--chip-ink)}
+.cp-row.bad{background:var(--crit-bg);border-color:color-mix(in srgb,var(--crit) 34%,transparent)}
+.cov-cell.risk{background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 38%,transparent)}
+.cal-ev.hospital{background:var(--warn-bg);border-left-color:var(--warn);color:var(--ink)}
+.ev-tag.trend{background:var(--warn-bg);color:var(--warn)}
+.sheet-all{background:var(--hover);color:var(--ink-2);border-color:var(--line)}
+table.tbl tbody tr:hover{background:var(--surface-2)}
+
+/* Status pills: they kept a light fill in every theme. Now they use the
+   theme's own status pair, which is contrast-solved per theme. */
+.live-pill{background:var(--surface);border-color:var(--line);color:var(--ink-2)}
+.live-pill.ok{background:var(--ok-bg);border-color:color-mix(in srgb,var(--ok) 34%,transparent);color:var(--ok)}
+.live-pill.ok .live-dot{background:var(--ok)}
+.live-pill.warn{background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 38%,transparent);color:var(--warn)}
+.live-pill.warn .live-dot{background:var(--warn)}
+.live-pill.neutral{color:var(--muted)}
+.sync-chip{background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);border-radius:99px}
+.sync-chip b{color:var(--ink)}
+
+/* Mobile card form of a table */
+@media (max-width:760px){
+  table.tbl tbody tr{background:var(--surface);border-color:var(--line)}
+  table.tbl tbody tr:hover{background:var(--surface-2)}
+  table.tbl td::before{color:var(--muted)}
+}
+
+/* ------------------------------------------------------------
+   B. Legibility on coloured fills
+   ------------------------------------------------------------ */
+/* Jewel metric boxes: the label, the value, the detail line and the icon
+   chip are all light on the gradient, in every theme, light or dark. */
+html:not([data-kpistyle="tinted"]) .kpi{color:#FFFFFF}
+html:not([data-kpistyle="tinted"]) .kpi .k,
+html:not([data-kpistyle="tinted"]) .kpi .kl{
+  color:rgba(255,255,255,.94)!important;font-weight:750;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.28)}
+html:not([data-kpistyle="tinted"]) .kpi .v,
+html:not([data-kpistyle="tinted"]) .kpi .kv{color:#FFFFFF!important;text-shadow:0 1px 3px rgba(0,0,0,.30)}
+html:not([data-kpistyle="tinted"]) .kpi .v small{color:rgba(255,255,255,.9)!important}
+html:not([data-kpistyle="tinted"]) .kpi .d,
+html:not([data-kpistyle="tinted"]) .kpi .ks{color:rgba(255,255,255,.90)!important}
+html:not([data-kpistyle="tinted"]) .kpi .k svg,
+html:not([data-kpistyle="tinted"]) .kpi .d svg{color:rgba(255,255,255,.92)}
+html:not([data-kpistyle="tinted"]) .kpi .kic,
+html:not([data-kpistyle="tinted"]) .kpi .k .ico{background:rgba(255,255,255,.20);color:#FFFFFF;border-radius:9px}
+html:not([data-kpistyle="tinted"]) .kpi .badge{background:rgba(255,255,255,.22);color:#FFFFFF;border-color:rgba(255,255,255,.34)}
+html:not([data-kpistyle="tinted"]) .kpi a,
+html:not([data-kpistyle="tinted"]) .kpi .linkbtn{color:#FFFFFF;text-decoration:underline}
+/* Soft-tint mode keeps the theme's own ink, which is already solved. */
+html[data-kpistyle="tinted"] .kpi{color:var(--ink)}
+html[data-kpistyle="tinted"] .kpi .k{color:var(--muted)}
+html[data-kpistyle="tinted"] .kpi .v{color:var(--ink)}
+html[data-kpistyle="tinted"] .kpi .d{color:var(--muted)}
+
+/* Count pills inside tabs and nav items */
+.tcount{background:var(--ink-3);color:var(--surface);font-variant-numeric:tabular-nums}
+.tab .tcount{background:var(--chip);color:var(--chip-ink)}
+.tab.active .tcount{background:var(--accent);color:var(--accent-ink)}
+.tcount.crit{background:var(--crit);color:#FFFFFF}
+.np-i .tcount.crit,.np-gh .tcount.crit{background:#FF6B74;color:#2A0004}
+
+/* Tabs: the inactive tab is ink-2 on the bar, the active tab is the solved
+   accent pair, and the group label never drops below 4.5:1. */
+.sheet{background:var(--bar);border-bottom-color:var(--line)}
+.tab{color:var(--ink-2)}
+.tab:hover{background:var(--hover);color:var(--ink)}
+.tab.active{background:var(--accent-soft);color:var(--accent-fg);
+  border-color:color-mix(in srgb,var(--accent) 34%,transparent);font-weight:700}
+.tab.active svg{color:var(--accent-fg);opacity:1}
+.tab svg{color:currentColor}
+.tab .ct{background:var(--chip);color:var(--chip-ink)}
+.tab.active .ct{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--accent-fg)}
+.sheet-g{color:var(--ink-3);font-weight:800}
+.tabs{border-bottom-color:var(--line)}
+.tabs .tab{color:var(--muted)}
+.tabs .tab:hover{color:var(--ink);background:var(--hover)}
+.tabs .tab.active{color:var(--accent-fg);background:var(--accent-soft);border-bottom-color:var(--accent)}
+.seg button{background:var(--surface-2);color:var(--ink-2);border-color:var(--line)}
+.seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* Links inside tinted panels: the accent FILL colour is solved for white
+   text, so it is too dark on a tint in a dark theme. accent-fg is solved
+   against the tint instead, and it is underlined so it is never colour alone. */
+.alert .linkbtn,.note .linkbtn,.card .linkbtn,.panel .linkbtn,.ctx-strip .linkbtn{
+  color:var(--accent-fg);font-weight:800;text-decoration:underline;text-underline-offset:2px}
+.panel .linkbtn,.hero-qtab.linkbtn{color:#FFFFFF}
+.linkbtn{color:var(--accent-fg);font-weight:750}
+.linkbtn:hover{text-decoration:underline;color:var(--accent-fg)}
+
+/* Buttons: every pairing is a solved fill + ink, in both modes. */
+.btn{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.btn:hover{background:var(--hover);border-color:var(--muted-2)}
+.btn-ghost{background:var(--surface);color:var(--ink-2);border-color:var(--line)}
+.btn-ghost:hover{background:var(--hover);color:var(--ink)}
+.btn-soft{background:var(--accent-soft);color:var(--accent-fg);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+.btn-soft:hover{background:color-mix(in srgb,var(--accent) 20%,var(--surface));color:var(--accent-fg)}
+.btn-primary{background:linear-gradient(180deg,var(--action-2),var(--action));color:var(--action-ink);border-color:transparent}
+.btn-danger{background:var(--crit-bg);color:var(--crit);border-color:color-mix(in srgb,var(--crit) 36%,transparent)}
+.btn[disabled],.btn:disabled{opacity:.55;color:var(--muted);background:var(--surface-2)}
+.icon-btn{background:var(--surface);color:var(--ink-2);border-color:var(--line)}
+.icon-btn:hover{background:var(--hover);color:var(--ink)}
+.badge{border:1px solid transparent}
+.b-neutral,.b-dark{background:var(--chip);color:var(--chip-ink)}
+.b-ok{background:var(--ok-bg);color:var(--ok)}
+.b-warn{background:var(--warn-bg);color:var(--warn)}
+.b-crit{background:var(--crit-bg);color:var(--crit)}
+.b-info{background:var(--info-bg);color:var(--info)}
+.b-accent{background:var(--accent-soft);color:var(--accent-fg)}
+.chip{background:var(--chip);color:var(--chip-ink);border:1px solid var(--line-2)}
+
+/* Inline literal badges in the markup (the Homa Bay map node) are re-pointed
+   at the theme so they read in dark mode too. */
+.badge[style*="#EDE9FE"],.badge[style*="background:#EDE9FE"]{
+  background:var(--info-bg)!important;color:var(--info)!important}
+
+/* ------------------------------------------------------------
+   C. The fixed console bar: measured, symmetric, no collisions
+   ------------------------------------------------------------ */
+.cbar{
+  display:grid;
+  grid-template-columns:auto auto minmax(0,1fr) minmax(140px,420px) auto;
+  grid-template-areas:"logo nav identity search actions";
+  align-items:center;gap:12px;
+  padding:8px clamp(12px,1.6vw,20px);min-height:60px;
+  background:color-mix(in srgb,var(--bar) 94%,transparent);
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+  flex-wrap:nowrap;
+}
+.cbar>.cb-logo{grid-area:logo}
+.cbar>.cb-nav{grid-area:nav;display:flex;gap:6px}
+.cbar>.cb-id{grid-area:identity;min-width:0}
+.cbar>.searchbox{grid-area:search;min-width:0}
+.cbar>.tb-actions{grid-area:actions;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
+.cbar .cb-k{font-size:9.4px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbar h1{font-size:16px;line-height:1.24;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbar .crumb{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.cbar .searchbox{display:flex;align-items:center;gap:8px;background:var(--field);border:1px solid var(--field-line);
+  border-radius:10px;padding:0 11px;height:38px;color:var(--muted)}
+.cbar .searchbox input{border:0;background:transparent;color:var(--ink);font-size:12.8px;width:100%;min-width:0;outline:none}
+.cbar .searchbox input::placeholder{color:var(--muted)}
+.cbar .searchbox:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
+.cbar .me-btn{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:3px 10px 3px 3px;
+  min-height:40px;display:flex;align-items:center;gap:8px;color:var(--ink)}
+.cbar .me-btn:hover{border-color:var(--accent)}
+.cbar .me-nm{font-size:12.4px;font-weight:650;color:var(--ink);max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cbar .live-pill,.cbar .sync-chip{height:30px;flex:0 0 auto}
+.cbar .tb-actions .btn,.cbar .tb-actions .icon-btn{flex:0 0 auto}
+/* One assistant button, not two: the labelled button stays on wide screens,
+   the icon-only one only appears when the label has been dropped. */
+.cbar .tb-actions .tb-ai-icon{display:none}
+
+@media (max-width:1240px){
+  .cbar{grid-template-columns:auto auto minmax(0,1fr) auto;
+    grid-template-areas:"logo nav identity actions";}
+  .cbar>.searchbox{display:none}
+  .cbar .tb-actions .tb-ai-icon{display:inline-flex}
+  .cbar .tb-actions .tb-ai-label{display:none}
+}
+@media (max-width:900px){
+  .cbar{grid-template-columns:auto minmax(0,1fr) auto;
+    grid-template-areas:"logo identity actions";gap:10px;padding:7px 12px;min-height:56px}
+  .cbar>.cb-nav{display:none}
+  .cbar h1{font-size:15px}
+  .cbar .crumb{display:none}
+  .cbar .tb-actions{gap:6px}
+  .cbar .live-pill .live-t,.cbar .sync-chip .sync-detail{display:none}
+  .cbar .tb-theme{display:none}
+  .cbar .me-nm{max-width:9ch}
+}
+@media (max-width:560px){
+  .cbar .me-nm{display:none}
+  .cbar .cb-logo{width:32px;height:32px;flex:0 0 32px}
+}
+
+/* The console sheet (tab strip) keeps its rhythm and never crowds the bar. */
+.sheet{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:5px;
+  padding:7px clamp(10px,1.6vw,16px) 8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.sheet .tab,.sheet .sheet-all{flex:0 0 auto;height:36px}
+.sheet-g{padding:0 8px 0 12px;max-width:92px;line-height:1.2;font-size:9px}
+
+/* ------------------------------------------------------------
+   D. Alignment, symmetry and figures
+   ------------------------------------------------------------ */
+/* One padding rhythm for header and body cells, so a column lines up. */
+table.tbl th,table.tbl td{padding:11px 14px}
+table.tbl.compact th,table.tbl.compact td{padding:8px 10px}
+table.tbl thead th{border-bottom:1px solid var(--line);background:var(--surface-2);color:var(--muted);
+  font-weight:800;letter-spacing:.07em;position:sticky;top:0;z-index:1}
+table.tbl thead th.num,table.tbl td.num,table.tbl th.act,table.tbl td.act{text-align:right}
+table.tbl td.num,table.tbl td .mono,.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+table.tbl tbody tr:nth-child(even of :not(.note-row)){background:color-mix(in srgb,var(--surface-2) 62%,transparent)}
+table.tbl tbody tr:hover{background:var(--hover)}
+table.tbl tbody tr.tot td,table.tbl tbody tr.total td{border-top:2px solid var(--line);font-weight:800;background:var(--surface-2)}
+table.tbl .cellname{font-weight:650;color:var(--ink);line-height:1.32}
+table.tbl td .xs.muted{line-height:1.45}
+table.tbl tr.note-row td{padding:0 14px 10px;border-bottom:1px solid var(--line-2);background:transparent}
+table.tbl tr.row-today td{background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
+/* A table that must read as symmetric: equal columns, centred headers. */
+.tbl.align-sym th,.tbl.align-sym td{text-align:center}
+.tbl.align-sym th:first-child,.tbl.align-sym td:first-child{text-align:left}
+.tbl.align-sym th.num,.tbl.align-sym td.num{text-align:right}
+
+/* Report documents: the printed measure, aligned columns, aligned figures. */
+.report-doc table,.report-doc table.rpt{width:100%;border-collapse:collapse;font-size:12.4px;margin:8px 0 18px}
+.report-doc table th,.report-doc table td{padding:8px 10px;border-bottom:1px solid #DDE3EC;text-align:left;vertical-align:top}
+.report-doc table thead th{background:#F2F5F9;border-bottom:2px solid #C6CFDB;color:#1B2432;
+  font-size:10.2px;letter-spacing:.08em;text-transform:uppercase;font-weight:800}
+.report-doc table td.num,.report-doc table th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.report-doc table tr.tot td{border-top:2px solid #C6CFDB;font-weight:800;background:#F7F9FC}
+.report-doc h3{font-size:13.6px;margin:22px 0 6px;color:#1B2432;letter-spacing:-.01em}
+.report-doc .meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px 18px;margin:14px 0 6px}
+.report-doc .meta-grid b{display:block;font-size:9.8px;letter-spacing:.1em;text-transform:uppercase;color:#5A6472}
+.report-doc .meta-grid div{border-left:2px solid #DDE3EC;padding-left:10px}
+.report-doc .xs{font-size:11px;color:#5A6472}
+
+/* Figures and key/value blocks used by the new consoles */
+.kv{display:flex;flex-direction:column;gap:2px;padding:10px 12px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--r-sm)}
+.kv span{font-size:10.2px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:750}
+.kv b{font-size:13.4px;color:var(--ink);font-variant-numeric:tabular-nums}
+.cost-mini{gap:12px}
+.cm{padding:14px 16px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--line);
+  display:flex;flex-direction:column;gap:3px}
+.cm-l{font-size:10.2px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:750}
+.cm-v{font-size:23px;font-weight:800;letter-spacing:-.028em;color:var(--ink);font-variant-numeric:tabular-nums}
+.cm-s{font-size:11.4px;color:var(--muted)}
+.sw-dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px;vertical-align:middle}
+.rule-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:9px}
+.rule-steps li{font-size:12.8px;line-height:1.6;color:var(--ink-2)}
+.rule-steps li b{color:var(--ink)}
+
+/* Filter bars and inline forms: one rhythm, aligned to the baseline. */
+.cost-filter,.cost-std-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+  gap:10px 12px;align-items:end;padding:12px 14px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px}
+.cost-filter .field,.cost-std-form .field{margin:0;min-width:0}
+.cost-filter .field label,.cost-std-form .field label{font-size:10.2px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);font-weight:750;margin-bottom:5px;display:block}
+.cost-filter .cf-act,.cost-std-form .cf-act{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.cost-tabs{margin-bottom:14px}
+
+/* Charts: theme-aware ink, grid, keys and legends for every chart type. */
+.chart text{fill:var(--muted);font-size:10.6px}
+.chart .val{fill:var(--ink);font-weight:700;font-size:10.4px;font-variant-numeric:tabular-nums}
+.chart .axis-x{fill:var(--muted);font-size:10.2px}
+.chart .axis-y{fill:var(--muted);font-size:10.2px;font-variant-numeric:tabular-nums}
+.chart .grid-line{stroke:var(--line);stroke-width:1}
+.chart-fig{margin:0}
+.chart-key{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 10px;font-size:11.4px;color:var(--ink-2)}
+.chart-key .ck{display:inline-flex;align-items:center;gap:6px}
+.chart-key .ck i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:0 0 11px}
+.chart-table summary{cursor:pointer;color:var(--accent-fg);font-weight:700;font-size:11.8px}
+.donut-wrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.donut-wrap .dn-v{fill:var(--ink);font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+.donut-wrap .dn-l{fill:var(--muted);font-size:9.2px;letter-spacing:.12em}
+.legend.donut-legend{flex:1;min-width:210px;display:flex;flex-direction:column;gap:7px;margin:0;font-size:12.2px}
+.legend.donut-legend .li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:9px;align-items:center}
+.legend.donut-legend .sw{width:11px;height:11px;border-radius:3px}
+.legend.donut-legend .lg-l{color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.legend.donut-legend .n{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.legend.donut-legend .pct{color:var(--muted);font-size:11.2px;min-width:48px;text-align:right}
+.share-bar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--line-2);border:1px solid var(--line)}
+.share-bar span{display:block;height:100%}
+.gauge{display:grid;place-items:center}
+.gauge .gg-v{fill:var(--ink);font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.gauge .gg-l{fill:var(--muted);font-size:9.6px;letter-spacing:.1em;text-transform:uppercase}
+.gauge .gg-s{fill:var(--muted);font-size:10px}
+table.tbl.heat td.heat-c{text-align:right;font-weight:650;border:1px solid var(--line-2)}
+table.tbl.heat thead th{white-space:nowrap}
+.spark{vertical-align:middle}
+.bars .bar-row{grid-template-columns:minmax(110px,168px) minmax(0,1fr) minmax(74px,auto)}
+.bar-track{background:var(--line-2)}
+.bar-row .vl{color:var(--ink-2);font-weight:650}
+
+/* ------------------------------------------------------------
+   E. Messages: the people list scrolls
+   ------------------------------------------------------------ */
+.msg-layout{align-items:start}
+.msg-list{max-height:min(64vh,660px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.msg-list-h{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom:1px solid var(--line)}
+.msg-pane{max-height:min(78vh,760px)}
+.msg-body{overflow-y:auto;flex:1;overscroll-behavior:contain}
+
+/* ------------------------------------------------------------
+   F. Ministry teams, TB control and mapping consoles
+   ------------------------------------------------------------ */
+.team-monday{display:flex;flex-direction:column;gap:10px}
+.tm-h{display:flex;gap:11px;align-items:flex-start}
+.tm-h svg{flex:0 0 16px;margin-top:2px;color:var(--accent-fg)}
+.tm-h b{display:block;font-size:13.6px;color:var(--ink)}
+.tm-h span{display:block;color:var(--muted);margin-top:2px}
+.tm-exc{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.tm-e{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;background:var(--warn-bg);
+  border:1px solid color-mix(in srgb,var(--warn) 32%,transparent);border-radius:var(--r-sm);color:var(--ink)}
+.tm-e svg{flex:0 0 14px;margin-top:2px;color:var(--warn)}
+.tm-e b{display:block;font-size:12.4px;color:var(--ink)}
+.tm-e span{color:var(--ink-2)}
+.tm-ag ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:5px}
+.team-week td,.team-table td{vertical-align:top}
+.team-chip{display:inline-flex;flex-direction:column;gap:1px;padding:6px 10px;border-radius:9px;
+  background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);
+  color:var(--accent-fg);font-size:11.8px;font-weight:750;margin:2px 4px 2px 0}
+.team-chip i{font-style:normal;font-weight:550;font-size:10.8px;color:var(--ink-2)}
+.team-chip.prov{background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 36%,transparent);color:var(--warn)}
+.team-chip.hosp{background:var(--crit-bg);border-color:color-mix(in srgb,var(--crit) 32%,transparent);color:var(--crit)}
+.day-chip{display:inline-block;padding:3px 9px;border-radius:99px;background:var(--chip);color:var(--chip-ink);
+  border:1px solid var(--line-2);font-size:11px;font-weight:750}
+.team-hosp{display:flex;flex-direction:column}
+.bp-group{border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:8px;background:var(--surface)}
+.bp-group summary{cursor:pointer;padding:11px 13px;display:flex;gap:10px;align-items:center;justify-content:space-between;
+  font-size:13px;color:var(--ink);list-style:none}
+.bp-group summary::-webkit-details-marker{display:none}
+.bp-group summary b{color:var(--ink)}
+.bp-group[open] summary{border-bottom:1px solid var(--line-2);background:var(--surface-2)}
+.bp-group .tbl-wrap{padding:0 4px 6px}
+.vocab{padding:12px 14px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm)}
+.tb-dose{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.tb-d{display:flex;flex-direction:column;gap:4px;padding:11px 13px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--r-sm)}
+.tb-l{font-size:10.2px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:750}
+.tb-d b{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
+.tb-review .kv{margin-bottom:8px}
+.access-matrix td,.access-matrix th{vertical-align:top}
+
+/* ------------------------------------------------------------
+   G. Tablets: the Galaxy A11+ 5G class of device
+   6.4" 720x1560 panel, dpr 2 -> 360x780 CSS pixels, Chrome.
+   Touch targets at least 44px, one column at 900px and below,
+   the assistant dock dismissible, tables scrolling in their own box.
+   ------------------------------------------------------------ */
+@media (max-width:900px){
+  .grid.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+  .cost-filter,.cost-std-form{grid-template-columns:minmax(0,1fr)}
+  .cost-filter .cf-act,.cost-std-form .cf-act{justify-content:stretch}
+  .cost-filter .cf-act .btn,.cost-std-form .cf-act .btn{flex:1}
+}
+@media (max-width:520px){
+  .grid.g4,.grid.g3,.grid.g2{grid-template-columns:minmax(0,1fr)}
+  .portal .portal-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+html[data-device="tablet"] .btn,
+html[data-device="tablet"] .icon-btn,
+html[data-device="tablet"] .tab,
+html[data-device="tablet"] .sheet-all,
+html[data-device="tablet"] .seg button,
+html[data-device="tablet"] .me-btn,
+html[data-device="tablet"] .np-i{min-height:44px}
+html[data-device="tablet"] .cbar{min-height:58px}
+html[data-device="tablet"] .content{padding:14px 14px 30px}
+html[data-device="tablet"] .ai-dock{right:12px;bottom:12px}
+html[data-device="tablet"] .ai-panel{width:min(400px,calc(100vw - 24px));height:min(620px,72dvh)}
+
+/* ------------------------------------------------------------
+   H. Motion, focus and print
+   ------------------------------------------------------------ */
+:where(button,a,input,select,textarea,[tabindex],summary):focus-visible{
+  outline:3px solid var(--focus);outline-offset:2px;border-radius:8px}
+html[data-calm="on"] *{animation-duration:.001ms!important;transition-duration:.001ms!important}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+@media print{
+  .cbar,.sheet,.ai-dock,.toasts,.pager,.no-print,.cost-filter,.portal-top{display:none!important}
+  .content{padding:0;max-width:none}
+  .card{break-inside:avoid;box-shadow:none;border-color:#C6CFDB}
+  table.tbl thead th{position:static;background:#F2F5F9!important;color:#1B2432!important}
+  table.tbl td,table.tbl th{border-bottom:1px solid #DDE3EC}
+  .chart{max-height:260px}
+}
+
+/* ------------------------------------------------------------
+   I. First-run setup: the "host already set up" recovery panel
+   ------------------------------------------------------------ */
+.ob-host-setup{display:flex;flex-direction:column;gap:14px}
+.ob-hs-h{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:var(--r);
+  background:var(--info-bg);border:1px solid color-mix(in srgb,var(--info) 32%,transparent);color:var(--ink)}
+.ob-hs-h svg{flex:0 0 17px;margin-top:2px;color:var(--info)}
+.ob-hs-h b{display:block;font-size:14px;color:var(--ink)}
+.ob-hs-h span{display:block;font-size:12.4px;line-height:1.6;color:var(--ink-2);margin-top:4px}
+.ob-hs-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.ob-choice{display:flex;flex-direction:column;gap:5px;text-align:left;padding:14px 16px;border-radius:var(--r);
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;
+  transition:border-color .15s ease,background .15s ease,transform .15s ease}
+.ob-choice:hover{border-color:var(--accent);background:var(--surface-2);transform:translateY(-1px)}
+.ob-choice.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.ob-choice b{font-size:13.2px;color:var(--ink)}
+.ob-choice span{font-size:12px;line-height:1.55;color:var(--muted)}
+.lg6-alert{margin-top:12px}
+.map-clear{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:3px 9px;border-radius:99px;
+  background:color-mix(in srgb,var(--surface) 72%,transparent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+.map-clear:hover{background:var(--surface)}
+
+/* Report documents: the printed measure. Every figure column is right-aligned
+   and tabular, gauges sit in one row, and charts keep their written summary and
+   data table so a printed report carries the same numbers as the screen. */
+.report-doc .tnum,.report-doc td.num,.report-doc th.num{
+  text-align:right;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;white-space:nowrap}
+.report-doc table th,.report-doc table td{padding:8px 10px}
+.report-doc table thead th{white-space:nowrap}
+.report-doc h4{font-size:12.6px;margin:20px 0 6px;color:#1B2432;letter-spacing:.01em;
+  text-transform:uppercase;letter-spacing:.08em}
+.report-doc .chart-fig{margin:10px 0 4px;break-inside:avoid}
+.report-doc .chart{max-height:250px}
+.report-doc .chart .val{fill:#15171A}
+.report-doc .chart text,.report-doc .chart .axis-x,.report-doc .chart .axis-y{fill:#5F6B7A}
+.report-doc .chart .grid-line{stroke:#DDE3EC}
+.report-doc .chart-key{color:#2B3038}
+.report-doc .chart-table summary{color:#1F3864}
+.report-doc .donut-wrap{justify-content:center;gap:26px}
+.report-doc .legend.donut-legend .lg-l{color:#2B3038}
+.report-doc .legend.donut-legend .n{color:#15171A}
+.report-doc .legend.donut-legend .pct{color:#5F6B7A}
+.report-doc .donut-wrap .dn-v{fill:#15171A}
+.report-doc .donut-wrap .dn-l{fill:#5F6B7A}
+.report-doc .gauge .gg-v{fill:#15171A}
+.report-doc .gauge .gg-l,.report-doc .gauge .gg-s{fill:#5F6B7A}
+.rpt-gauges{display:flex;gap:14px;flex-wrap:wrap;justify-content:space-around;margin:12px 0 4px}
+.rpt-gauges .gauge{flex:0 1 220px}
+@media print{
+  .report-doc .chart-fig,.report-doc table,.rpt-gauges{break-inside:avoid}
+  .report-doc h4{break-after:avoid}
+}
+
+/* ------------------------------------------------------------
+   J. The sync chip and live pill cannot push the bar apart
+   "This device only" and "Connecting" carry a sentence of detail
+   next to the badge. In a flex row that sentence pushed the search
+   box and the account name into each other, so the chip is now a
+   measured box: the badge never shrinks, the detail truncates, and
+   the detail is dropped entirely before the bar gets tight.
+   ------------------------------------------------------------ */
+.cbar .sync-chip{
+  display:inline-flex;align-items:center;gap:7px;min-width:0;
+  max-width:min(34ch,30vw);overflow:hidden;padding:3px 10px 3px 5px;
+  background:var(--surface);border:1px solid var(--line);border-radius:99px;
+  color:var(--ink-2);font:inherit;cursor:pointer;flex:0 1 auto}
+.cbar .sync-chip:hover{border-color:var(--accent);background:var(--hover)}
+.cbar .sync-chip .badge{flex:0 0 auto;white-space:nowrap}
+.cbar .sync-chip .sync-detail{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--muted);font-size:11px}
+.cbar .live-pill{flex:0 0 auto;max-width:14ch;overflow:hidden}
+.cbar .live-pill .live-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:1240px){ .cbar .sync-chip{max-width:16ch} }
+@media (max-width:1100px){ .cbar .sync-chip .sync-detail{display:none} .cbar .sync-chip{padding:3px 9px} }
+@media (max-width:760px){ .cbar .live-pill .live-t{display:none} .cbar .live-pill{max-width:none;padding:0 8px} }

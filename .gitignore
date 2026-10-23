@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.vite/
+__pycache__/
+*.pyc
+v6/data/
+v6/offline-kit/
+
+# ---------------------------------------------------------------------------
+# Administration workbooks never belong in this repository.
+# The patient master sheet and the inventory workbooks hold personal data and
+# organisational secrets. Their STRUCTURE is published (v6/src/inventory_data.js,
+# v6/src/master_registry.js, v6/src/master_analysis.js); the files are not.
+# Root-level spreadsheets are ignored outright; v6/examples keeps its blank,
+# demo-only import template, which is tracked deliberately.
+# ---------------------------------------------------------------------------
+/*.xlsx
+/*.xls
+/*.csv
+/v6/offline-kit/
