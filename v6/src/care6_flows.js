@@ -104,23 +104,138 @@ const PAT_DISCHARGE = {
         <div class="fg"><label>Continuing care & handover instructions</label>
           <input name="referralInstructions" value="${esc(r.instructions||'Continue prescribed regimen, bring Discharge Summary to scheduled clinic review.')}" placeholder="Clinical summary & follow-up instructions">
         </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="alert a-ok" style="margin-bottom:10px">
+        ${ic('clipboard',16)}
+        <div><b>LOMAMO Discharge Protocol · SHA (formerly NHIF), Spiritual Growth & Household Impact</b>
+          <div class="xs">Captures all mandatory fields from the physical LOMAMO Patient Discharge Form prior to County Admin Assistant scan upload.</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><label>SHA / SHIF (formerly NHIF) active?</label>
+          <select name="shaActive">
+            <option value="Yes" ${(p&&p.dischargeProtocol?.shaActive)!=='No'?'selected':''}>Yes - Active SHA / NHIF cover</option>
+            <option value="No" ${(p&&p.dischargeProtocol?.shaActive)==='No'?'selected':''}>No - Not currently active</option>
+          </select>
+        </div>
+        <div class="fg"><label>SHA / NHIF last payment date</label>
+          <input type="date" name="shaLastPaymentDate" value="${esc((p&&p.dischargeProtocol?.shaLastPaymentDate)||_c6Iso(new Date()))}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><label>Spiritual growth: Believer?</label>
+          <select name="believer">
+            <option value="Yes" ${(p&&p.dischargeProtocol?.believer)!=='No'?'selected':''}>Yes</option>
+            <option value="No" ${(p&&p.dischargeProtocol?.believer)==='No'?'selected':''}>No</option>
+          </select>
+        </div>
+        <div class="fg"><label>Converted during LOMAMO care?</label>
+          <select name="convertedDuringLomamo">
+            <option value="No" ${(p&&p.dischargeProtocol?.convertedDuringLomamo)!=='Yes'?'selected':''}>No (Already believer / unchanged)</option>
+            <option value="Yes" ${(p&&p.dischargeProtocol?.convertedDuringLomamo)==='Yes'?'selected':''}>Yes - Converted during LOMAMO</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><label>Repeat patient? / Completed full cycle?</label>
+          <select name="completedCycle">
+            <option value="Yes" ${(p&&p.dischargeProtocol?.completedCycle)!=='No'?'selected':''}>Completed full programme cycle</option>
+            <option value="No" ${(p&&p.dischargeProtocol?.completedCycle)==='No'?'selected':''}>Early / non-completion discharge</option>
+          </select>
+        </div>
+        <div class="fg"><label>Number of orphans prevented (children in home)</label>
+          <input type="number" min="0" max="25" name="orphansPrevented" value="${esc(String(p&&(p.dischargeProtocol?.orphansPrevented??p.childrenCount??((p.household&&p.household.children)||0))))}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fg"><label>Other assistance programmes at discharge</label>
+          <input name="otherProgramsDetail" value="${esc((p&&p.dischargeProtocol?.otherProgramsDetail)||'None')}" placeholder="If yes, programme name & duration (or None)">
+        </div>
+        <div class="fg"><label>Physical form signatures (Patient · Caregiver · Coordinator)</label>
+          <input name="physicalSignatures" value="${esc((p&&p.dischargeProtocol?.physicalSignatures)||'Signed on physical hard copy — awaiting full-page scan upload')}" placeholder="e.g. Patient + Caregiver + Coordinator signed">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="advisory-watch-box">
+        <div class="spread" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <div class="row" style="gap:8px">
+            <span class="advisory-shield">${ic('alert',16)}</span>
+            <div>
+              <b style="font-size:13px">Caregiver Discharge Advisory & Returning-Patient Watchlist</b>
+              <div class="xs muted">Flag policy violations, chain smoking / alcohol misuse, supply diversion, or clinical non-adherence. Automatically alerts caregivers & coordinators if this patient ever returns.</div>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="fg"><label>Returning-patient watchlist status</label>
+            <select name="advisoryFlagged">
+              <option value="no" ${!(p&&p.dischargeAdvisory&&p.dischargeAdvisory.flagged)?'selected':''}>Clear - Standard graduation (no watchlist alert)</option>
+              <option value="watch" ${(p&&p.dischargeAdvisory&&p.dischargeAdvisory.flagged&&p.dischargeAdvisory.severity!=='high')?'selected':''}>Caregiver Advisory Watch - Review history before re-intake</option>
+              <option value="high" ${(p&&p.dischargeAdvisory&&p.dischargeAdvisory.severity==='high')?'selected':''}>High Policy / Conduct Alert - Mandatory Coordinator & MCM clearance if returning</option>
+            </select>
+          </div>
+          <div class="fg"><label>Primary advisory reason (if flagged)</label>
+            <select name="advisoryCategory">
+              ${['None','Chain smoking / chronic alcohol misuse against medical advice','Repeated ARV / TB / clinical regimen non-adherence','Diversion or sale of LOMAMO foodbag / medical supplies','Concealed dual-enrolment or policy breach','Hostile / unsafe household conduct toward visiting caregivers','Voluntary withdrawal against clinical advice'].map(cat=>`<option value="${esc(cat)}" ${(p&&p.dischargeAdvisory?.category)===cat?'selected':''}>${esc(cat)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="fg"><label>Caregiver & Coordinator confidential advisory note for future returning-patient checks</label>
+          <textarea name="advisoryNote" rows="2" placeholder="Document objective facts observed during home visits so future intake teams & coordinators are immediately briefed if this patient re-applies...">${esc((p&&p.dischargeAdvisory?.note)||'')}</textarea>
+        </div>
       </div>`;
   },
 
   captureReferralFromForm(p, fd, actor){
     if(!p || !fd) return null;
-    const pathway = fd.get ? fd.get('dischargePathway') : fd.dischargePathway;
-    const reqVal = fd.get ? fd.get('referralRequired') : fd.referralRequired;
+    const get = k => fd.get ? fd.get(k) : fd[k];
+    const pathway = get('dischargePathway');
+    const reqVal = get('referralRequired');
+    const advFlag = get('advisoryFlagged');
+    if(advFlag && advFlag !== 'no'){
+      p.dischargeAdvisory = {
+        flagged: true,
+        severity: advFlag === 'high' ? 'high' : 'watch',
+        category: String(get('advisoryCategory') || 'Caregiver discharge advisory').trim(),
+        note: String(get('advisoryNote') || 'Review prior discharge file with Coordinator and MCM before any re-enrolment.').trim(),
+        recordedBy: actor ? actor.id : 'u-sys',
+        recordedByName: actor ? actor.name : 'Care Team',
+        recordedAt: new Date().toISOString(),
+        areaId: p.areaId,
+        countyId: p.countyId
+      };
+    } else if(advFlag === 'no'){
+      p.dischargeAdvisory = { flagged:false, clearedAt:new Date().toISOString() };
+    }
+    if(get('shaActive') || get('believer') || get('orphansPrevented') !== undefined){
+      p.dischargeProtocol = Object.assign({}, p.dischargeProtocol || {}, {
+        shaActive: get('shaActive') || 'Yes',
+        shaLastPaymentDate: get('shaLastPaymentDate') || _c6Iso(new Date()),
+        believer: get('believer') || 'Yes',
+        convertedDuringLomamo: get('convertedDuringLomamo') || 'No',
+        completedCycle: get('completedCycle') || 'Yes',
+        repeatPatient: p.repeatPatient ? 'Yes' : 'No',
+        daysInProgram: PAT.days(p),
+        orphansPrevented: Number(get('orphansPrevented') ?? p.childrenCount ?? 0) || 0,
+        otherProgramsDetail: String(get('otherProgramsDetail') || 'None').trim(),
+        physicalSignatures: String(get('physicalSignatures') || 'Signed on physical hard copy').trim(),
+        updatedBy: actor ? actor.id : 'u-sys',
+        updatedAt: new Date().toISOString()
+      });
+    }
     if(!pathway && !reqVal) return p.dischargeReferral || null;
     const ref = {
       pathway: pathway || 'graduated',
       required: reqVal !== 'no',
-      destType: (fd.get ? fd.get('referralDestType') : fd.referralDestType) || PAT_DISCHARGE.DEST_TYPES[0],
-      clinic: (fd.get ? fd.get('referralClinic') : fd.referralClinic) || PAT_DISCHARGE.CLINICS[0],
-      facility: ((fd.get ? fd.get('receivingFacility') : fd.receivingFacility) || '').trim() || 'County Referral Outpatient Clinic',
-      appointmentDate: (fd.get ? fd.get('referralDate') : fd.referralDate) || _c6Iso(_c6AddDays(new Date(),14)),
-      receivingContact: ((fd.get ? fd.get('receivingContact') : fd.receivingContact) || '').trim() || 'Outpatient Liaison Desk',
-      instructions: ((fd.get ? fd.get('referralInstructions') : fd.referralInstructions) || '').trim() || 'Continue care plan and attend scheduled review clinic.',
+      destType: get('referralDestType') || PAT_DISCHARGE.DEST_TYPES[0],
+      clinic: get('referralClinic') || PAT_DISCHARGE.CLINICS[0],
+      facility: (get('receivingFacility') || '').trim() || 'County Referral Outpatient Clinic',
+      appointmentDate: get('referralDate') || _c6Iso(_c6AddDays(new Date(),14)),
+      receivingContact: (get('receivingContact') || '').trim() || 'Outpatient Liaison Desk',
+      instructions: (get('referralInstructions') || '').trim() || 'Continue care plan and attend scheduled review clinic.',
       recommendedBy: actor ? actor.id : 'u-sys',
       recommendedAt: new Date().toISOString()
     };
@@ -312,6 +427,33 @@ const PAT_DISCHARGE = {
           <div><span class="muted">Receiving focal contact:</span> <b>${esc(ref.receivingContact)}</b></div>
           <div><span class="muted">Handover instructions:</span> <b>${esc(ref.instructions)}</b></div>
         </div>` : `<div class="small">Beneficiary graduated in stable household and clinical standing without external facility referral requirement.</div>`}
+      </div>
+
+      <div class="ds-sec">
+        <h4>5. LOMAMO Official Discharge Protocol · SHA, Spiritual Growth, Hard-Copy Signatures & Advisory</h4>
+        ${(()=>{
+          const dp = p.dischargeProtocol || {};
+          const adv = p.dischargeAdvisory || {};
+          const scans = (p.hardcopyScans||[]).filter(x=>x.kind==='discharge');
+          const orphans = dp.orphansPrevented != null ? dp.orphansPrevented : (p.childrenCount ?? ((p.household&&p.household.children)||0));
+          return `<div class="grid g3 small" style="gap:10px">
+            <div><span class="muted">SHA / SHIF (formerly NHIF):</span> <b>${esc(dp.shaActive||(p.sha?'Yes':'Active'))}</b> · No: <b>${esc(p.sha||'On file')}</b></div>
+            <div><span class="muted">SHA / NHIF last payment date:</span> <b>${esc(dp.shaLastPaymentDate?fmtDate(dp.shaLastPaymentDate):fmtDate(s.dischargeDate))}</b></div>
+            <div><span class="muted">Repeat patient / Cycle completed:</span> <b>${esc(dp.repeatPatient||(p.repeatPatient?'Yes':'No'))}</b> · Cycle: <b>${esc(dp.completedCycle||'Yes')}</b></div>
+            <div><span class="muted">Spiritual growth (Believer):</span> <b>${esc(dp.believer||'Yes')}</b> · Converted during LOMAMO: <b>${esc(dp.convertedDuringLomamo||'No')}</b></div>
+            <div><span class="muted">Orphans prevented at discharge:</span> <b>${num(orphans)} child(ren)</b></div>
+            <div><span class="muted">Other assistance programmes:</span> <b>${esc(dp.otherProgramsDetail||'None')}</b></div>
+            <div><span class="muted">Physical hard-copy signatures:</span> <b>${esc(dp.physicalSignatures||'Patient · Caregiver · Coordinator signed')}</b></div>
+            <div><span class="muted">Scanned hard-copy pages on file:</span> <b>${scans.length ? scans.reduce((n,x)=>n+(x.pages||x.files?.length||1),0)+' scanned page(s) verified' : 'Pending County Admin Assistant scan upload'}</b></div>
+            <div><span class="muted">Data entered by:</span> <b>${esc(dp.enteredByName || userName(dp.updatedBy) || 'County Admin Assistant')}</b></div>
+          </div>
+          ${adv.flagged ? `<div class="alert ${adv.severity==='high'?'a-crit':'a-warn'}" style="margin-top:10px">
+            ${ic('alert',16)}
+            <div><b>Returning-Patient Watchlist Alert Active (${adv.severity==='high'?'High Policy / Conduct Alert':'Caregiver Advisory Watch'})</b>
+              <div class="xs"><b>Category:</b> ${esc(adv.category||'Discharge advisory')} — <b>Note:</b> ${esc(adv.note||'')} (Recorded by ${esc(adv.recordedByName||'Care Team')}).</div>
+            </div>
+          </div>` : `<div class="xs muted" style="margin-top:8px">${ic('check',13)} Returning-Patient Watchlist: <b>Clear</b> — no policy violation or conduct alert recorded at discharge.</div>`}`;
+        })()}
       </div>
 
       <div class="spread xs muted" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
@@ -874,14 +1016,15 @@ const DEMO_SWITCH = {
   bannerHTML(){
     const n = DEMO_SWITCH.activeNotice;
     if(!n || !AUTH.user || AUTH.user.username !== n.username) return '';
-    return `<div class="demo-view-bar no-print">
-      <div class="small">
-        ${ic('eye',14)} Now viewing <b>${esc(n.asset)}</b> as authorised account <b>${esc(n.name)}</b> (${esc(n.role)} · ${esc(n.scope)}).
-        ${n.prevUsername && n.prevUsername !== n.username ? `<span class="xs" style="opacity:.82"> Switched from @${esc(n.prevUsername)}.</span>` : ''}
+    return `<div class="demo-view-bar no-print" role="region" aria-label="Switched account notice">
+      <div class="small demo-view-copy">
+        <span class="demo-view-ic">${ic('eye',15)}</span>
+        <span>Now viewing <b>${esc(n.asset)}</b> as authorised account <b>${esc(n.name)}</b> (${esc(n.role)} · ${esc(n.scope)}).
+        ${n.prevUsername && n.prevUsername !== n.username ? `<span class="xs demo-view-from"> Switched from @${esc(n.prevUsername)}.</span>` : ''}</span>
       </div>
-      <div class="row" style="gap:8px">
-        ${n.prevUsername && n.prevUsername !== n.username ? `<button class="btn btn-xs btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-act="prompt-switch-account" data-u="${esc(n.prevUsername)}" data-v="home" data-asset="Previous Console Home">Return to @${esc(n.prevUsername)}</button>` : ''}
-        <button class="btn btn-xs btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.3)" data-act="dismiss-switch-banner">Dismiss</button>
+      <div class="row demo-view-actions" style="gap:8px;flex-wrap:wrap">
+        ${n.prevUsername && n.prevUsername !== n.username ? `<button class="btn btn-xs demo-bar-btn demo-bar-btn-primary" data-act="prompt-switch-account" data-u="${esc(n.prevUsername)}" data-v="home" data-asset="Previous Console Home">${ic('back',13)} Return to @${esc(n.prevUsername)}</button>` : ''}
+        <button class="btn btn-xs demo-bar-btn demo-bar-btn-dismiss" data-act="dismiss-switch-banner">${ic('x',12)} Dismiss</button>
       </div>
     </div>`;
   }
@@ -1011,18 +1154,55 @@ const ROLE_CTX = {
 
   contextStrip(user, view){
     if(!user || view==='home' || view==='dualcheck') return '';
-    const role = roleObj(user.roleId);
-    const dept = role ? deptObj(role.dept) : null;
-    const scope = user.areaId ? `${countyName(user.countyId)} · ${areaName(user.areaId)}` : (user.countyId ? countyName(user.countyId) : 'All Counties · Organisation-Wide');
+    const role = roleObj(user.roleId) || {};
+    const dept = role.dept ? deptObj(role.dept) : null;
+    const deptKey = role.dept || 'admin';
+    const scope = (user.areaIds && user.areaIds.length)
+      ? `${countyName(user.countyId)} · ${user.areaIds.map(areaName).join(', ')}`
+      : (user.areaId ? `${countyName(user.countyId)} · ${areaName(user.areaId)}` : (user.countyId ? countyName(user.countyId) : 'All Counties · Organisation-Wide'));
     const customLabel = ROLE_CTX.navLabel(user, view, (typeof VIEW_TITLES!=='undefined' && VIEW_TITLES[view]) || view);
-    return `<div class="ctx-strip no-print">
-      <div>
-        <div class="ctx-strip-kicker">${esc(dept?dept.name:'Operations')} · ${esc(role?role.name:user.roleId)}</div>
-        <div class="ctx-strip-title">${esc(customLabel)}</div>
-        <div class="ctx-strip-sub">Scoped strictly to ${esc(user.name)} (${esc(scope)}). Only records, actions and tools relevant to your role are displayed.</div>
+    const deptTitle = dept ? dept.name : 'Operations';
+    const roleTitle = role.name || user.roleId;
+    /* Avoid redundant repetition such as "Media & Information Governance · Media & Information Governance Head" */
+    const cleanRoleBadge = roleTitle.startsWith(deptTitle) ? roleTitle.slice(deptTitle.length).trim().replace(/^[-·]\s*/,'') || 'Department Lead' : roleTitle;
+    const roleVarianceMeta = {
+      exec:     { icon:'chart',     mode:'Executive Governance Lens' },
+      admin:    { icon:'layers',    mode:'County & Programme Administration' },
+      medical:  { icon:'activity',  mode:'Clinical & Case Management Authority' },
+      ministry: { icon:'heart',     mode:'Field Ministry & Household Care' },
+      media:    { icon:'image',     mode:'Ethical Storytelling & Asset Custody' },
+      finance:  { icon:'wallet',    mode:'Financial Control & Ledger Reconciliation' },
+      procure:  { icon:'package',   mode:'Supply Chain & Foodbag Procurement' },
+      me:       { icon:'chart',     mode:'M&E Indicators & Data Verification' },
+      audit:    { icon:'shieldcheck',mode:'Independent Assurance & Audit Trail' },
+      hr:       { icon:'idcard',    mode:'Human Capital, Leave & Policy Governance' },
+      welfare:  { icon:'heart',     mode:'Staff Welfare & Mutual Support' },
+      vehicle:  { icon:'car',       mode:'Fleet Dispatch & Field Logistics' },
+      pr:       { icon:'send',      mode:'Public Relations & Partner Communications' },
+      hospital: { icon:'hospital',  mode:'Hospital Desk & CCC Facility Continuum' },
+      pharmacy: { icon:'package',   mode:'FEFO Pharmacy & TB Dispensing Control' },
+      it:       { icon:'settings',  mode:'CareLink OS Infrastructure & Security' },
+      intldata: { icon:'pulse',     mode:'International Clinical & Data Oversight' },
+      homestay: { icon:'bed',       mode:'Short-Stay Recovery & Respite Care' }
+    }[deptKey] || { icon:'shield', mode:'Role-Scoped Workspace' };
+    const cleanUser = user.name.replace(/^Demo - /,'');
+    return `<div class="ctx-strip no-print" data-dept="${esc(deptKey)}" data-role="${esc(user.roleId)}">
+      <div class="ctx-strip-left">
+        <div class="ctx-strip-emblem" aria-hidden="true">${ic(roleVarianceMeta.icon,18)}</div>
+        <div class="ctx-strip-copy">
+          <div class="ctx-strip-kicker">
+            <span class="ctx-os-pill">CareLink OS</span>
+            <span>${esc(deptTitle)}</span>
+            <span class="ctx-sep">·</span>
+            <span class="ctx-role-chip">${esc(cleanRoleBadge)}</span>
+          </div>
+          <div class="ctx-strip-title">${esc(customLabel)}</div>
+          <div class="ctx-strip-sub">Active operator: <b>${esc(cleanUser)}</b> · ${esc(roleVarianceMeta.mode)} · Strict department & geography boundary enforced.</div>
+        </div>
       </div>
-      <div class="row" style="gap:8px">
-        <span class="badge b-info">${esc(scope)}</span>
+      <div class="ctx-strip-right">
+        <span class="ctx-scope-pill">${ic('shield',12)} ${esc(scope)}</span>
+        ${role.external ? `<span class="ctx-partner-pill">Partner Console</span>` : ''}
       </div>
     </div>`;
   },

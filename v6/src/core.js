@@ -429,7 +429,7 @@ const RBAC = {
     const scope = role.scope||{};
     if(!this.permsFor(user).has(cap)) return {ok:false, reason:`Role "${role.name}" does not hold ${cap}`};
 
-    if(scope.readOnly && !/\.(view|list|report|audit)/.test(cap) && !cap.startsWith('report.'))
+    if(scope.readOnly && !/\.(view|list|report|audit|oversight|meeting)/.test(cap) && !cap.startsWith('report.'))
       return {ok:false, reason:'Read-only role'};
 
     const countySplit = scope.geo!=='global' && !scope.crossCounty;

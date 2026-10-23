@@ -166,45 +166,85 @@ const WORKPLAN = {
 function renderWorkPlans(user){
   const period = WORKPLAN.period();
   const next = WORKPLAN.nextPeriod();
-  const mine = WORKPLAN.mine(user, next) || WORKPLAN.mine(user, period);
+  const mineNext = WORKPLAN.mine(user, next);
+  const mineCur = WORKPLAN.mine(user, period);
+  const mine = mineNext || mineCur;
   const rows = WORKPLAN.visible(user);
   const left = WORKPLAN.daysLeft(period);
   const team = rows.filter(w=>w.period===next);
   const pending = team.filter(w=>w.status==='submitted');
-  const canApprove = RBAC.has(user,'hr.view') || team.some(w=>w.supervisorId===user.id);
+  const approvedCount = rows.filter(w=>w.status==='approved').length;
+  const canApprove = RBAC.has(user,'hr.view') || rows.some(w=>w.supervisorId===user.id);
+  const activeStage = !mine ? 1 : mine.status==='draft' ? 1 : mine.status==='returned' ? 2 : mine.status==='submitted' ? 3 : mine.status==='approved' ? 4 : 1;
+  const stages = [
+    { n:1, title:'1. Draft Objectives', sub:'Write 2–4 measurable targets & field priorities', icon:'file' },
+    { n:2, title:'2. Submit Before Month-End', sub:`Due ${WORKPLAN.dueDate(period).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`, icon:'send' },
+    { n:3, title:'3. Supervisor Decision', sub:'Line supervisor approves or returns with notes', icon:'shieldcheck' },
+    { n:4, title:'4. Active Execution & Review', sub:'Evaluated against agreed targets at month close', icon:'target' }
+  ];
   return pageHead('Monthly work plans',
-    'One plan per person per month, due by the last day of the month before it takes effect. A supervisor approves or returns it with a reason; every version is retained.',
-    `<button class="btn btn-sm btn-primary" data-act="workplan-edit" data-period="${next}">${ic(mine?'file':'plus',15)} ${mine?'Edit':'Prepare'} my ${esc(WORKPLAN.label(next))} plan</button>`)
-  + `<div class="grid g4" style="margin-bottom:16px">
-      ${kpi('Plan for '+WORKPLAN.label(next), mine? titleCase(mine.status) : 'Not started',
-        mine? `Version ${mine.version} · supervisor ${esc(userName(mine.supervisorId||''))}` : 'Due '+fmtDate(WORKPLAN.dueDate(period)),
-        mine? (mine.status==='approved'?'ok':mine.status==='returned'?'crit':'warn') : (left<5?'warn':''), 'calendar')}
-      ${kpi('Deadline', WORKPLAN.dueDate(period).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),
+    'One structured work plan per staff member per month, submitted before month-end and tracked from draft through supervisor sign-off and month-end evaluation.',
+    `<div class="row" style="gap:8px;flex-wrap:wrap">
+      <button class="btn btn-sm btn-ghost" data-act="workplan-edit" data-period="${period}">${ic('calendar',14)} ${mineCur?'View/Edit':'Draft'} ${esc(WORKPLAN.label(period))}</button>
+      <button class="btn btn-sm btn-primary" data-act="workplan-edit" data-period="${next}">${ic(mineNext?'file':'plus',15)} ${mineNext?'Edit':'Prepare'} ${esc(WORKPLAN.label(next))} plan</button>
+    </div>`)
+  + `<div class="wp-hero-card">
+      <div class="wp-hero-top">
+        <div>
+          <div class="wp-kicker">CARELINK MONTHLY ACCOUNTABILITY CYCLE · ${esc(WORKPLAN.label(next).toUpperCase())}</div>
+          <h3>${mine ? `${esc(WORKPLAN.label(mine.period))} Work Plan — ${esc(titleCase(mine.status))} (v${mine.version})` : `Prepare Your ${esc(WORKPLAN.label(next))} Work Plan`}</h3>
+          <div class="small muted">${mine ? `${mine.objectives.length} agreed objective(s) · Supervisor: ${esc(userName(mine.supervisorId||'')||'Department Lead')}` : `Submit 2–4 measurable objectives before ${fmtDate(WORKPLAN.dueDate(period))} so your supervisor can review before the 1st.`}</div>
+        </div>
+        <div class="wp-deadline-pill ${left<0?'late':left<5?'soon':'ok'}">
+          ${ic('clock',15)}
+          <span>${left>=0? `${left} day${left===1?'':'s'} until ${WORKPLAN.dueDate(period).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} cut-off` : `${Math.abs(left)} day${Math.abs(left)===1?'':'s'} past cut-off`}</span>
+        </div>
+      </div>
+      <div class="wp-stepper">
+        ${stages.map(s=>`<div class="wp-step ${activeStage>s.n?'done':activeStage===s.n?'active':''}">
+          <div class="wp-step-ic">${activeStage>s.n?ic('check',15):ic(s.icon,15)}</div>
+          <div class="wp-step-txt"><b>${esc(s.title)}</b><span>${esc(s.sub)}</span></div>
+        </div>`).join('')}
+      </div>
+      ${mine && (mine.objectives||[]).length ? `<div class="wp-my-objs">
+        ${mine.objectives.slice(0,4).map((o,idx)=>`<div class="wp-obj-chip">
+          <span class="wp-obj-num">#${idx+1}</span>
+          <div><b>${esc(o.title||o.text||o.objective||'Objective '+(idx+1))}</b>
+            <div class="xs muted">${esc(o.measure||o.metric||'Target')}: <b>${esc(o.target||'Agreed deliverable')}</b></div>
+          </div>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>`
+  + `<div class="grid g4" style="margin:16px 0">
+      ${kpi('My '+WORKPLAN.label(next)+' plan', mineNext? titleCase(mineNext.status) : 'Not started',
+        mineNext? `Version ${mineNext.version} · ${mineNext.objectives.length} objectives` : 'Due '+fmtDate(WORKPLAN.dueDate(period)),
+        mineNext? (mineNext.status==='approved'?'ok':mineNext.status==='returned'?'crit':'warn') : (left<5?'warn':''), 'calendar')}
+      ${kpi('Submission cut-off', WORKPLAN.dueDate(period).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),
         left>=0? `${left} day${left===1?'':'s'} remaining` : `${Math.abs(left)} day${Math.abs(left)===1?'':'s'} overdue`, left<0?'crit':left<5?'warn':'ok','clock')}
-      ${kpi('Team plans', num(team.length), 'Submitted for '+WORKPLAN.label(next), '', 'users')}
-      ${kpi('Awaiting my decision', num(pending.length), 'Submitted, not yet approved', pending.length?'warn':'ok','check')}
+      ${kpi('Approved in view', `${num(approvedCount)} / ${num(rows.length)}`, `${num(team.length)} filed for ${WORKPLAN.label(next)}`, 'ok', 'users')}
+      ${kpi('Awaiting my decision', num(pending.length), pending.length?'Supervisor review required':'Queue clear', pending.length?'warn':'ok','check')}
     </div>`
   + `<div class="grid g2">
-      ${card('Plans in view', table([
-        {label:'Person',render:w=>`<div class="cellname">${esc(userName(w.userId))}<span class="sm">${esc(roleObj(DB.db.users.find(u=>u.id===w.userId)?.roleId)?.name||'')}</span></div>`},
-        {label:'Period',render:w=>esc(WORKPLAN.label(w.period))},
-        {label:'Version',cls:'num',render:w=>'v'+w.version},
+      ${card('Work plans in your scope', table([
+        {label:'Staff member',render:w=>`<div class="cellname">${esc(userName(w.userId))}<span class="sm">${esc(roleObj(DB.db.users.find(u=>u.id===w.userId)?.roleId)?.name||'')}</span></div>`},
+        {label:'Period & version',render:w=>`<b>${esc(WORKPLAN.label(w.period))}</b><div class="xs muted mono">Version v${w.version}${w.late?' · late':''}</div>`},
+        {label:'Objectives',render:w=>`<span class="badge b-info nodot">${(w.objectives||[]).length} target${(w.objectives||[]).length===1?'':'s'}</span>`},
         {label:'Status',render:w=>badge(titleCase(w.status), w.status==='approved'?'b-ok':w.status==='returned'?'b-crit':w.status==='submitted'?'b-warn':'b-neutral')},
-        {label:'Objectives',cls:'num',render:w=>w.objectives.length},
-        {label:'',cls:'act',render:w=>`<div class="row" style="gap:4px;flex-wrap:nowrap">
-          <button class="btn btn-xs btn-ghost" data-act="workplan-view" data-id="${w.id}">Open</button>
-          ${w.status==='submitted'&&canApprove?`<button class="btn btn-xs btn-primary" data-act="workplan-approve" data-id="${w.id}">Approve</button>
+        {label:'Actions',cls:'act',render:w=>`<div class="row" style="gap:5px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn btn-xs btn-ghost" data-act="workplan-view" data-id="${w.id}">${ic('eye',12)} Open</button>
+          ${w.userId===user.id && w.status!=='approved'?`<button class="btn btn-xs btn-ghost" data-act="workplan-edit" data-period="${esc(w.period)}">Edit</button>`:''}
+          ${w.status==='submitted'&&canApprove&&w.userId!==user.id?`<button class="btn btn-xs btn-primary" data-act="workplan-approve" data-id="${w.id}">Approve</button>
             <button class="btn btn-xs btn-ghost" data-act="workplan-return" data-id="${w.id}">Return</button>`:''}
         </div>`}
-      ], rows, {empty:emptyState('No plans yet','A plan is created for the month ahead and submitted by the last day of this month.','file')}),
-        {sub:'You see your own plan, and the plans you supervise. HR sees all plans.'})}
-      ${card('How the cycle runs', `<div class="pipeline vertical">
-        ${[['Prepare','The person writes two to four objectives, each with a measure and a target.'],
-           ['Submit by the last day','The plan covers the month ahead. Submitting after the deadline is allowed and is marked late.'],
-           ['Supervisor decides','Approved, or returned with a written reason. Silence is not approval.'],
-           ['Revise and resubmit','A returned plan keeps its identity and its version rises. Prior versions remain in the audit trail.'],
-           ['Reviewed at month end','The same objectives are used in the monthly review, so performance is judged against what was agreed.']
-        ].map(([t,d],i)=>`<div class="pipe-step"><span class="pipe-n">${i+1}</span><div><b>${esc(t)}</b><span>${esc(d)}</span></div></div>`).join('')}
+      ], rows, {empty:emptyState('No plans yet','Click Prepare above to draft your monthly objectives and targets.','file')}),
+        {sub:'Shows your own monthly plans plus direct reports you supervise (HR views organisation-wide).'})}
+      ${card('Governance rules & monthly cadence', `<div class="wp-rules-list">
+        ${[['1. Measurable monthly deliverables','Every staff member sets 2 to 4 concrete objectives with a verifiable measure and numeric/date target aligned to department KPIs.'],
+           ['2. Month-end submission gate','Plans for the upcoming month are due by the last calendar day of the current month; late submissions remain permitted but carry an automatic late flag.'],
+           ['3. Explicit supervisor sign-off','Your line supervisor (Coordinator, MCM, County Admin, or Department Head) approves or returns with written revision notes — silence never equals approval.'],
+           ['4. Versioned audit history','Returned plans increment their version (v2, v3…) while preserving every earlier draft in the immutable audit log.'],
+           ['5. Linked to Monday meetings & evaluation','Approved monthly targets anchor Monday Management Meeting updates and end-of-month recognition scoring.']
+        ].map(([t,d])=>`<div class="wp-rule-item"><div class="wp-rule-dot">${ic('check',13)}</div><div><b>${esc(t)}</b><div class="xs muted" style="margin-top:2px">${esc(d)}</div></div></div>`).join('')}
       </div>`)}
     </div>`;
 }

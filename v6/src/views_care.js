@@ -463,14 +463,18 @@ function renderMessages(user, params={}){
           <div class="msg-empty">${emptyState('Select a conversation','Or start a new one. Messages are for coordination, not for clinical records.','send')}</div>`}
       </section>
       <aside class="msg-side">
-        ${card('People', `<div class="col" style="gap:6px">${colleagues.slice(0,14).map(u=>`
-          <div class="row" style="gap:8px;justify-content:space-between">
+        ${card(`People (${colleagues.length})`, `
+          <div class="msg-filter-wrap" style="margin-bottom:8px">
+            <input class="input" type="search" placeholder="Filter ${colleagues.length} colleagues..." oninput="const q=this.value.toLowerCase();this.closest('.card-b').querySelectorAll('.msg-person-row').forEach(el=>{el.style.display=el.dataset.search.includes(q)?'flex':'none';});">
+          </div>
+          <div class="col msg-people-scroll" style="gap:6px">${colleagues.map(u=>`
+          <div class="row msg-person-row" data-search="${esc((u.name+' '+(roleObj(u.roleId)?.name||'')+' '+u.username).toLowerCase())}" style="gap:8px;justify-content:space-between">
             <button class="msg-person" data-act="compose-message" data-to="${u.id}">
               <span class="avatar" style="width:24px;height:24px;font-size:10px;background:${WTHEME.safeFill((deptObj((roleObj(u.roleId)||{}).dept)||{}).accent||'#475569')}">${initials(u.name)}</span>
               <span><b>${esc(u.name.replace(/^Demo - /,''))}</b><em>${esc(roleObj(u.roleId)?.name||'')}</em></span>
             </button>
             ${presenceTag(u.id)}
-          </div>`).join('')}</div>`, {sub:'Only colleagues within your county or organisation are listed.'})}
+          </div>`).join('')}</div>`, {sub:`All ${colleagues.length} online & offline colleagues in scope — scroll to view everyone.`})}
         ${flagged.length && RBAC.has(user,'hr.view')? card('Flagged messages', `<div class="col" style="gap:8px">
           ${flagged.slice(0,5).map(m=>`<div><div class="xs muted">${esc(userName(m.from))} · ${fmtDateTime(m.at)}</div><div class="small">${esc(m.text.slice(0,140))}</div>
             <div class="xs" style="color:var(--warn)">${esc(m.flagReason||'')}</div></div>`).join('')}

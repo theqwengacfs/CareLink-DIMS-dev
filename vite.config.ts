@@ -22,7 +22,7 @@ function carelinkDistAliasPlugin() {
       fs.mkdirSync(nested, { recursive: true });
       fs.writeFileSync(
         path.resolve(nested, 'carelink-v6.html'),
-        `<!doctype html>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0; url=../carelink-v6.html">\n<title>LOMAMO C-DIMS</title>\n<p>Opening LOMAMO C-DIMS\u2026 <a href="../carelink-v6.html">continue</a>.</p>\n`,
+        `<!doctype html>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0; url=../carelink-v6.html">\n<title>CareLink C-DIMS</title>\n<p>Opening CareLink C-DIMS\u2026 <a href="../carelink-v6.html">continue</a>.</p>\n`,
         'utf8',
       );
     },

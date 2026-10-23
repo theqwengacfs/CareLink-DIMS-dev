@@ -130,29 +130,35 @@ function repeatBanner(res){
   const v = PMI.verdict(res);
   const cls = v.tone==='crit' ? 'rb rb-crit' : v.tone==='warn' ? 'rb rb-warn' : 'rb rb-ok';
   const icon = v.tone==='ok' ? 'check' : 'alert';
+  const watchAlert = (res.matches && res.matches.length && typeof DISCHARGE_HARDCOPY !== 'undefined' && DISCHARGE_HARDCOPY.watchlistBannerFor)
+    ? DISCHARGE_HARDCOPY.watchlistBannerFor(res.matches)
+    : '';
   return `<div class="${cls}">
     <div class="rb-ic">${ic(icon,20)}</div>
     <div style="flex:1"><b>${esc(v.title)}</b><div class="rb-body">${v.body}</div></div>
-    ${res.matches.length?`<button class="btn btn-sm btn-ghost" data-act="pmi-open" data-id="${res.matches[0].id}">Open the record</button>`:''}
-  </div>`;
+    ${res.matches.length && RBAC.has(AUTH.user,'patient.list')?`<button class="btn btn-sm btn-ghost" data-act="pmi-open" data-id="${res.matches[0].id}">Open the record</button>`:''}
+  </div>${watchAlert}`;
 }
 
 function renderRepeatCheck(user){
-  if(!RBAC.has(user,'patient.list') && !RBAC.has(user,'patient.assess.create')) return deniedPanel('patient.list');
+  if(!RBAC.can(user,'pmi.check',{}).ok) return deniedPanel('pmi.check');
   const q = (APPX.params||{}).q || '';
   const res = q ? PMI.look(DB.db, q) : null;
-  return pageHead('Returning patient checker',
-      'Ask for the national ID <b>before</b> opening an assessment. This page answers in one step, without creating anything.',
-      `<button class="btn btn-sm btn-ghost" data-act="go" data-v="patients">${ic('users',15)} Patient register</button>`) +
+  const activeAdvisories = (typeof DISCHARGE_HARDCOPY !== 'undefined' && DISCHARGE_HARDCOPY.watchlistSummaryCard)
+    ? DISCHARGE_HARDCOPY.watchlistSummaryCard(user)
+    : '';
+  return pageHead('Returning patient checker & discharge advisory watchlist',
+      'Ask for the national ID <b>before</b> opening an assessment. Checks prior enrolment history AND flags any caregiver discharge advisories or policy-violation watch alerts immediately.',
+      RBAC.has(user,'patient.list')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="patients">${ic('users',15)} Patient register</button>`:'') +
   `<div class="card"><div class="card-b">
     <form data-form="pmi-search" class="pmi-search">
       <div class="field" style="flex:1;margin:0"><label>National ID, LOM code, name or telephone</label>
-        <input class="input" name="q" value="${esc(q)}" placeholder="e.g. 27345871" autofocus></div>
+        <input class="input" name="q" value="${esc(q)}" placeholder="e.g. 92734587" autofocus></div>
       <button class="btn btn-primary" type="submit">${ic('search',16)} Check</button>
     </form>
     ${q ? repeatBanner(res) : `<div class="pmi-hint">
       <div>${ic('idcard',18)}<b>National ID first</b><span>An exact match on the national ID is the only identifier that raises a red flag on its own.</span></div>
-      <div>${ic('search',18)}<b>Then name or phone</b><span>A name match is a prompt to confirm details, never proof of identity.</span></div>
+      <div>${ic('alert',18)}<b>Discharge advisory watchlist</b><span>If a returning patient had a prior caregiver/coordinator advisory (e.g. non-adherence, substance misuse, policy violation), an automatic alert is raised.</span></div>
       <div>${ic('shield',18)}<b>Nothing is created here</b><span>Looking a person up writes an audit entry and nothing else.</span></div>
     </div>`}
     ${q && res && res.matches.length ? `<div class="card" style="margin-top:14px;box-shadow:none"><div class="card-b">
@@ -162,10 +168,12 @@ function renderRepeatCheck(user){
         {label:'Area', render:p=>esc(areaName(p.areaId))},
         {label:'Status', render:p=>pBadge(p.status)},
         {label:'Days in programme', render:p=>`<b>${PAT.days(p)}</b>`},
+        {label:'Advisory', render:p=>(p.dischargeAdvisory && p.dischargeAdvisory.flagged) ? badge(p.dischargeAdvisory.severity==='high'?'High Watch Alert':'Caregiver Advisory', p.dischargeAdvisory.severity==='high'?'b-crit':'b-warn') : badge('Clear','b-ok',false)},
         {label:'Match', render:p=>badge(res.level==='national-id'?'National ID':res.level==='name'?'Name':'Telephone', res.level==='national-id'?'b-crit':'b-warn', false)}
       ], res.matches, {})}
     </div></div>`:''}
   </div></div>` +
+  activeAdvisories +
   (RBAC.has(user,'pmi.merge') ? renderDuplicateQueue(user) : '');
 }
 

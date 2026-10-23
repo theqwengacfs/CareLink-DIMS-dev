@@ -25,23 +25,20 @@ function ok(name, cond, detail){ if(cond){ pass++; } else { fail++; fails.push(n
 function test(name, fn){ try{ const r=fn(); if(r===false) throw new Error('returned false'); ok(name,true); } catch(e){ ok(name,false,e.message); } }
 const as = u => { run(`AUTH.logout(); AUTH.login('${u}','LOMAMO2026');`); return run(`AUTH.user.id`); };
 
-/* ============================== 1. the rename ============================ */
-test('the product is LOMAMO C-DIMS and its former name is recorded', ()=>{
-  ok('APP.name is LOMAMO C-DIMS', run(`APP.name`)==='LOMAMO C-DIMS', run(`APP.name`));
-  ok('the short name is C-DIMS', run(`APP.shortName`)==='C-DIMS');
-  ok('the former name is kept so old documents still resolve', run(`APP.formerName`)==='CareLink DIMS');
-  ok('the full name carries both', /LOMAMO C-DIMS/.test(run(`APP.full`)) && /CareLink/.test(run(`APP.full`)), run(`APP.full`));
+/* ============================== 1. the CareLink OS identity ============================ */
+test('the Operating System is CareLink and the browser tab title is CareLink C-DIMS', ()=>{
+  ok('APP.name is CareLink', run(`APP.name`)==='CareLink', run(`APP.name`));
+  ok('APP.tabTitle is CareLink C-DIMS', run(`APP.tabTitle`)==='CareLink C-DIMS', run(`APP.tabTitle`));
+  ok('the short name is CareLink', run(`APP.shortName`)==='CareLink');
+  ok('the former name is kept so old documents still resolve', run(`APP.formerName`)==='LOMAMO C-DIMS');
+  ok('the full name carries CareLink C-DIMS', /CareLink C-DIMS/.test(run(`APP.full`)), run(`APP.full`));
   const fs=require('fs');
   const bundle=fs.readFileSync(require('path').join(__dirname,'..','..','public','carelink-v6.html'),'utf8');
-  /* Version-agnostic on purpose: the title must carry the product name at any version. */
-  ok('the shipped bundle is titled LOMAMO C-DIMS', /<title>LOMAMO C-DIMS v\d+(\.\d+)* /.test(bundle),
+  ok('the shipped bundle is titled CareLink C-DIMS', /<title>CareLink C-DIMS<\/title>/.test(bundle),
     (bundle.match(/<title>[^<]*<\/title>/)||[''])[0]);
-  ok('the bundle title agrees with APP.version',
-    bundle.includes('<title>LOMAMO C-DIMS v'+run(`APP.version.split('.').slice(0,2).join('.')`)),
-    (bundle.match(/<title>[^<]*<\/title>/)||[''])[0]+' vs '+run(`APP.version`));
-  ok('the bundle records the former name once, deliberately', /formerly CareLink DIMS/.test(bundle));
+  ok('the bundle records the former name deliberately', /formerly LOMAMO C-DIMS/.test(bundle));
   const idx=fs.readFileSync(require('path').join(__dirname,'..','..','index.html'),'utf8');
-  ok('the site entry page is titled LOMAMO C-DIMS', /LOMAMO C-DIMS/.test(idx));
+  ok('the site entry page is titled CareLink C-DIMS', /<title>CareLink C-DIMS<\/title>/.test(idx));
   return true;
 });
 

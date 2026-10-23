@@ -53,6 +53,8 @@ if(LIAISON_ROLE){
   LIAISON_ROLE.name = 'Hospital Focal Person';
   LIAISON_ROLE.consoleTitle = 'Hospital Focal Desk';
 }
+const CCC_CLINICIAN_ROLE = ROLES.find(r=>r.id==='ccc.clinician');
+if(CCC_CLINICIAN_ROLE) CCC_CLINICIAN_ROLE.dept = 'hospital';
 
 if(!ROLES.some(r=>r.id==='program.admin')) ROLES.push(
   { id:'program.admin', name:'Chief Program Administrator', dept:'exec', accent:'#7C2D12', consoleTitle:'Programme Administration',
@@ -109,17 +111,17 @@ const V6_ROLE_GRANTS = {
   finance:      ['credit.view','message.use'],
   procurement:  ['inventory.view','inventory.manage','message.use'],
   me:           ['indicator.manage','dq.manage','library.read','message.use'],
-  intldata:     ['indicator.manage','dq.manage','library.read','message.use'],
+  intldata:     ['indicator.manage','dq.manage','library.read','message.use','monday.meeting','intl.medical','gov.oversight','handover.use'],
   auditor:      ['dq.manage','message.use'],
   hr:           ['credit.view','credit.manage','intern.view','intern.manage','ohs.view','ohs.manage','message.use'],
   welfare:      ['credit.view','ohs.view','ohs.manage','message.use'],
   vehicle:      ['inventory.view','weather.view','message.use'],
   pr:           ['library.read','library.borrow','message.use'],
   depthead:     ['credit.view','intern.view','library.read','message.use'],
-  it:           ['inventory.view','inventory.manage','presence.view','message.use'],
-  homestay:     ['credit.view','message.use'],
-  'program.admin':     ['library.*','credit.*','exec.*','inventory.*','intern.*','ohs.*','presence.view','weather.view','message.use','indicator.manage','dq.manage','pmi.merge'],
-  'program.assistant': ['library.read','library.borrow','credit.view','exec.agenda','inventory.view','intern.view','presence.view']
+  it:           ['inventory.view','inventory.manage','presence.view','message.use','monday.meeting','handover.use'],
+  homestay:     ['credit.view','message.use','monday.meeting','pmi.check','handover.use'],
+  'program.admin':     ['library.*','credit.*','exec.*','inventory.*','intern.*','ohs.*','presence.view','weather.view','message.use','indicator.manage','dq.manage','pmi.merge','monday.meeting','monday.manage','pmi.check','hardcopy.intake','gov.oversight','handover.use'],
+  'program.assistant': ['library.read','library.borrow','credit.view','exec.agenda','inventory.view','intern.view','presence.view','monday.meeting','monday.manage','handover.use']
 };
 ROLES.forEach(r=>{
   (V6_ROLE_GRANTS[r.id]||[]).forEach(p=>{
@@ -238,7 +240,17 @@ const OFFICIAL_ROSTER = [
   { name:'International Data Analyst (seat to be confirmed)', username:'intl.analyst', roleId:'intldata', countyId:'kisumu', areas:[], dept:'intldata', job:'International Data Analyst', unconfirmed:true },
   { name:'Internal Auditor (seat to be confirmed)', username:'auditor', roleId:'auditor', countyId:'kisumu', areas:[], dept:'audit', job:'Internal Auditor & Compliance Officer', unconfirmed:true },
   { name:'Human Resource Officer (seat to be confirmed)', username:'hr.officer', roleId:'hr', countyId:'kisumu', areas:[], dept:'hr', job:'Human Resource Officer', unconfirmed:true },
-  { name:'ICT & Host Officer (seat to be confirmed)', username:'ict.officer', roleId:'it', countyId:'kisumu', areas:[], dept:'it', job:'ICT, Network & C-DIMS Host Officer', unconfirmed:true }
+  { name:'ICT & Host Officer (seat to be confirmed)', username:'ict.officer', roleId:'it', countyId:'kisumu', areas:[], dept:'it', job:'ICT, Network & CareLink Host Officer', unconfirmed:true },
+
+  /* External Health Facility CCC / PSC Clinicians, Government Partners & International Medical Team */
+  { name:'CCC / PSC Clinician · JOOTRH (seat to be confirmed)', username:'ccc.jootrh', roleId:'ccc.clinician', countyId:'kisumu', areas:[], dept:'hospital', job:'CCC / PSC Referral Clinician · JOOTRH Kisumu', facility:'Jaramogi Oginga Odinga Teaching & Referral Hospital (JOOTRH)', facilityType:'Referral Hospital CCC', cadre:'Clinical Officer', unconfirmed:true },
+  { name:'CCC / PSC Clinician · KCRH (seat to be confirmed)', username:'ccc.kcrh', roleId:'ccc.clinician', countyId:'kisumu', areas:[], dept:'hospital', job:'CCC / PSC Referral Clinician · Kisumu County Referral Hospital', facility:'Kisumu County Referral Hospital (KCRH)', facilityType:'County Hospital PSC', cadre:'Nursing Officer', unconfirmed:true },
+  { name:'CCC / PSC Clinician · Homa Bay Referral (seat to be confirmed)', username:'ccc.homabay', roleId:'ccc.clinician', countyId:'homabay', areas:[], dept:'hospital', job:'CCC / PSC Referral Clinician · Homa Bay County Referral Hospital', facility:'Homa Bay County Teaching & Referral Hospital', facilityType:'Referral Hospital CCC', cadre:'Clinical Officer', unconfirmed:true },
+  { name:'County Health Partnership Desk · Kisumu (seat to be confirmed)', username:'gov.kisumu', roleId:'gov.partner', countyId:'kisumu', areas:[], dept:'exec', job:'County Government of Kisumu · Dept. of Medical Services, Public Health & Sanitation', agency:'County Government of Kisumu (CGK)', unconfirmed:true },
+  { name:'County Health Partnership Desk · Homa Bay (seat to be confirmed)', username:'gov.homabay', roleId:'gov.partner', countyId:'homabay', areas:[], dept:'exec', job:'County Government of Homa Bay · County Health Management Team', agency:'County Government of Homa Bay', unconfirmed:true },
+  { name:'National Health Oversight Desk · MOH / NASCOP (seat to be confirmed)', username:'gov.national', roleId:'gov.partner', countyId:'kisumu', areas:[], dept:'exec', job:'Ministry of Health Kenya · NASCOP & Community Health Partnership', agency:'Ministry of Health Kenya', unconfirmed:true },
+  { name:'International Medical Team Specialist (seat to be confirmed)', username:'intl.medical', roleId:'intl.medical', countyId:'kisumu', areas:[], dept:'medical', job:'International Medical Team · 120+ Day PDCA & Global Clinical Review', specialty:'Infectious Disease & Nutritional Recovery', unconfirmed:true },
+  { name:'International Medical PDCA Lead (seat to be confirmed)', username:'intl.pdca', roleId:'intl.medical', countyId:'kisumu', areas:[], dept:'medical', job:'International Medical PDCA Overstay Review Lead', specialty:'HIV/TB Resistance & Complex Case PDCA', unconfirmed:true }
 ];
 
 /* Every name on the official roster, lower-cased, so the generated reference

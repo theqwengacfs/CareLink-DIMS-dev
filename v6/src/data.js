@@ -10,14 +10,17 @@
    ============================================================ */
 
 const APP = {
-  /* Renamed on the Administration's instruction: the product is LOMAMO C-DIMS.
-     "CareLink DIMS" is kept as the former name so older documents, printed
-     reports in circulation and the offline kits still resolve to this system. */
-  name: 'LOMAMO C-DIMS',
-  shortName: 'C-DIMS',
-  formerName: 'CareLink DIMS',
-  full: 'LOMAMO Foundation CareLink Data & Information Management System (LOMAMO C-DIMS)',
-  version: '6.2.0',
+  /* CareLink is the unified Operating System name uniting all LOMAMO Foundation
+     departments and external partners; CareLink C-DIMS is the browser tab title.
+     "LOMAMO C-DIMS" and "CareLink DIMS" are preserved so earlier documents and
+     offline field kits resolve seamlessly. */
+  osName: 'CareLink',
+  name: 'CareLink',
+  tabTitle: 'CareLink C-DIMS',
+  shortName: 'CareLink',
+  formerName: 'LOMAMO C-DIMS',
+  full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
+  version: '6.3.0',
   build: '2026.10.23',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
@@ -141,7 +144,18 @@ const CAPS = {
   'pr.view':          { g:'Comms', l:'Public relations workspace' },
   'pr.publish':       { g:'Comms', l:'Publish approved external content', sensitive:true },
   'message.use':      { g:'Comms', l:'Send and receive internal messages' },
-  'ai.use':           { g:'Assistant', l:'Use the LOMAMO C-DIMS assistant' }
+  'ai.use':           { g:'Assistant', l:'Use the CareLink assistant' },
+
+  /* CareLink v6.3 strict departmental, clinical & partner capabilities */
+  'pmi.check':        { g:'Patients', l:'Check returning-patient history & discharge advisories' },
+  'monday.meeting':   { g:'Coordination', l:'Join the Monday Management Meeting workspace' },
+  'monday.manage':    { g:'Coordination', l:'Prepare and push County Monday Meeting agendas', sensitive:true },
+  'clinical.mcm':     { g:'Clinical', l:'Open Medical Case Manager & Clinical Assistant console', sensitive:true },
+  'hardcopy.intake':  { g:'Patients', l:'Digitise physical assessment & discharge forms with scanned pages', sensitive:true },
+  'ccc.desk':         { g:'Partners', l:'Submit & track CCC / PSC / Hospital clinical referrals' },
+  'gov.oversight':    { g:'Partners', l:'View privacy-safe County & National Government impact dashboard' },
+  'intl.medical':     { g:'Clinical', l:'Review 120+ day PDCA overstay reports & international clinical oversight', sensitive:true },
+  'handover.use':     { g:'People', l:'Manage delegation plans, reliever scope & role handovers' }
 };
 
 /* ---------- 2. ORGANISATIONAL STRUCTURE ---------- */
@@ -297,26 +311,52 @@ const ROLES = [
 
   { id:'depthead', name:'Department Head', dept:'medical', accent:'#334155', consoleTitle:'Department Head',
     scope:{ geo:'county', records:'county' },
-    perms:['user.view','user.create','patient.list','patient.view.basic','report.departmental','report.patient_days','report.expenditure','ai.use','hr.view', 'condition.view', 'condition.aggregate', 'care.view'] }
+    perms:['user.view','user.create','patient.list','patient.view.basic','report.departmental','report.patient_days','report.expenditure','ai.use','hr.view', 'condition.view', 'condition.aggregate', 'care.view'] },
+
+  /* External & Partner Consoles (strictly scoped to partner responsibilities) */
+  { id:'ccc.clinician', name:'CCC / PSC / Hospital Clinician', dept:'medical', accent:'#0E7490', consoleTitle:'CCC / PSC Hospital Referral Console',
+    external:true,
+    scope:{ geo:'county', records:'own' },
+    perms:['ccc.desk','pmi.check','message.use'] },
+
+  { id:'gov.partner', name:'County & National Government Partner', dept:'exec', accent:'#1D4ED8', consoleTitle:'Government Health Partnership Console',
+    external:true,
+    scope:{ geo:'global', records:'own', crossCounty:true, readOnly:true },
+    perms:['gov.oversight','condition.aggregate','message.use'] },
+
+  { id:'intl.medical', name:'International Medical Team', dept:'medical', accent:'#7C3AED', consoleTitle:'International Medical & PDCA Console',
+    external:true,
+    scope:{ geo:'global', records:'global', crossCounty:true },
+    perms:['intl.medical','clinical.mcm','pmi.check','patient.list','patient.view.basic','patient.view.clinical',
+      'pdca.review','condition.view','condition.aggregate','careplan.view','report.patient_days','report.departmental','message.use','ai.use'] }
 ];
 /* The capabilities added for prescribing, pharmacy stock, care plans and the
    digitised paper forms are granted here, in one place, so the matrix can be
    read as a whole. Every entry names a capability that exists above. */
 const ROLE_ADDITIONS = {
-  chief:['form.view','form.verify','pharmacy.view','careplan.view'],
-  director:['form.view','careplan.view','pharmacy.view','hr.leave.approve'],
-  countyadmin:['form.view','form.verify','pharmacy.view','careplan.view','hr.leave.approve'],
-  assistant:['form.view','form.create','form.verify','careplan.view'],
-  coordinator:['form.view','form.verify','careplan.view','pharmacy.view'],
-  caregiver:['form.view','form.create','careplan.view'],
-  chw:['form.view','form.create'],
+  chief:['form.view','form.verify','pharmacy.view','careplan.view','pmi.check','monday.meeting','monday.manage','hardcopy.intake','ccc.desk','gov.oversight','intl.medical','handover.use'],
+  president:['monday.meeting','gov.oversight','handover.use'],
+  director:['form.view','careplan.view','pharmacy.view','hr.leave.approve','pmi.check','monday.meeting','monday.manage','clinical.mcm','hardcopy.intake','ccc.desk','gov.oversight','intl.medical','handover.use'],
+  countyadmin:['form.view','form.verify','pharmacy.view','careplan.view','hr.leave.approve','pmi.check','monday.meeting','monday.manage','hardcopy.intake','ccc.desk','gov.oversight','handover.use'],
+  assistant:['form.view','form.create','form.verify','careplan.view','pmi.check','monday.meeting','monday.manage','hardcopy.intake','ccc.desk','handover.use'],
+  coordinator:['form.view','form.verify','careplan.view','pharmacy.view','pmi.check','monday.meeting','ccc.desk','handover.use'],
+  caregiver:['form.view','form.create','careplan.view','pmi.check','monday.meeting','ccc.desk','handover.use'],
+  chw:['form.view','form.create','pmi.check','monday.meeting','handover.use'],
   mcm:['form.view','form.create','form.verify','clinical.prescribe','clinical.dispense','pharmacy.view','pharmacy.manage',
-       'careplan.view','careplan.manage','careplan.approve'],
-  liaison:['form.view','form.create','pharmacy.view'],
+       'careplan.view','careplan.manage','careplan.approve','pmi.check','monday.meeting','clinical.mcm','hardcopy.intake','ccc.desk','intl.medical','handover.use'],
+  liaison:['form.view','form.create','pharmacy.view','pmi.check','monday.meeting','ccc.desk','handover.use'],
   nurse:['form.view','form.create','form.verify','clinical.prescribe','clinical.dispense','pharmacy.view',
-         'pharmacy.manage','careplan.view','careplan.manage','careplan.approve'],
-  depthead:['form.view','careplan.view','pharmacy.view','hr.leave.approve'],
-  me:['form.view','careplan.view']
+         'pharmacy.manage','careplan.view','careplan.manage','careplan.approve','pmi.check','monday.meeting','clinical.mcm','ccc.desk','handover.use'],
+  depthead:['form.view','careplan.view','pharmacy.view','hr.leave.approve','monday.meeting','clinical.mcm','intl.medical','handover.use'],
+  mediahead:['monday.meeting','gov.oversight','handover.use'],
+  finance:['monday.meeting','handover.use'],
+  procurement:['monday.meeting','handover.use'],
+  me:['form.view','careplan.view','monday.meeting','gov.oversight','handover.use'],
+  auditor:['monday.meeting'],
+  hr:['monday.meeting','handover.use'],
+  welfare:['monday.meeting','handover.use'],
+  vehicle:['monday.meeting','handover.use'],
+  pr:['monday.meeting','gov.oversight','handover.use']
 };
 ROLES.forEach(r=>{ (ROLE_ADDITIONS[r.id]||[]).forEach(c=>{ if(!r.perms.includes(c)) r.perms.push(c); }); });
 
@@ -413,7 +453,10 @@ function seedDemo(db, now){
     U('u-welfare','Demo - Staff Welfare Officer','welfare.officer','welfare','kisumu',[],{reportsTo:'u-hr'}),
     U('u-vehicle','Demo - Vehicle & Transport Officer','vehicle.officer','vehicle','kisumu',[],{reportsTo:'u-ksm-admin'}),
     U('u-pr','Demo - Public Relations Officer','pr.officer','pr','kisumu',[],{reportsTo:'u-media'}),
-    U('u-depthead','Demo - Head of Medical Department','depthead.medical','depthead','kisumu',[],{reportsTo:'u-director'})
+    U('u-depthead','Demo - Head of Medical Department','depthead.medical','depthead','kisumu',[],{reportsTo:'u-director'}),
+    U('u-ccc-jootrh','Demo - CCC Clinician, JOOTRH (Kisumu)','ccc.jootrh','ccc.clinician','kisumu',[],{facility:'Demo County Referral Hospital',facilityType:'CCC / Referral Hospital',cadre:'Clinical Officer'}),
+    U('u-gov-ksm','Demo - County Health Partnership Desk (Kisumu)','gov.kisumu','gov.partner','kisumu',[],{agency:'County Government of Kisumu · Dept. of Medical Services, Public Health & Sanitation'}),
+    U('u-intl-med','Demo - International Medical Team Lead','intl.medical','intl.medical','kisumu',[],{specialty:'Infectious Disease & Nutritional Recovery PDCA'})
   ];
 
   /* --- referral entities --- */

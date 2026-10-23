@@ -190,25 +190,25 @@ function renderLanding6(){
       <div class="row" style="gap:12px">
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation Kenya" class="ld-logo">
         <div>
-          <div class="ld-org">${esc(orgName())}</div>
-          <div class="xs ld-dim">LOMAMO C-DIMS · Data &amp; Information Management System · v${esc(APP.version)}</div>
+          <div class="ld-org">CareLink · ${esc(orgName())}</div>
+          <div class="xs ld-dim">CareLink C-DIMS · Unified Operating System for All Foundation Departments &amp; Partners · v${esc(APP.version)}</div>
         </div>
       </div>
       <nav class="row ld-nav" style="gap:10px;flex-wrap:wrap">
         <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Visit LOMAMO · Public Portal</button>
         <button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request an Account</button>
-        <button class="btn btn-primary ld-btn-primary btn-sm" data-act="open-signin">${ic('lock',14)} Sign In</button>
+        <button class="btn btn-primary ld-btn-primary btn-sm" data-act="open-signin">${ic('lock',14)} Sign In to CareLink</button>
       </nav>
     </header>
 
     <div class="ld-container">
       <section class="ld-hero">
         <div class="ld-hero-copy">
-          <div class="ld-eyebrow">${ic('heart',14)} Saving Lives, Preventing Orphans · LOMAMO Orphan Prevention Programme</div>
-          <h1>One Foundation.<br><em>One Operating System.</em></h1>
-          <p class="ld-lede">LOMAMO C-DIMS unites every LOMAMO department in a purpose-built workspace, enforces least-privilege access at the data layer, and protects household confidentiality by design. Teams capture longitudinal records online or offline on tablets and PCs, analyse live charts, pivot tables and county maps, and coordinate care from one verified central database.</p>
+          <div class="ld-eyebrow">${ic('heart',14)} CareLink OS · Saving Lives, Preventing Orphans · LOMAMO Foundation</div>
+          <h1>CareLink.<br><em>One Foundation. One Operating System.</em></h1>
+          <p class="ld-lede">CareLink unites every LOMAMO department, hospital referral desk, government oversight partner and international medical reviewer in one governed operating system, enforcing least-privilege access at the data layer and protecting household confidentiality by design.</p>
           <div class="row ld-cta-row">
-            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login">${ic('lock',17)} Proceed to My C-DIMS Console ${ic('chevron',16)}</button>
+            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login">${ic('lock',17)} Proceed to My CareLink Console ${ic('chevron',16)}</button>
             <button class="btn ld-cta ld-btn-secondary" data-act="login-request">${ic('userplus',17)} Request an Account</button>
           </div>
           <div class="ld-assure">
@@ -264,8 +264,8 @@ function renderLanding6(){
                 <text x="${x+4}" y="${y+3.8}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#F1F5F9">${lbl}</text>
               </g>`).join('')}
               <circle cx="230" cy="126" r="38" fill="#0E2248" stroke="#F5C451" stroke-width="2"/>
-              <text x="230" y="123" text-anchor="middle" font-size="14" font-weight="800" fill="#FFFFFF" letter-spacing="1">C-DIMS</text>
-              <text x="230" y="137" text-anchor="middle" font-size="8.5" font-weight="600" fill="#F5C451" letter-spacing="0.6">C-DIMS v6.2</text>
+              <text x="230" y="123" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
+              <text x="230" y="137" text-anchor="middle" font-size="8.2" font-weight="600" fill="#F5C451" letter-spacing="0.5">OS · C-DIMS</text>
             </svg>
 
             <div class="ld-facts">
@@ -478,15 +478,16 @@ function renderLogin6(){
         <div class="row" style="gap:11px;margin-bottom:10px">
           <img src="${window.LOGO||''}" alt="LOMAMO Foundation" class="lg6-logo" style="margin:0">
           <div>
-            <div class="xs bold" style="letter-spacing:.11em;text-transform:uppercase;color:#F5C451">LOMAMO Foundation Kenya</div>
-            <div class="xs" style="color:#CBD6E8">Orphan Prevention &amp; Community Care</div>
+            <div class="xs bold" style="letter-spacing:.11em;text-transform:uppercase;color:#F5C451">CareLink Operating System · LOMAMO Foundation</div>
+            <div class="xs" style="color:#CBD6E8">Orphan Prevention, Clinical Care &amp; Partner Governance</div>
           </div>
         </div>
-        <h1>One Foundation.<br><em>One Operating System.</em></h1>
+        <h1>CareLink.<br><em>One Foundation. One Operating System.</em></h1>
 
         <figure class="lg6-showcase">
           <div class="lg6-photo-frame">
-            <img src="${carelinkPhoto(curSlide.key)}" alt="${esc(curSlide.title)}">
+            <img class="lg6-photo-bg" src="${carelinkPhoto(curSlide.key)}" alt="" aria-hidden="true">
+            <img class="lg6-photo-main" src="${carelinkPhoto(curSlide.key)}" alt="${esc(curSlide.title)}">
             <div class="lg6-photo-overlay">
               <span class="lg6-photo-tag">${esc(curSlide.tag)}</span>
               <b>${esc(curSlide.title)}</b>
@@ -538,7 +539,7 @@ function renderLogin6(){
         </div>
         <div class="lg6-body">${body}</div>
         <div class="lg6-foot">
-          <span>LOMAMO C-DIMS v${esc(APP.version)} · Schema ${esc(String(APP.schema))}</span>
+          <span>CareLink · CareLink C-DIMS v${esc(APP.version)} · Schema ${esc(String(APP.schema))}</span>
           <span>Data Protection Act, 2019</span>
         </div>
       </div>

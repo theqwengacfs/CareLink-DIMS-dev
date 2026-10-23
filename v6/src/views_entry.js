@@ -131,23 +131,31 @@ function renderPublicPortal(params={}){
   const cats = ['news','programme','story','announcement', ...PUBLICATION_CATEGORIES.map(c=>c.id)];
   const catList = [...new Set(cats)];
   const T = C.transparency;
+  const CGK = C.cgkPartnership || null;
+  const mode = params.mode === 'partner' ? 'partner' : 'public';
+  const sessUser = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
+  const partnerAllowed = !!(sessUser && (RBAC.has(sessUser,'gov.oversight') || RBAC.has(sessUser,'ccc.desk') || RBAC.has(sessUser,'intl.medical') || RBAC.has(sessUser,'report.executive') || RBAC.has(sessUser,'media.publish'))) || !!(DB.db && DB.db.settings && DB.db.settings.portalPartnerUnlocked);
 
   return `<div class="portal">
     <header class="portal-top">
       <div class="portal-brand">
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation Kenya">
-        <div><b>${esc(C.org.name)}</b><span>${esc(C.org.motto)} · ${esc(C.org.tagline)}</span></div>
+        <div><b>${esc(C.org.name)} · CareLink</b><span>${esc(C.org.motto)} · ${esc(C.org.tagline)}</span></div>
       </div>
       <div class="portal-actions">
         <div class="portal-search"><input placeholder="Search news, stories and programme updates" value="${esc(params.q||'')}" data-portal-q aria-label="Search public content"></div>
+        <div class="seg" role="tablist" aria-label="Portal visibility mode">
+          <button class="${mode==='public'?'on':''}" type="button" data-act="portal-mode" data-mode="public">Public mode</button>
+          <button class="${mode==='partner'?'on':''}" type="button" data-act="portal-mode" data-mode="partner">${ic('shield',12)} Partner brief</button>
+        </div>
         <a class="btn btn-sm btn-soft" href="${esc(C.contact.website)}" target="_blank" rel="noopener noreferrer">${PORTALX.icon('globe',14)} lovemattersmost.org</a>
         <a class="btn btn-sm btn-primary" href="${esc(C.contact.website)}donate-now/" target="_blank" rel="noopener noreferrer">${PORTALX.icon('heart',14)} Donate</a>
         <button class="btn btn-sm btn-ghost" data-act="goto-landing">Front page</button>
-        <button class="btn btn-sm btn-ghost" data-act="goto-login">Staff sign-in</button>
+        <button class="btn btn-sm btn-ghost" data-act="goto-login">${sessUser?'Return to Console':'Partner / Staff sign-in'}</button>
       </div>
     </header>
 
-    <div class="portal-banner">${ic('shield',14)}<span>Public portal. Only what the Foundation has published about itself, and content an authorised person has approved for release, appears here. No patient record, staff message or internal report is reachable from this page, and no photograph of a beneficiary is published without recorded consent.</span></div>
+    <div class="portal-banner">${ic('shield',14)}<span><b>${mode==='partner'?'Governed Private Partner Mode':'Public Portal Mode'}</b> · Powered by <b>CareLink</b>. Only governance-cleared programme metrics and narratives appear here. Zero patient names, National IDs, CCC numbers or individual disease profiles are ever exposed on this portal (Kenya Data Protection Act, 2019).</span></div>
 
     <section class="portal-hero">
       <div class="ph-copy">
@@ -171,6 +179,38 @@ function renderPublicPortal(params={}){
     <section class="portal-stats">
       ${C.stats.map(s=>`<div class="ps"><span class="ps-i">${PORTALX.icon(s.icon,20)}</span><b>${esc(s.value)}</b><span class="ps-l">${esc(s.label)}</span><span class="ps-n">${esc(s.note)}</span></div>`).join('')}
     </section>
+
+    ${(C.extendedImpact&&C.extendedImpact.length)?`<section class="portal-sect" style="padding-top:8px">
+      <div class="ps-h"><div><div class="portal-kicker">Cumulative verified programme reach · 2018-2026</div><h2>Holistic household restoration across Kisumu &amp; Homa Bay</h2></div>
+        <p class="ps-sub">Verified cumulative outputs from the LOMAMO Foundation &amp; County Government of Kisumu Health Partnership (2018-2026).</p></div>
+      <div class="grid g3" style="gap:12px">
+        ${C.extendedImpact.map(x=>`<div class="pw" style="padding:14px 16px"><div class="mono bold" style="font-size:22px;color:var(--accent-fg)">${esc(x.value)}</div><div class="bold" style="margin:3px 0">${esc(x.label)}</div><div class="xs muted">${esc(x.note)}</div></div>`).join('')}
+      </div>
+    </section>`:''}
+
+    ${mode==='partner' && CGK ? `<section class="portal-sect">
+      <div class="ps-h"><div><div class="portal-kicker">Governed Partner Portal · Art. 43(1)(a) &amp; KAISF 2025-2030</div><h2>${esc(CGK.title)}</h2></div>
+        <p class="ps-sub">${esc(CGK.subtitle)}</p></div>
+      ${partnerAllowed ? `<div class="pw" style="margin-bottom:14px;border-left:4px solid var(--ok)">
+          <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div><b>Authorised Partner Brief Active</b><div class="xs muted">${esc(CGK.coverage)} · Strict de-identification &amp; k&gt;=5 suppression enforced</div></div>
+            ${sessUser?`<button class="btn btn-sm btn-primary" data-act="goto-console-partner">Open My Governed Partner Console</button>`:''}
+          </div>
+          <div class="grid g2" style="gap:12px;margin-top:14px">
+            ${CGK.pillars.map(p=>`<div class="card" style="padding:12px 14px"><div class="bold" style="margin-bottom:4px">${esc(p.title)}</div><div class="xs">${esc(p.body)}</div></div>`).join('')}
+          </div>
+          <div style="margin-top:14px"><div class="xs bold muted" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Collaborating County, Sub-County &amp; Faith-Based Referral Facilities (${CGK.facilities.length})</div>
+            <div class="pw-areas">${CGK.facilities.map(f=>`<span class="chip">${esc(f)}</span>`).join('')}</div></div>
+        </div>`
+      : `<div class="pw" style="border-left:4px solid var(--warn)">
+          <b>Administrator-Governed Partner Mode</b>
+          <p class="small" style="margin:6px 0 10px">Detailed sub-county health system tables, KAISF 2025-2030 indicator alignments and facility referral summaries are restricted to authorised County/National Government Partners, CCC/PSC Clinicians and Leadership accounts.</p>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-primary" data-act="goto-login">${ic('lock',14)} Sign in with Partner Account (e.g. gov.kisumu / ccc.jootrh)</button>
+            <button class="btn btn-sm btn-ghost" data-act="portal-mode" data-mode="public">Stay in Public Mode</button>
+          </div>
+        </div>`}
+    </section>` : ''}
 
     <section class="portal-sect">
       <div class="ps-h"><div><div class="portal-kicker">What we do</div><h2>Four pillars, one household at a time</h2></div>
@@ -319,7 +359,7 @@ function renderPublicPortal(params={}){
       </div>
       <div class="pf2-base">
         <span>${esc(C.org.name)} · ${esc(C.org.motto)} · ${esc(C.org.mandate)}</span>
-        <span>Public communications governed under the LOMAMO Ethical Storytelling Policy. Served by LOMAMO C-DIMS v${esc(APP.version)}.</span>
+        <span>Public communications governed under the LOMAMO Ethical Storytelling Policy. Served by CareLink (CareLink C-DIMS v${esc(APP.version)}).</span>
       </div>
     </footer>
   </div>`;

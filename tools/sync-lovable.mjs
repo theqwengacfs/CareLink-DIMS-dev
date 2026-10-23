@@ -9,7 +9,7 @@ const SRC = path.join(V6_ROOT, 'src');
 const OUT_V6 = path.join(V6_ROOT, 'LOMAMO-CareLink-DIMS-v6.0.html');
 const OUT_PUBLIC = path.join(REPO_ROOT, 'public', 'carelink-v6.html');
 
-export const CSS_ORDER = ['styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css'];
+export const CSS_ORDER = ['styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css', 'carelink63.css'];
 export const JS_ORDER = [
   'data.js', 'data6.js', 'inventory_data.js', 'core.js', 'access_rules.js', 'media6.js', 'media_portal.js', 'reports.js', 'care.js', 'ai.js', 'charts.js',
   'forms.js', 'pharmacy.js', 'leave.js', 'omaha.js', 'schedule.js', 'exportdocs.js', 'dashboard.js', 'files.js', 'live.js', 'themes.js',
@@ -18,7 +18,8 @@ export const JS_ORDER = [
   'views_care.js', 'views_settings.js', 'care_actions.js', 'import.js', 'sync6.js', 'backup.js',
   'views_extra.js', 'office_actions.js', 'app.js',
   'pmi.js', 'recognition.js', 'workplace.js', 'insight6.js', 'indicators6.js', 'hub6.js', 'entry6.js',
-  'org_teams.js', 'household.js', 'costing.js', 'tb_dispensing.js', 'master_registry.js', 'master_analysis.js', 'waiting_urgent.js', 'portal_content.js', 'visual_audit.js'
+  'org_teams.js', 'household.js', 'costing.js', 'tb_dispensing.js', 'master_registry.js', 'master_analysis.js', 'waiting_urgent.js', 'portal_content.js',
+  'bmi_clinical6.js', 'discharge_hardcopy6.js', 'monday_procurement6.js', 'handover_partners6.js', 'visual_audit.js'
 ];
 
 export function buildCareLinkBundle() {
@@ -37,8 +38,8 @@ export function buildCareLinkBundle() {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1F3864">
-<meta name="description" content="LOMAMO C-DIMS v6.2 - LOMAMO Foundation Kenya Data & Information Management System (formerly CareLink DIMS)">
-<title>LOMAMO C-DIMS v6.2 · LOMAMO Foundation Kenya</title>
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.3) - LOMAMO Foundation Kenya Data & Information Management System">
+<title>CareLink C-DIMS</title>
 <link rel="icon" href="${logo}">
 <style>
 ${css}
@@ -46,7 +47,7 @@ ${css}
 </head>
 <body>
 <div id="root">
-  <noscript><div style="padding:40px;font-family:sans-serif">LOMAMO C-DIMS requires JavaScript. Enable JavaScript in this browser to continue.</div></noscript>
+  <noscript><div style="padding:40px;font-family:sans-serif">CareLink C-DIMS requires JavaScript. Enable JavaScript in this browser to continue.</div></noscript>
 </div>
 <script>
 /* ===== Embedded assets ===== */
@@ -56,7 +57,7 @@ window.BUILD_STAMP = "${stamp}";
 <script>
 ${js}
 </script>
-<!-- Build ${stamp} · LOMAMO C-DIMS v6.2 (formerly CareLink DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build ${stamp} · CareLink C-DIMS v6.3 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
 `;

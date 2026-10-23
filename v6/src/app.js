@@ -176,15 +176,16 @@ function applyTheme(){
 /* ---------------- Render root ---------------- */
 function render(){
   applyTheme();
+  try{ if(typeof document!=='undefined') document.title = (typeof APP!=='undefined' && APP.tabTitle) ? APP.tabTitle : 'CareLink C-DIMS'; }catch(e){}
   const root = $('#root');
   if(!DB.db) DB.load();
   /* the assistant dock belongs to an authenticated console only */
   const staleDock = document.querySelector('.ai-dock');
-  if(staleDock && (!AUTH.user || AUTH.locked() || !DB.db.users.length)) staleDock.remove();
+  if(staleDock && (!AUTH.user || AUTH.locked() || !DB.db.users.length || APPX.screen==='public')) staleDock.remove();
+  if(APPX.screen==='public'){ root.innerHTML = renderPublicPortal(APPX.params||{}); return; }
   if(AUTH.user && !DB.db.settings.onboarding.complete){ root.innerHTML = renderOnboarding(); return; }
   if(!AUTH.user){
     root.innerHTML = APPX.screen==='login' ? renderLogin()
-      : APPX.screen==='public' ? renderPublicPortal(APPX.params||{})
       : APPX.screen==='onboard' ? renderOnboarding()
       : renderLanding();
     return;
@@ -333,20 +334,31 @@ function renderShell(){
   const canGoBack = NAVH.canBack() || Boolean(childParent[APPX.view]);
   const aiProf = (typeof AI!=='undefined' && AI.profileFor) ? AI.profileFor(user, APPX.view) : { badge:'Console AI' };
   const paneOn = NAVP.enabled(user);
-  return `<div class="app shell ${paneOn?'has-pane':''} ${paneOn&&NAVP.prefs(user).rail?'np-rail':''} ${APPX.navOpen?'np-open':''}">
+  const railOn = paneOn && NAVP.prefs(user).rail;
+  const flatItems = groups.flatMap(g=>g.items);
+  const quickBarIds = ['home','monday','messages','calendar'];
+  const quickBarItems = quickBarIds.map(id=>flatItems.find(i=>i.id===id)).filter(Boolean);
+  const searchPh = RBAC.has(user,'patient.list') && !['mediahead','pr','finance','procurement','hr','welfare','vehicle','auditor','it','gov.partner','president'].includes(user.roleId)
+    ? 'Search CareLink patients, forms, reports...'
+    : 'Search CareLink workspace, pages & records...';
+  return `<div class="app shell ${paneOn?'has-pane':''} ${railOn?'np-rail':''} ${APPX.navOpen?'np-open':''}">
     ${paneOn? NAVP.html(user, here) : ''}${paneOn? '<div class="np-scrim" data-act="nav-close"></div>' : ''}
-    <header class="topbar cbar">
-      <img class="cb-logo" src="${window.LOGO||''}" alt="LOMAMO Foundation">
-      <div class="cb-nav" role="group" aria-label="History">
+    <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}">
+      <img class="cb-logo" src="${window.LOGO||''}" alt="CareLink · LOMAMO Foundation">
+      <div class="cb-nav" role="group" aria-label="Navigation & history">
+        ${paneOn?`<button class="icon-btn cb-fold-btn" data-act="nav-rail" aria-label="${railOn?'Expand navigation pane':'Fold navigation pane'}" title="${railOn?'Expand navigation pane':'Fold navigation pane'}">${ic('panel',17)}</button>`:''}
         <button class="icon-btn" data-act="nav-back" aria-label="Back" title="Back (Alt+Left)" ${canGoBack?'':'disabled aria-disabled="true"'}>${ic('back',18)}</button>
         <button class="icon-btn" data-act="nav-forward" aria-label="Forward" title="Forward (Alt+Right)" ${NAVH.canForward()?'':'disabled aria-disabled="true"'}>${ic('forward',18)}</button>
       </div>
       <div class="cb-id">
-        <div class="cb-k"><span class="dot" style="background:${dept.accent}"></span>${esc(role.consoleTitle||role.name||'Console')}</div>
+        <div class="cb-k"><span class="dot" style="background:${dept.accent}"></span><span class="cb-os-tag">CareLink</span> · ${esc(role.consoleTitle||role.name||'Console')}</div>
         <h1>${esc(crumb.title)}</h1>
         <div class="crumb">${esc(countyName(user.countyId))}${(role.scope||{}).geo==='areas'?' · '+(user.areaIds||[]).map(areaName).join(', '):''}</div>
       </div>
-      <div class="searchbox"><span>${ic('search',16)}</span><input placeholder="Search patients, requests, reports..." data-search aria-label="Search"></div>
+      <div class="cb-quick no-print" role="navigation" aria-label="Quick console shortcuts">
+        ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='monday'?'Monday':qi.label)}</span></button>`).join('')}
+      </div>
+      <div class="searchbox"><span>${ic('search',16)}</span><input placeholder="${esc(searchPh)}" data-search aria-label="Search"></div>
       <div class="tb-actions">
         <span class="live-pill neutral" data-live title="Live record indicator"><span class="live-dot"></span><span class="live-t">Live</span></span>
         ${typeof SYNC!=='undefined'?SYNC.chip():''}
@@ -397,11 +409,15 @@ function viewCrumb(){
     dualcheck:'Admin / Intl Co-Work Cross-Check', teams:'Ministry teams & visit days', households:'Households & care chains', costing:'Cost per patient',
     tbcare:'TB dispensing control', mastermap:'Master registry mapping', masteranalysis:'Master workbook analysis', waiting:'Waiting list', urgent:'Urgent cases against budget', households:'Households & care chains', visualaudit:'Visual & accessibility audit', accessaudit:'Access & authority audit',
     library:'Department library', execconsole:'Executive console', inventory:'Office equipment', interns:'Students & interns',
-    ohs:'Safety register', presence:'Who is online', weather:'Weather board', mergejournal:'Merge journal'};
+    ohs:'Safety register', presence:'Who is online', weather:'Weather board', mergejournal:'Merge journal',
+    monday:'Monday Management Meeting', handover:'Delegation & Role Handover', hardcopy:'Hard-Copy Intake & Scanned Forms',
+    clinicalmcm:'Medical Case Manager & Clinical Console', bmiboard:'BMI Nutritional Intelligence',
+    cccdesk:'CCC / PSC Hospital Referral Desk', govdashboard:'Government Health Partnership',
+    intlmedical:'120+ Day PDCA & International Medical Review', foodbudget:'Projected Food & Hygiene Budget'};
   const baseTitle = labels[v]||titleCase(v);
   const t = (AUTH.user && typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel) ? ROLE_CTX.navLabel(AUTH.user, v, baseTitle) : baseTitle;
   const role = AUTH.user? (roleObj(AUTH.user.roleId)||{}).consoleTitle : '';
-  return { title:t, path:[role||'LOMAMO C-DIMS', t].join(' · ') };
+  return { title:t, path:[role||'CareLink C-DIMS', t].join(' · ') };
 }
 /* Photo-free contextual top strip: Demo Authorised-Account Switch Banner +
    Admin/Intl Single-Operator Co-Work Lease Bar + Role-Scoped Context Strip.
@@ -510,6 +526,16 @@ function contentFor(view, params, user){
       case 'visualaudit': return (RBAC.has(user,'system.config')||RBAC.has(user,'system.health'))?VISUALX.render(user):deniedPanel('system.config');
       case 'accessaudit': return ACCESS.render(user);
       case 'dualcheck': return renderDualCheck(user);
+      /* CareLink v6.3 domain & partner consoles */
+      case 'monday': return guard('monday.meeting')||MONDAY_PROC.render(user, params);
+      case 'handover': return guard('handover.use')||HANDOVER_PARTNERS.renderHandover(user, params);
+      case 'hardcopy': return guard('hardcopy.intake')||DISCHARGE_HARDCOPY.renderHardcopyDesk(user, params);
+      case 'clinicalmcm': return guard('clinical.mcm')||BMI_CLINICAL.renderMcmConsole(user, params);
+      case 'bmiboard': return BMI_CLINICAL.renderBmiBoard(user, params);
+      case 'cccdesk': return guard('ccc.desk')||HANDOVER_PARTNERS.renderCccDesk(user, params);
+      case 'govdashboard': return guard('gov.oversight')||HANDOVER_PARTNERS.renderGovDashboard(user, params);
+      case 'intlmedical': return guard('intl.medical')||HANDOVER_PARTNERS.renderIntlMedical(user, params);
+      case 'foodbudget': return (RBAC.has(user,'procurement.view')||RBAC.has(user,'finance.view'))?MONDAY_PROC.renderFoodBudget(user, params):deniedPanel('procurement.view');
       default: return renderHome(user);
     }
     })();
@@ -879,6 +905,15 @@ const ACTIONS = {
     DB.save(); closeModal(true); toast('Withdrawn','It has been removed from the public portal and the register still holds it.','warn'); render();
   },
   'portal-cat':(d)=>{ APPX.screen='public'; APPX.params={...(APPX.params||{}), cat:d.cat||''}; render(); },
+  'portal-mode':(d)=>{ APPX.screen='public'; APPX.params={...(APPX.params||{}), mode:d.mode==='partner'?'partner':'public'}; render(); },
+  'goto-console-partner':()=>{
+    if(!AUTH.user){ APPX.screen='login'; render(); return; }
+    APPX.screen='app';
+    if(RBAC.has(AUTH.user,'gov.oversight')) go('govdashboard');
+    else if(RBAC.has(AUTH.user,'ccc.desk')) go('cccdesk');
+    else if(RBAC.has(AUTH.user,'intl.medical')) go('intlmedical');
+    else go('home');
+  },
   'portal-open':(d)=>{
     /* Two kinds of item reach the public portal: the Foundation's own published
        programme content, and an item an authorised person approved for release
@@ -895,7 +930,7 @@ const ACTIONS = {
       ${org?`<div class="portal-reader-src">${ic('link',14)}<span class="small">Published by ${esc(C.org?C.org.name:'LOMAMO Foundation Kenya')} · <a href="${esc(C.contact?C.contact.updates:'https://lovemattersmost.org/updates/')}" target="_blank" rel="noopener noreferrer">lovemattersmost.org/updates</a></span></div>`:''}`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>${org?`<a class="btn btn-primary" href="${esc(C.contact?C.contact.website:'https://lovemattersmost.org/')}" target="_blank" rel="noopener noreferrer">Visit our website</a>`:''}`});
   },
-  'goto-login':()=>{ APPX.screen='login'; APPX.dirty=false; render(); window.scrollTo({top:0}); },
+  'goto-login':()=>{ if(AUTH.user){ APPX.screen='app'; render(); } else { APPX.screen='login'; APPX.dirty=false; render(); } window.scrollTo({top:0}); },
   'goto-landing':()=>{ APPX.screen='landing'; render(); window.scrollTo({top:0}); },
   'open-sync':()=>openSyncModal(),
   'set-setting':(d)=>{ SETTINGS.set(d.path, d.value); },
@@ -921,7 +956,13 @@ const ACTIONS = {
       else toast('Not accepted', SYNC.message||'The password was not accepted.','err');
     });
   },
-  go:(d)=>{ APPX.showUserMenu=false; closeAllModals(); const params={}; if(d.id) params.id=d.id; if(d.section) params.section=d.section; go(d.v, params); },
+  go:(d)=>{
+    APPX.showUserMenu=false;
+    closeAllModals();
+    const params={};
+    Object.keys(d||{}).forEach(k=>{ if(k!=='act'&&k!=='v'&&k!=='skip'&&d[k]!==undefined) params[k]=d[k]; });
+    go(d.v, params);
+  },
   'close-modal':()=>closeModal(),
   'modal-close':()=>closeModal(),
   'confirm-yes':()=>{ const f=window.__confirmYes; window.__confirmYes=null; f&&f(); },
