@@ -10,7 +10,7 @@
     "prebuild": "node tools/sync-lovable.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "test:all": "node v6/test/lint.js && node v6/test/smoke.js && node v6/test/wiring.js && node v6/test/views.js && node v6/test/v60.js && node v6/test/v61.js && node v6/test/v62.js && node v6/test/v63.js && node v6/test/v64.js && node v6/test/v65.js && node v6/test/v66.js"
+    "test:all": "node v6/test/lint.js && node v6/test/smoke.js && node v6/test/wiring.js && node v6/test/views.js && node v6/test/v60.js && node v6/test/v61.js && node v6/test/v62.js && node v6/test/v63.js && node v6/test/v64.js && node v6/test/v65.js && node v6/test/v66.js && node v6/test/api-security.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -206,7 +206,7 @@ function sanitizeDbForClient(db) {
 
 function getSession(state, req) {
   const tok = req.headers['x-carelink-session'] || '';
-  if (!tok || !state.sessions || !state.sessions[tok]) return null;
+  if (!tok || typeof tok !== 'string' || !state.sessions || !Object.prototype.hasOwnProperty.call(state.sessions, tok)) return null;
   const s = state.sessions[tok];
   const age = (Date.now() - new Date(s.lastSeen || s.createdAt).getTime()) / 1000;
   if (age > IDLE_SECONDS) {
@@ -217,20 +217,102 @@ function getSession(state, req) {
   return { token: tok, ...s };
 }
 
+const MAX_BODY_BYTES = 24 * 1024 * 1024;
+const MAX_PATCHES_PER_WRITE = 5000;
+const MAX_PUBLIC_REQUESTS = 500;
+const LOGIN_MAX_FAILURES = 8;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+const SAFE_COLLECTION = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+
+/* Roles allowed to change who holds which role, county or account status. */
+const ACCOUNT_ADMIN_ROLES = new Set(['chief', 'countyadmin', 'hr', 'director', 'president', 'program.admin']);
+/* Fields on a user record that grant or revoke access. */
+const PRIVILEGED_USER_FIELDS = new Set([
+  'roleId', 'countyId', 'permissions', 'scopes', 'status', 'active', 'username',
+  'mustChange', 'demo', 'consoles', 'extraRoles', 'deptId', 'hash', 'salt',
+]);
+
+function safeObject(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (!FORBIDDEN_KEYS.has(k)) out[k] = v;
+  }
+  return out;
+}
+
+function clipString(v, max = 500) {
+  return String(v == null ? '' : v).slice(0, max);
+}
+
+function publicRef(prefix) {
+  return `${prefix}-${crypto.randomInt(100000, 1000000)}`;
+}
+
+function pruneSessions(state) {
+  const now = Date.now();
+  for (const [tok, s] of Object.entries(state.sessions || {})) {
+    const last = new Date(s.lastSeen || s.createdAt).getTime();
+    if (!Number.isFinite(last) || (now - last) / 1000 > IDLE_SECONDS) delete state.sessions[tok];
+  }
+}
+
+function loginLockRemainingMs(state, username) {
+  const rec = (state.loginFailures || {})[username];
+  if (!rec || !rec.lockedUntil) return 0;
+  return Math.max(0, rec.lockedUntil - Date.now());
+}
+
+function recordLoginFailure(state, username) {
+  state.loginFailures = state.loginFailures || {};
+  const now = Date.now();
+  const rec = state.loginFailures[username] || { count: 0, first: now };
+  if (now - rec.first > LOGIN_WINDOW_MS) { rec.count = 0; rec.first = now; }
+  rec.count += 1;
+  if (rec.count >= LOGIN_MAX_FAILURES) rec.lockedUntil = now + LOGIN_LOCK_MS;
+  state.loginFailures[username] = rec;
+}
+
+/* Unauthenticated forms keep only flat text fields of bounded size, so a public caller
+   cannot override routing/status fields or bloat the shared database. */
+function sanitizePublicSubmission(body) {
+  const out = {};
+  let count = 0;
+  for (const [k, v] of Object.entries(safeObject(body))) {
+    if (count >= 40 || !/^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k)) continue;
+    if (['id', 'ref', 'reference', 'status', 'urgent', 'assignedAdminUsername', 'submittedAt', 'at'].includes(k)) continue;
+    if (v == null || typeof v === 'object') continue;
+    out[k] = clipString(v, 1000);
+    count++;
+  }
+  return out;
+}
+
 async function readJsonBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
   if (typeof req.body === 'string' && req.body.trim()) {
+    if (req.body.length > MAX_BODY_BYTES) return {};
     try { return JSON.parse(req.body); } catch { return {}; }
   }
   return new Promise((resolve) => {
     const chunks = [];
-    req.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
-    req.on('end', () => {
-      if (!chunks.length) return resolve({});
-      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-      catch { resolve({}); }
+    let size = 0;
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    req.on('data', (c) => {
+      const buf = Buffer.isBuffer(c) ? c : Buffer.from(c);
+      size += buf.length;
+      if (size > MAX_BODY_BYTES) { finish({}); req.destroy?.(); return; }
+      chunks.push(buf);
     });
-    req.on('error', () => resolve({}));
+    req.on('end', () => {
+      if (!chunks.length) return finish({});
+      try { finish(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
+      catch { finish({}); }
+    });
+    req.on('error', () => finish({}));
   });
 }
 
@@ -243,9 +325,12 @@ function sendJson(res, status, payload) {
 
 /* Shared Online Intelligence responder grounded in live online DB */
 async function answerOnlineIntelligence(state, session, body) {
-  const prompt = String(body.prompt || body.message || '').trim();
+  const prompt = clipString(body.prompt || body.message || '', 12000).trim();
   const db = state.db || {};
-  const user = (db.users || []).find((u) => u.username === (session?.username || '')) || body.userContext || {};
+  /* Scope is derived from the verified session only - never from client-supplied context. */
+  const cred = (state.creds || {})[session.username] || {};
+  const dbUser = (db.users || []).find((u) => String(u.username || '').toLowerCase() === session.username) || {};
+  const user = { ...dbUser, roleId: cred.roleId || dbUser.roleId, countyId: cred.countyId || dbUser.countyId };
   const countyId = user.countyId || 'kisumu';
   const isGlobalScope = ['chief', 'director', 'president', 'program.admin', 'auditor', 'intldata', 'it'].includes(user.roleId);
   const patients = (db.patients || []).filter((p) => isGlobalScope || p.countyId === countyId);
@@ -313,7 +398,8 @@ export default async function handler(req, res) {
 
   /* 1. Health, bootstrap & revision probes */
   if ((route === 'health' || route === 'bootstrap') && method === 'GET') {
-    const admins = Object.values(state.creds || {}).filter((c) => c.roleId === 'chief').map((c) => c.username);
+    /* Display names only: login usernames are never disclosed to unauthenticated callers. */
+    const admins = Object.values(state.creds || {}).filter((c) => c.roleId === 'chief').map((c) => c.name || 'Chief System Administrator');
     return sendJson(res, 200, {
       ok: true,
       cloud: true,
@@ -344,14 +430,18 @@ export default async function handler(req, res) {
   /* 2. First-Run Production Setup */
   if (route === 'setup' && method === 'POST') {
     const body = await readJsonBody(req);
-    if (state.setup && Object.keys(state.creds || {}).length > 0 && !body.forceRecommission) {
-      return sendJson(res, 409, {
-        ok: false,
-        code: 'already_setup',
-        accounts: Object.keys(state.creds).length,
-        admins: Object.values(state.creds).filter((c) => c.roleId === 'chief').map((c) => c.username),
-        error: 'This online CareLink site database is already commissioned.',
-      });
+    const commissioned = state.setup && Object.keys(state.creds || {}).length > 0;
+    if (commissioned) {
+      /* Re-commissioning wipes every account, so it needs a live Chief System Administrator session. */
+      const sess = getSession(state, req);
+      if (!body.forceRecommission || !sess || sess.roleId !== 'chief') {
+        return sendJson(res, 409, {
+          ok: false,
+          code: 'already_setup',
+          accounts: Object.keys(state.creds).length,
+          error: 'This online CareLink site database is already commissioned.',
+        });
+      }
     }
     const admin = body.admin || {};
     const username = String(admin.username || 'chief.admin').trim().toLowerCase();
@@ -388,14 +478,14 @@ export default async function handler(req, res) {
   /* 2b. Global System Activation (Chief System Administrator) */
   if (route === 'setup/activate-global' && method === 'POST') {
     const sess = getSession(state, req);
-    const body = await readJsonBody(req);
-    if (sess && sess.roleId !== 'chief') {
+    if (!sess || sess.roleId !== 'chief') {
       return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may activate CareLink globally.' });
     }
+    const body = await readJsonBody(req);
     state.globallyActivated = true;
     state.db = state.db || {};
-    if (body.settings) state.db.settings = { ...(state.db.settings || {}), ...body.settings, globallyActivated: true };
-    if (body.meta) state.db.meta = { ...(state.db.meta || {}), ...body.meta, globallyActivated: true };
+    if (body.settings) state.db.settings = { ...(state.db.settings || {}), ...safeObject(body.settings), globallyActivated: true };
+    if (body.meta) state.db.meta = { ...(state.db.meta || {}), ...safeObject(body.meta), globallyActivated: true };
     if (Array.isArray(body.users)) {
       state.db.users = sanitizeDbForClient({ users: body.users }).users;
     }
@@ -425,15 +515,29 @@ export default async function handler(req, res) {
     const body = await readJsonBody(req);
     const rawId = String(body.username || '').trim().toLowerCase();
     const password = String(body.password || '');
-    const cred = (state.creds || {})[rawId] || Object.values(state.creds || {}).find((c) => String(c.email || '').toLowerCase() === rawId);
-    const username = cred ? cred.username : rawId;
+    const cred = Object.prototype.hasOwnProperty.call(state.creds || {}, rawId)
+      ? state.creds[rawId]
+      : Object.values(state.creds || {}).find((c) => String(c.email || '').toLowerCase() === rawId);
+    const username = clipString(cred ? cred.username : rawId, 120);
+    const lockMs = loginLockRemainingMs(state, username);
+    if (lockMs > 0) {
+      return sendJson(res, 429, {
+        ok: false,
+        code: 'locked',
+        retryAfterSeconds: Math.ceil(lockMs / 1000),
+        error: `Too many failed sign-in attempts. Try again in ${Math.ceil(lockMs / 60000)} minute(s) or ask your County Administrator to re-issue a temporary password.`,
+      });
+    }
     if (!cred || !verifyPassword(password, cred.salt, cred.digest)) {
+      recordLoginFailure(state, username || 'anonymous');
       appendServerAudit(state, username || 'anonymous', 'auth.failed', 'user', username, 'Online credential check failed');
       await saveCloudState(state);
       return sendJson(res, 401, { ok: false, code: 'invalid_credentials', error: 'Invalid username or password.' });
     }
+    if (state.loginFailures) delete state.loginFailures[username];
     const token = crypto.randomBytes(24).toString('base64url');
     state.sessions = state.sessions || {};
+    pruneSessions(state);
     state.sessions[token] = {
       username,
       userId: cred.id,
@@ -496,7 +600,7 @@ export default async function handler(req, res) {
     const body = await readJsonBody(req);
     const cred = (state.creds || {})[sess.username];
     if (!cred) return sendJson(res, 404, { ok: false, error: 'Account credential record not found.' });
-    if (body.current && !verifyPassword(body.current, cred.salt, cred.digest)) {
+    if (!body.current || !verifyPassword(body.current, cred.salt, cred.digest)) {
       return sendJson(res, 400, { ok: false, error: 'Current/temporary password did not match.' });
     }
     const newPw = body.password || body.next || body.newPassword || '';
@@ -536,8 +640,10 @@ export default async function handler(req, res) {
     const issued = [];
     const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host || 'carelink-dims.vercel.app'}`;
     for (const acc of accounts) {
-      const uname = String(acc.username || '').trim().toLowerCase();
-      if (!uname || uname === sess.username) continue;
+      const uname = clipString(acc && acc.username, 120).trim().toLowerCase();
+      if (!uname || uname === sess.username || FORBIDDEN_KEYS.has(uname)) continue;
+      /* Never silently demote or replace another Chief System Administrator through a bulk pack. */
+      if (state.creds[uname] && state.creds[uname].roleId === 'chief') continue;
       const tempPassword = generateStrongPassword();
       const { salt, digest } = hashPassword(tempPassword);
       state.creds[uname] = {
@@ -585,6 +691,9 @@ export default async function handler(req, res) {
   if (route === 'credentials' && method === 'GET') {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Authentication required' });
+    if (!ACCOUNT_ADMIN_ROLES.has(sess.roleId)) {
+      return sendJson(res, 403, { ok: false, error: 'Only account administrators may list credential records.' });
+    }
     const list = Object.values(state.creds || {}).map((c) => ({
       id: c.id,
       username: c.username,
@@ -651,38 +760,56 @@ export default async function handler(req, res) {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to write to the online database.' });
     const body = await readJsonBody(req);
-    const patches = Array.isArray(body.patches) ? body.patches : [];
+    const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
     state.db = state.db || { meta: { schema: 6, version: '6.6.0' } };
+    const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
+    const applied = [];
+    const rejected = [];
     let merged = 0;
 
     for (const p of patches) {
-      if (!p || !p.c) continue;
+      if (!p || typeof p.c !== 'string' || !SAFE_COLLECTION.test(p.c) || FORBIDDEN_KEYS.has(p.c)) continue;
       if (p.c === 'settings') {
-        if (p.set && p.set.value) state.db.settings = { ...(state.db.settings || {}), ...p.set.value };
+        if (p.set && p.set.value) state.db.settings = { ...(state.db.settings || {}), ...safeObject(p.set.value) };
+        applied.push(p);
         continue;
       }
       if (p.c === 'audit') {
         state.db.audit = state.db.audit || [];
         if (p.set && !state.db.audit.some((a) => a.hash === p.set.hash && a.seq === p.set.seq)) {
-          state.db.audit.push(p.set);
+          state.db.audit.push(safeObject(p.set));
+          if (state.db.audit.length > 5000) state.db.audit.splice(0, state.db.audit.length - 5000);
         }
+        applied.push(p);
         continue;
       }
       if (!Array.isArray(state.db[p.c])) state.db[p.c] = [];
       const col = state.db[p.c];
       const idx = col.findIndex((r) => r && r.id === p.id);
+      const set = safeObject(p.set);
+
+      /* Access-granting changes to user records are reserved for account administrators;
+         everyone else may only edit non-privileged fields on their own record. */
+      if (p.c === 'users' && !canAdminAccounts) {
+        const target = idx >= 0 ? col[idx] : null;
+        const isSelf = target && (target.id === sess.userId || String(target.username || '').toLowerCase() === sess.username);
+        if (p.del || !isSelf) { rejected.push({ c: p.c, id: p.id, reason: 'not_permitted' }); continue; }
+        for (const k of Object.keys(set)) if (PRIVILEGED_USER_FIELDS.has(k)) delete set[k];
+      }
+
       if (p.del) {
         if (idx >= 0) col.splice(idx, 1);
+        applied.push(p);
         continue;
       }
       if (idx < 0) {
-        const rec = { ...(p.set || {}), id: p.id };
+        const rec = { ...set, id: p.id };
         if (p.c === 'users') { delete rec.hash; delete rec.salt; }
         col.push(rec);
       } else {
         const cur = col[idx];
-        const before = p.before || {};
-        for (const [k, v] of Object.entries(p.set || {})) {
+        const before = safeObject(p.before);
+        for (const [k, v] of Object.entries(set)) {
           if (p.c === 'users' && (k === 'hash' || k === 'salt')) continue;
           if (k in before && JSON.stringify(cur[k]) !== JSON.stringify(before[k]) && JSON.stringify(cur[k]) !== JSON.stringify(v)) {
             merged++;
@@ -702,14 +829,32 @@ export default async function handler(req, res) {
           else cur[k] = v;
         }
       }
+      applied.push(p.c === 'users' ? { ...p, set } : p);
+
+      /* Keep the server-side credential role/county in step with an administrator's edit,
+         so the session role used for authorization never drifts from the user record. */
+      if (p.c === 'users' && canAdminAccounts) {
+        const rec = col.find((r) => r && r.id === p.id);
+        const uname = rec && String(rec.username || '').toLowerCase();
+        const cred = uname && Object.prototype.hasOwnProperty.call(state.creds || {}, uname) ? state.creds[uname] : null;
+        if (cred && !(cred.roleId === 'chief' && sess.roleId !== 'chief')) {
+          if (set.roleId && !(set.roleId === 'chief' && sess.roleId !== 'chief')) cred.roleId = set.roleId;
+          if (set.countyId) cred.countyId = set.countyId;
+          if (set.name) cred.name = set.name;
+        }
+      }
     }
 
     state.rev = (state.rev || 0) + 1;
     state.deltas = state.deltas || [];
-    state.deltas.push({ rev: state.rev, at: nowISO(), actor: sess.username, patches });
+    state.deltas.push({ rev: state.rev, at: nowISO(), actor: sess.username, patches: applied });
     if (state.deltas.length > 60) state.deltas.splice(0, state.deltas.length - 60);
+    if (rejected.length) {
+      appendServerAudit(state, sess.userId || sess.username, 'sync.patch_rejected', 'users', '-',
+        `${rejected.length} user-record change(s) refused: role ${sess.roleId} may not edit account access`);
+    }
     await saveCloudState(state);
-    return sendJson(res, 200, { ok: true, rev: state.rev, merged, saved: state.saved });
+    return sendJson(res, 200, { ok: true, rev: state.rev, merged, rejected, saved: state.saved });
   }
 
   /* 7. Chief System Administrator Audited Silent Override */
@@ -763,6 +908,7 @@ export default async function handler(req, res) {
 
   if (route === 'ai/chat' && method === 'POST') {
     const sess = getSession(state, req);
+    if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in to use Shared Online Intelligence.' });
     const body = await readJsonBody(req);
     const ans = await answerOnlineIntelligence(state, sess, body);
     return sendJson(res, 200, ans);
@@ -770,16 +916,18 @@ export default async function handler(req, res) {
 
   /* 10. Public County-Routed Urgent Account Request / Recovery */
   if (route === 'public/account-request' && method === 'POST') {
-    const body = await readJsonBody(req);
-    const ref = 'REQ-' + Math.floor(100000 + Math.random() * 900000);
-    const countyId = body.assignedCountyId || body.countyId || 'kisumu';
+    const body = sanitizePublicSubmission(await readJsonBody(req));
+    const ref = publicRef('REQ');
+    const countyId = body.assignedCountyId === 'homabay' || body.countyId === 'homabay' ? 'homabay' : 'kisumu';
     const assignedAdminUsername = countyId === 'homabay' ? 'homabay.admin' : 'kisumu.admin';
-    const rec = { id: ref, ref, ...body, countyId, assignedCountyId: countyId, assignedAdminUsername, urgent: true, status: 'open', submittedAt: nowISO() };
+    const rec = { ...body, id: ref, ref, countyId, assignedCountyId: countyId, assignedAdminUsername, urgent: true, status: 'open', submittedAt: nowISO() };
     state.accountRequests = state.accountRequests || [];
     state.accountRequests.unshift(rec);
+    state.accountRequests.splice(MAX_PUBLIC_REQUESTS);
     if (state.db) {
       state.db.accountRequests = state.db.accountRequests || [];
       state.db.accountRequests.unshift(rec);
+      state.db.accountRequests.splice(MAX_PUBLIC_REQUESTS);
     }
     appendServerAudit(state, 'public', 'account.requested.county_urgent', 'accountRequest', ref, `URGENT -> ${assignedAdminUsername}: ${body.name || ''} (${body.jobTitle || ''})`);
     await saveCloudState(state);
@@ -787,16 +935,18 @@ export default async function handler(req, res) {
   }
 
   if (route === 'auth/forgot' && method === 'POST') {
-    const body = await readJsonBody(req);
-    const ref = 'REC-' + Math.floor(10000 + Math.random() * 90000);
-    const countyId = body.assignedCountyId || body.countyId || 'kisumu';
+    const body = sanitizePublicSubmission(await readJsonBody(req));
+    const ref = publicRef('REC');
+    const countyId = body.assignedCountyId === 'homabay' || body.countyId === 'homabay' ? 'homabay' : 'kisumu';
     const assignedAdminUsername = countyId === 'homabay' ? 'homabay.admin' : 'kisumu.admin';
-    const rec = { id: ref, reference: ref, ...body, countyId, assignedCountyId: countyId, assignedAdminUsername, urgent: true, status: 'open', at: nowISO() };
+    const rec = { ...body, id: ref, reference: ref, countyId, assignedCountyId: countyId, assignedAdminUsername, urgent: true, status: 'open', at: nowISO() };
     state.recoveryRequests = state.recoveryRequests || [];
     state.recoveryRequests.unshift(rec);
+    state.recoveryRequests.splice(MAX_PUBLIC_REQUESTS);
     if (state.db) {
       state.db.recoveryRequests = state.db.recoveryRequests || [];
       state.db.recoveryRequests.unshift(rec);
+      state.db.recoveryRequests.splice(MAX_PUBLIC_REQUESTS);
     }
     appendServerAudit(state, body.username || 'unknown', 'auth.recovery_requested.county_urgent', 'user', body.username || '-', `URGENT -> ${assignedAdminUsername} · Recovery ${ref}`);
     await saveCloudState(state);
