@@ -81,7 +81,7 @@ function credMasterText(issued, host){
     `    Password   ${a.password}\n` +
     (a.activation ? `    Activation ${a.activation}\n` : '')
   ).join('\n');
-  return `${line}\n  LOMAMO FOUNDATION · CARELINK DIMS v6.1\n  OFFICIAL ACCOUNT MASTER FILE  -  CONFIDENTIAL\n${line}\n
+  return `${line}\n  LOMAMO FOUNDATION · CARELINK C-DIMS v${APP.version}\n  OFFICIAL ACCOUNT MASTER FILE  -  CONFIDENTIAL\n${line}\n
 Generated      ${new Date().toLocaleString('en-GB')}
 Organisation   ${orgName()}
 Host computer  ${host || 'the computer running server.py'}

@@ -45,7 +45,7 @@ const J = expr => JSON.parse(run(`JSON.stringify(${expr})`));
 
 /* 1. Version, Browser Tab Title & Zero-Slice-Text Symmetrical Pie/Donut Charts + Complete View-as-Table */
 test('1. Symmetrical pie/donut charts (zero text across slices) & complete View-as-Table mode', () => {
-  ok('APP.version is 6.4.0', run(`APP.version`) === '6.4.0', run(`APP.version`));
+  ok('APP.version is >= 6.4.0', /^6\.[4-9]\.\d+$/.test(run(`APP.version`)), run(`APP.version`));
   ok('APP.tabTitle is CareLink C-DIMS', run(`APP.tabTitle`) === 'CareLink C-DIMS');
 
   const dHtml = String(run(`chartDonut([{label:'Foodbags',value:120000,color:'#0E7490'},{label:'Medication',value:80000,color:'#15803D'}], {title:'Test mix', fmt:v=>money(v), centerLabel:'TOTAL', centerValue:money(200000)})`));

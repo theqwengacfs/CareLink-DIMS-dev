@@ -360,7 +360,7 @@ export default async function handler(req, res) {
 
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
-    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.4.0' }, users: [], audit: [] });
+    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.6.0' }, users: [], audit: [] });
     state.creds = {
       [username]: {
         id: 'u-chief-admin',
@@ -652,7 +652,7 @@ export default async function handler(req, res) {
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to write to the online database.' });
     const body = await readJsonBody(req);
     const patches = Array.isArray(body.patches) ? body.patches : [];
-    state.db = state.db || { meta: { schema: 6, version: '6.4.0' } };
+    state.db = state.db || { meta: { schema: 6, version: '6.6.0' } };
     let merged = 0;
 
     for (const p of patches) {

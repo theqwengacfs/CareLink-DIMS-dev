@@ -594,7 +594,7 @@ Try one of the workspace prompts below, or connect a local Ollama model for open
     const ctx = this.context(user);
     const model = this.status.activeModel || cfg.model || 'llama3.2';
     const sysPrompt = [
-      `You are "${prof.title}" inside LOMAMO Foundation Kenya's LOMAMO C-DIMS v6.1 (${prof.badge}).`,
+      `You are "${prof.title}" inside LOMAMO Foundation Kenya's CareLink C-DIMS v${APP.version} (${prof.badge}).`,
       `Signed-in officer: ${ctx.user.name} (${ctx.user.role}, ${ctx.user.dept}, ${ctx.user.county}).`,
       `Authorised verified figures ONLY: active_patients=${ctx.patients.active}, total_scoped_patients=${ctx.patients.total}, open_concerns=${ctx.concerns}, open_hospital_requests=${ctx.requests.open}, awaiting_clinical_review=${ctx.requests.awaitingReview}${ctx.finance ? `, budget_kes=${ctx.finance.budget}, paid_kes=${ctx.finance.paid}, remaining_kes=${ctx.finance.remaining}` : ''}.`,
       `Verified LOMAMO C-DIMS baseline response: ${localAns.text}`,
