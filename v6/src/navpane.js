@@ -125,7 +125,8 @@ const NAVP = {
     </nav>`;
   },
 
-  /* Keep the pane's scroll position across a redraw, and bring the open page into view. */
+  _lastView: null,
+  /* Keep the pane's scroll position across a redraw; only auto-reveal the active item when the view itself changed. */
   scrollState(){
     const el = document.querySelector && document.querySelector('.np-scroll');
     return el? el.scrollTop : null;
@@ -133,11 +134,16 @@ const NAVP = {
   restoreScroll(top){
     const el = document.querySelector && document.querySelector('.np-scroll');
     if(!el) return;
+    const curView = (typeof APPX!=='undefined' && APPX.view) ? APPX.view : '';
+    const viewChanged = NAVP._lastView !== curView;
+    NAVP._lastView = curView;
     if(top!==null && top!==undefined) el.scrollTop = top;
-    const on = el.querySelector && el.querySelector('.np-i.on');
-    if(on && on.offsetTop!==undefined){
-      const vis0 = el.scrollTop, vis1 = vis0 + el.clientHeight;
-      if(on.offsetTop < vis0 || on.offsetTop + on.offsetHeight > vis1) el.scrollTop = Math.max(0, on.offsetTop - 80);
+    if(viewChanged){
+      const on = el.querySelector && el.querySelector('.np-i.on');
+      if(on && on.offsetTop!==undefined){
+        const vis0 = el.scrollTop, vis1 = vis0 + el.clientHeight;
+        if(on.offsetTop < vis0 || on.offsetTop + on.offsetHeight > vis1) el.scrollTop = Math.max(0, on.offsetTop - 80);
+      }
     }
   }
 };

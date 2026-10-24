@@ -8,5 +8,6 @@ module.exports = [
   'views_care.js','views_settings.js','care_actions.js','import.js','sync6.js','backup.js',
   'views_extra.js','office_actions.js','app.js','pmi.js','recognition.js','workplace.js','insight6.js','indicators6.js','hub6.js','entry6.js',
   'org_teams.js','household.js','costing.js','tb_dispensing.js','master_registry.js','master_analysis.js','waiting_urgent.js','portal_content.js',
-  'bmi_clinical6.js','discharge_hardcopy6.js','monday_procurement6.js','handover_partners6.js','visual_audit.js'
+  'bmi_clinical6.js','discharge_hardcopy6.js','monday_procurement6.js','handover_partners6.js',
+  'admin_workflows6.js','dev_console6.js','visual_audit.js'
 ];

@@ -79,7 +79,7 @@ const DB = {
         theme:'light', consoleTheme:'foundation', density:'comfortable', accentMode:'department', animations:true, sounds:false,
         idleMinutes:20, mondayReport:{ enabled:true, lastRun:null, manualRuns:0 },
         reportCutoff:'23:59',
-        ai:{ enabled:true, provider:'local', ollama:'http://localhost:11434', model:'llama3.1', allowExternal:false },
+        ai:{ enabled:true, provider:'online', ollama:'/api/ai', model:'carelink-online-v6.4', allowExternal:false },
         backup:{ schedule:'daily', lastBackup:null, lastVerified:null, location:'Local secure volume', destination:'' },
         security:{ mfaRequiredForAdmins:true, passwordMinLength:12, sessionLock:true, loginAttempts:5 },
         onboarding:{ complete:false, step:1 },
@@ -107,7 +107,11 @@ const DB = {
       execMeetings:[], inventoryItems:[], inventoryMoves:[], interns:[],
       ohsIncidents:[], ohsChecks:[], dataElements:[], indicators:[], dqIssues:[],
       devices:[], devicesPending:[], passwordVault:[], mergeJournal:[], weatherCache:{},
-      referrals:[]};
+      referrals:[],
+      /* v6.4 Admin Operations collections */
+      adminOpsPayg:[], adminOpsSuppliers:[], adminOpsTransport:[],
+      adminOpsStatutory:[], adminOpsUtilities:[], adminOpsOpEx:[],
+      adminOpsMonthlyReports:[], adminOpsAnnualBudgets:[], adminOpsSocieties:[]};
   },
 
   load(){

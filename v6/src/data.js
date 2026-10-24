@@ -20,8 +20,8 @@ const APP = {
   shortName: 'CareLink',
   formerName: 'LOMAMO C-DIMS',
   full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
-  version: '6.3.0',
-  build: '2026.10.23',
+  version: '6.4.0',
+  build: '2026.10.24',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
   motto: 'Love Matters Most',
@@ -155,7 +155,13 @@ const CAPS = {
   'ccc.desk':         { g:'Partners', l:'Submit & track CCC / PSC / Hospital clinical referrals' },
   'gov.oversight':    { g:'Partners', l:'View privacy-safe County & National Government impact dashboard' },
   'intl.medical':     { g:'Clinical', l:'Review 120+ day PDCA overstay reports & international clinical oversight', sensitive:true },
-  'handover.use':     { g:'People', l:'Manage delegation plans, reliever scope & role handovers' }
+  'handover.use':     { g:'People', l:'Manage delegation plans, reliever scope & role handovers' },
+
+  /* CareLink v6.4 Production Operations, Dev Console & Audited Silent Override */
+  'admin.ops':        { g:'Finance & operations', l:'Manage daily PAYG, weekly suppliers, 9th statutory, Operational Expenses & annual societies' },
+  'admin.ops.kisumu_hq': { g:'Finance & operations', l:'Prepare consolidated Kenya & Homa Bay monthly financial reports (Kisumu Head Office)', sensitive:true },
+  'dev.console':      { g:'System', l:'Access the CareLink Development Console & live diagnostics', sensitive:true },
+  'system.override.silent': { g:'System', l:'Silently inspect user workspaces & left-panel navigation (Chief System Admin, audited)', sensitive:true }
 };
 
 /* ---------- 2. ORGANISATIONAL STRUCTURE ---------- */
@@ -334,11 +340,11 @@ const ROLES = [
    digitised paper forms are granted here, in one place, so the matrix can be
    read as a whole. Every entry names a capability that exists above. */
 const ROLE_ADDITIONS = {
-  chief:['form.view','form.verify','pharmacy.view','careplan.view','pmi.check','monday.meeting','monday.manage','hardcopy.intake','ccc.desk','gov.oversight','intl.medical','handover.use'],
-  president:['monday.meeting','gov.oversight','handover.use'],
-  director:['form.view','careplan.view','pharmacy.view','hr.leave.approve','pmi.check','monday.meeting','monday.manage','clinical.mcm','hardcopy.intake','ccc.desk','gov.oversight','intl.medical','handover.use'],
-  countyadmin:['form.view','form.verify','pharmacy.view','careplan.view','hr.leave.approve','pmi.check','monday.meeting','monday.manage','hardcopy.intake','ccc.desk','gov.oversight','handover.use'],
-  assistant:['form.view','form.create','form.verify','careplan.view','pmi.check','monday.meeting','monday.manage','hardcopy.intake','ccc.desk','handover.use'],
+  chief:['form.view','form.verify','pharmacy.view','careplan.view','pmi.check','monday.meeting','monday.manage','hardcopy.intake','ccc.desk','gov.oversight','intl.medical','handover.use','dev.console','admin.ops','admin.ops.kisumu_hq','system.override.silent'],
+  president:['monday.meeting','gov.oversight','handover.use','admin.ops'],
+  director:['form.view','careplan.view','pharmacy.view','hr.leave.approve','pmi.check','monday.meeting','monday.manage','clinical.mcm','hardcopy.intake','ccc.desk','gov.oversight','intl.medical','handover.use','admin.ops','admin.ops.kisumu_hq'],
+  countyadmin:['form.view','form.verify','pharmacy.view','careplan.view','hr.leave.approve','pmi.check','monday.meeting','monday.manage','hardcopy.intake','ccc.desk','gov.oversight','handover.use','admin.ops'],
+  assistant:['form.view','form.create','form.verify','careplan.view','pmi.check','monday.meeting','monday.manage','hardcopy.intake','ccc.desk','handover.use','admin.ops'],
   coordinator:['form.view','form.verify','careplan.view','pharmacy.view','pmi.check','monday.meeting','ccc.desk','handover.use'],
   caregiver:['form.view','form.create','careplan.view','pmi.check','monday.meeting','ccc.desk','handover.use'],
   chw:['form.view','form.create','pmi.check','monday.meeting','handover.use'],
@@ -349,10 +355,10 @@ const ROLE_ADDITIONS = {
          'pharmacy.manage','careplan.view','careplan.manage','careplan.approve','pmi.check','monday.meeting','clinical.mcm','ccc.desk','handover.use'],
   depthead:['form.view','careplan.view','pharmacy.view','hr.leave.approve','monday.meeting','clinical.mcm','intl.medical','handover.use'],
   mediahead:['monday.meeting','gov.oversight','handover.use'],
-  finance:['monday.meeting','handover.use'],
-  procurement:['monday.meeting','handover.use'],
+  finance:['monday.meeting','handover.use','admin.ops','admin.ops.kisumu_hq'],
+  procurement:['monday.meeting','handover.use','admin.ops'],
   me:['form.view','careplan.view','monday.meeting','gov.oversight','handover.use'],
-  auditor:['monday.meeting'],
+  auditor:['monday.meeting','admin.ops'],
   hr:['monday.meeting','handover.use'],
   welfare:['monday.meeting','handover.use'],
   vehicle:['monday.meeting','handover.use'],
@@ -367,15 +373,20 @@ const ROLE = id => ROLES.find(r=>r.id===id);
 
 /* ---------- 4. FINANCE REFERENCE ---------- */
 const BUDGET_CATEGORIES = [
-  { id:'food',        name:'Food & foodbags',        group:'Programme' },
-  { id:'staff_tpt',   name:'Staff transport',        group:'Operations' },
-  { id:'patient_tpt', name:'Patient transport',      group:'Programme' },
-  { id:'medication',  name:'Medication',             group:'Medical' },
-  { id:'outpatient',  name:'Outpatient expenses',    group:'Medical' },
-  { id:'shif',        name:'SHIF / SHA contributions',group:'Medical' },
-  { id:'fuel',        name:'Vehicle fuel',           group:'Transport' },
-  { id:'maint',       name:'Vehicle maintenance',    group:'Transport' },
-  { id:'other',       name:'Other approved support', group:'Programme' }
+  { id:'food',             name:'Food & foodbags (Weekly Suppliers)', group:'Programme' },
+  { id:'patient_payg',     name:'Patient expenses (Daily Pay-As-You-Go)', group:'Programme' },
+  { id:'staff_tpt',        name:'Staff transport (Daily)',        group:'Operations' },
+  { id:'patient_tpt',      name:'Patient transport',              group:'Programme' },
+  { id:'medication',       name:'Medication',                     group:'Medical' },
+  { id:'outpatient',       name:'Outpatient expenses',            group:'Medical' },
+  { id:'shif',             name:'SHIF / SHA contributions',       group:'Statutory (9th)' },
+  { id:'statutory_9th',    name:'Statutory remittances (9th: SHIF, PAYE, KRA, NSSF)', group:'Statutory (9th)' },
+  { id:'utilities_rent',   name:'Monthly utilities & bills (water, garbage, electricity, rent, salaries)', group:'Operations' },
+  { id:'op_expenses',      name:'Operational Expenses (Operational wages, Admin wages & Monthly financial reports)', group:'Operational Expenses' },
+  { id:'annual_societies', name:'Filing of Societies & annual license renewals', group:'Governance' },
+  { id:'fuel',             name:'Vehicle fuel',                   group:'Transport' },
+  { id:'maint',            name:'Vehicle maintenance',            group:'Transport' },
+  { id:'other',            name:'Other approved support',         group:'Programme' }
 ];
 
 const SUPPORT_ITEMS = ['Foodbag','Bible','Mosquito net','Mattress','Blanket','Special bag','Hygiene kit'];

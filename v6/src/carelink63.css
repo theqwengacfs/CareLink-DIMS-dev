@@ -149,11 +149,127 @@
   .topbar.cbar .me-nm{ display:none !important; }
 }
 
-/* Zero unwanted horizontal overflow across all consoles & sheets */
-.shell, .content{
+/* Zero unwanted horizontal overflow & fixed non-zooming 100dvh shell */
+html, body{
+  zoom:1 !important;
   max-width:100%;
-  overflow-x:clip;
 }
+html[data-zoom="110"]{ font-size:106%; }
+html[data-zoom="125"]{ font-size:112%; }
+
+@media (min-width:1000px){
+  html:has(.app.shell.has-pane),
+  body:has(.app.shell.has-pane){
+    height:100dvh !important;
+    max-height:100dvh !important;
+    overflow:hidden !important;
+  }
+  .app.shell.has-pane{
+    display:grid !important;
+    grid-template-columns:var(--np-w) minmax(0, 1fr) !important;
+    grid-template-rows:auto minmax(0, 1fr) !important;
+    height:100dvh !important;
+    min-height:100dvh !important;
+    max-height:100dvh !important;
+    overflow:hidden !important;
+    align-items:stretch !important;
+  }
+  .has-pane > .npane{
+    grid-column:1 !important;
+    grid-row:1 / -1 !important;
+    position:relative !important;
+    top:0 !important;
+    height:100% !important;
+    max-height:100dvh !important;
+    min-height:0 !important;
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+    background:var(--chrome) !important;
+    border-right:1px solid var(--chrome-line);
+  }
+  .has-pane > .npane > .np-scroll{
+    flex:1 1 0% !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    overscroll-behavior:contain !important;
+    padding:8px 8px 14px !important;
+    box-shadow:none !important;
+  }
+  .has-pane > .npane > .np-foot{
+    flex:0 0 auto !important;
+    margin-top:auto !important;
+    background:var(--chrome) !important;
+    border-top:1px solid var(--chrome-line) !important;
+    padding:8px 8px 10px !important;
+  }
+  .has-pane > .cbar{
+    grid-column:2 !important;
+    grid-row:1 !important;
+    position:relative !important;
+    z-index:25;
+  }
+  .has-pane > .content{
+    grid-column:2 !important;
+    grid-row:2 !important;
+    height:100% !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    overscroll-behavior:contain !important;
+  }
+}
+
+@media (max-width:999.98px){
+  .has-pane > .npane{
+    height:100dvh !important;
+    max-height:100dvh !important;
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+    background:var(--chrome) !important;
+  }
+  .has-pane > .npane > .np-scroll{
+    flex:1 1 0% !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain !important;
+    box-shadow:none !important;
+  }
+}
+
+.content{
+  max-width:100%;
+  overflow-x:hidden;
+}
+.tbl-wrap{
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  overscroll-behavior-x:contain;
+  scrollbar-width:thin;
+}
+
+/* Clean, unobtrusive scrollbars system-wide */
+.content, .np-scroll, .tbl-wrap, .sheet, .ctx-role-tabs, .modal-b, .ai-body, .msg-list, .msg-body{
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb, var(--muted) 42%, transparent) transparent;
+}
+.content::-webkit-scrollbar, .np-scroll::-webkit-scrollbar, .tbl-wrap::-webkit-scrollbar,
+.sheet::-webkit-scrollbar, .ctx-role-tabs::-webkit-scrollbar, .modal-b::-webkit-scrollbar{
+  width:7px; height:7px;
+}
+.content::-webkit-scrollbar-thumb, .tbl-wrap::-webkit-scrollbar-thumb,
+.sheet::-webkit-scrollbar-thumb, .ctx-role-tabs::-webkit-scrollbar-thumb, .modal-b::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb, var(--muted) 38%, transparent);
+  border-radius:999px;
+}
+.np-scroll::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.22);
+  border-radius:999px;
+}
+
 .page-head{
   display:flex; justify-content:space-between; align-items:flex-start;
   flex-wrap:wrap; gap:12px; max-width:100%;
@@ -164,16 +280,19 @@
   flex:0 1 auto; max-width:100%;
 }
 
-/* ---------------- 4. Upper Role/Scope Banner (.ctx-strip) Per-Department Variances ---------------- */
+/* ---------------- 4. Rich Role-Contextual Upper Console Bar (.ctx-strip) & Readable Tabs ---------------- */
 .ctx-strip{
   --cs-bg1:#0F172A; --cs-bg2:#1E3A8A; --cs-acc:#38BDF8;
-  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+  display:flex; flex-direction:column; align-items:stretch; gap:11px;
   padding:13px 18px !important; border-radius:14px !important; margin-bottom:16px !important;
   background:linear-gradient(100deg, var(--cs-bg1) 0%, var(--cs-bg2) 100%) !important;
   color:#F8FAFC !important;
-  border:1px solid rgba(255,255,255,.16) !important;
+  border:1px solid rgba(255,255,255,.18) !important;
   border-left:5px solid var(--cs-acc) !important;
-  box-shadow:0 8px 22px rgba(15,23,42,.14);
+  box-shadow:0 8px 22px rgba(15,23,42,.15);
+}
+.ctx-strip-top{
+  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; width:100%;
 }
 .ctx-strip[data-dept="media"]    { --cs-bg1:#2E1065; --cs-bg2:#5B21B6; --cs-acc:#FBBF24; }
 .ctx-strip[data-dept="medical"]  { --cs-bg1:#083344; --cs-bg2:#0E7490; --cs-acc:#5EEAD4; }
@@ -213,35 +332,120 @@
   padding:1px 7px; border-radius:999px; font-weight:900; letter-spacing:.07em;
 }
 .ctx-role-chip{
-  background:rgba(255,255,255,.15); color:#FFFFFF;
-  padding:1px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.24);
+  background:rgba(15,23,42,.55); color:#FFFFFF;
+  padding:1px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.32);
 }
 .ctx-strip-title{
   font-size:16px !important; font-weight:800 !important;
   color:#FFFFFF !important; margin-top:3px !important;
 }
 .ctx-strip-sub{
-  font-size:12px !important; color:rgba(248,250,252,.88) !important; margin-top:2px !important;
+  font-size:12px !important; color:rgba(248,250,252,.92) !important; margin-top:2px !important;
 }
 .ctx-strip-sub b{ color:#FFFFFF; }
 .ctx-strip-right{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .ctx-scope-pill{
   display:inline-flex; align-items:center; gap:5px;
   padding:5px 11px; border-radius:999px; font-size:11.5px; font-weight:750;
-  background:rgba(15,23,42,.42); color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.28);
+  background:rgba(9,13,22,.56); color:#FFFFFF;
+  border:1px solid rgba(255,255,255,.32);
 }
 .ctx-partner-pill{
   padding:5px 10px; border-radius:999px; font-size:11px; font-weight:800;
   background:#FDE68A; color:#78350F;
 }
-
-/* ---------------- 5. Switched-Account Banner & Co-Work Button Contrast Fix ---------------- */
-.demo-view-bar{
-  background:linear-gradient(92deg, #0F172A 0%, #1E3A8A 55%, #0F4C81 100%) !important;
+.ctx-strip .ctx-cta-btn{
+  background:var(--cs-acc) !important;
+  color:#0F172A !important;
+  border:1px solid rgba(255,255,255,.65) !important;
+  font-weight:800 !important;
+  border-radius:999px !important;
+  padding:5px 12px !important;
+}
+.ctx-strip .ctx-cta-btn:hover{
+  filter:brightness(1.06);
+}
+.ctx-role-tabs{
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding-top:9px; border-top:1px solid rgba(255,255,255,.16);
+}
+.ctx-rtab{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 11px; border-radius:999px;
+  background:rgba(9,13,22,.48);
   color:#F8FAFC !important;
-  border:1px solid rgba(125,211,252,.48) !important;
+  border:1px solid rgba(255,255,255,.24);
+  font-size:11.8px; font-weight:700; cursor:pointer;
+  transition:background .14s ease, border-color .14s ease;
+}
+.ctx-rtab:hover{
+  background:rgba(9,13,22,.74);
+  border-color:rgba(255,255,255,.55);
+  color:#FFFFFF !important;
+}
+.ctx-rtab.on{
+  background:var(--cs-acc) !important;
+  color:#0F172A !important;
+  border-color:#FFFFFF !important;
+  font-weight:850 !important;
+  box-shadow:0 2px 8px rgba(0,0,0,.22);
+}
+.ctx-rtab svg, .ctx-rtab span, .ctx-strip .ctx-cta-btn svg, .ctx-strip .ctx-cta-btn span{
+  color:inherit !important;
+}
+
+/* High-contrast, easy-to-read Console & Sheet Tabs across ALL themes */
+.tabs{
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding:5px; border-radius:12px;
+  background:var(--surface-2); border:1px solid var(--line);
+}
+.tabs .tab{
+  border-radius:9px !important;
+  padding:7px 13px !important;
+  background:var(--surface) !important;
+  color:var(--ink) !important;
+  border:1px solid var(--line) !important;
+  font-weight:650 !important;
+}
+.tabs .tab:hover{
+  border-color:var(--accent) !important;
+  color:var(--ink) !important;
+}
+.tabs .tab.active{
+  background:var(--accent) !important;
+  color:var(--accent-ink, #FFFFFF) !important;
+  border-color:var(--accent) !important;
+  font-weight:800 !important;
+  box-shadow:0 2px 6px rgba(15,23,42,.14);
+}
+.tabs .tab.active svg, .tabs .tab.active span{ color:inherit !important; }
+
+.sheet .tab{
+  background:var(--surface) !important;
+  color:var(--ink) !important;
+  border:1px solid var(--line) !important;
+  font-weight:650 !important;
+}
+.sheet .tab.active{
+  background:var(--accent) !important;
+  color:var(--accent-ink, #FFFFFF) !important;
+  border-color:var(--accent) !important;
+  font-weight:800 !important;
+}
+.sheet .tab.active .tcount{
+  background:rgba(0,0,0,.26) !important;
+  color:#FFFFFF !important;
+}
+
+/* ---------------- 5. Global Switched-Account, Co-Work & Silent Override Banner Contrast Fix ---------------- */
+.demo-view-bar{
+  background:linear-gradient(92deg, #0B132B 0%, #1E3A8A 55%, #0F4C81 100%) !important;
+  color:#F8FAFC !important;
+  border:1.5px solid #38BDF8 !important;
   padding:11px 16px !important;
+  border-radius:12px !important;
+  margin-bottom:12px !important;
 }
 .demo-view-copy{
   display:flex; align-items:center; gap:9px; color:#F8FAFC !important;
@@ -249,38 +453,90 @@
 .demo-view-ic{
   width:28px; height:28px; border-radius:8px; flex:0 0 auto;
   display:inline-flex; align-items:center; justify-content:center;
-  background:rgba(56,189,248,.2); color:#7DD3FC;
+  background:rgba(56,189,248,.22); color:#7DD3FC;
 }
 .demo-view-from{ color:#BAE6FD !important; }
 .demo-view-bar .demo-bar-btn{
-  font-weight:750 !important;
+  font-weight:800 !important;
   border-radius:8px !important;
-  padding:6px 12px !important;
-  box-shadow:0 2px 6px rgba(0,0,0,.22);
+  padding:6px 13px !important;
+  box-shadow:0 2px 6px rgba(0,0,0,.28);
+  opacity:1 !important;
 }
 .demo-view-bar .demo-bar-btn-primary{
-  background:#FFFFFF !important;
+  background:#FBBF24 !important;
   color:#0F172A !important;
-  border:1px solid #FFFFFF !important;
+  border:1.5px solid #FDE68A !important;
 }
 .demo-view-bar .demo-bar-btn-primary:hover{
-  background:#E0F2FE !important;
-  color:#0C4A6E !important;
+  background:#F59E0B !important;
+  color:#090D16 !important;
 }
 .demo-view-bar .demo-bar-btn-dismiss{
-  background:rgba(15,23,42,.72) !important;
+  background:#0F172A !important;
   color:#FFFFFF !important;
-  border:1px solid rgba(255,255,255,.55) !important;
+  border:1.5px solid #94A3B8 !important;
 }
 .demo-view-bar .demo-bar-btn-dismiss:hover{
-  background:#020617 !important;
+  background:#DC2626 !important;
+  color:#FFFFFF !important;
+  border-color:#FCA5A5 !important;
+}
+.demo-view-bar .demo-bar-btn span,
+.demo-view-bar .demo-bar-btn svg{
+  color:inherit !important;
+}
+
+.coedit-bar .coedit-btn-primary{
+  background:#FBBF24 !important;
+  color:#0F172A !important;
+  border:1.5px solid #FDE68A !important;
+  font-weight:800 !important;
+}
+.coedit-bar .coedit-btn-secondary,
+.coedit-bar .btn-ghost{
+  background:#0F172A !important;
+  color:#FFFFFF !important;
+  border:1.5px solid rgba(255,255,255,.72) !important;
+  font-weight:750 !important;
+}
+.coedit-bar .coedit-btn-secondary:hover,
+.coedit-bar .btn-ghost:hover{
+  background:#1E293B !important;
+  color:#FFFFFF !important;
   border-color:#FFFFFF !important;
 }
-.coedit-bar .btn-ghost{
-  background:#FFFFFF !important;
+
+/* Chief System Administrator Audited Silent Override Banner */
+.override-bar{
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  padding:11px 16px; border-radius:12px; margin-bottom:12px;
+  background:linear-gradient(92deg, #450A0A 0%, #7F1D1D 50%, #0F172A 100%) !important;
+  color:#FFFFFF !important;
+  border:1.5px solid #FCA5A5 !important;
+  box-shadow:0 6px 18px rgba(127,29,29,.24);
+}
+.override-bar .ovb-badge{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 10px; border-radius:999px;
+  background:#FDE047; color:#0F172A;
+  font-size:10.5px; font-weight:900; letter-spacing:.08em; text-transform:uppercase;
+}
+.override-bar .ovb-text{
+  flex:1 1 280px; font-size:12.5px; color:#FFF1F2 !important;
+}
+.override-bar .ovb-text b{ color:#FDE047 !important; }
+.override-bar .ovb-btn-primary{
+  background:#FDE047 !important;
   color:#0F172A !important;
-  border-color:#FFFFFF !important;
-  font-weight:750 !important;
+  border:1.5px solid #FFFFFF !important;
+  font-weight:850 !important;
+  padding:6px 13px !important;
+  border-radius:8px !important;
+}
+.override-bar .ovb-btn-primary:hover{
+  background:#FACC15 !important;
+  color:#000000 !important;
 }
 
 /* ---------------- 6. Department Library & Office Equipment Layouts ---------------- */
@@ -333,9 +589,10 @@
   scrollbar-width:thin;
 }
 
-/* ---------------- 8. Spacious Charts & View-as-Table Toggle ---------------- */
+/* ---------------- 8. Symmetrical Charts, Clean Zero-Text Donuts & View-as-Table ---------------- */
 .chart-fig{
   padding:6px 2px 2px;
+  max-width:100%;
 }
 .chart-fig svg.chart{
   width:100%; height:auto; display:block; overflow:visible;
@@ -357,6 +614,78 @@
 .chart-row-track{ height:13px; background:var(--line-2, var(--line)); border-radius:999px; overflow:hidden; }
 .chart-row-val{ text-align:right; font-weight:700; white-space:nowrap; }
 
+/* Symmetrical Donut / Pie Presentation — Zero figures painted across slices */
+.donut-wrap-clean{
+  display:grid;
+  grid-template-columns:auto minmax(220px, 1fr);
+  gap:22px;
+  align-items:center;
+  padding:6px 2px;
+}
+@media (max-width:640px){
+  .donut-wrap-clean{ grid-template-columns:1fr; justify-items:center; }
+  .donut-side-panel{ width:100%; }
+}
+.donut-svg-box{
+  display:flex; align-items:center; justify-content:center;
+  padding:6px;
+}
+.donut-svg-box svg.donut-svg{
+  display:block; max-width:184px; height:auto;
+}
+.donut-side-panel{
+  display:flex; flex-direction:column; gap:10px; min-width:0;
+}
+.donut-total-strip{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:10px; align-items:baseline;
+  padding:9px 13px; border-radius:10px;
+  background:var(--surface-2); border:1px solid var(--line);
+}
+.donut-total-lbl{
+  font-size:10.5px; font-weight:850; text-transform:uppercase; letter-spacing:.08em; color:var(--muted);
+}
+.donut-total-val{
+  font-size:16.5px; font-weight:850; color:var(--ink); text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.donut-total-meta{
+  font-size:11px; color:var(--muted); white-space:nowrap;
+}
+.legend.donut-legend .donut-li-sym{
+  display:grid;
+  grid-template-columns:12px minmax(0, 1fr) auto 54px;
+  gap:10px; align-items:center;
+  padding:5px 8px; border-radius:8px;
+  background:color-mix(in srgb, var(--surface-2) 55%, transparent);
+  border:1px solid var(--line-2, var(--line));
+}
+.legend.donut-legend .donut-li-sym .pct{
+  text-align:right; font-weight:750; color:var(--accent-fg, var(--ink-2));
+}
+
+/* Complete & Symmetrical View-as-Table & Standalone Table Mode */
+.chart-table-only{
+  border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--surface);
+}
+.chart-table-only-head{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:9px 13px; background:var(--surface-2); border-bottom:1px solid var(--line);
+}
+.chart-tbl-wrap{
+  margin-top:8px; border:1px solid var(--line); border-radius:10px; overflow-x:auto;
+}
+.chart-table-only .chart-tbl-wrap{
+  margin-top:0; border:0; border-radius:0;
+}
+tr.ct-total-row td{
+  border-top:2px solid var(--line) !important;
+  background:var(--surface-2) !important;
+  font-weight:800 !important;
+  color:var(--ink) !important;
+}
+
 details.chart-table{
   margin-top:10px;
 }
@@ -369,10 +698,10 @@ details.chart-table > summary.chart-table-btn{
 }
 details.chart-table > summary.chart-table-btn::-webkit-details-marker{ display:none; }
 details.chart-table[open] > summary.chart-table-btn{
-  background:var(--accent); color:#FFFFFF; border-color:var(--accent);
+  background:var(--accent); color:var(--accent-ink, #FFFFFF); border-color:var(--accent);
 }
 .ct-count{
-  font-size:10.5px; opacity:.82; font-family:var(--mono, monospace);
+  font-size:10.5px; opacity:.85; font-family:var(--mono, monospace);
 }
 
 /* ---------------- 9. Coins Podium & Illustrated Rewards Store ---------------- */

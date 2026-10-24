@@ -704,23 +704,40 @@ const COSTX = {
             return top? `${esc(costCatName(top.key))}<div class="xs muted">${money(Math.round(top.total))}</div>` : '<span class="xs muted">-</span>';
           }}
         ], s.byArea, {emptyMsg:'No attributed expenditure for any ministry area in scope.'}))}</div>`
-      + `<div style="margin-top:16px">${card('Area profile', chartRadar({
-          axes:s.byArea.slice(0,8).map(a=>areaName(a.key)),
-          series:[{label:'Average cost per patient', values:s.byArea.slice(0,8).map(a=>Math.round(a.avg)), color:colours[0]},
-                  {label:'Patients served', values:s.byArea.slice(0,8).map(a=>a.patients), color:colours[1]}],
-          title:'Ministry area profile', axisHead:'Ministry area', max:Math.max(...s.byArea.slice(0,8).map(a=>a.avg),1)}))}</div>`;
+      + `<div class="grid g2" style="margin-top:16px">
+          ${card('Average cost per patient by area', chartRows({
+            rows:s.byArea.slice(0,10).map(a=>({label:areaName(a.key), value:Math.round(a.avg)})),
+            fmt:v=>money(v), title:'Average cost per patient by ministry area', labelHead:'Ministry area', valueHead:'Average cost'
+          }), {sub:'Each ministry area compared on its own KES per patient scale.'})}
+          ${card('Patients served by area', chartRows({
+            rows:s.byArea.slice(0,10).map(a=>({label:areaName(a.key), value:a.patients})),
+            fmt:v=>num(v)+' patients', title:'Patients served by ministry area', labelHead:'Ministry area', valueHead:'Patients served'
+          }), {sub:'Beneficiary reach separated from currency totals for clean visual symmetry.'})}
+        </div>`;
     }
 
     if(st.tab==='county'){
       const national = lens.scope==='full';
+      const catLabels = Object.fromEntries(COST_CATEGORIES.map(k=>[k.id, k.name.split(' (')[0]]));
       body = kpis
       + `<div class="grid g2">
-          ${card(national?'County comparison (national view)':'County office', chartGrouped({
-            labels:s.byCounty.map(c=>countyName(c.key).replace(' County Office','')),
-            series:[
-              {label:'Expenditure', values:s.byCounty.map(c=>Math.round(c.total)), color:colours[0]},
-              {label:'Average per patient', values:s.byCounty.map(c=>Math.round(c.avg)), color:colours[2]}
-            ], fmt:v=>money(v), title:'County expenditure and average per patient', labelHead:'County office'}))}
+          ${card(national?'County expenditure & average per patient':'County office breakdown',
+            `<div class="grid g2" style="gap:14px">
+              <div>
+                <div class="xs muted bold" style="text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Total County Expenditure</div>
+                ${chartBars({
+                  rows:s.byCounty.map(c=>({label:countyName(c.key).replace(' County Office',''), value:Math.round(c.total)})),
+                  fmt:v=>money(v), height:210, title:'Total county expenditure', labelHead:'County office', valueHead:'Expenditure'
+                })}
+              </div>
+              <div>
+                <div class="xs muted bold" style="text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Average Cost per Patient</div>
+                ${chartBars({
+                  rows:s.byCounty.map(c=>({label:countyName(c.key).replace(' County Office',''), value:Math.round(c.avg)})),
+                  fmt:v=>money(v), height:210, title:'Average cost per patient by county', labelHead:'County office', valueHead:'Average / patient'
+                })}
+              </div>
+            </div>`)}
           ${card('National cost mix', chartDonut(s.byCounty.map((c,i)=>({label:countyName(c.key), value:Math.round(c.total), color:colours[i%colours.length]})),
             {title:'Share of national expenditure', fmt:v=>money(v), centerValue:money(Math.round(s.total)), centerLabel:national?'NATIONAL':'IN SCOPE'}))}
         </div>`
@@ -737,8 +754,8 @@ const COSTX = {
         ], s.byCounty))}</div>`
       + `<div style="margin-top:16px">${card('County by category', chartHeat({
           rows:s.byCounty.map(c=>({ label:countyName(c.key), values:Object.fromEntries(COST_CATEGORIES.map(k=>[k.id, Math.round(this.sum(s.rows.filter(l=>l.countyId===c.key && l.cat===k.id)))])) })),
-          cols:COST_CATEGORIES.map(k=>k.id), rowHead:'County office',
-          caption:'Shading shows where each county office spends, category by category.',
+          cols:COST_CATEGORIES.map(k=>k.id), colLabels:catLabels, rowHead:'County office',
+          caption:'Shading shows where each county office spends, category by category (hover any cell for exact KES total).',
           fmt:v=>money(v)
         }))}</div>`
       + (national? '' : `<div style="margin-top:16px">${note('A national view is available to the Director, the President and the Chief Program Administrator. Your reach is '+esc(lens.label)+'.','shield')}</div>`);
@@ -764,11 +781,16 @@ const COSTX = {
             {label:'Cost lines',cls:'num',render:d=>num(d.lines)},
             {label:'Share',cls:'num',render:d=>(s.total?(100*d.total/s.total).toFixed(1):'0.0')+'%'}
           ], s.byDisease.slice(0,25), {emptyMsg:'No attributed cost with a confirmed condition in scope.'}))}</div>`
-        + `<div style="margin-top:16px">${card('Condition cost profile', chartRadar({
-            axes:s.byDisease.slice(0,7).map(d=>String(d.key).slice(0,18)),
-            series:[{label:'Average per patient', values:s.byDisease.slice(0,7).map(d=>Math.round(d.avg)), color:colours[0]},
-                    {label:'Total expenditure (scaled)', values:s.byDisease.slice(0,7).map(d=>Math.round(d.total/10)), color:colours[3]}],
-            title:'Condition cost profile', axisHead:'Condition'}))}</div>`;
+        + `<div style="margin-top:16px" class="grid g2">
+            ${card('Total expenditure by top conditions', chartRows({
+              rows:s.byDisease.slice(0,8).map(d=>({label:String(d.key).slice(0,26), value:Math.round(d.total)})),
+              fmt:v=>money(v), title:'Total expenditure by condition', labelHead:'Condition', valueHead:'Total expenditure'
+            }))}
+            ${card('Patients supported by condition', chartRows({
+              rows:s.byDisease.slice(0,8).map(d=>({label:String(d.key).slice(0,26), value:d.patients})),
+              fmt:v=>num(v)+' patients', title:'Patients supported by condition', labelHead:'Condition', valueHead:'Patients'
+            }))}
+          </div>`;
       }
     }
 
@@ -849,11 +871,18 @@ const COSTX = {
     if(st.tab==='trend'){
       const months = s.byMonth.slice(-12);
       body = kpis
-      + card('Expenditure trend', chartLine({
-          labels:months.map(m=>m.key),
-          series:[{label:'Expenditure', values:months.map(m=>Math.round(m.total)), color:colours[0]},
-                  {label:'Average per patient', values:months.map(m=>Math.round(m.avg)), color:colours[2]}],
-          fmt:v=>money(v), title:'Monthly expenditure and average per patient', unit:'KES', labelHead:'Month'}))
+      + `<div class="grid g2">
+          ${card('Monthly expenditure trend', chartLine({
+            labels:months.map(m=>m.key),
+            series:[{label:'Total monthly expenditure', values:months.map(m=>Math.round(m.total)), color:colours[0]}],
+            fmt:v=>money(v), title:'Monthly expenditure', unit:'KES', labelHead:'Month'
+          }), {sub:'Monthly programme expenditure plotted on its own dedicated KES axis.'})}
+          ${card('Average cost per patient by month', chartLine({
+            labels:months.map(m=>m.key),
+            series:[{label:'Average per patient', values:months.map(m=>Math.round(m.avg)), color:colours[2]}],
+            fmt:v=>money(v), title:'Monthly average cost per patient', unit:'KES per patient', labelHead:'Month'
+          }), {sub:'Separated from total expenditure so patient unit-cost trends remain clearly legible.'})}
+        </div>`
       + `<div class="grid g2" style="margin-top:16px">
           ${card('Patients served per month', chartBars({rows:months.map(m=>({label:m.key, value:m.patients})), title:'Patients with a recorded cost per month', valueHead:'Patients', labelHead:'Month'}))}
           ${card('Cost per patient-day by month', chartLine({labels:months.map(m=>m.key),

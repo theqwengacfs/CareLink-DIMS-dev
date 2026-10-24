@@ -138,7 +138,8 @@ function navModel(user){
       { id:'donor', label:'Donor summary', icon:'heart', show:has('report.executive')||has('report.patient_figures')||has('media.publish') },
       { id:'analytics', label:'Pivot tables & maps', icon:'chart', show:has('report.patient_days')||has('report.patient_figures')||has('report.executive')||has('report.departmental') }
     ]},
-    { label:'Finance & procurement', show:has('finance.view')||has('procurement.view'), items:[
+    { label:'Finance & procurement', show:has('finance.view')||has('procurement.view')||has('admin.ops'), items:[
+      { id:'adminops', label:'Admin ops & 9th statutory', icon:'calendar', show:has('admin.ops')||has('finance.view') },
       { id:'finance', label:'Expenditure', icon:'wallet', show:has('finance.view') },
       { id:'costing', label:'Cost per patient', icon:'receipt', show:has('cost.view') },
       { id:'budget', label:'Budget lines', icon:'layers', show:has('finance.budget.manage') },
@@ -177,7 +178,8 @@ function navModel(user){
       { id:'interop', label:'KHIS, DHIS2 & APIs', icon:'flow',
         show:has('system.config')||has('indicator.manage') }
     ]},
-    { label:'System', show:isSystemAdmin, items:[
+    { label:'System', show:isSystemAdmin||has('dev.console'), items:[
+      { id:'devconsole', label:'Development console', icon:'flow', show:has('dev.console') },
       { id:'users', label:'Users & accounts', icon:'userplus', show:has('user.view') },
       { id:'roles', label:'Roles & permissions', icon:'key', show:has('role.manage')||has('user.approve') },
       { id:'governance', label:'Credentials & recovery', icon:'lock', show:has('user.approve')||has('system.config') },
@@ -263,18 +265,22 @@ function barChart(rows, {valueKey='value', labelKey='label', fmt=v=>num(v), max=
     <div class="vl">${fmt(r[valueKey])}</div></div>`).join('')}</div>`;
 }
 function donut(segments, size=132){
-  const total = segments.reduce((n,s)=>n+s.value,0)||1;
-  let a=0; const r=52, c=66, sw=18;
+  const seg = (segments||[]).filter(s=>Number(s.value)>0);
+  const total = seg.reduce((n,s)=>n+Number(s.value),0)||1;
+  let a=0; const r=48, c=66, sw=20;
   const circ = 2*Math.PI*r;
-  const arcs = segments.map(s=>{
-    const frac=s.value/total, dash=frac*circ, off=a*circ; a+=frac;
+  const gap = seg.length > 1 ? 1.8 : 0;
+  const arcs = seg.map(s=>{
+    const frac=Number(s.value)/total, dash=Math.max(0.5, frac*circ - gap), off=a*circ; a+=frac;
     return `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${sw}"
-      stroke-dasharray="${dash} ${circ-dash}" stroke-dashoffset="${-off}" transform="rotate(-90 ${c} ${c})"/>`;
+      stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 ${c} ${c})"><title>${esc(s.label)}: ${num(s.value)} (${(frac*100).toFixed(1)}%)</title></circle>`;
   }).join('');
-  return `<svg width="${size}" height="${size}" viewBox="0 0 132 132" role="img">
-    <circle cx="66" cy="66" r="52" fill="none" stroke="#F0F3F7" stroke-width="18"/>${arcs}
-    <text x="66" y="62" text-anchor="middle" font-size="21" font-weight="700" fill="#15171A">${num(total)}</text>
-    <text x="66" y="79" text-anchor="middle" font-size="9.5" fill="#8A94A2" letter-spacing="0.6">TOTAL</text></svg>`;
+  return `<div class="donut-inline-clean" style="display:inline-flex;align-items:center;gap:12px">
+    <svg width="${size}" height="${size}" viewBox="0 0 132 132" role="img" aria-label="Distribution total ${num(total)}">
+      <circle cx="66" cy="66" r="48" fill="none" stroke="var(--line-2)" stroke-width="20"/>${arcs}
+    </svg>
+    <div><div class="xs muted" style="text-transform:uppercase;letter-spacing:.06em;font-weight:700">Total</div><div class="mono bold" style="font-size:18px;color:var(--ink)">${num(total)}</div></div>
+  </div>`;
 }
 function legend(segments){
   return `<div class="legend">${segments.map(s=>`<div class="li"><span class="sw" style="background:${s.color}"></span>${esc(s.label)}<span class="n">${num(s.value)}</span></div>`).join('')}</div>`;

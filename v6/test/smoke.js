@@ -21,7 +21,7 @@ check('Chief admin has no clinical access by default', ()=> run(`(()=>{const u=D
 // Reports
 check('Patient figures compute for county admin', ()=> run(`(()=>{const u=DB.db.users.find(x=>x.username==='kisumu.admin');const f=REPORTS.patientFigures(u,{});return f.active.length>=0 && f.byArea.length===7 && typeof f.closingCalc==='number'})()`));
 check('Patient-days milestones ordered', ()=> run(`(()=>{const u=DB.db.users.find(x=>x.username==='kisumu.admin');const d=REPORTS.patientDays(u,{});return d.buckets.m60>=d.buckets.m100 && d.buckets.m100>=d.buckets.m120 && d.buckets.m120>=d.buckets.m180})()`));
-check('Expenditure totals reconcile', ()=> run(`(()=>{const u=DB.db.users.find(x=>x.username==='finance.kisumu');const e=REPORTS.expenditure(u,{});return Math.abs(e.tot.remaining-(e.tot.budget-e.tot.paid-e.tot.committed))<1 && e.rows.length===9})()`));
+check('Expenditure totals reconcile', ()=> run(`(()=>{const u=DB.db.users.find(x=>x.username==='finance.kisumu');const e=REPORTS.expenditure(u,{});return Math.abs(e.tot.remaining-(e.tot.budget-e.tot.paid-e.tot.committed))<1 && e.rows.length===BUDGET_CATEGORIES.length && e.rows.length>=9})()`));
 check('Report generation archives with version', ()=> run(`(()=>{const u=DB.db.users.find(x=>x.username==='kisumu.admin');const a=REPORTS.generate('patient_figures',{countyId:'kisumu'},u);const b=REPORTS.generate('patient_figures',{countyId:'kisumu'},u);return b.version===a.version+1})()`));
 check('Referral doc blocked for caregiver', ()=> run(`(()=>{const u=DB.db.users.find(x=>x.username==='caregiver.nyalenda');return REPORTS.masterReferral(u,{})===null})()`));
 

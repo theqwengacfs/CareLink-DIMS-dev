@@ -554,17 +554,17 @@ function renderMustChange(){
     <main class="lg6-panel">
       <div class="lg6-card">
         <div class="lg6-head"><img src="${window.LOGO||''}" alt="" class="lg6-mark">
-          <div><div class="lg6-kicker">First sign-in</div><h2>Choose your own password</h2></div></div>
-        <p class="lg-note">You signed in with a temporary password issued by the administrator. Choose a personal password known only to you. It is stored as a salted hash and cannot be read back by anyone.</p>
+          <div><div class="lg6-kicker">First Sign-In · Data Protection Act, 2019</div><h2>Create your private password</h2></div></div>
+        <p class="lg-note">You signed in with a one-time SMS password issued during commissioning. Set your personal password below — it must be at least <b>12 characters</b> with uppercase, lowercase, digit and symbol, and is stored only as a salted one-way hash so <b>not even the Chief System Administrator knows your password</b>.</p>
         <div class="lg6-id"><span class="avatar">${initials(u.name)}</span>
           <div><b>${esc(u.name)}</b><div class="xs muted">${esc((roleObj(u.roleId)||{}).name||'')} · ${esc(u.username)}</div></div></div>
         ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<span>${esc(LOGIN6.error)}</span></div>`:''}
         <form data-form="mustchange6">
-          <div class="field"><label>Current (temporary) password</label><input class="input" type="password" name="current" required autocomplete="current-password"></div>
-          <div class="field"><label>New password</label><input class="input" type="password" name="password" minlength="10" required autocomplete="new-password">
-            <div class="hint">At least 10 characters. A mix of letters, digits and a symbol is stronger.</div></div>
-          <div class="field"><label>Repeat the new password</label><input class="input" type="password" name="password2" minlength="10" required autocomplete="new-password"></div>
-          <button class="btn btn-primary btn-block" type="submit">Save and open my console</button>
+          <div class="field"><label>Current (one-time SMS) password</label><input class="input" type="password" name="current" required autocomplete="current-password"></div>
+          <div class="field"><label>New private password (12+ chars)</label><input class="input" type="password" name="password" minlength="12" required autocomplete="new-password">
+            <div class="hint">Minimum 12 characters including uppercase (A–Z), lowercase (a–z), number (0–9) and symbol (@ # % &amp; * ! ?).</div></div>
+          <div class="field"><label>Repeat your new private password</label><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"></div>
+          <button class="btn btn-primary btn-block" type="submit">Save private password &amp; open my console</button>
         </form>
         <div class="lg6-foot"><button class="linkbtn" data-act="logout" type="button">Sign out instead</button></div>
       </div>
@@ -579,35 +579,35 @@ function renderOnboarding6(){
   const dots = [1,2,3,4].map(i=>`<span class="ob-dot ${step>=i?'on':''}"></span>`).join('');
   const head = `<div class="ob-head">
       <img src="${window.LOGO||''}" alt="" class="lg6-mark">
-      <div><div class="lg6-kicker">First-run setup · LOMAMO C-DIMS v${APP.version}</div>
-        <h2>Configure live host or load full demonstration dataset</h2></div>
+      <div><div class="lg6-kicker">First-Run Production Setup · CareLink C-DIMS v${APP.version}</div>
+        <h2>Commission Chief System Administrator &amp; SMS Credentials</h2></div>
       <div class="ob-dots">${dots}</div></div>`;
 
   let body = '';
   if(step===1){
-    body = `<p class="lg-note">Use this wizard when commissioning a fresh office host computer, or click <b>Load Full 3,333-Patient Demo</b> below to enter immediately with all 47 staff accounts, 10 ministry areas and departmental records ready for evaluation.</p>
+    body = `<p class="lg-note">Commission your published <b>CareLink C-DIMS</b> online site database: configure the <b>Chief System Administrator</b>, auto-generate strong unique SMS credentials for all staff accounts (with mandatory first-login privacy password creation), or load the synthetic 3,333-patient demonstration dataset.</p>
       <div class="field"><label>Organisation name</label><input class="input" id="ob-org" value="${esc(ONB.org.name)}"></div>
       <div class="grid g2" style="gap:10px">
         <div class="field"><label>Short name</label><input class="input" id="ob-short" value="${esc(ONB.org.shortName)}"></div>
-        <div class="field"><label>Primary county office</label><select class="input" id="ob-county">${COUNTIES.map(c=>`<option value="${c.id}" ${ONB.org.county===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Primary county office (Head Office)</label><select class="input" id="ob-county">${COUNTIES.map(c=>`<option value="${c.id}" ${ONB.org.county===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
       </div>
-      <div class="ob-host ${host?'ok':'warn'}">
-        ${host ? `${ic('database',16)}<div><b>Central Wi-Fi database detected at this address</b>
-            <span>Revision ${host.rev}${host.setup?' - host is already set up; you can sign in directly or reload demonstration records.':''}</span></div>`
-              : `${ic('wifi',16)}<div><b>Standalone device mode active</b>
-            <span>All features and demonstration records run directly on this device. Run <b>AUTO-START-WIFI.bat</b> on the office host PC to sync tablets live over Wi-Fi.</span></div>`}
+      <div class="ob-host ${host?'ok':'info'}">
+        ${host ? `${ic('database',16)}<div><b>Unified Online Site Database connected at this address</b>
+            <span>Revision ${host.rev}${host.setup?' — already commissioned; sign in directly or review demonstration records.':''} Shared online database &amp; shared online intelligence active for all accounts.</span></div>`
+              : `${ic('database',16)}<div><b>Production Commissioning Ready</b>
+            <span>Completing this wizard configures the Chief System Administrator and generates downloadable CSV &amp; SMS credential packs for every account.</span></div>`}
       </div>`;
   }
   if(step===2){
-    body = `<p class="lg-note">Create the Chief System Administrator account. This office manages roles, issues staff credentials and oversees host backups while remaining subject to clinical privacy boundaries.</p>
+    body = `<p class="lg-note">Configure the <b>Chief System Administrator</b> account. This account commissions staff SMS credentials, oversees the unified online database, and holds audited Silent Workspace Override authority.</p>
       <div class="grid g2" style="gap:10px">
-        <div class="field"><label>Full name</label><input class="input" id="ob-name" value="${esc(ONB.admin.name)}" placeholder="e.g. Washington Ayub Odero"></div>
+        <div class="field"><label>Chief System Administrator full name</label><input class="input" id="ob-name" value="${esc(ONB.admin.name)}" placeholder="e.g. Chief System Administrator"></div>
         <div class="field"><label>Username</label><input class="input" id="ob-user" value="${esc(ONB.admin.username||'chief.admin')}" placeholder="chief.admin"></div>
       </div>
       <div class="grid g2" style="gap:10px">
-        <div class="field"><label>Password</label><input class="input" id="ob-pw" type="password" minlength="10" autocomplete="new-password">
-          <div class="hint" id="ob-strength">At least 10 characters.</div></div>
-        <div class="field"><label>Repeat the password</label><input class="input" id="ob-pw2" type="password" minlength="10" autocomplete="new-password"></div>
+        <div class="field"><label>Private Administrator Password (12+ chars)</label><input class="input" id="ob-pw" type="password" minlength="12" autocomplete="new-password">
+          <div class="hint" id="ob-strength">At least 12 characters with uppercase, lowercase, digit &amp; symbol.</div></div>
+        <div class="field"><label>Repeat password</label><input class="input" id="ob-pw2" type="password" minlength="12" autocomplete="new-password"></div>
       </div>`;
   }
   if(step===3){
@@ -637,7 +637,16 @@ function renderOnboarding6(){
       </div>`;
   }
   if(step===4){
-    body = `<p class="lg-note">Choose whether to start with the full 3,333-patient demonstration register across all 10 ministry areas and 14 departments, or an empty production register ready for live intake.</p>
+    const pack = (typeof PROD_SETUP!=='undefined') ? PROD_SETUP.lastPack : null;
+    body = `<p class="lg-note">Choose whether to start with the full 3,333-patient synthetic reference register across all 10 ministry areas and 14 departments, or an empty production register ready for live intake.</p>
+      ${pack ? `<div class="alert ok" style="margin-bottom:12px">${ic('check',16)}<div>
+        <b>${num(pack.count)} Staff Accounts Provisioned with Unique Strong SMS Passwords</b>
+        <span class="small">Download your SMS distribution pack below before closing. Every user will be required on first login to replace their SMS password with a private 12+ character password known only to them.</span>
+        <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn btn-xs btn-primary" type="button" data-act="dev-dl-sms-csv">${ic('download',13)} Download SMS Spreadsheet (.csv)</button>
+          <button class="btn btn-xs btn-ghost" type="button" data-act="dev-dl-sms-txt">${ic('download',13)} Download SMS Dispatch Sheet (.txt)</button>
+        </div>
+      </div></div>` : ''}
       <div class="ob-choice ${ONB.seed==='reference'?'on':''}" data-act="ob-seed" data-seed="reference">
         <b>Load full 3,333-patient &amp; full-department dataset</b>
         <span>95% between 45 and 240 days, 5% between 241 and 330 days, plus clinical, hospital, pharmacy, finance, HR, fleet, media, library and 122-item equipment registers.</span>
@@ -735,28 +744,32 @@ Object.assign(ACTIONS, {
       const pw2 = ($('#ob-pw2')||{}).value||'';
       if(!name) return toast('A name is required','Enter the administrator full name.','err');
       if(!/^[a-z0-9][a-z0-9._-]{2,40}$/.test(username)) return toast('Choose a username','3 to 40 characters: letters, digits, dot, dash or underscore.','err');
-      if(pw.length<10) return toast('Choose a longer password','At least 10 characters.','err');
+      const policyErr = (typeof PROD_SETUP!=='undefined') ? PROD_SETUP.validatePrivacyPassword(pw, {name, username}) : (pw.length<12?'At least 12 characters required.':'');
+      if(policyErr) return toast('Strengthen password', policyErr, 'err');
       if(pw!==pw2) return toast('The passwords do not match','Re-type the same password in both boxes.','err');
       ONB.admin = {name, username, password:pw, confirm:pw2};
       ONB.step = 3; return render();
     }
     if(step===3){
-      if(!ONB.host){
-        DB.reset();
-        seedOfficial(DB.db, new Date(), {patients: ONB.seed==='empty'?0:3333, mustChange:false});
-        const admin = DB.db.users.find(u=>u.username==='chief.admin') || DB.db.users[0];
-        if(admin){
-          admin.name = ONB.admin.name;
-          admin.username = ONB.admin.username;
-          admin.salt = newSalt();
-          admin.hash = strongHash(ONB.admin.password, admin.salt);
-          admin.mustChange = false;
+      if(!ONB.host && typeof PROD_SETUP!=='undefined'){
+        ONB.busy = true; render();
+        try{
+          await PROD_SETUP.provisionProductionPack({
+            adminName: ONB.admin.name,
+            adminUsername: ONB.admin.username,
+            adminPassword: ONB.admin.password,
+            orgNameVal: ONB.org.name,
+            shortNameVal: ONB.org.shortName,
+            primaryCounty: ONB.org.county,
+            seedMode: ONB.seed
+          });
+          ONB.busy = false;
+          ONB.step = 4;
+          PROD_SETUP.downloadCSV();
+          return render();
+        }catch(e){
+          ONB.busy = false; ONB.error = 'Setup stopped: '+e.message; return render();
         }
-        DB.db.settings.org = ONB.org;
-        DB.db.settings.onboarding = {complete:true, step:9};
-        DB.save();
-        ONB.step = 4;
-        return render();
       }
       ONB.busy = true; render();
       try{
@@ -888,17 +901,26 @@ Object.assign(FORMS, {
   mustchange6: async (d) => {
     const current = String(d.get('current')||''), next = String(d.get('password')||''), again = String(d.get('password2')||'');
     if(next !== again) return toast('The passwords do not match','Re-type the same new password.','err');
+    const policyErr = (typeof PROD_SETUP!=='undefined') ? PROD_SETUP.validatePrivacyPassword(next, AUTH.user, current) : '';
+    if(policyErr){ LOGIN6.error = policyErr; toast('Privacy password requirement', policyErr, 'err'); return render(); }
     const strength = passwordStrength(next);
-    if(strength.n < 2) return toast('Choose a stronger password','Use at least 10 characters with letters and digits.','err');
+    if(strength.n < 2) return toast('Choose a stronger password','Use at least 12 characters with uppercase, lowercase, digits and a symbol.','err');
     let r = {ok:false};
     if(SYNC.sessionToken) r = await AUTH.changeOnServer(current, next);
     if(!r.ok){
       const local = AUTH.setPassword(next);
       if(local && local.ok === false){ LOGIN6.error = local.msg; return render(); }
     }
+    if(AUTH.user){
+      AUTH.user.mustChange = false;
+      AUTH.user.mustChangePassword = false;
+      AUTH.user.dpaFirstLoginRequired = false;
+      AUTH.user.passwordSetAt = todayISO();
+      DB.save();
+    }
     AUTH.mustChange = false;
     LOGIN6.error='';
-    toast('Password saved','Your console is now open with your personal password.','ok');
+    toast('Private password saved','Your console is now open with your personal encrypted password known only to you.','ok');
     render();
   },
 

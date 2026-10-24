@@ -21,14 +21,38 @@ function fmtCompact(n){
   return fmtNum(Math.round(v));
 }
 
-function chartTable(cols, rows){
-  const tableOpen = (typeof COST_STATE!=='undefined' && COST_STATE.viewMode==='table') ? ' open' : '';
-  return `<details class="chart-table"${tableOpen}><summary class="chart-table-btn small"><span>View as a table</span><span class="ct-count">${rows.length} row${rows.length===1?'':'s'}</span></summary>
-    <div class="tbl-wrap" style="margin-top:8px"><table class="tbl compact"><thead><tr>${cols.map(c=>`<th class="${c.cls||''}">${esc(c.label)}</th>`).join('')}</tr></thead>
+function isChartTableMode(){
+  return Boolean(
+    (typeof COST_STATE!=='undefined' && COST_STATE.viewMode==='table') ||
+    (typeof APPX!=='undefined' && APPX.chartViewMode==='table')
+  );
+}
+
+function chartTable(cols, rows, opts={}){
+  const tableOnly = isChartTableMode() && opts.standalone!==false;
+  const totalHtml = opts.totalRow
+    ? `<tfoot><tr class="ct-total-row">${cols.map((c,ci)=>{
+        const k = c.key !== undefined ? c.key : c.label;
+        const v = opts.totalRow[k] ?? (ci===0 ? 'Total' : '');
+        return `<td class="${c.cls||''}"><b>${esc(String(v))}</b></td>`;
+      }).join('')}</tr></tfoot>`
+    : '';
+  const tblMarkup = `<div class="tbl-wrap chart-tbl-wrap"><table class="tbl compact align-sym"><thead><tr>${cols.map(c=>`<th class="${c.cls||''}">${esc(c.label)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map(r=>`<tr>${cols.map((c,ci)=>{
       const k = c.key !== undefined ? c.key : (ci===0 && r.period!==undefined ? 'period' : ci===0 && r.axis!==undefined ? 'axis' : c.label);
-      return `<td class="${c.cls||''}">${esc(String(r[k]??r[c.label]??''))}</td>`;
-    }).join('')}</tr>`).join('')}</tbody></table></div></details>`;
+      return `<td class="${c.cls||''}">${esc(String(r[k]??r[c.label]??'-'))}</td>`;
+    }).join('')}</tr>`).join('')}</tbody>${totalHtml}</table></div>`;
+  if(tableOnly){
+    return `<div class="chart-table-only">
+      <div class="spread xs muted" style="margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">
+        <span>${esc(opts.title||'Structured data table')}</span>
+        <span class="ct-count">${rows.length} row${rows.length===1?'':'s'}</span>
+      </div>
+      ${tblMarkup}
+    </div>`;
+  }
+  return `<details class="chart-table"${opts.open?' open':''}><summary class="chart-table-btn small"><span>View as a table</span><span class="ct-count">${rows.length} row${rows.length===1?'':'s'}</span></summary>
+    <div style="margin-top:8px">${tblMarkup}</div></details>`;
 }
 
 /* Vertical bars. rows: [{label, value, note}] */
@@ -63,14 +87,25 @@ function chartBars(opts){
       <text class="axis-y" x="${padL-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end">${esc(fmtCompact(Math.round(max*f)))}</text>`;
   }).join('');
   const summary = `${opts.title||'Chart'}: ${rows.map(r=>`${r.label} ${fmtV(r.value)}`).join(', ')}.`;
-  const tblRows = rows.map(r=>({ period:r.label, val:fmtV(r.value)+(opts.unit && !opts.fmt ? ' '+opts.unit : '') }));
+  const totalVal = rows.reduce((n,r)=>n+(Number(r.value)||0),0);
+  const tblRows = rows.map(r=>({
+    period:r.label,
+    val:fmtV(r.value)+(opts.unit && !opts.fmt ? ' '+opts.unit : ''),
+    share:(totalVal>0?(100*(Number(r.value)||0)/totalVal).toFixed(1)+'%':'0.0%')
+  }));
+  const tbl = chartTable(
+    [{key:'period',label:opts.labelHead||'Category'},{key:'val',label:opts.valueHead||'Value',cls:'num mono'},{key:'share',label:'Share',cls:'num mono'}],
+    tblRows,
+    { title:opts.title||'Category table', totalRow:{ period:'Total', val:fmtV(totalVal)+(opts.unit && !opts.fmt ? ' '+opts.unit : ''), share:'100.0%' } }
+  );
+  if(isChartTableMode()) return tbl;
 
   return `<figure class="chart-fig" style="margin:0">
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">
       ${grid}${bars}
     </svg>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
-    ${chartTable([{key:'period',label:opts.labelHead||'Category'},{key:'val',label:opts.valueHead||'Value',cls:'num mono'}], tblRows)}
+    ${tbl}
   </figure>`;
 }
 
@@ -81,7 +116,18 @@ function chartRows(opts){
   const max = opts.max || Math.max(...rows.map(r=>r.value), 1);
   const fmtV = v => opts.fmt ? opts.fmt(v) : fmtNum(v);
   const summary = `${opts.title||'Breakdown'}: ${rows.map(r=>`${r.label} ${fmtV(r.value)}`).join(', ')}.`;
-  const tblRows = rows.map(r=>({ period:r.label, val:fmtV(r.value) }));
+  const totalVal = rows.reduce((n,r)=>n+(Number(r.value)||0),0);
+  const tblRows = rows.map(r=>({
+    period:r.label,
+    val:fmtV(r.value),
+    share:(totalVal>0?(100*(Number(r.value)||0)/totalVal).toFixed(1)+'%':'0.0%')
+  }));
+  const tbl = chartTable(
+    [{key:'period',label:opts.labelHead||'Category'},{key:'val',label:opts.valueHead||'Value',cls:'num mono'},{key:'share',label:'Share',cls:'num mono'}],
+    tblRows,
+    { title:opts.title||'Breakdown table' }
+  );
+  if(isChartTableMode()) return tbl;
   return `<div role="img" aria-label="${esc(summary)}" class="chart-rows-list">
     ${rows.map((r,i)=>{
       const pct = Math.max(2, Math.round(100*r.value/max));
@@ -95,7 +141,7 @@ function chartRows(opts){
       </div>`;
     }).join('')}
   </div>
-  ${chartTable([{key:'period',label:opts.labelHead||'Category'},{key:'val',label:opts.valueHead||'Value',cls:'num mono'}], tblRows)}`;
+  ${tbl}`;
 }
 
 /* A compact indicator strip, used inside report headers. */
@@ -183,10 +229,12 @@ function chartLine(opts){
   const summary = `${opts.title||'Trend'}: ` + series.map(s=>`${s.label} (${s.values.map(v=>fmtNum(v)).join(', ')})`).join('; ');
   const key = series.length>1 ? `<div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>` : '';
   const rows = labels.map((l,i)=>{ const r={period:l}; series.forEach(s=>{ r[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); return r; });
+  const tbl = chartTable([{key:'period',label:opts.labelHead||'Period'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'}))], rows, {title:opts.title||'Trend table'});
+  if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">${key}
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${xlab}</svg>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
-    ${chartTable([{key:'period',label:opts.labelHead||'Period'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'}))], rows)}
+    ${tbl}
   </figure>`;
 }
 
@@ -217,11 +265,17 @@ function chartStacked(opts){
   }).join('');
   const summary = `${opts.title||'Stacked breakdown'}: ` + labels.map((l,i)=>`${l} ${opts.fmt?opts.fmt(totals[i]):fmtNum(totals[i])}`).join(', ');
   const rows = labels.map((l,i)=>{ const r={period:l}; series.forEach(s=>{ r[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); r.Total=opts.fmt?opts.fmt(totals[i]):fmtNum(totals[i]); return r; });
+  const totRow = { period:'Total' };
+  series.forEach(s=>{ const sumS = s.values.reduce((n,v)=>n+(Number(v)||0),0); totRow[s.label] = opts.fmt?opts.fmt(sumS):fmtNum(sumS); });
+  const grand = totals.reduce((n,v)=>n+v,0);
+  totRow.Total = opts.fmt?opts.fmt(grand):fmtNum(grand);
+  const tbl = chartTable([{key:'period',label:opts.labelHead||'Category'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'})),{key:'Total',label:'Total',cls:'num mono'}], rows, {title:opts.title||'Stacked breakdown', totalRow:totRow});
+  if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">
     <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
-    ${chartTable([{key:'period',label:opts.labelHead||'Category'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'})),{key:'Total',label:'Total',cls:'num mono'}], rows)}
+    ${tbl}
   </figure>`;
 }
 
@@ -230,40 +284,48 @@ function chartGrouped(opts){
   const labels = opts.labels||[];
   const series = (opts.series||[]).filter(s=>Array.isArray(s.values));
   if(!labels.length||!series.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
-  const W=860, H=opts.height||280, padL=74, padR=24, padT=28, padB=50;
+  const W=860, H=opts.height||280, padL=74, padR=24, padT=28, padB=52;
   const colours = opts.colours || chartColours(series.length);
   const max = opts.max || Math.max(1, ...series.flatMap(s=>s.values.map(v=>Number(v)||0)));
   const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
   const bw = plotW/labels.length, gw = Math.min(48, (bw*0.72)/series.length);
+  const dense = labels.length > 6;
   const bars = labels.map((l,i)=>{
     const groupW = gw * series.length;
     const x0 = padL + i*bw + (bw - groupW)/2;
     const g = series.map((s,si)=>{
       const v = Number(s.values[i])||0, h = Math.max(1.5, inner*v/max), x = x0+si*gw, y = padT+inner-h;
       return `<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(gw*0.84).toFixed(1)}" height="${h.toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="3"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>
-        ${labels.length<=5?`<text class="val" x="${(x+gw*0.42).toFixed(1)}" y="${Math.max(12,y-5).toFixed(1)}" text-anchor="middle">${esc(fmtCompact(v))}</text>`:''}</g>`;
+        ${labels.length<=5?`<text class="val" x="${(x+gw*0.42).toFixed(1)}" y="${Math.max(12,y-(si%2===1?13:5)).toFixed(1)}" text-anchor="middle">${esc(fmtCompact(v))}</text>`:''}</g>`;
     }).join('');
-    return `${g}<text class="axis-x" x="${(x0+groupW/2).toFixed(1)}" y="${H-20}" text-anchor="middle">${esc(String(l).slice(0,15))}</text>`;
+    return `${g}<text class="axis-x" x="${(x0+groupW/2).toFixed(1)}" y="${H-(dense && i%2===1 ? 9 : 21)}" text-anchor="middle">${esc(String(l).slice(0,15))}</text>`;
   }).join('');
   const rows = labels.map((l,i)=>{ const r={period:l}; series.forEach(s=>{ r[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); return r; });
+  const tbl = chartTable([{key:'period',label:opts.labelHead||'Category'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'}))], rows, {title:opts.title||'Comparison table'});
+  if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">
     <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Comparison')}">${grid}${bars}</svg>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Comparison')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Grouped comparison across '+labels.length+' categories.')}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
-    ${chartTable([{key:'period',label:opts.labelHead||'Category'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'}))], rows)}
+    ${tbl}
   </figure>`;
 }
 
-/* --- Theme-aware donut with a written key ----------------------------- */
+/* --- Theme-aware symmetrical donut / pie (ZERO figures written across slices) --- */
 function chartDonut(segments, opts={}){
   const seg = (segments||[]).filter(s=>Number(s.value)>0);
   if(!seg.length) return `<div class="empty small">${esc(opts.empty||'Nothing to plot yet.')}</div>`;
   const colours = opts.colours || chartColours(seg.length);
-  const size = opts.size||184, r = size*0.39, c = size/2, sw = opts.thickness||size*0.13;
+  const size = opts.size||168, r = size*0.36, c = size/2, sw = opts.thickness||size*0.18;
   const total = seg.reduce((n,s)=>n+Number(s.value),0)||1;
   let a=0; const circ = 2*Math.PI*r;
+  const gap = seg.length > 1 ? Math.min(2.2, circ * 0.006) : 0;
   const arcs = seg.map((s,i)=>{
-    const frac = Number(s.value)/total, dash = frac*circ, off = a*circ; a += frac;
+    const frac = Number(s.value)/total;
+    const rawDash = frac * circ;
+    const dash = Math.max(0.5, rawDash - gap);
+    const off = a * circ;
+    a += frac;
     const colour = s.color || colours[i%colours.length];
     return `<circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" fill="none" stroke="${colour}" stroke-width="${sw.toFixed(1)}"
       stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 ${c} ${c})">
@@ -271,25 +333,40 @@ function chartDonut(segments, opts={}){
   }).join('');
   const pct = seg.map((s,i)=>{
     const frac = Number(s.value)/total;
-    return `<div class="li"><span class="sw" style="background:${s.color||colours[i%colours.length]}"></span>
-      <span class="lg-l">${esc(s.label)}</span><span class="n mono">${opts.fmt?opts.fmt(s.value):fmtNum(s.value)}</span>
-      <span class="pct mono">${(frac*100).toFixed(1)}%</span></div>`;
+    return `<div class="li donut-li-sym">
+      <span class="sw" style="background:${s.color||colours[i%colours.length]}"></span>
+      <span class="lg-l" title="${esc(s.label)}">${esc(s.label)}</span>
+      <span class="n mono">${esc(opts.fmt?opts.fmt(s.value):fmtNum(s.value))}</span>
+      <span class="pct mono">${(frac*100).toFixed(1)}%</span>
+    </div>`;
   }).join('');
-  const centerTxt = opts.centerValue!==undefined ? String(opts.centerValue) : (opts.fmt?opts.fmt(total):fmtNum(total));
-  const compactCenter = centerTxt.length > 11 ? ('KES '+fmtCompact(total)) : centerTxt;
+  const fullTotalTxt = opts.centerValue!==undefined ? String(opts.centerValue) : (opts.fmt?opts.fmt(total):fmtNum(total));
   const tblRows = seg.map(s=>({ period:s.label, val:opts.fmt?opts.fmt(s.value):fmtNum(s.value), share:(100*Number(s.value)/total).toFixed(1)+'%' }));
+  const tbl = chartTable(
+    [{key:'period',label:opts.labelHead||'Segment'},{key:'val',label:'Value',cls:'num mono'},{key:'share',label:'Share',cls:'num mono'}],
+    tblRows,
+    { title:opts.title||'Share breakdown', totalRow:{ period:'Total', val:fullTotalTxt, share:'100.0%' } }
+  );
+  if(isChartTableMode()) return tbl;
   return `<div class="donut-block">
-    <div class="donut-wrap">
-      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img"
-        aria-label="${esc(opts.title||'Share')}: ${seg.map(s=>s.label+' '+(opts.fmt?opts.fmt(s.value):fmtNum(s.value))).join(', ')}">
-        <circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" fill="none" stroke="var(--line-2)" stroke-width="${sw.toFixed(1)}"/>
-        ${arcs}
-        <text x="${c}" y="${c-2}" text-anchor="middle" class="dn-v">${esc(compactCenter)}</text>
-        <text x="${c}" y="${c+15}" text-anchor="middle" class="dn-l">${esc(opts.centerLabel||'TOTAL')}</text>
-      </svg>
-      <div class="legend donut-legend">${pct}</div>
+    <div class="donut-wrap donut-wrap-clean">
+      <div class="donut-svg-box">
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img"
+          aria-label="${esc(opts.title||'Share')}: ${seg.map(s=>s.label+' '+(opts.fmt?opts.fmt(s.value):fmtNum(s.value))).join(', ')}">
+          <circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" fill="none" stroke="var(--line-2)" stroke-width="${sw.toFixed(1)}"/>
+          ${arcs}
+        </svg>
+      </div>
+      <div class="donut-side-panel">
+        <div class="donut-total-strip">
+          <span class="donut-total-lbl">${esc(opts.centerLabel||'TOTAL')}</span>
+          <strong class="donut-total-val mono">${esc(fullTotalTxt)}</strong>
+          <span class="donut-total-meta">${seg.length} segment${seg.length===1?'':'s'}</span>
+        </div>
+        <div class="legend donut-legend">${pct}</div>
+      </div>
     </div>
-    ${chartTable([{key:'period',label:opts.labelHead||'Segment'},{key:'val',label:'Value',cls:'num mono'},{key:'share',label:'Share',cls:'num mono'}], tblRows)}
+    ${tbl}
   </div>`;
 }
 
@@ -335,18 +412,22 @@ function chartHeat(opts){
   const vals = rows.flatMap(r=>cols.map(c=>Number(r.values[c])||0));
   const max = Math.max(1, ...vals);
   const hue = opts.color || 'var(--accent)';
+  const colLbl = c => (opts.colLabels && opts.colLabels[c]) ? opts.colLabels[c] : (typeof c==='string' && /^[a-z_]+$/.test(c) ? titleCase(c) : String(c));
   const cell = v => {
     const t = v/max;
-    return `background:color-mix(in srgb, ${hue} ${(6+Math.round(t*88))}%, var(--surface));color:${t>0.55?'#FFFFFF':'var(--ink)'};`;
+    return `background:color-mix(in srgb, ${hue} ${(6+Math.round(t*84))}%, var(--surface));color:${t>0.55?'#FFFFFF':'var(--ink)'};`;
   };
-  return `<div class="tbl-wrap"><table class="tbl heat">
-    <thead><tr><th>${esc(opts.rowHead||'')}</th>${cols.map(c=>`<th class="num">${esc(String(c))}</th>`).join('')}<th class="num">${esc(opts.totalHead||'Total')}</th></tr></thead>
+  const compactCell = cols.length > 6;
+  return `<div class="tbl-wrap"><table class="tbl heat align-sym">
+    <thead><tr><th>${esc(opts.rowHead||'Category')}</th>${cols.map(c=>`<th class="num">${esc(colLbl(c))}</th>`).join('')}<th class="num">${esc(opts.totalHead||'Total')}</th></tr></thead>
     <tbody>${rows.map(r=>{
       const tot = cols.reduce((n,c)=>n+(Number(r.values[c])||0),0);
       return `<tr><th scope="row">${esc(r.label)}</th>${cols.map(c=>{
         const v = Number(r.values[c])||0;
-        return `<td class="num mono heat-c" style="${v?cell(v):''}">${v? (opts.fmt?opts.fmt(v):fmtNum(v)) : '<span class="muted">·</span>'}</td>`;
-      }).join('')}<td class="num mono"><b>${opts.fmt?opts.fmt(tot):fmtNum(tot)}</b></td></tr>`;
+        const fullTxt = opts.fmt?opts.fmt(v):fmtNum(v);
+        const shownTxt = compactCell ? fmtCompact(v) : fullTxt;
+        return `<td class="num mono heat-c" style="${v?cell(v):''}" title="${esc(r.label+' · '+colLbl(c)+': '+fullTxt)}">${v? esc(shownTxt) : '<span class="muted">·</span>'}</td>`;
+      }).join('')}<td class="num mono"><b>${esc(opts.fmt?opts.fmt(tot):fmtNum(tot))}</b></td></tr>`;
     }).join('')}</tbody></table></div>
   <div class="xs muted" style="margin-top:6px">${esc(opts.caption||'Shading is relative to the largest cell ('+(opts.fmt?opts.fmt(max):fmtNum(max))+').')}</div>`;
 }
@@ -355,13 +436,13 @@ function chartHeat(opts){
 function chartRadar(opts){
   const axes = opts.axes||[]; const series = opts.series||[];
   if(axes.length<3||!series.length) return `<div class="empty small">${esc(opts.empty||'At least three axes are needed.')}</div>`;
-  const size = opts.size||280, c=size/2, r=size*0.36;
+  const size = opts.size||310, c=size/2, r=size*0.30;
   const colours = opts.colours||chartColours(series.length);
   const max = opts.max || Math.max(1, ...series.flatMap(s=>s.values.map(v=>Number(v)||0)));
   const pt = (i,v)=>{ const a = -Math.PI/2 + 2*Math.PI*i/axes.length, rr = r*(Number(v)||0)/max; return [c+rr*Math.cos(a), c+rr*Math.sin(a)]; };
   const rings = [0.25,0.5,0.75,1].map(f=>`<polygon points="${axes.map((a,i)=>{const p=pt(i,max*f);return p[0].toFixed(1)+','+p[1].toFixed(1)}).join(' ')}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join('');
   const spokes = axes.map((a,i)=>{const p=pt(i,max);return `<line x1="${c}" y1="${c}" x2="${p[0].toFixed(1)}" y2="${p[1].toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`}).join('');
-  const labs = axes.map((a,i)=>{const p=pt(i,max*1.16);return `<text class="axis-x" x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" text-anchor="middle">${esc(String(a).slice(0,16))}</text>`}).join('');
+  const labs = axes.map((a,i)=>{const p=pt(i,max*1.22);return `<text class="axis-x" x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" text-anchor="middle">${esc(String(a).slice(0,16))}</text>`}).join('');
   const polys = series.map((s,si)=>{
     const col = s.color||colours[si%colours.length];
     const pts = s.values.map((v,i)=>pt(i,v).map(n=>n.toFixed(1)).join(',')).join(' ');
@@ -369,10 +450,12 @@ function chartRadar(opts){
       s.values.map((v,i)=>{const p=pt(i,v);return chartMarker(CHART_MARKERS[si%CHART_MARKERS.length],p[0],p[1],col,3)}).join('');
   }).join('');
   const rows = axes.map((a,i)=>{ const r0={axis:a}; series.forEach(s=>{ r0[s.label]=opts.fmt?opts.fmt(s.values[i]):fmtNum(s.values[i]); }); return r0; });
+  const tbl = chartTable([{key:'axis',label:opts.axisHead||'Axis'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'}))], rows, {title:opts.title||'Profile table'});
+  if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">
     <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="${esc(opts.title||'Profile')}">${rings}${spokes}${polys}${labs}</svg>
-    ${chartTable([{label:opts.axisHead||'Axis'},...series.map(s=>({label:s.label,cls:'num'}))], rows)}
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="${esc(opts.title||'Profile')}" preserveAspectRatio="xMidYMid meet">${rings}${spokes}${polys}${labs}</svg>
+    ${tbl}
   </figure>`;
 }
 
@@ -417,9 +500,11 @@ function chartWaterfall(steps, opts={}){
       <text class="val" x="${(x+w/2).toFixed(1)}" y="${Math.max(12,y0-(i%2===1?15:6)).toFixed(1)}" text-anchor="middle">${esc(topLbl)}</text>
       <text class="axis-x" x="${(x+w/2).toFixed(1)}" y="${H-22}" text-anchor="middle">${esc(String(it.label).slice(0,14))}</text>`;
   }).join('');
+  const tbl = chartTable([{key:'Step',label:'Step'},{key:'Amount',label:'Amount',cls:'num mono'},{key:'Balance',label:'Balance',cls:'num mono'}], items.map(i=>({Step:i.label, Amount:opts.fmt?opts.fmt(i.v):fmtNum(i.v), Balance:opts.fmt?opts.fmt(i.to):fmtNum(i.to)})), {title:opts.title||'Movement table'});
+  if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Movement')}">${grid}${bars}</svg>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Movement')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Each step shows the movement from the previous balance.')}</figcaption>
-    ${chartTable([{key:'Step',label:'Step'},{key:'Amount',label:'Amount',cls:'num mono'},{key:'Balance',label:'Balance',cls:'num mono'}], items.map(i=>({Step:i.label, Amount:opts.fmt?opts.fmt(i.v):fmtNum(i.v), Balance:opts.fmt?opts.fmt(i.to):fmtNum(i.to)})))}
+    ${tbl}
   </figure>`;
 }

@@ -44,6 +44,16 @@ function carelinkLiveSyncPlugin() {
           server.ws.send({ type: 'full-reload' });
         }
       });
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url || (!req.url.startsWith('/api/') && req.url !== '/api')) return next();
+        try {
+          const modPath = './api/index.js';
+          const mod: { default: (rq: unknown, rs: unknown) => Promise<void> } = await import(/* @vite-ignore */ modPath);
+          await mod.default(req, res);
+        } catch (err) {
+          next(err);
+        }
+      });
     },
   };
 }
@@ -54,12 +64,6 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     allowedHosts: true,
-    proxy: {
-      '/api': {
-        target: process.env.CARELINK_API_ORIGIN || 'http://127.0.0.1:8099',
-        changeOrigin: true,
-      },
-    },
   },
   preview: {
     host: '0.0.0.0',
