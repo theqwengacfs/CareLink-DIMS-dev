@@ -83,7 +83,7 @@ function navModel(user){
       { id:'attention', label:'Requiring attention', icon:'alert', show:isFieldOrClinical && user.roleId!=='me' && user.roleId!=='chief', count:s.openConcerns, tone:'crit' },
       { id:'dualcheck', label:'Admin / Intl Co-Work Lock', icon:'shield', show:showDualCheck },
       { id:'messages', label:'Messages & chat', icon:'send', show:canMsg },
-      { id:'drafts', label:'Workspace drafts', icon:'edit', show:true, count:typeof WORKSPACE_DRAFTS!=='undefined'?WORKSPACE_DRAFTS.countFor(user):0 },
+      { id:'drafts', label:'Workspace drafts', icon:'file', show:!((role.scope||{}).readOnly), count:typeof WORKSPACE_DRAFTS!=='undefined'?WORKSPACE_DRAFTS.countFor(user):0 },
       { id:'calendar', label:'Calendar', icon:'calendar', show:true },
       { id:'leave', label:'Leave & off-days', icon:'calendar', show:!isStaffOps && !isExternal },
       { id:'handover', label:'Delegation & handover', icon:'key', show:has('handover.use') && !isStaffOps && !isExternal },
@@ -213,11 +213,34 @@ function navModel(user){
     ]}
   ];
   return groups
-    .map(g=>({...g, items:g.items.filter(i=> (i.show!==undefined? i.show : g.show)!==false ).map(i=>({
-      ...i,
-      label: (typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel)? ROLE_CTX.navLabel(user, i.id, i.label) : i.label
-    }))}))
+    .map(g=>({
+      ...g,
+      displayLabel: (typeof ROLE_CTX!=='undefined' && ROLE_CTX.groupLabel) ? ROLE_CTX.groupLabel(user, g.label) : g.label,
+      items:g.items.filter(i=> (i.show!==undefined? i.show : g.show)!==false ).map(i=>({
+        ...i,
+        label: (typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel)? ROLE_CTX.navLabel(user, i.id, i.label) : i.label
+      }))
+    }))
     .filter(g=>g.items.length);
+}
+
+/* ---------------- Clean Utility Dropdown Menu ---------------- */
+function utilMenu(label, items=[], opts={}){
+  const valid = (items||[]).filter(Boolean);
+  if(!valid.length) return '';
+  const btnCls = opts.primary ? 'btn-primary' : (opts.soft ? 'btn-soft' : 'btn-ghost');
+  const szCls = opts.xs ? 'btn-xs' : 'btn-sm';
+  return `<details class="cl-util-menu no-print ${opts.align==='left'?'align-l':''}">
+    <summary class="btn ${szCls} ${btnCls} cl-util-trig" aria-haspopup="menu">
+      ${opts.icon ? ic(opts.icon, opts.xs?12:14) : ''}<span>${esc(label)}</span><span class="cl-util-caret" aria-hidden="true">&#9662;</span>
+    </summary>
+    <div class="cl-util-pop" role="menu">
+      ${opts.heading ? `<div class="cl-util-hd">${esc(opts.heading)}</div>` : ''}
+      ${valid.map(it => it.divider ? `<div class="cl-util-div"></div>` : `<button type="button" class="cl-util-item ${it.danger?'danger':''}" role="menuitem" ${it.act?`data-act="${esc(it.act)}"`:''} ${it.v?`data-v="${esc(it.v)}"`:''} ${it.attrs||''}>
+        ${it.icon ? ic(it.icon, 14) : ''}<span class="cl-util-lbl">${esc(it.label)}</span>${it.meta ? `<small class="cl-util-meta">${esc(it.meta)}</small>` : ''}
+      </button>`).join('')}
+    </div>
+  </details>`;
 }
 
 /* ---------------- Small components ---------------- */
@@ -238,7 +261,7 @@ function card(title, body, opts={}){
 }
 function pageHead(title, sub, actions=''){
   return `<div class="spread page-head" style="margin-bottom:18px;align-items:flex-start;flex-wrap:wrap;gap:12px">
-    <div class="page-head-copy" style="min-width:220px;flex:1 1 280px"><h2 style="font-size:22px">${esc(title)}</h2><div class="muted small" style="margin-top:3px">${sub}</div></div>
+    <div class="page-head-copy" style="min-width:220px;flex:1 1 280px"><h2 class="ws-fixed-title">${esc(title)}</h2><div class="muted small ws-fixed-sub" style="margin-top:4px">${sub}</div></div>
     ${actions?`<div class="row page-head-actions" style="flex-wrap:wrap;gap:8px">${actions}</div>`:''}</div>`;
 }
 function emptyState(title, msg, icon='info', action=''){
@@ -260,10 +283,10 @@ function progressBar(value, max, tone=''){
   return `<div class="progress ${tone}"><i style="width:${p}%"></i></div>`;
 }
 function barChart(rows, {valueKey='value', labelKey='label', fmt=v=>num(v), max=null}={}){
-  const m = max || Math.max(...rows.map(r=>r[valueKey]),1);
+  const m = Math.max(Number(max)||0, ...rows.map(r=>Math.abs(Number(r[valueKey])||0)), 1);
   return `<div class="bars">${rows.map(r=>`
     <div class="bar-row"><div class="lb" title="${esc(r[labelKey])}">${esc(r[labelKey])}</div>
-    <div class="bar-track"><div class="bar-fill" style="width:${clamp((r[valueKey]/m)*100,1,100)}%"></div></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${clamp((Math.abs(Number(r[valueKey])||0)/m)*100,1,100)}%"></div></div>
     <div class="vl">${fmt(r[valueKey])}</div></div>`).join('')}</div>`;
 }
 function donut(segments, size=132){

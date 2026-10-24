@@ -75,7 +75,7 @@ const WTHEMES = [
     blurb:'Ceremonial LOMAMO vellum, deep navy chrome and rich burnished gold accents.',
     t:{ bg:'#FDF9EE', surface:'#FFFFFF', surface2:'#FEFCF5', ink:'#182235', ink2:'#2D3D5C', ink3:'#58657F', muted:'#56637D', line:'#E8DEC4', line2:'#F3ECDA', bar:'#FFFFFF', chrome:'#162848', chrome2:'#1F3864', chromeInk:'#FDF9EE', chromeMuted:'#F3D382', chromeLine:'#2E4F87', action:'#8A5200', action2:'#9A5B00', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E5F6EC', warn:'#854D0E', warnBg:'#FEF3C7', crit:'#B00020', critBg:'#FDECEE', info:'#1E40AF', infoBg:'#E8EFFF' } },
   { id:'harbour', name:'Harbour Dark', mode:'dark', accent:'#14B8A6', brand:'#5EEAD4', gold:'#FBBF24',
-    blurb:'Default Samsung A11+ 5G and Wi-Fi Tablet theme - deep Lake Victoria evening teal with luminous seafoam highlights.',
+    blurb:'Optional dark Lake Victoria evening teal theme with luminous seafoam highlights.',
     t:{ bg:'#07191E', surface:'#0E252C', surface2:'#14323B', ink:'#E6F7F9', ink2:'#C5E4E8', ink3:'#94BCC2', muted:'#99C1C7', line:'#214752', line2:'#193A44', bar:'#0A2026', chrome:'#051216', chrome2:'#0E252C', chromeInk:'#E6F7F9', chromeMuted:'#8CD0D7', chromeLine:'#1D424D', action:'#115E59', action2:'#0F766E', actionInk:'#FFFFFF', ok:'#5FD3A0', okBg:'#10362D', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#7DD3FC', infoBg:'#12324A' } },
   { id:'aurora', name:'Aurora forest', mode:'dark', accent:'#10B981', brand:'#6EE7B7', gold:'#FBBF24',
     blurb:'Velvet highland forest night with bioluminescent emerald and gold accents.',
@@ -123,11 +123,37 @@ function deptPaletteFor(user){
 const STUDIO = {
   corners:  { label:'Corners', def:'soft', opts:[ {v:'sharp',l:'Sharp'}, {v:'soft',l:'Soft'}, {v:'round',l:'Round'} ],
               radii:{ sharp:['2px','4px','6px','8px'], soft:['8px','12px','18px','24px'], round:['14px','20px','28px','36px'] } },
-  font:     { label:'Typeface', def:'standard', opts:[ {v:'standard',l:'Standard'}, {v:'readable',l:'Easy to read'}, {v:'classic',l:'Classic'}, {v:'rounded',l:'Friendly'} ],
-              stacks:{ standard:null,
+  font:     { label:'Typeface & font pack', def:'standard',
+              opts:[
+                {v:'standard', l:'Inter Institutional (Default)'},
+                {v:'editorial',l:'Editorial Serif Headings'},
+                {v:'clinical', l:'Clinical Humanist Clarity'},
+                {v:'executive',l:'Executive Geometric Bold'},
+                {v:'readable', l:'Atkinson Field Legibility'},
+                {v:'classic',  l:'Classic System Sans'},
+                {v:'rounded',  l:'Friendly Rounded'},
+                {v:'slab',     l:'Structured Slab Display'}
+              ],
+              stacks:{
+                standard:null,
+                editorial:'"Inter","Segoe UI",system-ui,sans-serif',
+                clinical:'"Calibri","Segoe UI","Inter",system-ui,sans-serif',
+                executive:'"Avenir Next","Segoe UI","Inter",system-ui,sans-serif',
                 readable:'"Atkinson Hyperlegible","Verdana","Segoe UI",system-ui,sans-serif',
                 classic:'"Inter","Segoe UI",system-ui,sans-serif',
-                rounded:'"Trebuchet MS","Segoe UI",system-ui,sans-serif' } },
+                rounded:'"Trebuchet MS","Segoe UI",system-ui,sans-serif',
+                slab:'"Segoe UI","Inter",system-ui,sans-serif'
+              },
+              headStacks:{
+                standard:'"Inter","Segoe UI",system-ui,-apple-system,sans-serif',
+                editorial:'"Georgia","Cambria","Times New Roman",serif',
+                clinical:'"Segoe UI Semibold","Inter","Calibri",system-ui,sans-serif',
+                executive:'"Avenir Next","Trebuchet MS","Inter",system-ui,sans-serif',
+                readable:'"Atkinson Hyperlegible","Verdana","Segoe UI",sans-serif',
+                classic:'"Inter","Segoe UI",system-ui,sans-serif',
+                rounded:'"Trebuchet MS","Segoe UI",sans-serif',
+                slab:'"Rockwell","Georgia","Segoe UI",serif'
+              } },
   backdrop: { label:'Backdrop', def:'plain', opts:[ {v:'plain',l:'Plain'}, {v:'dots',l:'Dots'}, {v:'grid',l:'Grid'}, {v:'waves',l:'Waves'}, {v:'kente',l:'Woven stripes'} ] },
   hero:     { label:'Hero panel', def:'gradient', opts:[ {v:'gradient',l:'Gradient'}, {v:'solid',l:'Solid'}, {v:'pattern',l:'Patterned'} ] },
   cards:    { label:'Cards', def:'soft', opts:[ {v:'flat',l:'Flat'}, {v:'soft',l:'Soft'}, {v:'lifted',l:'Lifted'} ] },
@@ -152,6 +178,30 @@ const STUDIO_PRESETS = [
     p:{ wtheme:'savanna',    corners:'soft',  font:'standard', backdrop:'kente', hero:'pattern',  cards:'soft',   accentPick:'#B45309' } },
   { id:'minimal',  name:'Minimal',        blurb:'The original Daylight look with sharp, flat, plain surfaces.',
     p:{ wtheme:'classic',    corners:'sharp', font:'standard', backdrop:'plain', hero:'solid',    cards:'flat',   accentPick:'' } }
+];
+
+const INSTALLABLE_VISUAL_PACKS = [
+  { id:'pack-foundation-editorial', name:'CareLink Heritage Editorial Pack', version:'1.2', category:'Official Institutional',
+    blurb:'Pairs Foundation Ivory with authoritative serif workspace banners, navy-crimson accents and lifted cards.',
+    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'lifted', kpiStyle:'vivid', accentPick:'' } },
+  { id:'pack-clinical-editorial', name:'Clinical Editorial & Case Review Pack', version:'1.2', category:'Medical & PDCA Reporting',
+    blurb:'Pairs Georgia editorial headings with clean clinical surfaces for 120-Day & Discharge PDCA review.',
+    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'#1F3864' } },
+  { id:'pack-clinical-cobalt', name:'Clinical Precision & Triage Pack', version:'1.4', category:'Medical & Case Management',
+    blurb:'High-clarity humanist typography, Royal Cobalt clinical surfaces and vivid status indicators.',
+    config:{ wtheme:'cobalt', font:'clinical', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'#0E7490' } },
+  { id:'pack-field-sunlight', name:'Field Caregiver Daylight Pack', version:'1.3', category:'Tablet & Outdoor Field',
+    blurb:'Atkinson high-legibility font stack, Savanna warm glare-resistant cards and comfortable touch spacing.',
+    config:{ wtheme:'savanna', font:'readable', corners:'round', backdrop:'plain', hero:'solid', cards:'soft', kpiStyle:'bold', accentPick:'#15803D' } },
+  { id:'pack-exec-diplomatic', name:'Executive Governance & Board Pack', version:'1.1', category:'Leadership & Finance',
+    blurb:'Executive geometric headings, Covenant Gold vellum surfaces and subtle architectural grid backdrop.',
+    config:{ wtheme:'covenant', font:'executive', corners:'soft', backdrop:'grid', hero:'gradient', cards:'lifted', kpiStyle:'bold', accentPick:'#1F3864' } },
+  { id:'pack-lake-serenity', name:'Lake Victoria Horizon Pack', version:'1.2', category:'Kisumu & Homa Bay Regional',
+    blurb:'Cool Lake Victoria shoreline teal, friendly rounded cards and crisp modern headings.',
+    config:{ wtheme:'lake', font:'rounded', corners:'round', backdrop:'dots', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'#0E7490' } },
+  { id:'pack-slab-assurance', name:'Audit & Assurance Ledger Pack', version:'1.0', category:'Audit, M&E & Data',
+    blurb:'Structured slab headings, crisp sharp card corners and clean Daylight ledger contrast.',
+    config:{ wtheme:'classic', font:'slab', corners:'sharp', backdrop:'plain', hero:'solid', cards:'flat', kpiStyle:'tinted', accentPick:'#334155' } }
 ];
 
 /* ---------------- colour arithmetic ---------------- */
@@ -320,7 +370,9 @@ const WTHEME = {
     /* studio: corners and typeface are values, the rest are attributes the stylesheet reads */
     const rad = STUDIO.corners.radii[(st&&st.corners)||'soft'];
     ['--r-sm','--r','--r-lg','--r-xl'].forEach((k,i)=>set(k, rad[i]));
-    set('--font', STUDIO.font.stacks[(st&&st.font)||'standard'] || '"Inter","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif');
+    const fontKey = (st&&st.font)||'standard';
+    set('--font', STUDIO.font.stacks[fontKey] || '"Inter","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif');
+    set('--font-head', (STUDIO.font.headStacks && STUDIO.font.headStacks[fontKey]) || '"Inter","Segoe UI",system-ui,-apple-system,sans-serif');
     attr('data-font', (st&&st.font)||'standard'); attr('data-bg', (st&&st.backdrop)||'plain');
     attr('data-hero', (st&&st.hero)||'gradient'); attr('data-cards', (st&&st.cards)||'soft'); attr('data-corners', (st&&st.corners)||'soft');
     attr('data-kpistyle', (st&&st.kpiStyle)||'vivid');
@@ -376,5 +428,96 @@ const WTHEME = {
     AUDIT.append({actor:user.id, action:'settings.changed', entity:'setting', entityId:'consoleTheme', detail:`${JSON.stringify(before)} to ${JSON.stringify(id)}`});
     DB.save();
     return { ok:true };
-  }
+  },
+
+  /* Installable Font, Theme & Workspace Banner Packs */
+  packs(){
+    const custom = (DB.db && DB.db.settings && Array.isArray(DB.db.settings.installedVisualPacks))
+      ? DB.db.settings.installedVisualPacks : [];
+    return [...INSTALLABLE_VISUAL_PACKS, ...custom];
+  },
+
+  activePackId(user){
+    const p = user && DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id];
+    return (p && p.visualPackId) || '';
+  },
+
+  applyVisualPack(user, packId){
+    if(!user) return { ok:false, msg:'Sign in first.' };
+    const pack = WTHEME.packs().find(x=>x.id===packId);
+    if(!pack) return { ok:false, msg:'Visual pack not found.' };
+    DB.db.personalPrefs = DB.db.personalPrefs || {};
+    const mine = DB.db.personalPrefs[user.id] = DB.db.personalPrefs[user.id] || {};
+    const cfg = pack.config || {};
+    if(cfg.wtheme && WTHEME.byId(cfg.wtheme)) mine[WTHEME.PREF] = cfg.wtheme;
+    STUDIO_KEYS.forEach(k=>{
+      if(cfg[k]!==undefined && STUDIO[k].opts.some(o=>o.v===cfg[k])) mine[k] = cfg[k];
+    });
+    mine.visualPackId = pack.id;
+    DB.save();
+    WTHEME.apply(user);
+    return { ok:true, pack };
+  },
+
+  installCustomPack(user, rawJson){
+    if(!user) return { ok:false, msg:'Sign in first.' };
+    let parsed = null;
+    try{ parsed = typeof rawJson==='string'? JSON.parse(rawJson) : rawJson; }catch(e){
+      return { ok:false, msg:'Invalid JSON format. Paste a valid CareLink Visual Pack JSON object.' };
+    }
+    if(!parsed || typeof parsed!=='object' || !parsed.name){
+      return { ok:false, msg:'Pack JSON must include at least "name" and "config" (or theme tokens).' };
+    }
+    const cleanId = 'pack-custom-' + String(parsed.id || parsed.name).toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,28) + '-' + String(Date.now()).slice(-4);
+    /* Optional custom theme definition inside pack */
+    let themeId = (parsed.config && parsed.config.wtheme) || 'foundation';
+    if(parsed.theme && parsed.theme.t && typeof parsed.theme.t === 'object'){
+      const base = WTHEME.byId('foundation').t;
+      const customThemeId = 'custom-' + cleanId.slice(-8);
+      const mergedT = Object.assign({}, base, parsed.theme.t);
+      if(!WTHEME.byId(customThemeId)){
+        WTHEMES.push({
+          id: customThemeId,
+          name: String(parsed.theme.name || parsed.name).slice(0,36),
+          mode: parsed.theme.mode==='dark' ? 'dark' : 'light',
+          accent: parsed.theme.accent || '#1F3864',
+          brand: parsed.theme.brand || '#1F3864',
+          gold: parsed.theme.gold || '#A67C00',
+          blurb: String(parsed.blurb || 'Custom installed CareLink visual theme.').slice(0,110),
+          t: mergedT
+        });
+      }
+      themeId = customThemeId;
+    }
+    const packObj = {
+      id: cleanId,
+      name: String(parsed.name).slice(0,48),
+      version: String(parsed.version || '1.0').slice(0,12),
+      category: 'Installed Custom Pack',
+      blurb: String(parsed.blurb || 'Custom installed font, colour and workspace pack.').slice(0,140),
+      config: Object.assign({ wtheme:themeId, font:'standard', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'' }, parsed.config||{}, { wtheme:themeId })
+    };
+    DB.db.settings = DB.db.settings || {};
+    DB.db.settings.installedVisualPacks = DB.db.settings.installedVisualPacks || [];
+    DB.db.settings.installedVisualPacks.unshift(packObj);
+    AUDIT.append({ actor:user.id, action:'theme.pack_installed', entity:'visualPack', entityId:cleanId, detail:`Installed visual pack ${packObj.name}` });
+    DB.save();
+    return WTHEME.applyVisualPack(user, cleanId);
+  },
+
+  exportActivePack(user){
+    const st = WTHEME.studio(user);
+    const thId = WTHEME.resolveId(user);
+    const th = WTHEME.byId(thId) || WTHEME.byId('foundation');
+    return JSON.stringify({
+      carelinkPackVersion: 1,
+      name: `${(user&&user.name?user.name.split(' ')[0]:'CareLink')} ${th.name} Pack`,
+      version: '1.0',
+      blurb: `Exported CareLink OS font (${st.font}) and ${th.name} workspace pack.`,
+      config: Object.assign({ wtheme: th.id }, st)
+    }, null, 2);
+  },
+  installPack(user, packId){ return WTHEME.applyVisualPack(user, packId); },
+  importCustomPack(user, rawJson){ return WTHEME.installCustomPack(user, rawJson); },
+  exportCurrentPack(user){ return WTHEME.exportActivePack(user); }
 };

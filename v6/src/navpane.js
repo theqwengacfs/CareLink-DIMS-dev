@@ -146,6 +146,7 @@ const NAVP = {
   /* Automatically fold the left navigation panel whenever the user starts
      scrolling or using features on the main workspace (#content). */
   foldForWorkspace(reason){
+    if(NAVP._hoveringPane && reason !== 'rail-btn') return false;
     const user = (typeof AUTH!=='undefined' && AUTH.user) ? AUTH.user : null;
     if(!user || !NAVP.enabled(user)) return false;
     const pr = NAVP.prefs(user);
@@ -169,11 +170,19 @@ const NAVP = {
 
     const isInsideNavOrModal = (t) => {
       if(!t || typeof t.closest !== 'function') return false;
-      return Boolean(t.closest('#npane') || t.closest('.cbar') || t.closest('.modal') || t.closest('.ai-dock'));
+      return Boolean(t.closest('#npane') || t.closest('.cbar') || t.closest('.modal') || t.closest('.ai-dock') || t.closest('#user-menu') || t.closest('.cl-util-menu'));
     };
+
+    /* Keep pointer hover inside #npane completely protected from accidental workspace auto-fold */
+    NAVP._hoveringPane = false;
+    document.addEventListener('pointerover', (e)=>{
+      const t = e && e.target;
+      NAVP._hoveringPane = Boolean(t && t.closest && t.closest('#npane'));
+    }, { capture:true, passive:true });
 
     /* 1. Capture scroll events on #content or document (ignoring .np-scroll inside #npane) */
     document.addEventListener('scroll', (e)=>{
+      if(NAVP._hoveringPane) return;
       const t = e && e.target;
       if(!t) return;
       if(t.closest && (t.closest('#npane') || t.closest('.modal'))) return;
@@ -187,7 +196,7 @@ const NAVP = {
     /* 2. Wheel & touch scrolling on #content immediately triggers widescreen fold */
     document.addEventListener('wheel', (e)=>{
       const t = e && e.target;
-      if(!t || isInsideNavOrModal(t)) return;
+      if(!t || isInsideNavOrModal(t) || NAVP._hoveringPane) return;
       if(t.closest && t.closest('#content') && Math.abs(e.deltaY || 0) > 4){
         NAVP.foldForWorkspace('wheel');
       }
@@ -264,11 +273,11 @@ const NAVP = {
       const open = NAVP.isOpen(user, g.label, gi, active);
       const gcount = g.items.reduce((n,i)=>n+(Number(i.count)||0),0);
       return `<section class="np-g ${open?'open':''}" data-g="${esc(g.label)}">
-        <button class="np-gh" data-act="nav-group" data-g="${esc(g.label)}" data-i="${gi}" aria-expanded="${open}" title="${esc(g.label)}">
-          <span class="np-gi">${ic(NAV_GROUP_ICON[g.label]||'layers',16)}</span><span class="np-gt">${esc(g.label)}</span>
+        <button class="np-gh" data-act="nav-group" data-g="${esc(g.label)}" data-i="${gi}" aria-expanded="${open}" title="${esc(g.displayLabel||g.label)}">
+          <span class="np-gi">${ic(NAV_GROUP_ICON[g.label]||'layers',16)}</span><span class="np-gt">${esc(g.displayLabel||g.label)}</span>
           ${(!open && gcount)?`<span class="tcount np-gc">${gcount}</span>`:''}<span class="np-chev">${ic('chevron',14)}</span>
         </button>
-        <div class="np-items" role="group" aria-label="${esc(g.label)}">
+        <div class="np-items" role="group" aria-label="${esc(g.displayLabel||g.label)}">
           ${g.items.map(i=>`<button class="np-i ${here(i.id)?'on':''}" data-act="go" data-v="${esc(i.id)}" title="${esc(i.label)}" ${here(i.id)?'aria-current="page"':''}>
             ${ic(i.icon,18)}<span class="np-l">${esc(i.label)}</span>${i.count?`<span class="tcount ${i.tone==='crit'?'crit':''}">${i.count}</span>`:''}
           </button>`).join('')}

@@ -10,10 +10,10 @@
       layout decisions are measured against a real screen and not
       against a guess.
 
-   2. THEME DEFAULT. A tablet opens in Harbour Dusk. A PC opens in
-      the organisation default (Foundation). A personal choice always
-      wins over both, and an explicit organisation default always
-      wins over the device rule.
+   2. THEME DEFAULT. Both tablets and PCs open in the standard
+      organisation default (Foundation). Harbour Dark remains available
+      in the Theme Studio if someone chooses it personally, and an
+      explicit organisation default wins when no personal preference is set.
 
    3. THE AUDIT. A live, repeatable check of the things the audit was
       asked to prove: contrast of every theme token pair, collisions
@@ -39,7 +39,7 @@ const DEVICE_PROFILES = {
     cameras:{ rear:'13 MP wide + 5 MP ultrawide + 2 MP depth, 1080p@30', front:'8 MP f/2.0, 1080p@30' },
     sensors:'Rear fingerprint, accelerometer, proximity',
     network:'Published by Samsung as 4G LTE; the office refers to the field handset as the A11+ 5G. The layout target is the same 6.4-inch 720x1560 panel either way.',
-    themeDefault:'harbour',
+    themeDefault:'foundation',
     rules:[
       'Touch targets at least 44 x 44 CSS px.',
       'Forms collapse to a single column at 900 CSS px and below.',
@@ -54,9 +54,9 @@ const DEVICE_PROFILES = {
     themeDefault:'foundation',
     rules:['Sidebar and wide tables above 1000 px.','Multi-column dashboards.','A4 print stylesheet for reports.'] },
   tablet:{ id:'tablet', kind:'tablet', name:'Tablet (768-1024 CSS px)', screen:{ resolution:'1024 x 768 and above' },
-    css:{ w:1024, h:768, dpr:2 }, themeDefault:'harbour', rules:['Drawer navigation.','44 px touch targets.'] },
+    css:{ w:1024, h:768, dpr:2 }, themeDefault:'foundation', rules:['Drawer navigation.','44 px touch targets.'] },
   phone:{ id:'phone', kind:'phone', name:'Phone (below 560 CSS px)', screen:{ resolution:'360 x 640 and above' },
-    css:{ w:360, h:640, dpr:3 }, themeDefault:'harbour', rules:['Single column.','Card form of every table.'] }
+    css:{ w:360, h:640, dpr:3 }, themeDefault:'foundation', rules:['Single column.','Card form of every table.'] }
 };
 
 const DEVICE = {
@@ -79,13 +79,12 @@ const DEVICE = {
   isTablet(){ return ['tablet','phone'].includes(this.detect().kind) || /SM-A115|Galaxy A11|SM-X210|SM-X216|Tab A11|Galaxy Tab|Wi-Fi Tablet/i.test(this._ua()); },
   isGalaxyA11(){ return /SM-A115|Galaxy A11|A115F|A115U|A115M|SM-X210|SM-X216|Tab A11/i.test(this._ua()); },
 
-  /* The theme a device opens in when nobody has chosen one. */
+  /* The theme a device opens in when nobody has chosen one.
+     Standard default (Foundation) applies consistently across PC and Tablet. */
   themeDefault(){
-    /* An organisation default that somebody actually chose wins. The value
-       written by a seed is not a choice, so the device still decides. */
     const st = (DB.db && DB.db.settings) || {};
     if(st.consoleThemeExplicit && st.consoleTheme && st.consoleTheme!=='auto') return st.consoleTheme;
-    return this.isTablet()? 'harbour' : (st.consoleTheme && st.consoleTheme!=='auto'? st.consoleTheme : WT_DEFAULT);
+    return (st.consoleTheme && st.consoleTheme!=='auto') ? st.consoleTheme : WT_DEFAULT;
   },
 
   /* Write the device class onto the document so CSS can measure for it. */
@@ -102,10 +101,9 @@ const DEVICE = {
   }
 };
 
-/* ---------------- 2. Theme default follows the device ----------------
+/* ---------------- 2. Theme default across PC and Tablet ----------------
    A person's own choice always wins. An explicit organisation default wins
-   next. Only when neither is set does the device decide: a tablet opens in
-   Harbour Dusk, a PC in Foundation. */
+   next. Otherwise both tablets and PCs open in the standard Foundation theme. */
 (function bindDeviceTheme(){
   if(typeof WTHEME==='undefined' || WTHEME.__deviceBound) return;
   const resolve = WTHEME.resolveId.bind(WTHEME);

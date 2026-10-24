@@ -60,7 +60,7 @@ function chartBars(opts){
   const rows = (opts.rows||[]).filter(r=>r.value!==null && r.value!==undefined);
   if(!rows.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
   const W = 840, H = opts.height || 268, padL = 70, padR = 24, padB = 48, padT = 30;
-  const max = opts.max || Math.max(...rows.map(r=>r.value), 1);
+  const max = Math.max(Number(opts.max)||0, ...rows.map(r=>Math.abs(Number(r.value)||0)), 1);
   const plotW = W - padL - padR;
   const bw = plotW / rows.length;
   const inner = H - padB - padT;
@@ -68,16 +68,17 @@ function chartBars(opts){
   const fmtV = v => opts.fmt ? opts.fmt(v) : fmtNum(v);
   const fmtTop = v => (rows.length > 6 || String(fmtV(v)).length > 9) ? fmtCompact(v) : fmtV(v);
   const bars = rows.map((r,i)=>{
-    const h = Math.max(2, Math.round(inner * (r.value/max)));
-    const x = padL + i*bw + bw*0.18;
+    const rawVal = Number(r.value)||0;
+    const mag = Math.abs(rawVal);
+    const h = clamp(Math.round(inner * (mag/max)), mag>0?2:0, inner);
     const w = Math.min(72, bw*0.64);
     const bx = padL + i*bw + (bw - w)/2;
     const y = padT + inner - h;
     const alt = i % 2 ? ' alt' : '';
     const yLbl = dense && (i % 2 === 1) ? Math.max(12, y - 16) : Math.max(12, y - 7);
     return `<g>
-      <rect class="bar${alt}" x="${bx.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="4"><title>${esc(r.label)}: ${esc(fmtV(r.value))}</title></rect>
-      <text class="val" x="${(bx+w/2).toFixed(1)}" y="${yLbl.toFixed(1)}" text-anchor="middle">${esc(fmtTop(r.value))}</text>
+      <rect class="bar${alt}" x="${bx.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(2,h)}" rx="4"><title>${esc(r.label)}: ${esc(fmtV(rawVal))}</title></rect>
+      <text class="val" x="${(bx+w/2).toFixed(1)}" y="${yLbl.toFixed(1)}" text-anchor="middle">${esc(fmtTop(rawVal))}</text>
       <text class="axis-x" x="${(bx+w/2).toFixed(1)}" y="${H-(dense && i%2===1 ? 8 : 21)}" text-anchor="middle">${esc(String(r.label).slice(0,15))}</text>
     </g>`;
   }).join('');
@@ -245,8 +246,8 @@ function chartStacked(opts){
   if(!labels.length||!series.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
   const W=860, H=opts.height||288, padL=74, padR=24, padT=30, padB=52;
   const colours = opts.colours || chartColours(series.length);
-  const totals = labels.map((l,i)=>series.reduce((n,s)=>n+(Number(s.values[i])||0),0));
-  const max = opts.max || Math.max(1, ...totals);
+  const totals = labels.map((l,i)=>series.reduce((n,s)=>n+Math.max(0, Number(s.values[i])||0),0));
+  const max = Math.max(Number(opts.max)||0, 1, ...totals);
   const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
   const bw = plotW/labels.length;
   const dense = labels.length > 7;
@@ -255,8 +256,8 @@ function chartStacked(opts){
     const x = padL + i*bw + (bw - w)/2;
     let acc = 0;
     const segs = series.map((s,si)=>{
-      const v = Number(s.values[i])||0; if(!v) return '';
-      const h = inner*v/max, y = padT+inner-acc-h; acc += h;
+      const v = Math.max(0, Number(s.values[i])||0); if(!v) return '';
+      const h = clamp(inner*v/max, 0.8, Math.max(0.8, inner-acc)), y = padT+inner-acc-h; acc += h;
       return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0.8,h).toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="2"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>`;
     }).join('');
     const topY = Math.max(12, padT+inner-acc-(dense && i%2===1 ? 15 : 6));
@@ -286,7 +287,7 @@ function chartGrouped(opts){
   if(!labels.length||!series.length) return `<div class="empty small">${esc(opts.empty||'No verified data for this period.')}</div>`;
   const W=860, H=opts.height||280, padL=74, padR=24, padT=28, padB=52;
   const colours = opts.colours || chartColours(series.length);
-  const max = opts.max || Math.max(1, ...series.flatMap(s=>s.values.map(v=>Number(v)||0)));
+  const max = Math.max(Number(opts.max)||0, 1, ...series.flatMap(s=>s.values.map(v=>Math.abs(Number(v)||0))));
   const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
   const bw = plotW/labels.length, gw = Math.min(48, (bw*0.72)/series.length);
   const dense = labels.length > 6;
@@ -294,7 +295,7 @@ function chartGrouped(opts){
     const groupW = gw * series.length;
     const x0 = padL + i*bw + (bw - groupW)/2;
     const g = series.map((s,si)=>{
-      const v = Number(s.values[i])||0, h = Math.max(1.5, inner*v/max), x = x0+si*gw, y = padT+inner-h;
+      const v = Number(s.values[i])||0, mag = Math.abs(v), h = clamp(inner*mag/max, mag>0?2:1.5, inner), x = x0+si*gw, y = padT+inner-h;
       return `<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(gw*0.84).toFixed(1)}" height="${h.toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="3"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>
         ${labels.length<=5?`<text class="val" x="${(x+gw*0.42).toFixed(1)}" y="${Math.max(12,y-(si%2===1?13:5)).toFixed(1)}" text-anchor="middle">${esc(fmtCompact(v))}</text>`:''}</g>`;
     }).join('');
@@ -474,37 +475,62 @@ function chartSpark(values, opts={}){
     <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.2" fill="${colour}"/></svg>`;
 }
 
-/* --- Waterfall (budget -> commitments -> payments -> remaining) ------- */
+/* --- Baseline-anchored Step Comparison (budget -> commitments -> payments -> remaining)
+       Strictly upright columns anchored to the zero X-axis so bars NEVER hang downwards
+       in mid-air or plunge below zero into X-axis labels. --- */
 function chartWaterfall(steps, opts={}){
   const rows = (steps||[]).filter(s=>s && s.label);
   if(!rows.length) return `<div class="empty small">${esc(opts.empty||'Nothing to plot yet.')}</div>`;
-  const W=860,H=opts.height||280,padL=74,padR=24,padT=30,padB=54;
-  let run=0; const items = rows.map(r=>{
+  const W=860,H=opts.height||280,padL=74,padR=24,padT=34,padB=54;
+  let run=0;
+  const items = rows.map(r=>{
     const v = Number(r.value)||0;
     const from = r.kind==='total'? 0 : run;
     const to = r.kind==='total'? v : run+v;
     if(r.kind!=='total') run = to;
-    return {...r, from, to, v};
+    return {...r, from, to, v, mag: Math.abs(v)};
   });
-  const max = Math.max(1, ...items.map(i=>Math.max(i.from,i.to)));
+  const max = Math.max(1, ...items.map(i=>i.mag));
   const {grid, inner, plotW} = chartFrame(W,H,padL,padR,padT,padB,max,{fmtY:opts.fmtY});
   const bw = plotW/items.length;
   const bars = items.map((it,i)=>{
     const w = Math.min(68, bw*0.58);
     const x = padL+i*bw+(bw-w)/2;
-    const y0 = padT+inner-inner*(Math.max(it.from,it.to)/max), y1 = padT+inner-inner*(Math.min(it.from,it.to)/max);
-    const colour = it.kind==='total'? 'var(--ink-3)' : (it.v>=0? (it.color||'var(--crit)') : (it.color||'var(--ok)'));
-    const topLbl = (it.v>=0&&it.kind!=='total'?'+':it.v<0?'-':'') + fmtCompact(Math.abs(it.v));
-    return `<rect x="${x.toFixed(1)}" y="${y0.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(2,(y1-y0)).toFixed(1)}" fill="${colour}" rx="3" opacity="${it.kind==='total'?0.92:0.86}">
-        <title>${esc(it.label)}: ${opts.fmt?opts.fmt(it.v):fmtNum(it.v)}</title></rect>
-      <text class="val" x="${(x+w/2).toFixed(1)}" y="${Math.max(12,y0-(i%2===1?15:6)).toFixed(1)}" text-anchor="middle">${esc(topLbl)}</text>
-      <text class="axis-x" x="${(x+w/2).toFixed(1)}" y="${H-22}" text-anchor="middle">${esc(String(it.label).slice(0,14))}</text>`;
+    const h = clamp(Math.round(inner * (it.mag / max)), it.mag>0?4:2, inner);
+    const y = padT + inner - h;
+    const isDeficit = it.kind==='total' && it.v < 0;
+    const colour = isDeficit
+      ? '#C8102E'
+      : (it.kind==='total'
+          ? '#1F3864'
+          : (it.v>=0 ? (it.color||'#0F7B4F') : (it.color||'#D97706')));
+    const signPrefix = isDeficit ? 'Overrun ' : (it.kind!=='total' ? (it.v>=0 ? '+' : '-') : '');
+    const topLbl = signPrefix + fmtCompact(it.mag);
+    return `<g>
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${colour}" rx="4" opacity="${it.kind==='total'?0.94:0.88}">
+        <title>${esc(it.label)}: ${isDeficit?'Deficit ':''}${opts.fmt?opts.fmt(it.v):fmtNum(it.v)}</title></rect>
+      <text class="val" x="${(x+w/2).toFixed(1)}" y="${Math.max(13,y-(i%2===1?15:7)).toFixed(1)}" text-anchor="middle">${esc(topLbl)}</text>
+      <text class="axis-x" x="${(x+w/2).toFixed(1)}" y="${H-22}" text-anchor="middle">${esc(String(it.label).slice(0,15))}</text>
+    </g>`;
   }).join('');
-  const tbl = chartTable([{key:'Step',label:'Step'},{key:'Amount',label:'Amount',cls:'num mono'},{key:'Balance',label:'Balance',cls:'num mono'}], items.map(i=>({Step:i.label, Amount:opts.fmt?opts.fmt(i.v):fmtNum(i.v), Balance:opts.fmt?opts.fmt(i.to):fmtNum(i.to)})), {title:opts.title||'Movement table'});
+  const tbl = chartTable(
+    [{key:'Step',label:'Step'},{key:'Amount',label:'Movement / Value',cls:'num mono'},{key:'Balance',label:'Running Balance',cls:'num mono'}],
+    items.map(i=>({
+      Step:i.label + (i.kind==='total'&&i.v<0?' (Overrun)':''),
+      Amount:(i.kind!=='total'?(i.v>=0?'+':'-'):(i.v<0?'-':'')) + (opts.fmt?opts.fmt(Math.abs(i.v)):fmtNum(Math.abs(i.v))),
+      Balance:(i.to<0?'-':'') + (opts.fmt?opts.fmt(Math.abs(i.to)):fmtNum(Math.abs(i.to)))
+    })),
+    {title:opts.title||'Movement table'}
+  );
   if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">
+    <div class="chart-key">
+      <span class="ck"><i style="background:#1F3864"></i>Totals / Balances</span>
+      <span class="ck"><i style="background:#0F7B4F"></i>Additions (+)</span>
+      <span class="ck"><i style="background:#D97706"></i>Reductions / Outflows (-)</span>
+    </div>
     <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Movement')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
-    <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Each step shows the movement from the previous balance.')}</figcaption>
+    <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Every step is plotted upright from the zero baseline with signed movement labels above.')}</figcaption>
     ${tbl}
   </figure>`;
 }

@@ -665,9 +665,9 @@ function renderOnboarding6(){
         <div class="field"><label>Username</label><input class="input" id="ob-user" value="${esc(ONB.admin.username||'chief.admin')}" placeholder="chief.admin"></div>
       </div>
       <div class="grid g2" style="gap:10px">
-        <div class="field"><label>Initial Commissioning Setup Password (12+ chars)</label><input class="input" id="ob-pw" type="password" minlength="12" autocomplete="new-password">
+        <div class="field"><label>Initial Commissioning Setup Password (12+ chars)</label><input class="input" id="ob-pw" type="password" minlength="12" value="${esc(ONB.admin.password||'')}" autocomplete="new-password" oninput="(function(v){var el=document.getElementById('ob-strength');if(!el)return;var u={name:(document.getElementById('ob-name')||{}).value||'',username:(document.getElementById('ob-user')||{}).value||''};var err=(typeof PROD_SETUP!=='undefined')?PROD_SETUP.validatePrivacyPassword(v,u):(v.length<12?'At least 12 characters required.':'');el.textContent=err?err:'Strong commissioning password ready ('+v.length+' chars).';el.style.color=err?'var(--crit)':'var(--ok)';})(this.value)">
           <div class="hint" id="ob-strength">At least 12 characters with uppercase, lowercase, digit &amp; symbol. You will replace this on Official Sign-In.</div></div>
-        <div class="field"><label>Repeat initial setup password</label><input class="input" id="ob-pw2" type="password" minlength="12" autocomplete="new-password"></div>
+        <div class="field"><label>Repeat initial setup password</label><input class="input" id="ob-pw2" type="password" minlength="12" value="${esc(ONB.admin.confirm||'')}" autocomplete="new-password"></div>
       </div>`;
   }
   if(step===3){
@@ -792,7 +792,17 @@ Object.assign(ACTIONS, {
     render(); window.scrollTo({top:0});
   },
   'ob-device': () => { ONB.mode='device'; ONB.step=2; render(); },
-  'ob-back': () => { ONB.step = Math.max(1, ONB.step-1); ONB.error=''; render(); },
+  'ob-back': () => {
+    if(ONB.step===2){
+      ONB.admin = {
+        name: (($('#ob-name')||{}).value || ONB.admin.name || '').trim(),
+        username: (($('#ob-user')||{}).value || ONB.admin.username || '').trim().toLowerCase(),
+        password: ($('#ob-pw')||{}).value || ONB.admin.password || '',
+        confirm: ($('#ob-pw2')||{}).value || ONB.admin.confirm || ''
+      };
+    }
+    ONB.step = Math.max(1, ONB.step-1); ONB.error=''; render();
+  },
   'ob-next': async () => {
     ONB.error='';
     const step = ONB.step;
@@ -890,17 +900,30 @@ Object.assign(FORMS, {
   login6: async (d) => {
     const username = String(d.get('username')||'').trim().toLowerCase();
     const password = String(d.get('password')||'');
+    if(!username || !password){
+      LOGIN6.error = 'Enter both your username (or official email) and password.';
+      return render();
+    }
     LOGIN6.error=''; LOGIN6.notice=''; LOGIN6.busy=true; render();
     try{
       let res = await AUTH.loginOnline(username, password, 'this device');
       if(!res.ok){
-        /* Allow local verified credential login when offline OR when the host server
-           has not yet run live credential provisioning (e.g. fresh LAN tablet test). */
+        /* Allow verified local PBKDF2/hash sign-in whenever:
+           1) The device is offline / host unreachable / host not yet server-provisioned, OR
+           2) Client-side 4-Step Host Setup or Global Activation provisioned salted hashes in DB.db.users. */
         const hostUnprovisioned = !APPX.host || !APPX.host.setup;
-        if(res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned){
-          if(!(DB.db && DB.db.users && DB.db.users.length)) await activateFullDemoDataset();
+        const isGloballyActive = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+        if(!(DB.db && DB.db.users && DB.db.users.length) && !isGloballyActive && (res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned)){
+          await activateFullDemoDataset();
+        }
+        const localCandidate = (DB.db && Array.isArray(DB.db.users))
+          ? DB.db.users.find(x => x.username.toLowerCase()===username || String(x.email||'').toLowerCase()===username)
+          : null;
+        if((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned){
           const local = AUTH.login(username, password);
-          res = local.ok ? {ok:true, user:local.user, mustChange:Boolean(local.user.mustChange)} : {ok:false, error: local.msg};
+          res = local.ok
+            ? { ok:true, user:local.user, mustChange:Boolean(local.user.mustChange || local.user.mustChangePassword) }
+            : { ok:false, error: local.msg };
         }
       }
       LOGIN6.busy = false;
@@ -908,7 +931,11 @@ Object.assign(FORMS, {
         APPX.screen='app';
         try{ sessionStorage.setItem('carelink.lastUser', AUTH.user.username); }catch(e){}
         SESSION.start();
-        if(AUTH.mustChange || res.mustChange){ AUTH.mustChange=true; render(); return; }
+        if(AUTH.mustChange || res.mustChange || (AUTH.user && (AUTH.user.mustChange || AUTH.user.mustChangePassword))){
+          AUTH.mustChange = true;
+          render();
+          return;
+        }
         NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
         render();
         if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
@@ -923,32 +950,50 @@ Object.assign(FORMS, {
 
   mustchange6: async (d) => {
     const current = String(d.get('current')||''), next = String(d.get('password')||''), again = String(d.get('password2')||'');
-    if(next !== again) return toast('The passwords do not match','Re-type the same new password.','err');
+    LOGIN6.error = '';
+    if(!current){ LOGIN6.error = 'Enter your current temporary password.'; return render(); }
+    if(next !== again){ LOGIN6.error = 'The new passwords do not match.'; toast('The passwords do not match','Re-type the same new password.','err'); return render(); }
+    const uRec = AUTH.user ? ((DB.db && Array.isArray(DB.db.users) && DB.db.users.find(x => x.id===AUTH.user.id || x.username===AUTH.user.username)) || AUTH.user) : null;
     const policyErr = (typeof PROD_SETUP!=='undefined') ? PROD_SETUP.validatePrivacyPassword(next, AUTH.user, current) : '';
     if(policyErr){ LOGIN6.error = policyErr; toast('Privacy password requirement', policyErr, 'err'); return render(); }
     const strength = passwordStrength(next);
-    if(strength.n < 2) return toast('Choose a stronger password','Use at least 12 characters with uppercase, lowercase, digits and a symbol.','err');
+    if(strength.n < 2){ LOGIN6.error = 'Use at least 12 characters with uppercase, lowercase, digits and a symbol.'; return render(); }
     let r = {ok:false};
-    if(SYNC.sessionToken) r = await AUTH.changeOnServer(current, next);
+    if(typeof SYNC!=='undefined' && SYNC.sessionToken){
+      try { r = await AUTH.changeOnServer(current, next); } catch(_e) { r = {ok:false}; }
+    }
     if(!r.ok){
+      const currentValid = (AUTH._pw && current === AUTH._pw) || (uRec && uRec.salt && uRec.hash && strongHash(current, uRec.salt) === uRec.hash);
+      if(!currentValid){
+        LOGIN6.error = 'Current temporary password is incorrect.';
+        toast('Incorrect current password','Enter the one-time setup or WhatsApp password you signed in with.','err');
+        return render();
+      }
       const local = AUTH.setPassword(next);
       if(local && local.ok === false){ LOGIN6.error = local.msg; return render(); }
     }
     if(AUTH.user){
-      AUTH.user.status = 'active';
-      AUTH.user.active = true;
-      AUTH.user.activatedAt = todayISO();
-      AUTH.user.mustChange = false;
-      AUTH.user.mustChangePassword = false;
-      AUTH.user.dpaFirstLoginRequired = false;
-      AUTH.user.passwordSetAt = todayISO();
+      const markActive = target => {
+        if(!target) return;
+        target.status = 'active';
+        target.active = true;
+        target.activatedAt = todayISO();
+        target.mustChange = false;
+        target.mustChangePassword = false;
+        target.dpaFirstLoginRequired = false;
+        target.passwordSetAt = todayISO();
+        target.failedLogins = 0;
+      };
+      markActive(AUTH.user);
+      if(uRec && uRec !== AUTH.user) markActive(uRec);
       AUDIT.append({ actor:AUTH.user.id, action:'account.self_activated', entity:'user', entityId:AUTH.user.id, detail:`${AUTH.user.username} completed first-login password change & self-activated account.` });
       DB.save();
     }
     AUTH.mustChange = false;
     LOGIN6.error='';
+    NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
     if(AUTH.user && AUTH.user.roleId==='chief' && typeof PROD_SETUP!=='undefined' && !PROD_SETUP.isGloballyActivated()){
-      toast('Password Updated — Ready for Global Activation','Click "Activate System Globally" at the top of your console to generate the Team WhatsApp Credential Sheet.','ok');
+      toast('Password Updated - Ready for Global Activation','Click "Activate System Globally" at the top of your console to generate the Team WhatsApp Credential Sheet.','ok');
     } else {
       toast('Account Activated & Private Password Saved','Your console is now open with your personal encrypted password known only to you.','ok');
     }
@@ -956,41 +1001,54 @@ Object.assign(FORMS, {
   },
 
   activate6: async (d) => {
-    const username = String(d.get('username')||'').trim().toLowerCase();
+    const rawUser = String(d.get('username')||'').trim().toLowerCase();
     const code = String(d.get('code')||'').trim().toUpperCase();
     const pw = String(d.get('password')||''), pw2 = String(d.get('password2')||'');
     if(pw!==pw2) return toast('The passwords do not match','Re-type the same password.','err');
     if(passwordStrength(pw).n < 2) return toast('Choose a stronger password','At least 10 characters with letters and digits.','err');
-    const r = await SYNC._json('api/public/activate', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({username, code, password: pw})});
-    if(r.ok){
+    let r = { ok:false };
+    try {
+      if(typeof SYNC !== 'undefined' && SYNC._json){
+        r = await SYNC._json('api/public/activate', {method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({username:rawUser, code, password: pw})});
+      }
+    } catch(_e) { r = { ok:false }; }
+    if(r && r.ok){
       LOGIN6.tab='signin'; LOGIN6.error=''; LOGIN6.notice='Account activated. Sign in with your new password.';
       return render();
     }
-    const act = (DB.db.pendingActivations||[]).find(a=>a.username===username && a.code===code && !a.used && new Date(a.expiresAt)>new Date());
-    const usr = (DB.db.users||[]).find(u=>u.username===username);
+    const usr = (DB.db.users||[]).find(u=>u.username.toLowerCase()===rawUser || String(u.email||'').toLowerCase()===rawUser);
+    const uname = usr ? usr.username.toLowerCase() : rawUser;
+    const act = (DB.db.pendingActivations||[]).find(a=>String(a.username||'').toLowerCase()===uname && a.code===code && !a.used && new Date(a.expiresAt)>new Date());
     if(act && usr){
       act.used = true; act.usedAt = new Date().toISOString();
-      usr.salt = newSalt(); usr.hash = strongHash(pw, usr.salt); usr.active = true; usr.status = 'active'; usr.mustChange = false;
+      usr.salt = newSalt(); usr.hash = strongHash(pw, usr.salt); usr.active = true; usr.status = 'active';
+      usr.mustChange = false; usr.mustChangePassword = false; usr.dpaFirstLoginRequired = false; usr.failedLogins = 0;
       AUDIT.append({ actor:usr.id, action:'account.activated', entity:'user', entityId:usr.id, detail:`Activated via code ${code}` });
       DB.save();
       LOGIN6.tab='signin'; LOGIN6.error=''; LOGIN6.notice='Account activated. Sign in now with your chosen password.';
       return render();
     }
-    LOGIN6.error = (r.body && r.body.error) || 'Invalid or expired activation code for that username.';
+    LOGIN6.error = (r && r.body && r.body.error) || 'Invalid or expired activation code for that username.';
     render();
   },
 
   request6: async (d) => {
     const body = {};
     ['name','jobTitle','departmentId','countyId','phone','justification'].forEach(k=>body[k]=String(d.get(k)||'').trim());
+    if(!body.name || !body.phone){ LOGIN6.error = 'Enter your full name and phone/WhatsApp number.'; return render(); }
     const cId = body.countyId || 'kisumu';
     const assignedAdminUsername = cId === 'homabay' ? 'homabay.admin' : 'kisumu.admin';
     const countyLabel = countyName(cId);
     const payload = { ...body, countyId:cId, assignedCountyId:cId, assignedAdminUsername, urgent:true, priority:'urgent' };
-    const r = await SYNC._json('api/public/account-request', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)});
-    const ref = (r.ok && r.body && r.body.ref) ? r.body.ref : ('REQ-' + Math.floor(100000 + Math.random()*900000));
+    let r = { ok:false };
+    try {
+      if(typeof SYNC !== 'undefined' && SYNC._json){
+        r = await SYNC._json('api/public/account-request', {method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)});
+      }
+    } catch(_e) { r = { ok:false }; }
+    const ref = (r && r.ok && r.body && r.body.ref) ? r.body.ref : ('REQ-' + Math.floor(100000 + Math.random()*900000));
     DB.db.accountRequests = DB.db.accountRequests || [];
     DB.db.accountRequests.unshift({
       id:uid('arq'), ref, ...payload, contact:body.phone, reason:body.justification,
@@ -1006,15 +1064,21 @@ Object.assign(FORMS, {
 
   forgot6: async (d) => {
     const rawId = String(d.get('username')||'').trim().toLowerCase();
+    if(!rawId){ LOGIN6.error = 'Enter your username or official email.'; return render(); }
     const matchedUser = (DB.db && DB.db.users || []).find(u => String(u.username||'').toLowerCase()===rawId || String(u.email||'').toLowerCase()===rawId);
     const cId = String(d.get('countyId') || (matchedUser && matchedUser.countyId) || 'kisumu').trim();
     const assignedAdminUsername = cId === 'homabay' ? 'homabay.admin' : 'kisumu.admin';
     const countyLabel = countyName(cId);
     const username = matchedUser ? matchedUser.username : rawId;
     const payload = { username, identifier:rawId, countyId:cId, assignedCountyId:cId, assignedAdminUsername, urgent:true, priority:'urgent' };
-    const r = await SYNC._json('api/auth/forgot', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)});
-    const ref = (r.ok && r.body && r.body.reference) ? r.body.reference : ('REC-' + Math.floor(10000 + Math.random()*90000));
+    let r = { ok:false };
+    try {
+      if(typeof SYNC !== 'undefined' && SYNC._json){
+        r = await SYNC._json('api/auth/forgot', {method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)});
+      }
+    } catch(_e) { r = { ok:false }; }
+    const ref = (r && r.ok && r.body && r.body.reference) ? r.body.reference : ('REC-' + Math.floor(10000 + Math.random()*90000));
     DB.db.recoveryRequests = DB.db.recoveryRequests || [];
     DB.db.recoveryRequests.unshift({
       id:uid('rec'), reference:ref, ...payload, at:new Date().toISOString(), status:'open'
@@ -1029,27 +1093,35 @@ Object.assign(FORMS, {
   },
 
   emergency6: async (d) => {
-    const username = String(d.get('username')||'').trim().toLowerCase();
+    const rawUser = String(d.get('username')||'').trim().toLowerCase();
     const code = String(d.get('code')||'').trim().toUpperCase();
     const password = String(d.get('password')||'');
     if(passwordStrength(password).n < 2) return toast('Choose a stronger password','Use at least 10 characters with letters and digits.','err');
-    const r = await SYNC._json('api/auth/emergency', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({username, code, password})});
-    if(r.ok){
+    let r = { ok:false };
+    try {
+      if(typeof SYNC !== 'undefined' && SYNC._json){
+        r = await SYNC._json('api/auth/emergency', {method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({username:rawUser, code, password})});
+      }
+    } catch(_e) { r = { ok:false }; }
+    if(r && r.ok){
       LOGIN6.tab='signin'; LOGIN6.notice='Password reset with emergency code. Sign in now.'; LOGIN6.error='';
       return render();
     }
-    const emg = (DB.db.emergencyCodes||[]).find(e=>e.username===username && e.code===code && !e.used && new Date(e.expiresAt)>new Date());
-    const usr = (DB.db.users||[]).find(u=>u.username===username);
+    const usr = (DB.db.users||[]).find(u=>u.username.toLowerCase()===rawUser || String(u.email||'').toLowerCase()===rawUser);
+    const uname = usr ? usr.username.toLowerCase() : rawUser;
+    const emg = (DB.db.emergencyCodes||[]).find(e=>String(e.username||'').toLowerCase()===uname && e.code===code && !e.used && new Date(e.expiresAt)>new Date());
     if(emg && usr){
       emg.used = true; emg.usedAt = new Date().toISOString();
-      usr.salt = newSalt(); usr.hash = strongHash(password, usr.salt); usr.mustChange = false;
+      usr.salt = newSalt(); usr.hash = strongHash(password, usr.salt);
+      usr.mustChange = false; usr.mustChangePassword = false; usr.dpaFirstLoginRequired = false;
+      usr.failedLogins = 0; usr.status = 'active'; usr.active = true;
       AUDIT.append({ actor:usr.id, action:'auth.emergency_reset', entity:'user', entityId:usr.id, detail:'Reset via 24h emergency code' });
       DB.save();
       LOGIN6.tab='signin'; LOGIN6.notice='Password reset with emergency code. Sign in now.'; LOGIN6.error='';
       return render();
     }
-    LOGIN6.error = (r.body && r.body.error) || 'Invalid or expired emergency code.';
+    LOGIN6.error = (r && r.body && r.body.error) || 'Invalid or expired emergency code.';
     render();
   }
 });

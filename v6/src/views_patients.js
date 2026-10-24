@@ -691,7 +691,7 @@ function renderPatient(user, params){
         </div>
       </div>
       <div class="row" style="flex-wrap:wrap;gap:8px">
-        ${typeof PAT_DISCHARGE!=='undefined' ? `<button class="btn btn-sm ${p.status==='discharged'?'btn-primary':'btn-ghost'}" data-act="open-discharge-summary" data-id="${p.id}">${ic('printer',14)} ${p.status==='discharged'?'Discharge Summary':'Preview Discharge Summary'}</button>` : ''}
+        ${typeof PAT_DISCHARGE!=='undefined' ? `<button class="btn btn-sm ${p.status==='discharged'||days>=120?'btn-primary':'btn-ghost'}" data-act="open-discharge-summary" data-id="${p.id}" data-mode="${p.status==='discharged'||p.status==='discharge_recommended'?'discharge':(days>=120?'120day':'discharge')}">${ic('file',14)} ${p.status==='discharged'||p.status==='discharge_recommended'?'Official PDCA Discharge Summary':(days>=120?'Official 120-Day PDCA Report':'Official PDCA & Discharge Sheet')}</button>` : ''}
         ${workflowActions('patient',p,user)}
       </div>
     </div></div>
@@ -950,7 +950,22 @@ function patientPdca(user,p){
     <div class="row" style="margin-top:8px">${(RBAC.has(user,'pdca.review')||RBAC.has(user,'pdca.create'))?`<button class="btn btn-sm btn-primary" data-act="pdca-extension" data-id="${p.id}">Record extension review</button>`:''}</div>
   </div></div>`:'';
 
-  return `${extBanner}
+  const officialPdcaBar = `<div class="card" style="margin-bottom:16px;border-left:4px solid #162F59">
+    <div class="card-b spread" style="padding:12px 16px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="xs bold" style="color:#C8102E;letter-spacing:.1em;text-transform:uppercase">Official CareLink C-DIMS PDCA Format</div>
+        <b style="font-size:14.5px">${p.status==='discharged'||p.status==='discharge_recommended'?'Patient PDCA Discharge Summary Report':'Patient PDCA 120-Day & Continuum Report'}</b>
+        <div class="xs muted">Standardised LOMAMO CareLink format (Anthropometry, SMART Aim, Dx, P-D-Rx-C-A Cycle, Justification &amp; Signatures) for both 120+ days and regular discharges.</div>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn btn-xs btn-primary" data-act="open-discharge-summary" data-id="${esc(p.id)}" data-mode="120day">${ic('repeat',12)} Open 120-Day PDCA Report</button>
+        <button class="btn btn-xs btn-ghost" data-act="open-discharge-summary" data-id="${esc(p.id)}" data-mode="discharge">${ic('check',12)} Open Discharge PDCA Report</button>
+        <button class="btn btn-xs btn-ghost" data-act="export-pdca-word" data-id="${esc(p.id)}" data-mode="${p.status==='discharged'?'discharge':'120day'}">${ic('download',12)} Word (.doc)</button>
+      </div>
+    </div>
+  </div>`;
+
+  return `${officialPdcaBar}${extBanner}
     <div class="grid g2" style="margin-bottom:16px">${planCard}${schedCard}</div>
     ${card('PDCA cycles', table([
       {label:'Plan',render:x=>`<div class="cellname">${esc(x.plan)}<span class="sm">Owner ${esc(userName(x.owner).replace(/^Demo - /,''))}</span></div>`},
@@ -1120,15 +1135,40 @@ function renderPdca(user, params){
   const byStage = ['Plan','Do','Check','Act'].map(s=>({label:s,value:rows.filter(r=>r.stage===s&&r.status==='open').length}));
   const dueList = PDCAX.due(user,{days:30});
   const ext = repo.patientList(user,{status:'active'}).filter(p=>PDCAX.extensionRequired(p));
-  return pageHead('PDCA follow-up','Care plans, the 30-day review cycle and Plan-Do-Check-Act cycles in one place.',
-    RBAC.has(user,'pdca.create')?`<button class="btn btn-sm btn-primary" data-act="new-pdca">${ic('plus',15)} New cycle</button>`:'')
+  const allScopedPts = repo.patientList(user);
+  const over120Pts = allScopedPts.filter(p=>p.status==='active' && PAT.days(p)>=120);
+  const dischargedPts = allScopedPts.filter(p=>p.status==='discharged' || p.status==='discharge_recommended');
+  const pdcaModeFilter = (params && params.pmode) || '120day';
+  const officialRegisterRows = (pdcaModeFilter === 'discharge' ? dischargedPts : over120Pts).slice(0, 20);
+  return pageHead('PDCA Follow-Up & Official C-DIMS Reports','Standardised CareLink C-DIMS Plan-Do-Treatment-Check-Act (P-D-Rx-C-A) reports for both 120+ days in programme and regularly discharged beneficiaries.',
+    RBAC.has(user,'pdca.create')?`<button class="btn btn-sm btn-primary" data-act="new-pdca">${ic('plus',15)} New PDCA Cycle</button>`:'')
   + `<div class="grid g4" style="margin-bottom:16px">
       ${kpi('Reviews due or overdue', dueList.length, dueList.filter(x=>x.review.status==='overdue').length+' overdue', dueList.some(x=>x.review.status==='overdue')?'crit':'', 'repeat')}
-      ${kpi('Extended cases', ext.length, ext.length?'Review required':'Within programme', ext.length?'warn':'ok', 'alert')}
-      ${kpi('Plans on file', repo.patientList(user).filter(p=>p.carePlan).length, 'Of '+repo.patientList(user).length+' patients', '', 'clipboard')}
-      ${kpi('Open cycles', rows.filter(r=>r.status==='open'&&r.kind!=='review').length, 'PDCA actions', '', 'layers')}
+      ${kpi('120+ day extended cases', over120Pts.length, over120Pts.length?'Official 120-Day PDCA ready':'Within 120d window', over120Pts.length?'warn':'ok', 'clock')}
+      ${kpi('Regular discharges', dischargedPts.length, 'Official Discharge PDCA ready', 'ok', 'check')}
+      ${kpi('Open PDCA cycles', rows.filter(r=>r.status==='open'&&r.kind!=='review').length, 'Active P-D-Rx-C-A actions', 'info', 'layers')}
     </div>
-    ${dueList.length? card('Reviews requiring action', table([
+    ${card('Official CareLink C-DIMS PDCA Register (120+ Days & Regular Discharges)', `
+      <div class="spread" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          <button class="btn btn-xs ${pdcaModeFilter==='120day'?'btn-primary':'btn-ghost'}" data-act="go" data-v="pdca" data-pmode="120day">${ic('clock',12)} 120+ Days in Programme (${over120Pts.length})</button>
+          <button class="btn btn-xs ${pdcaModeFilter==='discharge'?'btn-primary':'btn-ghost'}" data-act="go" data-v="pdca" data-pmode="discharge">${ic('check',12)} Regular Discharges &amp; Graduations (${dischargedPts.length})</button>
+        </div>
+        <span class="xs muted">Format: Official CareLink C-DIMS 2-Page PDCA (Print PDF · Word .doc · docxtemplater JSON)</span>
+      </div>
+      ${table([
+        {label:'Beneficiary', render:p=>`<div class="cellname">${esc(p.name)}<span class="sm">${esc(p.code)} · ${esc(areaName(p.areaId))}</span></div>`},
+        {label:'Days in Care', cls:'mono', render:p=>`<b>${PAT.days(p)}d</b>`},
+        {label:'Anthropometry', render:p=>{ const cl=p.clinical||{}; return `<span class="xs mono">${cl.weightKg||'-'} kg · BMI ${cl.bmi||'-'}</span>`; }},
+        {label:'Status', render:p=>pBadge(p.status)},
+        {label:'Official C-DIMS PDCA', cls:'right', render:p=>`<div class="row" style="justify-content:flex-end;gap:6px">
+          <button class="btn btn-xs btn-primary" data-act="open-discharge-summary" data-id="${esc(p.id)}" data-mode="${pdcaModeFilter}">${ic('file',12)} Open Report</button>
+          <button class="btn btn-xs btn-ghost" data-act="export-pdca-word" data-id="${esc(p.id)}" data-mode="${pdcaModeFilter}" title="Download Official Word Document">${ic('download',12)} Word</button>
+        </div>`}
+      ], officialRegisterRows, {emptyMsg: pdcaModeFilter==='discharge'?'No discharged beneficiaries in your current scope yet.':'No active beneficiaries at 120+ days in your scope.'})}
+    `, {sub:'Unified official format across Caregivers, Medical Case Managers, 120+d International Medical Review and County Discharge Records.'})}
+    <div style="height:16px"></div>`
+    + `${dueList.length? card('Reviews requiring action', table([
       {label:'Patient', render:x=>`<div class="cellname">${esc(x.patient.name)}<span class="sm">${esc(x.patient.code)}</span></div>`},
       {label:'Review', render:x=>`Day ${x.review.day}`},
       {label:'Due', render:x=>fmtDate(x.review.due)},

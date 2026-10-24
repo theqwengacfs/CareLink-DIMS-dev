@@ -34,7 +34,7 @@ const areaObj = id => { for(const c of COUNTIES){ const a=c.areas.find(x=>x.id==
 const countyName = id => (COUNTIES.find(c=>c.id===id)||{}).name || '-';
 const deptName = id => (DEPARTMENTS.find(d=>d.id===id)||{}).name || '-';
 const deptObj = id => DEPARTMENTS.find(d=>d.id===id);
-const roleObj = id => (DB.db?.roles||[]).find(r=>r.id===id) || ROLE(id);
+const roleObj = id => (DB.db?.roles||[]).find(r=>r.id===id) || (DB.db?.customRoles||[]).find(r=>r.id===id) || ROLE(id);
 const userById = id => DB.db?.users.find(u=>u.id===id) || null;
 const userName = id => userById(id)?.name || '-';
 const capLabel = c => (CAPS[c]?.l) || c;
@@ -296,9 +296,10 @@ const AUTH = {
     if(!u){ AUDIT.append({actor:'anonymous',action:'auth.failed',entity:'user',entityId:username,detail:'Unknown username or email'}); return {ok:false,msg:'No account matches that username or email.'}; }
     if(!['active','pending_activation'].includes(u.status)){ AUDIT.append({actor:u.id,action:'auth.blocked',entity:'user',entityId:u.id,detail:`Account status: ${u.status}`}); return {ok:false,msg:`This account is ${u.status}. Contact your County Office Administrator.`}; }
     if(u.hash !== strongHash(password, u.salt)){
+      const maxTries = (DB.db && DB.db.settings && DB.db.settings.security && DB.db.settings.security.loginAttempts) || 6;
       u.failedLogins = (u.failedLogins||0)+1;
       AUDIT.append({actor:u.id,action:'auth.failed',entity:'user',entityId:u.id,detail:'Incorrect password'});
-      if(u.failedLogins>=DB.db.settings.security.loginAttempts){ u.status='locked'; AUDIT.append({actor:'system',action:'auth.locked',entity:'user',entityId:u.id,detail:'Account locked after repeated failures'}); }
+      if(u.failedLogins>=maxTries){ u.status='locked'; AUDIT.append({actor:'system',action:'auth.locked',entity:'user',entityId:u.id,detail:'Account locked after repeated failures'}); }
       DB.save();
       return {ok:false,msg:'Incorrect password.'};
     }
@@ -307,6 +308,7 @@ const AUTH = {
        session. It is never written to the database or to storage. */
     this._pw = String(password);
     this.user = u;
+    this.mustChange = Boolean(u.mustChange || u.mustChangePassword);
     this.session = { started:todayISO(), last:Date.now(), token:uidNum()+uidNum() };
     AUDIT.append({actor:u.id,action:'auth.login',entity:'user',entityId:u.id,detail:'Signed in',meta:{role:u.roleId}});
     DB.save(); this.emit();
@@ -314,11 +316,15 @@ const AUTH = {
   },
   logout(){
     if(this.user) AUDIT.append({actor:this.user.id,action:'auth.logout',entity:'user',entityId:this.user.id,detail:'Signed out'});
-    this._pw=null; this.user=null; this.session=null; DB.save(); this.emit();
+    this._pw=null; this.mustChange=false; this.user=null; this.session=null; DB.save(); this.emit();
   },
   touch(){ if(this.session) this.session.last = Date.now(); },
   idleMs(){ return this.session? Date.now()-this.session.last : 0; },
-  locked(){ return !!(this.session && DB.db.settings.security.sessionLock && this.session.last && (Date.now()-this.session.last) > DB.db.settings.idleMinutes*60000); },
+  locked(){
+    const sec = (DB.db && DB.db.settings && DB.db.settings.security) || {};
+    const idleMin = (DB.db && DB.db.settings && DB.db.settings.idleMinutes) || 30;
+    return !!(this.session && sec.sessionLock && this.session.last && (Date.now()-this.session.last) > idleMin*60000);
+  },
   unlock(password){
     if(!this.user) return {ok:false,msg:'No session'};
     if(this.user.hash!==strongHash(password,this.user.salt)) return {ok:false,msg:'Incorrect password'};
@@ -326,9 +332,23 @@ const AUTH = {
     return {ok:true};
   },
   setPassword(pw){
-    if(!this.user) return;
-    if(pw.length < DB.db.settings.security.passwordMinLength) return {ok:false,msg:`Minimum ${DB.db.settings.security.passwordMinLength} characters.`};
-    this.user.salt = newSalt(); this.user.hash = strongHash(pw,this.user.salt); this.user.mustChange=false;
+    if(!this.user) return {ok:false,msg:'No active session.'};
+    const minLen = (DB.db && DB.db.settings && DB.db.settings.security && DB.db.settings.security.passwordMinLength) || 10;
+    if(String(pw||'').length < minLen) return {ok:false,msg:`Minimum ${minLen} characters.`};
+    const nextSalt = newSalt();
+    const nextHash = strongHash(pw, nextSalt);
+    this.user.salt = nextSalt;
+    this.user.hash = nextHash;
+    this.user.mustChange = false;
+    this.user.mustChangePassword = false;
+    const canonical = (DB.db && Array.isArray(DB.db.users)) ? DB.db.users.find(x => x.id === this.user.id || x.username === this.user.username) : null;
+    if(canonical && canonical !== this.user){
+      canonical.salt = nextSalt;
+      canonical.hash = nextHash;
+      canonical.mustChange = false;
+      canonical.mustChangePassword = false;
+    }
+    this._pw = String(pw);
     AUDIT.append({actor:this.user.id,action:'auth.password_changed',entity:'user',entityId:this.user.id,detail:'Password changed by account holder'});
     DB.save(); return {ok:true};
   },
