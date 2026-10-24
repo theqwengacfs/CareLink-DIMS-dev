@@ -322,6 +322,7 @@ export default async function handler(req, res) {
       storageMode: driver,
       storageDriver: driver,
       setup: Boolean(state.setup && Object.keys(state.creds || {}).length > 0),
+      globallyActivated: Boolean(state.globallyActivated || (state.db && state.db.settings && state.db.settings.globallyActivated)),
       rev: state.rev || 0,
       saved: state.saved,
       org: state.org,
@@ -364,22 +365,45 @@ export default async function handler(req, res) {
       [username]: {
         id: 'u-chief-admin',
         username,
+        email: admin.email || `${username}@${(body.org && body.org.emailDomain) || 'lomamo.example'}`,
         name: admin.name || 'Chief System Administrator',
         roleId: 'chief',
         countyId: (body.org && body.org.county) || 'kisumu',
         salt,
         digest,
-        mustChange: false,
+        mustChange: Boolean(admin.mustChange),
         privacyProtected: true,
         updatedAt: nowISO(),
       },
     };
     state.setup = true;
+    state.globallyActivated = Boolean(body.globallyActivated);
     state.rev = (state.rev || 0) + 1;
     appendServerAudit(state, username, 'setup.commissioned', 'installation', 'online-cloud',
       `First-Run Production Setup completed by Chief System Administrator (@${username})`);
     await saveCloudState(state);
     return sendJson(res, 200, { ok: true, rev: state.rev, admin: username });
+  }
+
+  /* 2b. Global System Activation (Chief System Administrator) */
+  if (route === 'setup/activate-global' && method === 'POST') {
+    const sess = getSession(state, req);
+    const body = await readJsonBody(req);
+    if (sess && sess.roleId !== 'chief') {
+      return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may activate CareLink globally.' });
+    }
+    state.globallyActivated = true;
+    state.db = state.db || {};
+    if (body.settings) state.db.settings = { ...(state.db.settings || {}), ...body.settings, globallyActivated: true };
+    if (body.meta) state.db.meta = { ...(state.db.meta || {}), ...body.meta, globallyActivated: true };
+    if (Array.isArray(body.users)) {
+      state.db.users = sanitizeDbForClient({ users: body.users }).users;
+    }
+    state.rev = (state.rev || 0) + 1;
+    appendServerAudit(state, (sess && sess.username) || body.activatedBy || 'chief.admin', 'system.activated_globally', 'system', 'global-activation',
+      `CareLink activated globally (@${body.emailDomain || 'lomamo.example'}); demo & host-setup screens permanently removed.`);
+    await saveCloudState(state);
+    return sendJson(res, 200, { ok: true, globallyActivated: true, rev: state.rev });
   }
 
   /* 3. Demo bootstrap (only when unprovisioned or explicitly allowed for evaluation) */
@@ -399,9 +423,10 @@ export default async function handler(req, res) {
   /* 4. Authentication & DPA First-Login Password Replacement */
   if (route === 'auth/login' && method === 'POST') {
     const body = await readJsonBody(req);
-    const username = String(body.username || '').trim().toLowerCase();
+    const rawId = String(body.username || '').trim().toLowerCase();
     const password = String(body.password || '');
-    const cred = (state.creds || {})[username];
+    const cred = (state.creds || {})[rawId] || Object.values(state.creds || {}).find((c) => String(c.email || '').toLowerCase() === rawId);
+    const username = cred ? cred.username : rawId;
     if (!cred || !verifyPassword(password, cred.salt, cred.digest)) {
       appendServerAudit(state, username || 'anonymous', 'auth.failed', 'user', username, 'Online credential check failed');
       await saveCloudState(state);
@@ -743,23 +768,39 @@ export default async function handler(req, res) {
     return sendJson(res, 200, ans);
   }
 
-  /* 10. Public Account Request / Recovery / Activation */
+  /* 10. Public County-Routed Urgent Account Request / Recovery */
   if (route === 'public/account-request' && method === 'POST') {
     const body = await readJsonBody(req);
     const ref = 'REQ-' + Math.floor(100000 + Math.random() * 900000);
+    const countyId = body.assignedCountyId || body.countyId || 'kisumu';
+    const assignedAdminUsername = countyId === 'homabay' ? 'homabay.admin' : 'kisumu.admin';
+    const rec = { id: ref, ref, ...body, countyId, assignedCountyId: countyId, assignedAdminUsername, urgent: true, status: 'open', submittedAt: nowISO() };
     state.accountRequests = state.accountRequests || [];
-    state.accountRequests.push({ id: ref, ref, ...body, status: 'pending', submittedAt: nowISO() });
-    appendServerAudit(state, 'public', 'account.requested', 'accountRequest', ref, `${body.name || ''} (${body.jobTitle || ''})`);
+    state.accountRequests.unshift(rec);
+    if (state.db) {
+      state.db.accountRequests = state.db.accountRequests || [];
+      state.db.accountRequests.unshift(rec);
+    }
+    appendServerAudit(state, 'public', 'account.requested.county_urgent', 'accountRequest', ref, `URGENT -> ${assignedAdminUsername}: ${body.name || ''} (${body.jobTitle || ''})`);
     await saveCloudState(state);
-    return sendJson(res, 200, { ok: true, ref });
+    return sendJson(res, 200, { ok: true, ref, assignedCountyId: countyId, assignedAdminUsername });
   }
 
   if (route === 'auth/forgot' && method === 'POST') {
     const body = await readJsonBody(req);
     const ref = 'REC-' + Math.floor(10000 + Math.random() * 90000);
-    appendServerAudit(state, body.username || 'unknown', 'auth.recovery_requested', 'user', body.username || '-', `Recovery ${ref}`);
+    const countyId = body.assignedCountyId || body.countyId || 'kisumu';
+    const assignedAdminUsername = countyId === 'homabay' ? 'homabay.admin' : 'kisumu.admin';
+    const rec = { id: ref, reference: ref, ...body, countyId, assignedCountyId: countyId, assignedAdminUsername, urgent: true, status: 'open', at: nowISO() };
+    state.recoveryRequests = state.recoveryRequests || [];
+    state.recoveryRequests.unshift(rec);
+    if (state.db) {
+      state.db.recoveryRequests = state.db.recoveryRequests || [];
+      state.db.recoveryRequests.unshift(rec);
+    }
+    appendServerAudit(state, body.username || 'unknown', 'auth.recovery_requested.county_urgent', 'user', body.username || '-', `URGENT -> ${assignedAdminUsername} · Recovery ${ref}`);
     await saveCloudState(state);
-    return sendJson(res, 200, { ok: true, reference: ref });
+    return sendJson(res, 200, { ok: true, reference: ref, assignedCountyId: countyId, assignedAdminUsername });
   }
 
   return sendJson(res, 404, { ok: false, error: `Unknown CareLink API endpoint: /api/${route}` });

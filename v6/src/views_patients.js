@@ -6,7 +6,7 @@
 
 const PAT = {
   days:p => Math.max(0, daysBetween(p.intake||p.created||new Date(), p.status==='discharged'&&p.discharge? p.discharge: new Date())),
-  lastVisit:p => DB.db.visits.filter(v=>v.patientId===p.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0]||null,
+  lastVisit:p => DB.visitsFor(p.id)[0]||null,
   openPdca:p => DB.db.pdcas.filter(x=>x.patientId===p.id&&x.status==='open').length,
   concerns:p => DB.db.concerns.filter(c=>c.patientId===p.id&&c.status==='open'),
   openRequest:p => DB.db.requests.filter(r=>r.patientId===p.id&&!['closed','rejected'].includes(r.status))[0]||null
@@ -372,11 +372,12 @@ function nurseHome(user,st){
   const ps = repo.patientList(user,{}).filter(p=>['active','extension'].includes(p.status));
   const clinical = DB.db.concerns.filter(c=>c.level==='clinical'&&c.status==='open'&&ps.some(p=>p.id===c.patientId));
   const pdca = DB.db.pdcas.filter(x=>x.status==='open'&&ps.some(p=>p.id===x.patientId));
+  const pSet = new Set(ps.map(p=>p.id));
   return [
     kpi('Clinical caseload', num(ps.length), countyName(user.countyId),'','users'),
     kpi('Clinical concerns', num(clinical.length), 'Evidence recorded by clinicians','crit','alert'),
     kpi('PDCA cycles open', num(pdca.length), 'Awaiting check or act','warn','repeat'),
-    kpi('Visits recorded (7 days)', num(DB.db.visits.filter(v=>daysBetween(v.date)<7&&ps.some(p=>p.id===v.patientId)).length), 'Across your county','info','activity'),
+    kpi('Visits recorded (7 days)', num(DB.db.visits.filter(v=>pSet.has(v.patientId)&&daysBetween(v.date)<7).length), 'Across your county','info','activity'),
     card('Patients with clinical concerns', table([
       {label:'Patient',render:c=>{const p=DB.db.patients.find(x=>x.id===c.patientId);return p?`<div class="cellname">${esc(p.name)}<span class="sm">${esc(p.clinical.diagnosis)}</span></div>`:'-';}},
       {label:'Concern',render:c=>esc(titleCase(c.type))},
@@ -611,26 +612,41 @@ function renderPatients(user, params){
     `${RBAC.has(user,'system.export')?`<button class="btn btn-sm btn-ghost" data-act="request-export">${ic('download',14)} Full export (dual approval)</button>`:''}
      ${RBAC.has(user,'patient.assess.create')?`<button class="btn btn-sm btn-primary" data-act="new-assessment">${ic('plus',15)} New assessment</button>`:''}`)
   + card('', `
-    <div class="row" style="margin-bottom:14px">
-      <div class="searchbox" style="display:block;flex:1;min-width:200px"><span>${ic('search',16)}</span>
-        <input class="input" style="padding-left:38px;height:42px" placeholder="Search name, code or CCC number" value="${esc(params.q||'')}" data-filter="q" data-view="patients"></div>
-      <select class="input" style="width:auto;min-width:150px" data-filter="area" data-view="patients">
-        <option value="">All ministry areas</option>
-        ${areas.map(a=>`<option value="${a.id}" ${params.area===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}
-      </select>
-      <select class="input" style="width:auto;min-width:170px" data-filter="status" data-view="patients">
-        <option value="">All statuses</option>
-        ${statuses.map(s=>`<option value="${s}" ${params.status===s?'selected':''}>${WORKFLOW.patient.labels[s]}</option>`).join('')}
-      </select>
-      ${RBAC.has(user,'patient.export')?`<button class="btn btn-sm btn-ghost" data-act="export-patients">${ic('download',14)} CSV</button>
-        <button class="btn btn-sm btn-ghost" data-act="export-patients-xlsx">${ic('download',14)} Excel</button>`:''}
+    <div class="reg-toolbar">
+      <div class="reg-toolbar-main">
+        <div class="reg-search">
+          ${ic('search',16)}
+          <input class="input" placeholder="Search beneficiary name, CareLink code or CCC number..." value="${esc(params.q||'')}" data-filter="q" data-view="patients">
+        </div>
+        <select class="input reg-select" data-filter="area" data-view="patients" aria-label="Filter by ministry area">
+          <option value="">All ministry areas (${areas.length})</option>
+          ${areas.map(a=>`<option value="${a.id}" ${params.area===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}
+        </select>
+        <select class="input reg-select" data-filter="status" data-view="patients" aria-label="Filter by programme status">
+          <option value="">All statuses</option>
+          ${statuses.map(s=>`<option value="${s}" ${params.status===s?'selected':''}>${WORKFLOW.patient.labels[s]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="reg-toolbar-pills">
+        ${(params.q||params.area||params.status)?`<button class="btn btn-xs btn-ghost" data-act="go" data-v="patients">${ic('x',12)} Reset</button>`:''}
+        ${RBAC.has(user,'patient.export')?`<button class="btn btn-xs btn-ghost" data-act="export-patients">${ic('download',13)} CSV</button>
+          <button class="btn btn-xs btn-ghost" data-act="export-patients-xlsx">${ic('download',13)} Excel</button>`:''}
+      </div>
     </div>
-    <div class="tbl-scroll">${table([
-      {label:'Patient',render:p=>`<div class="cellname">${esc(p.name)}<span class="sm">${esc(p.code)} · ${esc(areaName(p.areaId))}</span></div>`},
+    <div class="tbl-scroll reg-tbl-wrap">${table([
+      {label:'Beneficiary & Catchment',render:p=>`<div class="reg-entity-cell">
+        <span class="reg-avatar" style="background:${p.age<18?'#0284C7':'#0F766E'}">${esc(initials(p.name))}</span>
+        <div class="reg-entity-meta">
+          <div class="cellname">${esc(p.name)}</div>
+          <div class="reg-subline"><span class="mono">${esc(p.code)}</span><span>·</span><span>${esc(areaName(p.areaId))}</span><span class="reg-cohort-tag ${p.age<18?'is-child':''}">${p.sex==='F'?'F':'M'} · ${p.age}y</span></div>
+        </div>
+      </div>`},
+      {label:'Contact & Household GPS',render:p=>`<div class="small"><b class="mono">${esc(p.phone||'-')}</b><div class="xs muted">${esc(p.village||areaName(p.areaId))}${p.gps?` · <span class="mono">${(+p.gps.lat).toFixed(3)}, ${(+p.gps.lon).toFixed(3)}</span>`:''}</div></div>`},
+      {label:'Anthropometry & BMI',render:p=>{const c=p.clinical||{}; return `<div class="col" style="gap:3px;align-items:flex-start"><div class="xs mono"><b>${c.weightKg?c.weightKg+' kg':'-'}</b> / ${c.heightCm?c.heightCm+' cm':'-'}${c.muacCm?` · MUAC ${c.muacCm}cm`:''}</div>${typeof BMI_CLINICAL!=='undefined'&&c.bmi?BMI_CLINICAL.badgeHTML(c.bmi, true, p.age):`<span class="xs muted">BMI ${c.bmi||'-'}</span>`}</div>`;}},
       {label:'Status',render:p=>pBadge(p.status)},
-      {label:'Days',cls:'num',render:p=>`<b class="tnum">${PAT.days(p)}</b>`},
+      {label:'Days',cls:'num mono',render:p=>`<b class="tnum">${PAT.days(p)}d</b>`},
       {label:'Caregiver',render:p=>`<span class="small">${esc(userName(p.caregiverId).replace(/^Demo - /,''))}</span>`},
-      {label:'Last visit',render:p=>{const v=PAT.lastVisit(p);return v?`<span class="small">${fmtDate(v.date)}</span>`:`<span class="badge b-crit">none</span>`;}},
+      {label:'Visits & Last Seen',render:p=>{const v=PAT.lastVisit(p); const vn=(DB.visitsFor?DB.visitsFor(p.id).length:0); return v?`<div class="small"><b class="mono">${vn} visits</b><div class="xs muted">Last ${fmtDate(v.date)}</div></div>`:`<span class="badge b-crit">none</span>`;}},
       {label:'Alerts',render:p=>{const c=PAT.concerns(p);return c.length?badge(c.length+' open',c.some(x=>x.level==='clinical')?'b-crit':'b-warn','nodot'):'<span class="muted">-</span>';}},
       {label:'',cls:'act',render:p=>`<button class="btn btn-xs btn-ghost" data-act="open-patient" data-id="${p.id}">Open ${ic('chevron',11)}</button>`}
     ], pageRows, {emptyMsg:'No patients match these filters.', click:true,
@@ -684,7 +700,7 @@ function renderPatient(user, params){
 
   const body = tab==='overview' ? patientOverview(user,p)
     : tab==='clinical' ? (clinical? patientClinical(user,p) : '')
-    : tab==='visits' ? patientVisits(user,p)
+    : tab==='visits' ? patientVisits(user,p,params)
     : tab==='pdca' ? patientPdca(user,p)
     : tab==='hospital' ? patientHospital(user,p)
     : tab==='documents' ? patientDocuments(user,p)
@@ -697,26 +713,33 @@ function renderPatient(user, params){
 }
 function patientOverview(user,p){
   const days=PAT.days(p), lv=PAT.lastVisit(p), req=PAT.openRequest(p);
+  const pVisits = DB.visitsFor ? DB.visitsFor(p.id) : DB.db.visits.filter(v=>v.patientId===p.id);
   const milestone = days>=180?'180+':days>=120?'120+':days>=100?'100+':days>=60?'60+':'Under 60';
   return `<div class="grid g4" style="margin-bottom:16px">
       ${kpi('Days in programme', days, `Milestone band ${milestone}`,'',"clock")}
-      ${kpi('Visits recorded', DB.db.visits.filter(v=>v.patientId===p.id).length, lv?`Last ${fmtDate(lv.date)}`:'-','info','activity')}
+      ${kpi('Visits recorded', pVisits.length, lv?`Last ${fmtDate(lv.date)}`:'-','info','activity')}
       ${kpi('Open PDCA actions', PAT.openPdca(p), 'Plan-Do-Check-Act','',"repeat")}
       ${kpi('Hospital request', req?titleCase(req.status):'None', req?req.no:'No open request', req?'warn':'','hospital')}
     </div>
     <div class="grid g2">
-      ${card('Enrolment details', `<dl class="dl">
-        <dt>Patient code</dt><dd>${esc(p.code)}</dd>
-        <dt>Ministry area</dt><dd>${esc(areaName(p.areaId))}</dd>
-        <dt>County office</dt><dd>${esc(countyName(p.countyId))}</dd>
+      ${card('Beneficiary Enrolment, Anthropometry & Geolocation Metadata', `<dl class="dl">
+        <dt>Beneficiary code</dt><dd class="mono">${esc(p.code)}</dd>
+        <dt>National ID / Birth Cert</dt><dd class="mono">${esc(p.nationalId||'-')}</dd>
+        <dt>Verified telephone</dt><dd class="mono"><b>${esc(p.phone||'-')}</b></dd>
+        <dt>SHA / Health cover</dt><dd class="mono">${esc(p.sha||'-')}</dd>
+        <dt>Weight · Height · BMI · MUAC</dt><dd class="mono"><b>${p.clinical?.weightKg||'-'} kg</b> · <b>${p.clinical?.heightCm||'-'} cm</b> · BMI <b>${p.clinical?.bmi||'-'}</b>${p.clinical?.muacCm?` · MUAC <b>${p.clinical.muacCm} cm</b>`:''}</dd>
+        <dt>Ministry area &amp; county</dt><dd>${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))}</dd>
+        <dt>Village &amp; ward</dt><dd>${esc(p.location?.village||p.village||'-')}${p.location?.ward?' · '+esc(p.location.ward):''}</dd>
+        <dt>Field landmark</dt><dd>${esc(p.location?.landmark||'Recorded on household intake sheet')}</dd>
+        <dt>Household GPS coordinates</dt><dd class="mono">${p.gps?`${(+p.gps.lat).toFixed(5)}, ${(+p.gps.lon).toFixed(5)} (±${p.gps.accuracyM||8}m)`:'Not shared'}</dd>
         <dt>Intake date</dt><dd>${fmtDate(p.intake)}</dd>
-        <dt>Referral source</dt><dd>${esc(DB.db.referralEntities.find(e=>e.id===p.referralEntityId)?.name||'Not recorded')}</dd>
-        <dt>Assigned caregiver</dt><dd>${esc(userName(p.caregiverId))}</dd>
-        <dt>Verification</dt><dd>${p.docsVerified?badge('Source documents verified','b-ok'):badge('Pending','b-warn')}</dd>
-        <dt>Consent</dt><dd>${badge(titleCase(p.consent?.status||'not requested'), p.consent?.status==='granted'?'b-ok':'b-warn')}</dd>
+        <dt>Referral facility</dt><dd>${esc(DB.db.referralEntities.find(e=>e.id===p.referralEntityId)?.name||'Not recorded')}</dd>
+        <dt>Assigned caregiver</dt><dd>${esc(userName(p.caregiverId).replace(/^Demo - /,''))}</dd>
+        <dt>Hard-copy verification</dt><dd>${p.docsVerified?badge('Source documents verified','b-ok'):badge('Pending verification','b-warn')}</dd>
+        <dt>Informed consent</dt><dd>${badge(titleCase(p.consent?.status||'not requested'), p.consent?.status==='granted'?'b-ok':'b-warn')}</dd>
         ${masterRegistryRows(p)}
       </dl>`,
-        {foot:'<span>The registry fields below the line are the Administration\u2019s master workbook columns, mapped one to one.</span>'})}
+        {foot:'<span>100% beneficiary metadata completeness: verified identity, telephone, anthropometry, household GPS coordinates and Administration master workbook columns.</span>'})}
       ${card('Discharge readiness', `<div class="row" style="gap:10px;margin-bottom:12px">${badge(milestone+' day band', days>=180?'b-crit':days>=120?'b-warn':'b-neutral','nodot')}</div>
         <p class="small muted">${days>=180?'This patient has passed 180 days. An approved discharge evaluation with supporting evidence is required - duration alone does not discharge a patient.' : days>=120?'Extension review required. Record the documented reason for continued enrolment.' : 'Within the planned programme duration.'}</p>
         ${p.dischargeRecommendation?`<div class="alert info" style="margin-top:10px">${ic('info',17)}<div><b>Recommendation on file</b><span class="small">${esc(p.dischargeRecommendation.reason||'')} - ${esc(userName(p.dischargeRecommendation.by))}, ${fmtDate(p.dischargeRecommendation.at)}</span></div></div>`:''}
@@ -768,14 +791,17 @@ function masterRegistryRows(p){
 function patientClinical(user,p){
   const c=p.clinical||{};
   const allergies=[].concat(c.allergies||[],c.allergyClasses||[]);
+  const bi = (typeof BMI_CLINICAL!=='undefined') ? BMI_CLINICAL.patientBmiInfo(p) : null;
   return `${allergies.length
       ? `<div class="alert crit" style="margin-bottom:14px">${ic('alert',17)}<div><b>Recorded allergies: ${esc(allergies.join(', '))}</b><span class="small">A medicine matching a recorded allergy cannot be prescribed, on this screen or any other. Record any reaction in the visit notes.</span></div></div>`
       : `<div class="alert info" style="margin-bottom:14px">${ic('info',15)}<div><span class="small">No medication allergy recorded. That is not the same as no allergy: ask at every visit and record the answer.</span></div></div>`}
-    <div class="grid g3" style="margin-bottom:16px">
-      ${kpi('Weight', c.weightKg?c.weightKg+' kg':'-', 'Most recently recorded','','activity')}
+    <div class="grid g4" style="margin-bottom:16px">
+      ${kpi('Weight & Height', c.weightKg?`${c.weightKg} kg · ${c.heightCm||'-'} cm`:'-', bi?`Baseline ${bi.baselineWeightKg} kg (${bi.weightDeltaKg>=0?'+':''}${bi.weightDeltaKg} kg)`:'Most recently recorded','','activity')}
+      ${kpi(p.age<18?'WHO BMI-for-Age':'Adult BMI', bi?`${bi.bmi} kg/m²`:'-', bi?bi.band.short:'Nutritional band','info','heart')}
+      ${kpi('MUAC Arm Tape', bi?`${bi.muacCm} cm (${bi.muacMm} mm)`:'-', bi?bi.muacBand.short:'Arm circumference', bi&&bi.muacBand.id==='sam'?'crit':(bi&&bi.muacBand.id==='mam'?'warn':'ok'),'shield')}
       ${kpi('Adherence', c.adherence||'-','Self-reported at visit','',"check")}
-      ${kpi('CCC number', c.ccc||p.ccc||'-','Patient support centre identifier','','idcard')}
     </div>
+    ${typeof BMI_CLINICAL!=='undefined' && BMI_CLINICAL.renderPatientGrowthCharts ? `<div style="margin-bottom:16px">${card(p.age<18?`Child Weight, BMI-for-Age & MUAC Growth Charts (${p.age} yrs)`:'Longitudinal Weight, BMI & MUAC Surveillance', BMI_CLINICAL.renderPatientGrowthCharts(p), {sub:'Plotted across all recorded Home, Hospital & Homestay visits.'})}</div>` : ''}
     <div class="grid g3">
       ${card('Clinical summary', `<dl class="dl">
         <dt>Primary diagnosis</dt><dd>${esc(c.diagnosis||'-')}</dd>
@@ -841,14 +867,42 @@ function patientClinical(user,p){
     })(), {foot:'<span>Each form is entered once per visit and verified against the signed paper copy by a second officer.</span>',
       actions:RBAC.has(user,'form.create')?`<button class="btn btn-xs btn-primary" data-act="new-form-for" data-patient="${p.id}">${ic('plus',12)} Enter a form</button>`:''})}</div>`;
 }
-function patientVisits(user,p){
+function patientVisits(user,p,params={}){
   const vs = repo.visits(user,p.id);
-  return card('Visit history', vs.length? `<div class="timeline">${vs.map(v=>`<div class="tl-item done">
-      <div class="t">${esc(titleCase(v.type))} visit - ${esc(titleCase(v.outcome))}</div>
-      <div class="m">${fmtDate(v.date)} · recorded by ${esc(userName(v.caregiverId))}${v.weight?` · weight ${v.weight} kg`:''}${v.bp?` · BP ${v.bp}`:''}</div>
+  const vtype = params.vtype || '';
+  const homeN = vs.filter(v=>v.type==='home'||v.type==='clinical').length;
+  const hospN = vs.filter(v=>v.type==='hospital').length;
+  const hsN = vs.filter(v=>v.type==='homestay').length;
+  const shown = !vtype ? vs : vs.filter(v=>vtype==='home' ? (v.type==='home'||v.type==='clinical') : v.type===vtype);
+  const growthPanel = (typeof BMI_CLINICAL!=='undefined' && BMI_CLINICAL.renderPatientGrowthCharts && (p.age < 18 || RBAC.has(user,'patient.view.clinical') || RBAC.has(user,'visit.create')))
+    ? `<div style="margin-bottom:16px">${card(p.age<18?`Child Growth Curves — Weight, BMI-for-Age & MUAC (${p.age} yrs)`:'Anthropometric Growth Trajectory Across Visits', BMI_CLINICAL.renderPatientGrowthCharts(p))}</div>`
+    : '';
+  return `<div class="grid g4" style="margin-bottom:14px">
+      ${kpi('Total visits recorded', num(vs.length), 'Longitudinal care continuum','info','activity')}
+      ${kpi('Home & MCM visits', num(homeN), 'Household caregiver & clinical follow-up','ok','home')}
+      ${kpi('Hospital clinic visits', num(hospN), 'Outpatient & specialist referral reviews', hospN?'info':'','hospital')}
+      ${kpi('Homestay / Care Centre', num(hsN), hsN?'Short-term clinical stabilization':'Household-only care (no homestay)', hsN?'warn':'','heart')}
+    </div>`
+    + growthPanel
+    + card(`Visit history (${num(shown.length)} of ${num(vs.length)})`,
+      `<div class="row" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn btn-xs ${!vtype?'btn-primary':'btn-ghost'}" data-act="go" data-v="patient" data-id="${esc(p.id)}" data-tab="visits">All Settings (${vs.length})</button>
+        <button class="btn btn-xs ${vtype==='home'?'btn-primary':'btn-ghost'}" data-act="go" data-v="patient" data-id="${esc(p.id)}" data-tab="visits" data-vtype="home">Home & MCM (${homeN})</button>
+        <button class="btn btn-xs ${vtype==='hospital'?'btn-primary':'btn-ghost'}" data-act="go" data-v="patient" data-id="${esc(p.id)}" data-tab="visits" data-vtype="hospital">Hospital Clinic (${hospN})</button>
+        <button class="btn btn-xs ${vtype==='homestay'?'btn-primary':'btn-ghost'}" data-act="go" data-v="patient" data-id="${esc(p.id)}" data-tab="visits" data-vtype="homestay">Homestay / Care Centre (${hsN})</button>
+      </div>`
+      + (shown.length? `<div class="timeline">${shown.map(v=>`<div class="tl-item done">
+      <div class="spread" style="gap:8px;flex-wrap:wrap">
+        <div class="t">${esc(v.type==='homestay'?'Homestay / Care Centre Stabilization':(v.type==='hospital'?'Hospital Outpatient / Referral':titleCase(v.type)))} visit — ${esc(titleCase(v.outcome))}</div>
+        <div class="row" style="gap:6px">
+          ${v.type==='homestay'?badge('Homestay','b-warn'):(v.type==='hospital'?badge('Hospital','b-info'):badge(v.type==='clinical'?'MCM Clinical':'Home','b-ok'))}
+          ${v.foodBag?badge('Bag '+v.foodBag,'b-info','nodot'):''}
+        </div>
+      </div>
+      <div class="m">${fmtDate(v.date)} · recorded by ${esc(userName(v.by||v.caregiverId))}${v.facility?` · <b>${esc(v.facility)}</b>`:''}${v.weight?` · Wt <b>${v.weight} kg</b>`:''}${v.bmi?` · BMI <b>${v.bmi}</b>`:''}${v.muacCm?` · MUAC <b>${v.muacCm} cm</b>`:''}${v.bp?` · BP ${v.bp}`:''}</div>
       <div class="small" style="margin-top:5px;color:var(--ink-2)">${esc(v.notes)}</div></div>`).join('')}</div>`
-    : emptyState('No visits recorded','Record a home or clinical visit to begin the progress record.','activity',
-      RBAC.has(user,'visit.create')?`<button class="btn btn-sm btn-primary" data-act="record-visit" data-patient="${p.id}">Record visit</button>`:''),
+    : emptyState('No visits in this filter','Select All Settings or record a new visit.','activity',
+      RBAC.has(user,'visit.create')?`<button class="btn btn-sm btn-primary" data-act="record-visit" data-patient="${p.id}">Record visit</button>`:'')),
     {actions:RBAC.has(user,'visit.create')?`<button class="btn btn-xs btn-primary" data-act="record-visit" data-patient="${p.id}">${ic('plus',12)} Record visit</button>`:''});
 }
 function patientPdca(user,p){
@@ -933,7 +987,7 @@ function patientDocuments(user,p){
 }
 function patientTimeline(user,p){
   const ev = DB.db.audit.filter(a=>a.entityId===p.id||a.detail?.includes(p.code)).slice(-12).reverse();
-  const rows = DB.db.visits.filter(v=>v.patientId===p.id).map(v=>({at:v.date,t:'Home visit',d:titleCase(v.outcome)+' - '+v.notes,by:v.caregiverId}))
+  const rows = (DB.visitsFor ? DB.visitsFor(p.id) : DB.db.visits.filter(v=>v.patientId===p.id)).map(v=>({at:v.date,t:'Home visit',d:titleCase(v.outcome)+' - '+v.notes,by:v.caregiverId}))
     .concat(DB.db.requests.filter(r=>r.patientId===p.id).map(r=>({at:r.submittedAt,t:'Hospital request '+r.no,d:r.reason,by:r.requestedBy})))
     .concat(ev.map(e=>({at:e.ts,t:e.action,d:e.detail,by:e.actor})))
     .sort((a,b)=>new Date(b.at)-new Date(a.at)).slice(0,25);

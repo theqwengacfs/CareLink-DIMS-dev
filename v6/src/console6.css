@@ -59,6 +59,76 @@
 .ld-org{ font-weight:800; font-size:15.5px; letter-spacing:-.01em; }
 .ld-dim{ color:var(--ld-dim); }
 
+/* Strict zero-scroll Landing front door (100dvh, zero scrollbar) */
+.ld[data-front="1"], .ld.ld-front{
+  height:100dvh; max-height:100dvh; min-height:100dvh;
+  overflow:hidden !important;
+  justify-content:space-between;
+}
+.ld[data-front="1"] .ld-top, .ld.ld-front .ld-top{
+  padding:10px clamp(18px,3.6vw,44px);
+  flex:0 0 auto;
+}
+.ld[data-front="1"] .ld-front-main, .ld.ld-front .ld-front-main{
+  flex:1 1 auto; min-height:0;
+  display:flex; align-items:center;
+  overflow:hidden;
+}
+.ld[data-front="1"] .ld-hero-tight, .ld.ld-front .ld-hero-tight{
+  width:100%;
+  padding:clamp(8px,1.5vh,18px) clamp(18px,3.6vw,44px);
+  gap:clamp(18px,3vw,40px);
+  align-items:center;
+}
+.ld[data-front="1"] .ld-hero-tight h1, .ld.ld-front .ld-hero-tight h1{
+  font-size:clamp(30px,3.8vw,46px);
+  line-height:1.04;
+  margin:8px 0 0;
+}
+.ld-subhead{
+  margin:6px 0 0;
+  font-size:clamp(14px,1.35vw,17.5px);
+  font-weight:750;
+  color:#E2E8F0;
+  letter-spacing:-.01em;
+}
+.ld[data-mode="light"] .ld-subhead{ color:#1E293B; }
+.ld[data-front="1"] .ld-lede, .ld.ld-front .ld-lede{
+  margin:9px 0 0;
+  font-size:clamp(13px,1.12vw,14.8px);
+  line-height:1.56;
+}
+.ld[data-front="1"] .ld-cta-row, .ld.ld-front .ld-cta-row{ margin-top:14px; gap:10px; }
+.ld[data-front="1"] .ld-cta, .ld.ld-front .ld-cta{ padding:10px 17px; font-size:13.2px; }
+.ld[data-front="1"] .ld-assure, .ld.ld-front .ld-assure{ margin-top:12px; gap:7px 14px; font-size:11.8px; }
+.ld[data-front="1"] .ld-canvas-tight, .ld.ld-front .ld-canvas-tight{ padding:11px 14px 12px; }
+.ld[data-front="1"] .ld-facts, .ld.ld-front .ld-facts{ margin-top:9px; gap:8px; }
+.ld[data-front="1"] .ld-fact, .ld.ld-front .ld-fact{ padding:7px 8px; }
+.ld[data-front="1"] .ld-fact b, .ld.ld-front .ld-fact b{ font-size:clamp(16px,1.65vw,20px); }
+.ld[data-front="1"] .ld-spark, .ld.ld-front .ld-spark{ margin-top:8px; padding:7px 10px 6px; }
+.ld[data-front="1"] .ld-spark svg, .ld.ld-front .ld-spark svg{ height:26px; }
+.ld[data-front="1"] .ld-foot-tight .ld-foot-inner, .ld.ld-front .ld-foot-tight .ld-foot-inner{
+  padding:8px clamp(18px,3.6vw,44px);
+}
+.ld-arch-thumb{
+  width:21px; height:21px; border-radius:999px; object-fit:cover;
+  border:1.5px solid rgba(8,19,38,.45); flex:0 0 auto;
+}
+
+/* High-contrast golden-amber button for Dedicated Architecture & Departments Page */
+.ld .ld-btn-arch{
+  background:linear-gradient(180deg, #F5C451 0%, #D99B1E 100%) !important;
+  color:#081326 !important;
+  border:1px solid rgba(255,255,255,.38) !important;
+  box-shadow:0 8px 20px rgba(3,8,20,.45), inset 0 1px 0 rgba(255,255,255,.45) !important;
+  font-weight:800 !important;
+}
+.ld .ld-btn-arch:hover{
+  background:linear-gradient(180deg, #FCD34D 0%, #EAB308 100%) !important;
+  color:#050D1C !important;
+  transform:translateY(-1px);
+}
+
 /* High-contrast landing buttons - crisp & legible BOTH before hover and on hover */
 .ld .ld-btn-primary{
   background:linear-gradient(180deg, #DF1E3C 0%, #B30F29 100%) !important;
@@ -288,12 +358,13 @@
 .lg-host{ display:flex; align-items:center; gap:8px; margin-top:10px; padding:7px 10px; border-radius:9px;
   font-size:11.5px; background:var(--surface-2); border:1px solid var(--border); color:var(--text-2); }
 .lg-host.ok{ background:var(--ok-bg); border-color:var(--ok-bd); color:var(--ok); }
-.lg6-alert{ margin-top:8px; padding:7px 10px; font-size:12px; }
-.lg-tabs{ display:grid; grid-template-columns:repeat(5,1fr); gap:3px; margin-top:10px; background:var(--surface-2);
+.lg-host.warn{ background:var(--warn-bg); border-color:var(--warn-bd); color:var(--warn); }
+.lg6-alert{ margin-top:6px; padding:6px 10px; font-size:11.5px; }
+.lg-tabs{ display:grid; grid-template-columns:repeat(5,1fr); gap:3px; margin-top:8px; background:var(--surface-2);
   padding:3px; border-radius:10px; border:1px solid var(--border); }
-.lg-tab{ padding:6px 4px; border-radius:7px; font-size:11.5px; font-weight:700; color:var(--text-2); text-align:center; }
+.lg-tab{ padding:5px 4px; border-radius:7px; font-size:11.5px; font-weight:700; color:var(--text-2); text-align:center; }
 .lg-tab.on{ background:var(--surface); color:var(--text); box-shadow:var(--shadow); }
-.lg6-body{ margin-top:10px; }
+.lg6-body{ margin-top:8px; overflow:hidden; }
 .lg6-body .field{ margin-bottom:8px; }
 .lg6-body .field label{ font-size:11.5px; margin-bottom:3px; }
 .lg6-body .input{ padding:7px 10px; font-size:13px; }

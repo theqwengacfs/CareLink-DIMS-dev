@@ -364,12 +364,27 @@ const AI = {
     if(refused) return out(refused, [AIX], ['assistant boundary']);
 
     /* Intents strictly requiring clinical/patient scope when no departmental domain matches */
-    const deptDomain = /pharmacy|stock|expiry|homestay|podcast|bed|resident|hr roster|leave|intern|welfare|fleet|vehicle|escort|inventory|equipment|library|loan|indicator|khis|dhis|fhir|governance|executive|ceremony|ohs|coin|recognition|stakeholder|enquir|ollama|host status/.test(q);
+    const deptDomain = /pharmacy|stock|expiry|homestay|podcast|bed|resident|hr roster|leave|intern|welfare|fleet|vehicle|escort|inventory|equipment|library|loan|indicator|khis|dhis|fhir|governance|executive|ceremony|ohs|coin|recognition|stakeholder|enquir|ollama|host status|workflow|priorit|smartflow|100%|completion|next task/.test(q);
     const patientIntent = !deptDomain && /caseload|patient|concern|overdue|attention|risk|hospital|referral|discharge|visit|pdca/.test(q);
     if(patientIntent && !ctx.canPatients && !/definition|mean|what does/.test(q))
       return out('Patient records are not within your authority, so I cannot summarise caseload, concerns or hospital activity for you. Your role covers ' +
         (RBAC.has(user,'finance.view')?'financial records':RBAC.has(user,'hr.view')?'staff and HR records':RBAC.has(user,'media.view')?'media and governance records':RBAC.has(user,'audit.view')?'audit inspection':RBAC.has(user,'vehicle.view')?'fleet and transport':'the functions listed in your role template') +
         '. Ask me about those instead, or speak to your County Office Administrator if you need patient visibility for a legitimate duty.', [AIX]);
+
+    /* Smart Workflow Engine & 100% Data Completion / Quality Status */
+    if(/priorit|workflow|smartflow|100%|data completion|next task|what should i do/.test(q) && typeof WORKFLOW_ENGINE !== 'undefined'){
+      const m = WORKFLOW_ENGINE.completionMatrix(user);
+      const tasks = WORKFLOW_ENGINE.prioritiesFor(user).slice(0, 4);
+      return out(
+        `**CareLink AI Smart Workflow & 100% Data Quality Plan**\n` +
+        `• **4-Tier Data Quality:** Personal **${m.personal.pct}%** · Departmental **${m.department.pct}%** · County **${m.county.pct}%** · Global **${m.global.pct}%**\n\n` +
+        `**Recommended Task Sequence (${ctx.user.role}):**\n` +
+        tasks.map((t, i) => `${i + 1}. **[${t.band}] ${t.title}** — *${t.lift}*\n   ↳ ${t.aiWhy}`).join('\n') +
+        `\n\nOpen **Smart workflow & QA** in the left navigation to execute each step in order and maintain 100% data completeness.`,
+        [FACT, CALC, REC],
+        ['workflow engine', 'data quality', 'role scope']
+      );
+    }
 
     /* Greeting / identity */
     if(/^(hi|hello|hey|habari|jambo)\b/.test(q))
@@ -532,7 +547,7 @@ const AI = {
     const named = ctx.canPatients ? repo.patientList(user).find(p=>q.includes(p.name.toLowerCase())||q.includes(p.code.toLowerCase())) : null;
     if(named){
       const days = daysBetween(named.intake);
-      const v = DB.db.visits.filter(x=>x.patientId===named.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+      const v = [...DB.visitsFor(named.id)].sort((a,b)=>new Date(b.date)-new Date(a.date));
       const clinical = RBAC.can(user,'patient.view.clinical',{countyId:named.countyId,areaId:named.areaId}).ok;
       return out(`**${named.name}** · ${named.code} · ${areaName(named.areaId)}\nStatus: ${WORKFLOW.patient.labels[named.status]||named.status}. Days in programme: **${days}**.\nLatest visit: ${v[0]?fmtDate(v[0].date)+' · '+v[0].outcome:'none recorded'}. Visits on record: ${v.length}.\n${clinical?`Clinical: ${named.clinical.diagnosis}; weight ${named.clinical.weightKg} kg; adherence ${named.clinical.adherence}.`:'Clinical detail is not available to your role.'}\n\n${days>=180?'This patient has passed 180 days: a discharge evaluation is required, with documented evidence.':days>=120?'Past 120 days: extension review required.':'Within planned duration.'}`, [FACT, CALC, REC], ['patient record','visits']);
     }

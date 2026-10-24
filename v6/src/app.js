@@ -138,6 +138,7 @@ async function boot(){
   ['pointerdown','keydown','touchstart','wheel'].forEach(ev=>
     document.addEventListener(ev, ()=>{ if(AUTH.user) SESSION.touch(); }, {passive:true}));
   window.addEventListener('hashchange', ()=>{ if(AUTH.user) SESSION.touch(); });
+  if(typeof NAVP!=='undefined' && NAVP.installAutoFoldListeners) NAVP.installAutoFoldListeners();
   if(location.hash) parseHash();
   render();
   if(typeof SYNC!=='undefined') setTimeout(()=>SYNC.start(), 300);
@@ -159,6 +160,10 @@ function parseHash(){
 }
 function go(view, params={}){
   APPX.view = view; APPX.params = params;
+  if(typeof NAVP!=='undefined'){
+    NAVP._tempOpen = false;
+    NAVP._workspaceEngaged = (view !== 'home');
+  }
   if(typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.isActive()) SILENT_OVERRIDE.recordView(view);
   const q = Object.keys(params).length? '?'+Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&'):'';
   const target = `#/${view}${q}`;
@@ -195,6 +200,7 @@ function render(){
   if(!AUTH.user){
     root.innerHTML = APPX.screen==='login' ? renderLogin()
       : APPX.screen==='onboard' ? renderOnboarding()
+      : APPX.screen==='architecture' ? renderArchitecture()
       : renderLanding();
     return;
   }
@@ -218,6 +224,7 @@ function render(){
 function renderLogin(){ return renderLogin6(); }
 function renderOnboarding(){ return renderOnboarding6(); }
 function renderLanding(){ return renderLanding6(); }
+function renderArchitecture(){ return typeof renderArchitecture6==='function' ? renderArchitecture6() : renderLanding6(); }
 
 function renderLoginLegacy(){
   const demo = DB.db.users.filter(u=>u.demo);
@@ -342,7 +349,7 @@ function renderShell(){
   const canGoBack = NAVH.canBack() || Boolean(childParent[APPX.view]);
   const aiProf = (typeof AI!=='undefined' && AI.profileFor) ? AI.profileFor(user, APPX.view) : { badge:'Console AI' };
   const paneOn = NAVP.enabled(user);
-  const railOn = paneOn && NAVP.prefs(user).rail;
+  const railOn = paneOn && NAVP.effectiveRail(user, APPX.view);
   const flatItems = groups.flatMap(g=>g.items);
   const quickBarIds = ['home','monday','messages','calendar'];
   const quickBarItems = quickBarIds.map(id=>flatItems.find(i=>i.id===id)).filter(Boolean);
@@ -432,11 +439,15 @@ function viewCrumb(){
    Admin/Intl Single-Operator Co-Work Lease Bar + Role-Scoped Context Strip.
    All console and module photographs & captions have been removed by design. */
 function workspaceHeroBanner(view, user){
+  const isGlobalAct = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const overrideBar = (typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.bannerHTML) ? SILENT_OVERRIDE.bannerHTML() : '';
-  const demoBar = (typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '';
+  const globalActBar = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.globalActivationBannerHTML) ? PROD_SETUP.globalActivationBannerHTML(user) : '';
+  const demoBar = (!isGlobalAct && typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '';
   const coeditBar = (typeof DUALCHECK!=='undefined' && DUALCHECK.bannerHTML) ? DUALCHECK.bannerHTML(user) : '';
+  const urgentCountyBar = (typeof COUNTY_URGENT_QUEUE!=='undefined' && COUNTY_URGENT_QUEUE.bannerHTML) ? COUNTY_URGENT_QUEUE.bannerHTML(user, view) : '';
   const ctxStrip = (typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip) ? ROLE_CTX.contextStrip(user, view) : '';
-  return overrideBar + demoBar + coeditBar + ctxStrip;
+  const wfStrip = (view==='home' && typeof WORKFLOW_ENGINE!=='undefined' && WORKFLOW_ENGINE.homePriorityStrip) ? WORKFLOW_ENGINE.homePriorityStrip(user) : '';
+  return overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + ctxStrip + wfStrip;
 }
 function contentFor(view, params, user){
   const guard = (cap)=>{ if(!RBAC.assert(user,cap,{},false)) return deniedPanel(cap); return null; };
@@ -546,9 +557,11 @@ function contentFor(view, params, user){
       case 'govdashboard': return guard('gov.oversight')||HANDOVER_PARTNERS.renderGovDashboard(user, params);
       case 'intlmedical': return guard('intl.medical')||HANDOVER_PARTNERS.renderIntlMedical(user, params);
       case 'foodbudget': return (RBAC.has(user,'procurement.view')||RBAC.has(user,'finance.view'))?MONDAY_PROC.renderFoodBudget(user, params):deniedPanel('procurement.view');
-      /* CareLink v6.4 Admin Operations & Development Console */
+      /* CareLink v6.4/v6.5 Admin Operations, Development Console & Intelligent Workflow Engine */
       case 'adminops': return (RBAC.has(user,'admin.ops')||RBAC.has(user,'finance.view'))?ADMIN_OPS.render(user, params):deniedPanel('admin.ops');
       case 'devconsole': return DEV_CONSOLE.canAccess(user)?DEV_CONSOLE.render(user, params):deniedPanel('dev.console');
+      case 'smartflow': return typeof WORKFLOW_ENGINE!=='undefined'?WORKFLOW_ENGINE.render(user, params):renderHome(user);
+      case 'drafts': return typeof WORKSPACE_DRAFTS!=='undefined'?WORKSPACE_DRAFTS.render(user, params):renderHome(user);
       default: return renderHome(user);
     }
     })();
@@ -585,6 +598,9 @@ function duplicatePress(act){
   return false;
 }
 function onClick(e){
+  if(e && e.target && e.target.closest && e.target.closest('#content') && typeof NAVP!=='undefined' && NAVP.foldForWorkspace){
+    NAVP.foldForWorkspace('content-click');
+  }
   const el = e.target.closest('[data-act]');
   if(!el) return;
   const act = el.dataset.act;
@@ -612,6 +628,7 @@ function onChange(e){
   const el = e.target;
   if(el.dataset.filter){
     const params = {...APPX.params, [el.dataset.filter]: el.value};
+    delete params.page;
     if(el.dataset.filter==='q'){
       clearTimeout(window.__qT);
       window.__qT = setTimeout(()=>go(el.dataset.view, params), 300);
@@ -814,17 +831,43 @@ const ACTIONS = {
     AUDIT.append({actor:AUTH.user.id,action:'enquiry.answered',entity:'enquiry',entityId:e.id,detail:(e.referral?'Information requested from '+e.referral:'Answered directly')});
     DB.save(); closeModal(true); toast('Reply recorded','','ok'); render();
   },
-  'open-thread':(d)=>{ go('messages',{thread:d.thread}); },
+  'open-thread':(d)=>{ go('messages',{thread:d.thread, mode:d.mode||'all', focusChat:'1'}); },
   'compose-message':(d)=>{
     if(!RBAC.can(AUTH.user,'message.use').ok) return toast('Not available','Your role may not send messages.','err');
+    if(d && d.to){
+      const dmThread = 'dm:'+[AUTH.user.id, d.to].sort().join(':');
+      go('messages', {thread:dmThread, to:d.to, focusChat:'1'});
+      setTimeout(()=>{ const el=document.querySelector('#msgComposeInput'); if(el) el.focus(); }, 30);
+      return;
+    }
     const people = DB.db.users.filter(u=>MESSAGING.inReach(AUTH.user,u));
-    const depts = DEPARTMENTS.map(x=>({v:'dept:'+x.id, l:'Department: '+x.name}));
-    openModal({title:'New message', narrow:true, sub:'Coordination only. Patient identifiers are refused.', body:`
+    const globals = [{v:'global:all', l:'Global Foundation Broadcast (All Staff)'}].concat(COUNTIES.map(c=>({v:'global:'+c.id, l:`County Broadcast: ${c.name}`})));
+    const areas = COUNTIES.flatMap(c=>c.areas.map(a=>({v:'area:'+a.id, l:`Ministry Area Chat: ${a.name} (${c.name})`})));
+    const depts = DEPARTMENTS.map(x=>({v:'dept:'+x.id, l:'Department Chat: '+x.name}));
+    openModal({title:'New Coordination Message', narrow:true, sub:'Global Messaging, Ministry Area / Department Chat, or Direct Colleague Chat. Patient identifiers are refused.', body:`
       <form data-form="message-new" id="msgNew">
-        ${field('To','to','select',{required:true,value:d.to||'',options:people.map(u=>({v:u.id,l:u.name.replace(/^Demo - /,'')+' · '+(roleObj(u.roleId)?.name||'')})).concat(depts)})}
-        ${field('Message','text','textarea',{required:true,hint:'Do not include a patient name, CCC number or clinical detail. Use the patient record for that.'})}
+        ${field('Channel or Recipient','to','select',{required:true,value:d.to||'',options:globals.concat(areas).concat(depts).concat(people.map(u=>({v:u.id,l:u.name.replace(/^Demo - /,'')+' · '+(roleObj(u.roleId)?.name||'')})))})}
+        ${field('Message','text','textarea',{required:true,hint:'Do not include a patient name, CCC number or clinical detail. Use the patient record for clinical notes.'})}
       </form>`,
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-message">Send</button>`});
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
+        <button class="btn btn-ghost" data-act="save-compose-draft">Save Draft</button>
+        <button class="btn btn-primary" data-act="submit-message">Send Message</button>`});
+  },
+  'save-compose-draft':()=>{
+    const f=$('#msgNew'); if(!f) return;
+    const d=new FormData(f);
+    const to=String(d.get('to')||'global:all');
+    const text=String(d.get('text')||'').trim();
+    if(!text) return toast('Message text required','','warn');
+    const thread = (to.startsWith('dept:')||to.startsWith('area:')||to.startsWith('global:')) ? to : 'dm:'+[AUTH.user.id,to].sort().join(':');
+    DB.db.workspaceDrafts = DB.db.workspaceDrafts || [];
+    DB.db.workspaceDrafts.unshift({
+      id:uid('wdr'), kind:'message', title:`Draft Message — ${to}`, ownerId:AUTH.user.id,
+      countyId:AUTH.user.countyId||'kisumu', dept:AUTH.user.departmentId||'ministry',
+      targetView:'messages', targetParams:{thread, draftText:text, focusChat:'1'},
+      summary:text.slice(0,140), payload:{thread, text}, updatedAt:todayISO(), status:'draft'
+    });
+    DB.save(); closeModal(true); toast('Draft message saved','View all drafts anytime under Workspace Drafts.','ok'); render();
   },
   'submit-message':()=>{
     const f=$('#msgNew'); if(!f) return;
@@ -832,11 +875,11 @@ const ACTIONS = {
     const to=d.get('to')||'';
     const text=String(d.get('text')||'').trim();
     if(!text) return toast('Nothing to send','','err');
-    const thread = to.startsWith('dept:')? to : 'dm:'+[AUTH.user.id,to].sort().join(':');
+    const thread = (to.startsWith('dept:')||to.startsWith('area:')||to.startsWith('global:'))? to : 'dm:'+[AUTH.user.id,to].sort().join(':');
     const r=MESSAGING.send(AUTH.user, {thread, text});
     if(r.error) return toast('Not sent', r.error, 'err');
     clearDraft('message-new');
-    closeModal(true); toast('Message sent','Delivered to the authorised recipient.','ok'); go('messages',{thread});
+    closeModal(true); toast('Message sent','Delivered to the authorised channel / recipient.','ok'); go('messages',{thread});
   },
   'new-publication':()=>{
     openModal({title:'New media item', sub:'It starts as a draft. Nothing is public until an authorised person publishes it.', body:`
@@ -1010,7 +1053,22 @@ const ACTIONS = {
   'nav-open':()=>{ if(NAVP.narrow()){ APPX.navOpen=true; render(); } else ACTIONS['open-console-map'](); },
   'nav-close':()=>{ APPX.navOpen=false; render(); },
   'nav-group':(d)=>{ NAVP.toggleGroup(AUTH.user, d.g, Number(d.i)||0); render(); },
-  'nav-rail':()=>{ NAVP.toggleRail(AUTH.user); render(); },
+  'nav-rail':()=>{
+    const pr = NAVP.prefs(AUTH.user);
+    const cur = NAVP.effectiveRail(AUTH.user, APPX.view);
+    if(pr.autoFold !== false && !pr.rail){
+      if(cur) NAVP.expandTemporarily();
+      else NAVP.foldForWorkspace('rail-btn');
+    } else {
+      NAVP.setPref(AUTH.user, 'navRail', !cur);
+    }
+    render();
+  },
+  'nav-autofold':()=>{
+    NAVP.enableAutoFold(AUTH.user);
+    toast('Navigation auto-fold updated', NAVP.prefs(AUTH.user).autoFold ? 'Left pane now folds automatically for widescreen view when scrolling or working in the workspace.' : 'Left pane pinned open.', 'info');
+    render();
+  },
   /* Workspace themes (v5.1). Personal; never touches permissions or data. */
   'wtheme-open':()=>{ openThemePicker(); },
   'wtheme-more':()=>{ closeAllModals(); go('settings',{section:'appearance'}); },
@@ -2677,6 +2735,17 @@ document.addEventListener('keydown', (e)=>{
   }
 });
 document.addEventListener('input',(e)=>{
+  if(e.target && e.target.dataset && e.target.dataset.filter==='q' && e.target.dataset.view){
+    const viewTarget = e.target.dataset.view;
+    const val = e.target.value;
+    clearTimeout(window.__qT);
+    window.__qT = setTimeout(()=>{
+      const params = {...APPX.params, q: val};
+      delete params.page;
+      go(viewTarget, params);
+    }, 320);
+    return;
+  }
   if(!e.target.matches('[data-search]')||!AUTH.user) return;
   const q=e.target.value.trim().toLowerCase();
   if(q.length<2) return;

@@ -78,10 +78,12 @@ function navModel(user){
   const groups = [
     { label:'Overview', items:[
       { id:'home', label:'Console home', icon:'home', show:true },
+      { id:'smartflow', label:'Smart workflow & QA', icon:'sparkles', show:true },
       { id:'monday', label:'Monday meeting', icon:'users', show:has('monday.meeting') },
       { id:'attention', label:'Requiring attention', icon:'alert', show:isFieldOrClinical && user.roleId!=='me' && user.roleId!=='chief', count:s.openConcerns, tone:'crit' },
       { id:'dualcheck', label:'Admin / Intl Co-Work Lock', icon:'shield', show:showDualCheck },
-      { id:'messages', label:'Messages', icon:'send', show:canMsg },
+      { id:'messages', label:'Messages & chat', icon:'send', show:canMsg },
+      { id:'drafts', label:'Workspace drafts', icon:'edit', show:true, count:typeof WORKSPACE_DRAFTS!=='undefined'?WORKSPACE_DRAFTS.countFor(user):0 },
       { id:'calendar', label:'Calendar', icon:'calendar', show:true },
       { id:'leave', label:'Leave & off-days', icon:'calendar', show:!isStaffOps && !isExternal },
       { id:'handover', label:'Delegation & handover', icon:'key', show:has('handover.use') && !isStaffOps && !isExternal },

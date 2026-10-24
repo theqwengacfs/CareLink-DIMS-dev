@@ -67,17 +67,17 @@ const DEVICE = {
   /* Which profile this session is running on right now. */
   detect(){
     const ua = this._ua(), w = this._width(), touch = this._touch();
-    const galaxyA11 = /SM-A115|Galaxy A11|A115F|A115U|A115M/i.test(ua);
-    if(galaxyA11) return { ...DEVICE_PROFILES['galaxy-a11'], detectedBy:'user agent (SM-A115 / Galaxy A11)' };
-    const isTabletUA = /iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))|SM-T|GT-P/i.test(ua);
-    if(isTabletUA || (touch && w>=600 && w<=1180)) return { ...DEVICE_PROFILES.tablet, detectedBy:'user agent or touch + width' };
+    const galaxyA11 = /SM-A115|Galaxy A11|A115F|A115U|A115M|SM-X210|SM-X216|Tab A11|Tab A9\+/i.test(ua);
+    if(galaxyA11) return { ...DEVICE_PROFILES['galaxy-a11'], detectedBy:'user agent (Samsung Galaxy A11+ 5G / Tab A11 class)' };
+    const isTabletUA = /iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))|SM-T|SM-X|GT-P|Galaxy Tab|Wi-Fi Tablet/i.test(ua);
+    if(isTabletUA || (touch && w>=600 && w<=1180)) return { ...DEVICE_PROFILES.tablet, detectedBy:'user agent or Wi-Fi tablet viewport' };
     if(w>0 && w<600) return { ...DEVICE_PROFILES.phone, detectedBy:'viewport width '+w+'px' };
     if(w>=600 && w<=1024 && touch) return { ...DEVICE_PROFILES.tablet, detectedBy:'touch + width '+w+'px' };
     return { ...DEVICE_PROFILES.desktop, detectedBy:'viewport width '+(w||'unknown')+'px' };
   },
   profile(){ return this.detect(); },
-  isTablet(){ return ['tablet','phone'].includes(this.detect().kind) || /SM-A115|Galaxy A11/i.test(this._ua()); },
-  isGalaxyA11(){ return /SM-A115|Galaxy A11|A115F|A115U|A115M/i.test(this._ua()); },
+  isTablet(){ return ['tablet','phone'].includes(this.detect().kind) || /SM-A115|Galaxy A11|SM-X210|SM-X216|Tab A11|Galaxy Tab|Wi-Fi Tablet/i.test(this._ua()); },
+  isGalaxyA11(){ return /SM-A115|Galaxy A11|A115F|A115U|A115M|SM-X210|SM-X216|Tab A11/i.test(this._ua()); },
 
   /* The theme a device opens in when nobody has chosen one. */
   themeDefault(){
@@ -112,8 +112,8 @@ const DEVICE = {
   WTHEME.resolveId = function(user){
     const prefs = (user && DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id]) || {};
     const personal = prefs[WTHEME.PREF];
-    const org = DB.db && DB.db.settings && DB.db.settings.consoleTheme;
-    if(!personal && !org) return DEVICE.themeDefault();
+    const st = (DB.db && DB.db.settings) || {};
+    if(!personal && !st.consoleThemeExplicit) return DEVICE.themeDefault();
     return resolve(user);
   };
   const apply = WTHEME.apply.bind(WTHEME);

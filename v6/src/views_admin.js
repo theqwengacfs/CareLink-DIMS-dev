@@ -375,37 +375,88 @@ function renderSecurity(user){
   + `<div style="margin-top:16px">${card('Controls tested', `<div class="col" style="gap:8px">${GOV.MANDATORY.map(g=>`<div class="small row" style="gap:9px;align-items:flex-start"><span style="color:var(--ok);flex:0 0 16px">${ic('check',15)}</span>${esc(g.rule)}</div>`).join('')}</div>`)}</div>`;
 }
 
+/* ---------------- County-Routed Urgent Account & Password Recovery Queue ---------------- */
+const COUNTY_URGENT_QUEUE = {
+  itemsFor(user){
+    if(!user || !DB.db) return { acct:[], rec:[] };
+    const isChiefOrDir = ['chief','director','program.admin'].includes(user.roleId);
+    const isCountyAdmin = user.roleId==='countyadmin';
+    if(!isChiefOrDir && !isCountyAdmin) return { acct:[], rec:[] };
+    const matchCounty = x => {
+      if(isChiefOrDir) return true;
+      const target = x.assignedCountyId || x.countyId || 'kisumu';
+      return target === user.countyId;
+    };
+    const acct = (DB.db.accountRequests||[]).filter(a=>['open','pending','submitted','under_review'].includes(a.status) && matchCounty(a));
+    const rec = (DB.db.recoveryRequests||[]).filter(r=>['open','pending'].includes(r.status) && matchCounty(r));
+    return { acct, rec };
+  },
+
+  bannerHTML(user, view){
+    if(view==='users') return '';
+    const { acct, rec } = this.itemsFor(user);
+    const total = acct.length + rec.length;
+    if(!total) return '';
+    const scopeLbl = user.roleId==='countyadmin' ? `${countyName(user.countyId)} County Office` : 'Cross-County Sign-In Desk';
+    return `<div class="alert crit" style="margin-bottom:12px;align-items:center">${ic('alert',17)}
+      <div style="flex:1">
+        <b>Urgent Action Required · ${esc(scopeLbl)}:</b>
+        <span class="small"> ${acct.length} Sign-In Account Request${acct.length===1?'':'s'} and ${rec.length} Password Recovery Request${rec.length===1?'':'s'} routed from the CareLink Sign-In page await your action.</span>
+      </div>
+      <button class="btn btn-xs btn-primary" data-act="go" data-v="users">${ic('key',12)} Act Now (${total})</button>
+    </div>`;
+  }
+};
+
 /* ---------------- System: users & roles ---------------- */
 function renderUsers(user){
   const realActor = (typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.realActor()) ? SILENT_OVERRIDE.realActor() : user;
   const canSilentOverride = (typeof SILENT_OVERRIDE!=='undefined') && SILENT_OVERRIDE.canOverride(realActor);
-  const us = DB.db.users.filter(u=>{
-    const role = roleObj(user.roleId)||{scope:{}};
-    if((role.scope||{}).geo==='global'||(role.scope||{}).crossCounty) return true;
-    return u.countyId===user.countyId;
-  });
-  const pending = DB.db.accountRequests.filter(a=>['submitted','under_review'].includes(a.status));
-  return pageHead('Users & accounts','Account type, job designation, department, county and ministry area are distinct fields - never interchangeable.',
+  const role = roleObj(user.roleId)||{scope:{}};
+  const isGlobalScope = (role.scope||{}).geo==='global'||(role.scope||{}).crossCounty;
+  const us = DB.db.users.filter(u=>isGlobalScope || u.countyId===user.countyId);
+  const { acct: pending, rec: recoveries } = COUNTY_URGENT_QUEUE.itemsFor(user);
+  const canActCounty = RBAC.has(user,'user.approve') || user.roleId==='countyadmin' || user.roleId==='chief';
+
+  return pageHead('Users, organogram accounts & urgent county sign-in desk',
+    'Organogram seats (including applicable Deputies, Secretaries & Clerks), first-login self-activation status, and County-routed urgent Sign-In requests.',
     `<div class="row" style="gap:8px;flex-wrap:wrap">
-      ${canSilentOverride?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="devconsole" data-tab="provisioning">${ic('key',14)} SMS Credential Pack</button>`:''}
-      ${RBAC.has(user,'user.create')?`<button class="btn btn-sm btn-primary" data-act="new-account">${ic('plus',15)} Request account</button>`:''}
+      ${realActor && realActor.roleId==='chief'?`<button class="btn btn-sm btn-primary" data-act="open-global-activate">${ic('shieldcheck',14)} ${typeof PROD_SETUP!=='undefined'&&PROD_SETUP.isGloballyActivated()?'WhatsApp Activation Sheet':'Activate System Globally'}</button>`:''}
+      ${canSilentOverride?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="devconsole" data-tab="provisioning">${ic('key',14)} Credential Vault</button>`:''}
+      ${RBAC.has(user,'user.create')?`<button class="btn btn-sm btn-ghost" data-act="new-account">${ic('plus',15)} Request account</button>`:''}
     </div>`)
-  + (pending.length? card('Account requests awaiting approval', table([
-      {label:'Request',render:a=>`<div class="cellname">${esc(a.name)}<span class="sm">${esc(a.jobTitle||'')} · ${esc(deptName(a.departmentId))}</span></div>`},
-      {label:'Proposed role',render:a=>badge(roleObj(a.roleId)?.name||a.roleId,'b-neutral')},
-      {label:'County',render:a=>esc(countyName(a.countyId))},
-      {label:'Requested by',render:a=>esc(userName(a.requestedBy))},
-      {label:'Status',render:a=>badge(titleCase(a.status),'b-warn')},
-      {label:'',cls:'act',render:a=>RBAC.has(user,'user.approve')?`<button class="btn btn-xs btn-primary" data-act="review-account" data-id="${a.id}">Review</button>`:badge('Pending','b-warn')}
-    ], pending), {sub:'Creating a request never grants access. Approval by the County Office Administrator is required.'}) : '')
-  + card('Directory', table([
-      {label:'User',render:u=>`<div class="row" style="gap:9px">${avatarFor(u.name,roleObj(u.roleId)?.accent)}<div class="cellname">${esc(u.name)}<span class="sm">${esc(u.username)}</span></div></div>`},
-      {label:'Role',render:u=>badge(roleObj(u.roleId)?.name||u.roleId,'b-neutral','nodot')},
+  + `<div class="grid g4" style="margin-bottom:14px">
+      ${kpi('Organogram accounts', num(us.length), `${num(us.filter(u=>u.seatTier&&u.seatTier!=='staff').length)} Deputies / Secretaries / Clerks`, 'info', 'users')}
+      ${kpi('Activated accounts', num(us.filter(u=>u.status==='active'&&!u.mustChange).length), `${num(us.filter(u=>u.mustChange||u.status==='pending_activation').length)} awaiting 1st-login change`, 'ok', 'check')}
+      ${kpi('Urgent account requests', num(pending.length), user.roleId==='countyadmin'?`Routed to ${countyName(user.countyId)} Admin`:'Routed to County Office Admins', pending.length?'crit':'ok', 'userplus')}
+      ${kpi('Urgent password recoveries', num(recoveries.length), '24h EMG / WhatsApp temporary reset', recoveries.length?'crit':'ok', 'key')}
+    </div>`
+  + ((pending.length || recoveries.length) ? `<div class="grid g2" style="margin-bottom:16px">
+      ${card(`Urgent County Account Requests (${pending.length})`, table([
+        {label:'Applicant & Role',render:a=>`<div class="cellname">${esc(a.name)}<span class="sm">${esc(a.jobTitle||a.roleId||'Staff')} · ${esc(a.contact||a.phone||'No phone')}</span></div>`},
+        {label:'Routed County Admin',render:a=>`${badge(countyName(a.assignedCountyId||a.countyId||'kisumu'),'b-crit')}<div class="xs mono muted">${esc(a.assignedAdminUsername||(a.countyId==='homabay'?'homabay.admin':'kisumu.admin'))}</div>`},
+        {label:'Reason',render:a=>`<span class="xs">${esc(a.reason||a.justification||'-')}</span>`},
+        {label:'',cls:'act',render:a=>canActCounty?`<div class="row" style="gap:4px;justify-content:flex-end">
+          <button class="btn btn-xs btn-primary" data-act="county-approve-req" data-id="${esc(a.id)}">Approve &amp; Issue</button>
+          <button class="btn btn-xs btn-ghost" data-act="county-decline-req" data-id="${esc(a.id)}">Decline</button>
+        </div>`:badge('Pending','b-warn')}
+      ], pending, {empty:emptyState('No urgent account requests','Sign-In account requests for your county appear here immediately.','check')}),
+        {sub:'Submitted from Sign-In -> routed directly to respective County Office Administrator.'})}
+      ${card(`Urgent Password Recovery Requests (${recoveries.length})`, table([
+        {label:'Staff Account',render:r=>`<div class="cellname mono">${esc(r.username||r.identifier)}<span class="sm">${esc(r.contact||'Sign-In recovery')} · ${fmtDateTime(r.at)}</span></div>`},
+        {label:'Routed County Admin',render:r=>`${badge(countyName(r.assignedCountyId||r.countyId||'kisumu'),'b-crit')}<div class="xs mono muted">${esc(r.assignedAdminUsername||(r.countyId==='homabay'?'homabay.admin':'kisumu.admin'))}</div>`},
+        {label:'Context',render:r=>`<span class="xs">${esc(r.reason||'Urgent password reset requested from Sign-In screen')}</span>`},
+        {label:'',cls:'act',render:r=>canActCounty?`<button class="btn btn-xs btn-primary" data-act="county-resolve-rec" data-id="${esc(r.id)}">Issue Temp Reset</button>`:badge('Open','b-warn')}
+      ], recoveries, {empty:emptyState('No urgent password recoveries','Sign-In password recovery alerts for your county appear here immediately.','check')}),
+        {sub:'Issues a one-time WhatsApp temporary password & 24h EMG code; staff sets private password on sign-in.'})}
+    </div>` : '')
+  + card('Organogram Account Directory', table([
+      {label:'User & Official Email',render:u=>`<div class="row" style="gap:9px">${avatarFor(u.name,roleObj(u.roleId)?.accent)}<div class="cellname">${esc(u.name)}${u.seatTier&&u.seatTier!=='staff'?' '+badge(titleCase(u.seatTier),'b-info','nodot'):''}<span class="sm mono">${esc(u.username)}${u.email?' · '+esc(u.email):''}</span></div></div>`},
+      {label:'Role / Designation',render:u=>`${badge(roleObj(u.roleId)?.name||u.roleId,'b-neutral','nodot')}<div class="xs muted">${esc(u.jobTitle||'')}</div>`},
       {label:'Department',render:u=>`<span class="small">${esc(deptName(u.departmentId))}</span>`},
-      {label:'County',render:u=>`<span class="small">${esc(u.countyId?countyName(u.countyId):'-')}</span>`},
-      {label:'Scope',render:u=>{const s=(roleObj(u.roleId)||{}).scope||{};return `<span class="xs muted">${s.geo==='global'?'Organisation':s.geo==='county'?countyName(u.countyId):(u.areaIds||[]).map(areaName).join(', ')}${s.readOnly?' · read-only':''}</span>`;}},
-      {label:'Status',render:u=>badge(titleCase(u.status),u.status==='active'?'b-ok':u.status==='locked'?'b-crit':'b-warn')},
-      {label:'Last login',render:u=>u.lastLogin?`<span class="xs">${fmtDateTime(u.lastLogin)}</span>`:'<span class="xs muted">never</span>'},
+      {label:'County',render:u=>`<span class="small">${esc(u.countyId?countyName(u.countyId):'Head Office')}</span>`},
+      {label:'Activation',render:u=>u.status==='locked'?badge('Locked','b-crit'):(u.mustChange||u.status==='pending_activation'?badge('Pending 1st Login','b-warn'):badge('Activated','b-ok'))},
+      {label:'Last login',render:u=>u.lastLogin?`<span class="xs">${fmtDateTime(u.lastLogin)}</span>`:'<span class="xs muted">Awaiting sign-in</span>'},
       {label:'',cls:'act',render:u=>`<div class="row" style="gap:5px;justify-content:flex-end">
         ${canSilentOverride&&u.id!==realActor.id?`<button class="btn btn-xs btn-ghost" data-act="silent-override-start" data-id="${esc(u.id)}" title="Inspect workspace & left-panel navigation silently (logged to System Audit)">${ic('eye',12)} Silent Override</button>`:''}
         ${RBAC.has(user,'user.manage')&&u.id!==user.id?`<button class="btn btn-xs btn-ghost" data-act="manage-user" data-id="${u.id}">Manage</button>`:''}
@@ -665,3 +716,106 @@ function renderCompare(user){
       </div>`, {sub:esc(c.county.code)+' county office'}))
     .join('')}</div>`;
 }
+
+function registerCountyUrgentActions(){
+  if(typeof ACTIONS === 'undefined') return;
+  Object.assign(ACTIONS, {
+    'county-approve-req': d => {
+      const actor = AUTH.user;
+      if(!actor || !(RBAC.has(actor,'user.approve') || actor.roleId==='countyadmin' || actor.roleId==='chief')) return toast('Unauthorised','','err');
+      const req = (DB.db.accountRequests||[]).find(a=>a.id===d.id);
+      if(!req) return;
+      const baseSlug = String(req.name||'staff.member').toLowerCase().replace(/[^a-z0-9]+/g,'.').replace(/^\.+|\.+$/g,'').slice(0,26) || 'staff.member';
+      let uname = baseSlug;
+      let n = 1;
+      while((DB.db.users||[]).some(u=>u.username===uname)) { uname = `${baseSlug}.${++n}`; }
+      const domain = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.defaultEmailDomain) ? PROD_SETUP.defaultEmailDomain() : 'lomamo.example';
+      const portal = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.defaultPortalUrl) ? PROD_SETUP.defaultPortalUrl() : location.origin;
+      const tempPw = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.generateStrongPassword) ? PROD_SETUP.generateStrongPassword(12) : 'CareLink@2026!';
+      const salt = newSalt();
+      const newUser = {
+        id:uid('u'), username:uname, email:`${uname}@${domain}`,
+        name:req.name, roleId:req.roleId||'caregiver',
+        departmentId:req.departmentId||'ministry',
+        countyId:req.assignedCountyId||req.countyId||actor.countyId||'kisumu',
+        areaIds:[], jobTitle:req.jobTitle||'Supporting Staff',
+        status:'pending_activation', active:true, mustChange:true, mustChangePassword:true,
+        salt, hash:strongHash(tempPw, salt), createdAt:todayISO()
+      };
+      DB.db.users.push(newUser);
+      req.status = 'approved';
+      req.approvedBy = actor.id;
+      req.approvedAt = todayISO();
+      req.issuedUsername = uname;
+      AUDIT.append({ actor:actor.id, action:'account.request.county_approved', entity:'user', entityId:newUser.id, detail:`County Admin ${actor.username} approved ${req.name} -> ${uname}` });
+      DB.save();
+      openModal({
+        title:'County Account Approved — WhatsApp Dispatch Ready',
+        sub:`${newUser.name} (${countyName(newUser.countyId)})`,
+        body:`<div class="alert ok" style="margin-bottom:10px">${ic('check',16)}<div><b>Account provisioned &amp; awaiting first-login self-activation.</b></div></div>
+          <div class="field"><label>Copy &amp; send via WhatsApp to ${esc(req.contact||req.phone||'staff member')}:</label>
+            <textarea class="input mono" rows="6" readonly>*CareLink C-DIMS Account Approved (${esc(countyName(newUser.countyId))})*
+Portal URL: ${esc(portal)}
+Username: ${esc(uname)}
+Official Email: ${esc(newUser.email)}
+Temporary Password: ${esc(tempPw)}
+Sign in and set your private 12+ character password to activate your account.</textarea></div>`,
+        footer:`<button class="btn btn-primary" data-act="close-modal">Done</button>`
+      });
+      render();
+    },
+    'county-decline-req': d => {
+      const actor = AUTH.user;
+      if(!actor || !(RBAC.has(actor,'user.approve') || actor.roleId==='countyadmin' || actor.roleId==='chief')) return toast('Unauthorised','','err');
+      const req = (DB.db.accountRequests||[]).find(a=>a.id===d.id);
+      if(!req) return;
+      req.status = 'rejected';
+      req.reviewedBy = actor.id;
+      req.reviewedAt = todayISO();
+      AUDIT.append({ actor:actor.id, action:'account.request.county_declined', entity:'accountRequest', entityId:req.id, detail:`Declined ${req.name}` });
+      DB.save();
+      toast('Account request declined', `${req.name} marked as declined.`, 'info');
+      render();
+    },
+    'county-resolve-rec': d => {
+      const actor = AUTH.user;
+      if(!actor || !(RBAC.has(actor,'user.approve') || actor.roleId==='countyadmin' || actor.roleId==='chief')) return toast('Unauthorised','','err');
+      const rec = (DB.db.recoveryRequests||[]).find(r=>r.id===d.id);
+      if(!rec) return;
+      const target = (DB.db.users||[]).find(u=>String(u.username||'').toLowerCase()===String(rec.username||rec.identifier||'').toLowerCase() || String(u.email||'').toLowerCase()===String(rec.identifier||'').toLowerCase());
+      const tempPw = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.generateStrongPassword) ? PROD_SETUP.generateStrongPassword(12) : 'CareLink#2026!';
+      const emgCode = 'EMG-' + Math.random().toString(36).slice(2, 10).toUpperCase();
+      if(target){
+        target.salt = newSalt();
+        target.hash = strongHash(tempPw, target.salt);
+        target.mustChange = true;
+        target.mustChangePassword = true;
+        target.status = 'pending_activation';
+        target.active = true;
+        target.failedAttempts = 0;
+        target.lockedUntil = null;
+      }
+      DB.db.emergencyCodes = DB.db.emergencyCodes || [];
+      DB.db.emergencyCodes.unshift({ code:emgCode, username:target?target.username:(rec.username||rec.identifier), issuedBy:actor.id, expiresAt:new Date(Date.now()+86400000).toISOString(), used:false });
+      rec.status = 'resolved';
+      rec.resolvedBy = actor.id;
+      rec.resolvedAt = todayISO();
+      AUDIT.append({ actor:actor.id, action:'auth.recovery.county_resolved', entity:'user', entityId:target?target.id:rec.id, detail:`County Admin ${actor.username} issued urgent temporary reset & 24h EMG code` });
+      DB.save();
+      openModal({
+        title:'Urgent Password Recovery Issued',
+        sub:`Routed via ${countyName(rec.assignedCountyId||rec.countyId||actor.countyId)} County Office`,
+        body:`<div class="alert ok" style="margin-bottom:10px">${ic('check',16)}<div><b>Temporary password &amp; 24-hour Emergency Code active.</b></div></div>
+          <div class="field"><label>Send via WhatsApp / SMS to staff member:</label>
+            <textarea class="input mono" rows="6" readonly>*CareLink C-DIMS Urgent Password Reset*
+Username: ${esc(target?target.username:(rec.username||rec.identifier))}
+Temporary Password: ${esc(tempPw)}
+24h Emergency Code: ${esc(emgCode)}
+Sign in now — CareLink will prompt you to set a new private password known only to you.</textarea></div>`,
+        footer:`<button class="btn btn-primary" data-act="close-modal">Done</button>`
+      });
+      render();
+    }
+  });
+}
+registerCountyUrgentActions();

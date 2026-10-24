@@ -61,10 +61,157 @@ const NAVP = {
 
   prefs(user){
     const p = (DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id]) || {};
-    return { layout: p.navLayout==='tabs'? 'tabs' : 'pane', rail: p.navRail===true, groups: (p.navGroups && typeof p.navGroups==='object')? p.navGroups : {} };
+    return {
+      layout: p.navLayout==='tabs'? 'tabs' : 'pane',
+      rail: p.navRail===true,
+      autoFold: p.navAutoFold!==false,
+      railExplicit: p.navRailExplicit===true,
+      groups: (p.navGroups && typeof p.navGroups==='object')? p.navGroups : {}
+    };
   },
   enabled(user){ return !!user && NAVP.prefs(user).layout==='pane'; },
   narrow(){ try{ return (window.innerWidth||1280) < NAV_PANE_MIN; }catch(e){ return false; } },
+
+  /* Runtime auto-fold tracking:
+     - _tempOpen: true when the user manually clicked Expand to browse the pane;
+       clears automatically the instant the user scrolls or interacts on #content.
+     - _workspaceEngaged: true once the user scrolls #content / window or uses
+       any feature/control on the #content workspace ("white space"). */
+  _tempOpen: false,
+  _workspaceEngaged: false,
+  _listenersBound: false,
+
+  /* Natural / automatic folding: folds automatically into the sleek widescreen
+     icon rail when scrolling or using features on the workspace, inside modules,
+     or on tablets, and returns smoothly when the user expands or hovers the rail. */
+  effectiveRail(user, view){
+    if(!user) return false;
+    const pr = NAVP.prefs(user);
+    if(pr.rail) return true;
+    if(pr.railExplicit && !pr.rail && !pr.autoFold) return false;
+    if(!pr.autoFold) return false;
+    if(NAVP._tempOpen) return false;
+    if(NAVP._workspaceEngaged) return true;
+    const curView = view || (typeof APPX!=='undefined' && APPX.view) || 'home';
+    const isTab = (typeof DEVICE!=='undefined' && DEVICE.isTablet && DEVICE.isTablet());
+    let compactDesktop = false;
+    try{ const w = window.innerWidth||1366; compactDesktop = (w >= NAV_PANE_MIN && w <= 1260); }catch(e){}
+    if(isTab || compactDesktop) return true;
+    return curView !== 'home';
+  },
+
+  /* Synchronise live DOM classes in-place so auto-folding during scroll or form
+     typing never steals focus, never resets scrollTop, and expands #content
+     immediately to full widescreen width. */
+  syncDomRail(railOn){
+    if(typeof document==='undefined' || !document.querySelector) return;
+    const shell = document.querySelector('.app.shell.has-pane');
+    const npane = document.querySelector('#npane');
+    const cbar  = document.querySelector('.topbar.cbar');
+    if(shell){
+      if(railOn){
+        if(shell.classList && shell.classList.add) shell.classList.add('np-rail');
+        if(shell.classList && shell.classList.remove) shell.classList.remove('np-open');
+        if(shell.setAttribute) shell.setAttribute('data-widescreen', '1');
+      } else {
+        if(shell.classList && shell.classList.remove) shell.classList.remove('np-rail');
+        if(shell.removeAttribute) shell.removeAttribute('data-widescreen');
+      }
+    }
+    if(npane && npane.setAttribute) npane.setAttribute('data-rail', railOn ? '1' : '0');
+    if(cbar && cbar.classList){
+      if(railOn){
+        if(cbar.classList.add) cbar.classList.add('cbar-rail');
+        if(cbar.classList.remove) cbar.classList.remove('cbar-open');
+      } else {
+        if(cbar.classList.remove) cbar.classList.remove('cbar-rail');
+        if(cbar.classList.add) cbar.classList.add('cbar-open');
+      }
+    }
+    const foldBtn = document.querySelector('.cb-fold-btn');
+    if(foldBtn && foldBtn.setAttribute){
+      const lbl = railOn ? 'Expand navigation pane' : 'Fold navigation pane';
+      foldBtn.setAttribute('aria-label', lbl);
+      foldBtn.setAttribute('title', lbl);
+    }
+    const colBtn = document.querySelector('.np-collapse');
+    if(colBtn && colBtn.setAttribute){
+      colBtn.setAttribute('aria-pressed', railOn ? 'true' : 'false');
+      colBtn.setAttribute('title', railOn ? 'Expand navigation pane' : 'Fold the pane to icons');
+      const sp = colBtn.querySelector && colBtn.querySelector('.np-l');
+      if(sp) sp.textContent = railOn ? 'Expand pane' : 'Fold pane';
+    }
+  },
+
+  /* Automatically fold the left navigation panel whenever the user starts
+     scrolling or using features on the main workspace (#content). */
+  foldForWorkspace(reason){
+    const user = (typeof AUTH!=='undefined' && AUTH.user) ? AUTH.user : null;
+    if(!user || !NAVP.enabled(user)) return false;
+    const pr = NAVP.prefs(user);
+    if(!pr.autoFold && pr.railExplicit && !pr.rail) return false;
+    NAVP._tempOpen = false;
+    NAVP._workspaceEngaged = true;
+    if(typeof APPX!=='undefined' && APPX.navOpen) APPX.navOpen = false;
+    NAVP.syncDomRail(true);
+    return true;
+  },
+
+  expandTemporarily(){
+    NAVP._tempOpen = true;
+    NAVP._workspaceEngaged = false;
+    NAVP.syncDomRail(false);
+  },
+
+  installAutoFoldListeners(){
+    if(NAVP._listenersBound || typeof document==='undefined' || !document.addEventListener) return;
+    NAVP._listenersBound = true;
+
+    const isInsideNavOrModal = (t) => {
+      if(!t || typeof t.closest !== 'function') return false;
+      return Boolean(t.closest('#npane') || t.closest('.cbar') || t.closest('.modal') || t.closest('.ai-dock'));
+    };
+
+    /* 1. Capture scroll events on #content or document (ignoring .np-scroll inside #npane) */
+    document.addEventListener('scroll', (e)=>{
+      const t = e && e.target;
+      if(!t) return;
+      if(t.closest && (t.closest('#npane') || t.closest('.modal'))) return;
+      const isContent = (t.id === 'content') || (t.classList && t.classList.contains('content'));
+      const isDoc = (t === document || t === document.documentElement || t === document.body);
+      if(!isContent && !isDoc) return;
+      const top = isContent ? (t.scrollTop || 0) : ((typeof window!=='undefined' && window.scrollY) || document.documentElement?.scrollTop || 0);
+      if(top > 6) NAVP.foldForWorkspace('scroll');
+    }, { capture:true, passive:true });
+
+    /* 2. Wheel & touch scrolling on #content immediately triggers widescreen fold */
+    document.addEventListener('wheel', (e)=>{
+      const t = e && e.target;
+      if(!t || isInsideNavOrModal(t)) return;
+      if(t.closest && t.closest('#content') && Math.abs(e.deltaY || 0) > 4){
+        NAVP.foldForWorkspace('wheel');
+      }
+    }, { capture:true, passive:true });
+
+    document.addEventListener('touchmove', (e)=>{
+      const t = e && e.target;
+      if(!t || isInsideNavOrModal(t)) return;
+      if(t.closest && t.closest('#content')){
+        NAVP.foldForWorkspace('touch-scroll');
+      }
+    }, { capture:true, passive:true });
+
+    /* 3. Using any feature, button, filter, tab, form field, or clicking on the #content white space */
+    ['pointerdown', 'mousedown', 'focusin', 'input', 'change'].forEach(ev => {
+      document.addEventListener(ev, (e)=>{
+        const t = e && e.target;
+        if(!t || isInsideNavOrModal(t)) return;
+        if(t.closest && t.closest('#content')){
+          NAVP.foldForWorkspace('workspace-' + ev);
+        }
+      }, { capture:true, passive:true });
+    });
+  },
 
   setPref(user, key, value){
     DB.db.personalPrefs = DB.db.personalPrefs || {};
@@ -83,11 +230,31 @@ const NAVP = {
     groups[label] = !NAVP.isOpen(user, label, index, false);
     NAVP.setPref(user, 'navGroups', groups);
   },
-  toggleRail(user){ NAVP.setPref(user, 'navRail', !NAVP.prefs(user).rail); },
+  toggleRail(user){
+    const next = !NAVP.prefs(user).rail;
+    NAVP.setPref(user, 'navRail', next);
+    if(next){ NAVP._tempOpen = false; }
+  },
+  enableAutoFold(user){
+    const pr = NAVP.prefs(user);
+    const nextAuto = !pr.autoFold;
+    NAVP.setPref(user, 'navAutoFold', nextAuto);
+    NAVP.setPref(user, 'navRailExplicit', !nextAuto);
+    if(nextAuto){
+      NAVP.setPref(user, 'navRail', false);
+      NAVP._tempOpen = false;
+    } else {
+      NAVP.setPref(user, 'navRail', false);
+      NAVP._workspaceEngaged = false;
+    }
+  },
 
   /* The pane. `here(id)` says whether a page is the one on screen. */
   html(user, here){
     const pr = NAVP.prefs(user);
+    const curView = (typeof APPX!=='undefined' && APPX.view) || 'home';
+    const effRail = NAVP.effectiveRail(user, curView);
+    const autoActive = pr.autoFold !== false;
     const groups = NAVP.groups(user);
     const role = roleObj(user.roleId) || {};
     const dept = deptObj(user.departmentId) || { accent:'#C8102E' };
@@ -108,7 +275,7 @@ const NAVP = {
         </div>
       </section>`;
     }).join('');
-    return `<nav class="npane" id="npane" aria-label="Pages in this console" data-rail="${pr.rail?1:0}">
+    return `<nav class="npane" id="npane" aria-label="Pages in this console" data-rail="${effRail?1:0}" data-autofold="${autoActive?1:0}">
       <div class="np-brand">
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
         <div class="np-id"><div class="np-os">CareLink OS</div><b>${esc(role.consoleTitle||role.name||'Console')}</b>
@@ -119,7 +286,8 @@ const NAVP = {
       <div class="np-foot">
         <button class="np-i" data-act="wtheme-open" title="Workspace theme">${ic('palette',18)}<span class="np-l">Theme</span></button>
         <button class="np-i" data-act="go" data-v="settings" title="Preferences">${ic('settings',18)}<span class="np-l">Preferences</span></button>
-        <button class="np-i np-collapse" data-act="nav-rail" title="${pr.rail?'Expand the pane':'Fold the pane to icons'}" aria-pressed="${pr.rail}">${ic('panel',18)}<span class="np-l">${pr.rail?'Expand':'Fold pane'}</span></button>
+        <button class="np-i" data-act="nav-autofold" title="Toggle automatic folding when scrolling or working in the workspace" aria-pressed="${autoActive}">${ic('sparkles',18)}<span class="np-l">Auto-fold: ${autoActive?'ON':'OFF'}</span></button>
+        <button class="np-i np-collapse" data-act="nav-rail" title="${effRail?'Expand navigation pane':'Fold the pane to icons'}" aria-pressed="${effRail}">${ic('panel',18)}<span class="np-l">${effRail?'Expand pane':'Fold pane'}</span></button>
         <div class="np-meta">${total} pages for your role</div>
       </div>
     </nav>`;

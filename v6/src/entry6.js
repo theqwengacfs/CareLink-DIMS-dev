@@ -14,12 +14,9 @@
    ============================================================ */
 
 const ONB = {
-  step:1, host:null, org:{ name:'LOMAMO Foundation Kenya', county:'kisumu', shortName:'LOMAMO' },
+  step:1, host:null, org:{ name:'LOMAMO Foundation Kenya', county:'kisumu', shortName:'LOMAMO', emailDomain:'lomamo.example' },
   admin:{ name:'', username:'', password:'', confirm:'' },
   mode:'host', roster:[], issued:null, seed:'reference', busy:false, error:'',
-  /* Set when the host answers that it already holds an installation. The wizard
-     then stops trying to commission it and offers the three honest ways forward:
-     sign in, ask the administrator for an account, or continue on this device. */
   hostSetup:null, advice:''
 };
 
@@ -138,90 +135,60 @@ async function activateFullDemoDataset(){
   return count;
 }
 
-/* ------------------------------------------------------------ landing */
+/* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar) */
 function renderLanding6(){
   const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
-  const departments = DEPARTMENTS.slice(0, 10);
-  const dept = d => `<div class="ld-dept" style="--c:${d.accent}">
-      <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.short)}</span></div>`;
+  const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const facts = [
     { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.length:2), l:'County Offices' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10), l:'Ministry Areas' },
     { n: DEPARTMENTS.length, l:'Department Consoles' }
   ];
-  const step = (icn, badgeTxt, title, body) => `<article class="ld-step">
-      <div class="ld-step-top">
-        <div class="ld-step-i">${ic(icn,18)}</div>
-        <span class="ld-step-tag">${badgeTxt}</span>
-      </div>
-      <h3>${title}</h3>
-      <p>${body}</p></article>`;
-  const pillar = (icn, title, body) => `<article class="ld-pillar">
-      <div class="ld-pillar-head"><div class="ld-pi">${ic(icn,18)}</div><h3>${title}</h3></div>
-      <p>${body}</p></article>`;
 
-  const teamCards = [
-    {
-      photo:'field_table',
-      tag:'Field Care & Case Management',
-      title:'Household Caregivers, Coordinators & Case Managers',
-      body:'Supporting caregivers walk alongside vulnerable parents across all ten ministry areas with 30-day PDCA reviews, nutrition bags, adherence support and early clinical escalation so children remain safely in family care.'
-    },
-    {
-      photo:'roundtable_forms',
-      tag:'Clinical, Pharmacy & JOOTRH Desk',
-      title:'Hospital Focal Persons, Clinicians & Pharmacy',
-      body:'Hospital dispatch requests flow from caregiver assessment to clinical review, SHA verification, transport facilitation and receipt reconciliation without paperwork getting lost between offices.'
-    },
-    {
-      photo:'charts_overhead',
-      tag:'M&E, Finance, HR & Leadership',
-      title:'Accountable Stewardship & Verified Reporting',
-      body:'Finance, procurement, human resources, media governance and executive leadership coordinate from live pivot tables, regional maps and tamper-evident audit trails.'
-    }
-  ];
-
-  return `<div class="ld" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#E9C765')}">
+  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#E9C765')}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
     <header class="ld-top">
-      <div class="row" style="gap:12px">
+      <div class="row" style="gap:11px">
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation Kenya" class="ld-logo">
         <div>
           <div class="ld-org">CareLink · ${esc(orgName())}</div>
           <div class="xs ld-dim">CareLink C-DIMS · Unified Operating System for All Foundation Departments &amp; Partners · v${esc(APP.version)}</div>
         </div>
       </div>
-      <nav class="row ld-nav" style="gap:10px;flex-wrap:wrap">
-        <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Visit LOMAMO · Public Portal</button>
+      <nav class="row ld-nav" style="gap:8px;flex-wrap:wrap">
+        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture">${ic('flow',14)} Platform Architecture &amp; Departments</button>
+        <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Public Impact Portal</button>
         <button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request an Account</button>
         <button class="btn btn-primary ld-btn-primary btn-sm" data-act="open-signin">${ic('lock',14)} Sign In to CareLink</button>
       </nav>
     </header>
 
-    <div class="ld-container">
-      <section class="ld-hero">
+    <div class="ld-container ld-front-main">
+      <section class="ld-hero ld-hero-tight">
         <div class="ld-hero-copy">
-          <div class="ld-eyebrow">${ic('heart',14)} CareLink OS · Saving Lives, Preventing Orphans · LOMAMO Foundation</div>
-          <h1>CareLink.<br><em>One Foundation. One Operating System.</em></h1>
-          <p class="ld-lede">CareLink unites every LOMAMO department, hospital referral desk, government oversight partner and international medical reviewer in one governed operating system, enforcing least-privilege access at the data layer and protecting household confidentiality by design.</p>
+          <div class="ld-eyebrow">${ic('heart',14)} LOMAMO Foundation Kenya · Loving Hands Management &amp; Medical Organization</div>
+          <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
+          <div class="ld-subhead">One Foundation. One Operating System.</div>
+          <p class="ld-lede">CareLink unites every LOMAMO department, hospital referral desk, government oversight partner and international medical reviewer in one role-pure operating system — enforcing least-privilege access at the data layer so vulnerable parents recover and children remain safely in family care.</p>
           <div class="row ld-cta-row">
             <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login">${ic('lock',17)} Proceed to My CareLink Console ${ic('chevron',16)}</button>
-            <button class="btn ld-cta ld-btn-secondary" data-act="login-request">${ic('userplus',17)} Request an Account</button>
+            <button class="btn ld-cta ld-btn-arch" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> Platform Architecture &amp; Departments Working Together</button>
+            ${!isActivated ? `<button class="btn ld-cta ld-btn-secondary" data-act="login-request">${ic('userplus',16)} Request Access</button>` : ''}
           </div>
           <div class="ld-assure">
-            <span>${ic('database',15)} Real-time central Wi-Fi DB</span>
-            <span>${ic('wifi',15)} Identical PC &amp; tablet experience</span>
-            <span>${ic('shieldcheck',15)} SHA-256 tamper-evident audit</span>
-            <span>${ic('key',15)} 4-office credential governance</span>
+            <span>${ic('database',14)} Unified online &amp; office Wi-Fi DB</span>
+            <span>${ic('wifi',14)} Zero-scroll PC &amp; tablet workspace</span>
+            <span>${ic('shieldcheck',14)} SHA-256 tamper-evident audit</span>
+            <span>${ic('sparkles',14)} CareLink AI workflow guidance</span>
           </div>
         </div>
 
         <div class="ld-hero-art" aria-hidden="true">
-          <div class="ld-canvas-card">
-            <svg viewBox="0 0 460 264" class="ld-scene-svg">
+          <div class="ld-canvas-card ld-canvas-tight">
+            <svg viewBox="0 0 460 236" class="ld-scene-svg">
               <defs>
                 <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
                   <stop offset="0%" stop-color="#F5C451" stop-opacity="0.34"/>
@@ -238,52 +205,122 @@ function renderLanding6(){
                   <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.0"/>
                 </linearGradient>
               </defs>
-              <path d="M-10,206 C75,176 120,230 205,200 C290,170 355,210 470,172" fill="none" stroke="rgba(56,189,248,0.16)" stroke-width="1.4"/>
-              <path d="M-10,230 C85,200 140,248 225,218 C310,188 370,228 470,192" fill="none" stroke="rgba(245,196,81,0.14)" stroke-width="1.2"/>
-              <circle cx="230" cy="126" r="102" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="126" r="95" fill="none" stroke="rgba(148,197,255,0.22)" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="126" r="64" fill="none" stroke="rgba(245,196,81,0.34)" stroke-width="1.4"/>
+              <path d="M-10,192 C75,164 120,214 205,186 C290,158 355,196 470,160" fill="none" stroke="rgba(56,189,248,0.16)" stroke-width="1.4"/>
+              <circle cx="230" cy="116" r="92" fill="url(#coreGlow)"/>
+              <circle cx="230" cy="116" r="86" fill="none" stroke="rgba(148,197,255,0.22)" stroke-width="1.2" stroke-dasharray="5 5"/>
+              <circle cx="230" cy="116" r="58" fill="none" stroke="rgba(245,196,81,0.34)" stroke-width="1.4"/>
               <g stroke="url(#beamGrad)" stroke-width="1.4" opacity="0.74">
-                <line x1="230" y1="126" x2="230" y2="28"/>
-                <line x1="230" y1="126" x2="328" y2="58"/>
-                <line x1="230" y1="126" x2="358" y2="126"/>
-                <line x1="230" y1="126" x2="326" y2="196"/>
-                <line x1="230" y1="126" x2="230" y2="224"/>
-                <line x1="230" y1="126" x2="134" y2="196"/>
-                <line x1="230" y1="126" x2="102" y2="126"/>
-                <line x1="230" y1="126" x2="132" y2="58"/>
+                <line x1="230" y1="116" x2="230" y2="26"/>
+                <line x1="230" y1="116" x2="324" y2="54"/>
+                <line x1="230" y1="116" x2="354" y2="116"/>
+                <line x1="230" y1="116" x2="322" y2="180"/>
+                <line x1="230" y1="116" x2="230" y2="206"/>
+                <line x1="230" y1="116" x2="138" y2="180"/>
+                <line x1="230" y1="116" x2="106" y2="116"/>
+                <line x1="230" y1="116" x2="136" y2="54"/>
               </g>
               ${[
-                [230,28,'Field Care','#38BDF8'], [328,58,'Hospital','#2DD4BF'],
-                [358,126,'M&E / DHIS','#A78BFA'], [326,196,'Finance','#FBBF24'],
-                [230,224,'Homestay','#F472B6'], [134,196,'Media & IT','#FB923C'],
-                [102,126,'HR & Leave','#34D399'], [132,58,'Transport','#60A5FA']
+                [230,26,'Field Care','#38BDF8'], [324,54,'Hospital','#2DD4BF'],
+                [354,116,'M&E / DHIS','#A78BFA'], [322,180,'Finance','#FBBF24'],
+                [230,206,'Homestay','#F472B6'], [138,180,'Media & IT','#FB923C'],
+                [106,116,'HR & Leave','#34D399'], [136,54,'Transport','#60A5FA']
               ].map(([x,y,lbl,col])=>`<g>
-                <rect x="${x-38}" y="${y-12}" width="76" height="24" rx="12" fill="#0B1933" stroke="${col}" stroke-width="1.3"/>
-                <circle cx="${x-26}" cy="${y}" r="3.5" fill="${col}"/>
-                <text x="${x+4}" y="${y+3.8}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#F1F5F9">${lbl}</text>
+                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#0B1933" stroke="${col}" stroke-width="1.3"/>
+                <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
+                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#F1F5F9">${lbl}</text>
               </g>`).join('')}
-              <circle cx="230" cy="126" r="38" fill="#0E2248" stroke="#F5C451" stroke-width="2"/>
-              <text x="230" y="123" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="137" text-anchor="middle" font-size="8.2" font-weight="600" fill="#F5C451" letter-spacing="0.5">OS · C-DIMS</text>
+              <circle cx="230" cy="116" r="35" fill="#0E2248" stroke="#F5C451" stroke-width="2"/>
+              <text x="230" y="113" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
+              <text x="230" y="126" text-anchor="middle" font-size="8" font-weight="600" fill="#F5C451" letter-spacing="0.5">OS · C-DIMS</text>
             </svg>
 
             <div class="ld-facts">
               ${facts.map(f=>`<div class="ld-fact"><b>${num(f.n)}</b><span>${esc(f.l)}</span></div>`).join('')}
             </div>
             <div class="ld-spark">
-              <svg viewBox="0 0 260 40" preserveAspectRatio="none">
-                <path d="M0,38 L0,30 L36,24 L72,27 L108,16 L144,19 L180,10 L216,13 L260,6 L260,38 Z" fill="url(#areaGrad)"/>
-                <path d="M0,30 L36,24 L72,27 L108,16 L144,19 L180,10 L216,13 L260,6" fill="none" stroke="#38BDF8" stroke-width="2.1" stroke-linecap="round"/>
-                <path d="M0,35 L36,32 L72,31 L108,25 L144,24 L180,19 L216,20 L260,14" fill="none" stroke="#F5C451" stroke-width="1.6" stroke-dasharray="4 3" stroke-linecap="round"/>
+              <svg viewBox="0 0 260 32" preserveAspectRatio="none">
+                <path d="M0,30 L0,24 L36,19 L72,21 L108,13 L144,15 L180,8 L216,10 L260,5 L260,30 Z" fill="url(#areaGrad)"/>
+                <path d="M0,24 L36,19 L72,21 L108,13 L144,15 L180,8 L216,10 L260,5" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round"/>
+                <path d="M0,28 L36,25 L72,24 L108,19 L144,18 L180,14 L216,15 L260,11" fill="none" stroke="#F5C451" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>
               </svg>
-              <span class="xs ld-dim">Architecture overview. Live clinical, financial and donor figures are calculated strictly from verified records inside each authorised workspace.</span>
+              <span class="xs ld-dim">Unified CareLink workflow graphic across Kisumu &amp; Homa Bay. Explore full Platform Architecture &amp; Departments Working Together via the button above.</span>
             </div>
           </div>
         </div>
       </section>
+    </div>
 
-      <section class="ld-band">
+    <footer class="ld-foot ld-foot-tight">
+      <div class="ld-foot-inner">
+        <div class="ld-foot-brand">
+          <img src="${window.LOGO||''}" alt="" class="ld-logo-sm">
+          <div><b>${esc(orgName())}</b> · ${esc(APP.full)}</div>
+        </div>
+        <div class="xs ld-dim">Love Matters Most · Serving our Neighbours in Love · Version ${esc(APP.version)} · Schema ${esc(String(APP.schema))}</div>
+      </div>
+    </footer>
+  </div>`;
+}
+
+/* ------------------------------------------------------------ dedicated architecture & departments page */
+function renderArchitecture6(){
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
+  const departments = DEPARTMENTS.slice(0, 10);
+  const dept = d => `<div class="ld-dept" style="--c:${d.accent}">
+      <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.short)}</span></div>`;
+  const areaCount = (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10);
+  const step = (icn, badgeTxt, title, body) => `<article class="ld-step">
+      <div class="ld-step-top">
+        <div class="ld-step-i">${ic(icn,18)}</div>
+        <span class="ld-step-tag">${badgeTxt}</span>
+      </div>
+      <h3>${title}</h3>
+      <p>${body}</p></article>`;
+  const pillar = (icn, title, body) => `<article class="ld-pillar">
+      <div class="ld-pillar-head"><div class="ld-pi">${ic(icn,18)}</div><h3>${title}</h3></div>
+      <p>${body}</p></article>`;
+  const teamCards = [
+    {
+      photo:'field_table',
+      tag:'Field Care & Case Management',
+      title:'Household Caregivers, Coordinators & Case Managers',
+      body:'Supporting caregivers walk alongside vulnerable parents across all ten ministry areas with 30-day PDCA reviews, paediatric Weight/BMI/MUAC growth surveillance, nutrition bags, adherence support and early clinical escalation so children remain safely in family care.'
+    },
+    {
+      photo:'roundtable_forms',
+      tag:'Clinical, Pharmacy & JOOTRH Desk',
+      title:'Hospital Focal Persons, Clinicians & Pharmacy',
+      body:'Hospital dispatch requests flow from caregiver assessment to clinical review, SHA verification, transport facilitation and receipt reconciliation without paperwork getting lost between offices.'
+    },
+    {
+      photo:'charts_overhead',
+      tag:'M&E, Finance, HR & Leadership',
+      title:'Accountable Stewardship & Verified Reporting',
+      body:'Finance, procurement, human resources, media governance and executive leadership coordinate from live budget-vs-expenditure boards, pivot tables, regional maps and tamper-evident audit trails.'
+    }
+  ];
+
+  return `<div class="ld ld-arch-page" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#E9C765')}">
+    <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
+    <div class="ld-weave" aria-hidden="true"></div>
+
+    <header class="ld-top" style="position:sticky;top:0;z-index:20">
+      <div class="row" style="gap:12px">
+        <img src="${window.LOGO||''}" alt="LOMAMO Foundation Kenya" class="ld-logo">
+        <div>
+          <div class="ld-org">CareLink Architecture &amp; Institutional Overview</div>
+          <div class="xs ld-dim">${esc(orgName())} · Platform Architecture, Departments Working Together &amp; Safeguards</div>
+        </div>
+      </div>
+      <nav class="row ld-nav" style="gap:10px;flex-wrap:wrap">
+        <button class="btn ld-btn-secondary btn-sm" data-act="goto-landing">${ic('back',14)} Back to CareLink Front Page</button>
+        <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Public Impact Portal</button>
+        <button class="btn btn-primary ld-btn-primary btn-sm" data-act="open-signin">${ic('lock',14)} Sign In to CareLink</button>
+      </nav>
+    </header>
+
+    <div class="ld-container">
+      <section class="ld-band" style="border-top:none">
         <div class="ld-band-head">
           <div>
             <span class="ld-band-kicker">01 · Platform Architecture</span>
@@ -292,9 +329,9 @@ function renderLanding6(){
           <p class="ld-band-sub">One continuous pipeline connecting household visits, clinical decisions and verified county reporting across PCs and tablets.</p>
         </div>
         <div class="ld-flow">
-          ${step('clipboard','Capture','Online & Offline Field Records','Record assessments with instant National ID returning-beneficiary checks, paper form digitisations, 30-day PDCA reviews and hospital dispatches on tablets or PCs.')}
-          ${step('chart','Analyse','Live Pivot Tables, Charts & Maps','Cross-tabulate active caseloads in interactive pivot matrices, inspect Kisumu and Homa Bay ministry-area maps, and generate aligned Monday reports.')}
-          ${step('flow','Interoperate','KHIS / DHIS2 Drafts & Web APIs','Prepare verified Ministry of Health draft summaries, export DHIS2 dataValueSets and FHIR R4 bundles, and connect local Ollama AI models safely.')}
+          ${step('clipboard','Capture','Online & Offline Field Records','Record assessments with instant National ID returning-beneficiary checks, physical hard-copy form digitisations, 30-day PDCA reviews, child Weight/BMI/MUAC curves and hospital dispatches on tablets or PCs.')}
+          ${step('chart','Analyse','Live Pivot Tables, Budgets & Maps','Cross-tabulate active caseloads in interactive pivot matrices, track Expenditure Against Budget in real time, inspect Kisumu and Homa Bay ministry-area maps, and generate aligned Monday reports.')}
+          ${step('flow','Interoperate','KHIS / DHIS2 Drafts & CareLink AI','Prepare verified Ministry of Health draft summaries, export DHIS2 dataValueSets and FHIR R4 bundles, and run the AI-assisted Intelligent Workflow Engine toward 100% data completion.')}
         </div>
       </section>
 
@@ -304,7 +341,7 @@ function renderLanding6(){
             <span class="ld-band-kicker">02 · Departments Working Together</span>
             <h2>United Around Every Household to Prevent Orphans</h2>
           </div>
-          <p class="ld-band-sub">Every LOMAMO department contributes its distinct discipline on one shared operating system across ${facts[2].n} ministry areas.</p>
+          <p class="ld-band-sub">Every LOMAMO department contributes its distinct discipline on one shared operating system across ${areaCount} ministry areas.</p>
         </div>
         <div class="ld-team-grid">
           ${teamCards.map(tc=>`<article class="ld-team-card">
@@ -333,7 +370,7 @@ function renderLanding6(){
           ${pillar('users','Role-Pure Department Consoles','Caregivers, Hospital Focal Persons, Medical Case Managers, Finance, Fleet, Media, HR and Leadership each see exclusively the tools belonging to their office.')}
           ${pillar('shield','Confidentiality in the Data Layer','Clinical diagnoses, HIV/TB status and safeguarding notes are enforced directly in repository queries and governed by recorded consent.')}
           ${pillar('sparkles','C-DIMS Coins & Staff Recognition','Transparent usage scores, data efficiency ratings, tier badges and C-DIMS Coins celebrate timely field documentation across every county office.')}
-          ${pillar('route','Home-Visit Route Intelligence','The Visit Order Learner studies completed field days to propose practical next household stops while keeping human caregivers in full command.')}
+          ${pillar('route','AI-Assisted Intelligent Workflow Engine','Smart daily priorities and 100% data-quality guidance assist every staff member across personal, departmental, county and global scopes.')}
         </div>
         <div class="ld-policy">
           <div class="ld-policy-h">${ic('book',15)} Institutional Policy Foundation · Kenya Data Protection Act (2019)</div>
@@ -345,6 +382,10 @@ function renderLanding6(){
             <span>Homestay &amp; Care Centre Protocol</span>
             <span>Vehicle, Transport &amp; Logistics Controls</span>
           </div>
+        </div>
+        <div class="row" style="justify-content:space-between;margin-top:24px;flex-wrap:wrap;gap:12px">
+          <button class="btn ld-btn-secondary" data-act="goto-landing">${ic('back',15)} Return to CareLink Front Page</button>
+          <button class="btn btn-primary ld-btn-primary" data-act="open-signin">${ic('lock',15)} Proceed to Sign In ${ic('chevron',15)}</button>
         </div>
       </section>
     </div>
@@ -365,32 +406,42 @@ function renderLanding6(){
 /* Strict single-screen, zero-scrollbar split layout on desktop & landscape tablets,
    and clean single-screen compact brand + card on portrait tablets & phones. */
 function renderLogin6(){
+  const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+  const isAwaitingAct = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isAwaitingGlobalActivation && PROD_SETUP.isAwaitingGlobalActivation());
+  if(isActivated && LOGIN6.tab === 'demo') LOGIN6.tab = 'signin';
   const t = LOGIN6.tab;
   const tabBtn = (id, label) => `<button class="lg-tab ${t===id?'on':''}" data-act="login-tab" data-tab="${id}" type="button">${label}</button>`;
   const host = APPX.host;
   const pCount = (DB.db && DB.db.patients) ? DB.db.patients.length : 0;
   const uCount = (DB.db && DB.db.users) ? DB.db.users.length : 0;
-  const hostLine = host
-    ? `<div class="lg-host ok">${ic('database',13)}<span>Central Wi-Fi DB active · rev ${host.rev} · ${num(pCount)} patients &amp; ${num(uCount)} accounts loaded</span></div>`
-    : `<div class="lg-host ok">${ic('check',13)}<span>Active dataset ready · ${num(pCount)} patients, ${num(uCount)} staff accounts &amp; 10 ministry areas</span></div>`;
+  const hostLine = isActivated
+    ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Official Production System Active · ${num(uCount)} organogram accounts governed across Kisumu &amp; Homa Bay</span></div>`
+    : (isAwaitingAct
+      ? `<div class="lg-host warn">${ic('key',13)}<span>4-Step Live Host Setup complete — sign in as Chief System Administrator to change password &amp; <b>Activate System Globally</b></span></div>`
+      : (host
+        ? `<div class="lg-host ok">${ic('database',13)}<span>Central Wi-Fi DB active · rev ${host.rev} · ${num(pCount)} patients &amp; ${num(uCount)} accounts loaded</span></div>`
+        : `<div class="lg-host ok">${ic('check',13)}<span>Active dataset ready · ${num(pCount)} patients, ${num(uCount)} staff accounts &amp; 10 ministry areas</span></div>`));
 
   const slideIdx = ((LOGIN6.slide % LOGIN_TEAM_SLIDES.length) + LOGIN_TEAM_SLIDES.length) % LOGIN_TEAM_SLIDES.length;
   const curSlide = LOGIN_TEAM_SLIDES[slideIdx];
 
   const signIn = `
-    <p class="lg-note">Sign in with your assigned LOMAMO Foundation username and password to open your role-scoped workspace. Need instant evaluation access on PC or tablet? Open the <b>Demo</b> tab above or sign in with password <code class="mono">LOMAMO2026</code>.</p>
+    <p class="lg-note">${isActivated
+      ? 'Sign in with your assigned CareLink username or official email and your personal password (or your WhatsApp temporary password on first sign-in to activate your account).'
+      : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
-      <div class="field"><label for="lg-u">Username</label>
-        <input class="input" id="lg-u" name="username" autocomplete="username" placeholder="e.g. director, mcm.kisumu, caregiver.nyalenda" required></div>
+      <div class="field"><label for="lg-u">Username or Official Email</label>
+        <input class="input" id="lg-u" name="username" autocomplete="username" placeholder="e.g. chief.admin, director, caregiver.nyalenda" required></div>
       <div class="field"><label for="lg-p">Password</label>
         <input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required></div>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
-      <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to LOMAMO C-DIMS'} ${ic('chevron',16)}</button>
+      <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
     <div class="lg-links">
-      <button class="linkbtn" data-act="login-tab" data-tab="demo" type="button">Explore demo accounts (${num(uCount)})</button>
+      ${!isActivated ? `<button class="linkbtn" data-act="login-tab" data-tab="demo" type="button">Explore demo accounts (${num(uCount)})</button>` : ''}
+      <button class="linkbtn" data-act="login-tab" data-tab="request" type="button">Request county account</button>
       <button class="linkbtn" data-act="login-tab" data-tab="forgot" type="button">Forgotten password?</button>
-      <button class="linkbtn" data-act="goto-onboard" type="button">Live host setup</button>
+      ${!isActivated ? `<button class="linkbtn" data-act="goto-onboard" type="button">Live host setup</button>` : ''}
     </div>`;
 
   const allUsers = (DB.db && DB.db.users && DB.db.users.length) ? DB.db.users : [];
@@ -399,20 +450,22 @@ function renderLogin6(){
     { id:'lead', label:'Leadership' },
     { id:'field', label:'10 Areas' },
     { id:'clinical', label:'Medical' },
-    { id:'ops', label:'Depts' }
+    { id:'ops', label:'Depts' },
+    { id:'deputy', label:'Deputies/Clerks' }
   ];
   const pickUsers = (() => {
     const f = LOGIN6.demoFilter || 'all';
     const byU = u => allUsers.find(x=>x.username===u);
-    if(f==='lead') return ['director','president','chief.admin','program.admin','program.assistant','kisumu.admin','homabay.admin','kisumu.assistant'].map(byU).filter(Boolean);
-    if(f==='field') return ['coord.nyalenda','caregiver.nyalenda','caregiver.nairobird','caregiver.manyatta','caregiver.nyahera','caregiver.chiga','caregiver.ombeyi','caregiver.ahero','caregiver.makongeni','caregiver.shauriyako','caregiver.sofia','homestay.kisumu'].map(byU).filter(Boolean);
-    if(f==='clinical') return ['depthead.medical','mcm.kisumu','mcm.homabay','nurse.kisumu','focal.kisumu','focal.homabay','homestay.homabay','chw.nyalenda'].map(byU).filter(Boolean);
-    if(f==='ops') return ['finance.kisumu','finance.homabay','procurement','me.kisumu','auditor','media.head','pr.officer','hr.officer','welfare.officer','vehicle.officer','ict.officer'].map(byU).filter(Boolean);
-    return ['director','chief.admin','program.admin','kisumu.admin','homabay.admin','mcm.kisumu','focal.kisumu','caregiver.nyalenda','caregiver.makongeni','finance.kisumu','me.kisumu','hr.officer'].map(byU).filter(Boolean);
+    if(f==='lead') return ['director','president','chief.admin','program.admin','program.assistant','exec.secretary','kisumu.admin','homabay.admin'].map(byU).filter(Boolean);
+    if(f==='field') return ['coord.nyalenda','caregiver.nyalenda','caregiver.nairobird','caregiver.manyatta','caregiver.nyahera','caregiver.chiga','caregiver.ombeyi','caregiver.ahero','caregiver.makongeni','caregiver.shauriyako'].map(byU).filter(Boolean);
+    if(f==='clinical') return ['depthead.medical','deputy.medical','mcm.kisumu','mcm.homabay','nurse.kisumu','focal.kisumu','focal.homabay','homestay.kisumu'].map(byU).filter(Boolean);
+    if(f==='ops') return ['finance.kisumu','procurement','me.kisumu','auditor','media.head','pr.officer','hr.officer','welfare.officer','vehicle.officer','ict.officer'].map(byU).filter(Boolean);
+    if(f==='deputy') return ['exec.secretary','secretary.kisumu','secretary.homabay','deputy.procurement','deputy.finance','deputy.medical','deputy.hr','clerk.records.kisumu','clerk.stores.kisumu','clerk.data.kisumu'].map(byU).filter(Boolean);
+    return ['director','chief.admin','program.admin','kisumu.admin','homabay.admin','mcm.kisumu','focal.kisumu','caregiver.nyalenda','finance.kisumu','procurement'].map(byU).filter(Boolean);
   })();
 
   const demoTab = `
-    <div class="row" style="justify-content:space-between;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+    <div class="row" style="justify-content:space-between;gap:6px;margin-bottom:5px;flex-wrap:wrap">
       <div class="lg-subpills">
         ${demoGroups.map(g=>`<button type="button" class="lg-subpill ${LOGIN6.demoFilter===g.id?'on':''}" data-act="demo-filter" data-f="${g.id}">${esc(g.label)}</button>`).join('')}
       </div>
@@ -424,15 +477,15 @@ function renderLogin6(){
         <span>${esc(u.username)} · ${esc(countyName(u.countyId))}</span>
       </button>`).join('')}
     </div>
-    <div class="lg-links" style="margin-top:6px">
+    <div class="lg-links" style="margin-top:5px">
       <span class="xs muted">Password for all demo accounts: <b class="mono">LOMAMO2026</b></span>
       <button class="linkbtn" data-act="goto-onboard" type="button">Run 4-step host setup</button>
     </div>`;
 
   const activate = `
-    <p class="lg-note">Enter your assigned username and the one-time activation code issued by the Chief System Administrator, then set a personal password of at least 10 characters.</p>
+    <p class="lg-note">Received a WhatsApp temporary password? Simply use the <b>Sign in</b> tab to activate immediately, or redeem a legacy ACT code below.</p>
     <form data-form="activate6">
-      <div class="grid g2" style="gap:8px">
+      <div class="grid g2" style="gap:6px">
         <div class="field"><label>Username</label><input class="input" name="username" required autocomplete="username" placeholder="e.g. caregiver.nyalenda"></div>
         <div class="field"><label>Activation code</label><input class="input mono" name="code" placeholder="ACT-XXXXXX" required style="text-transform:uppercase"></div>
         <div class="field"><label>New password</label><input class="input" name="password" type="password" minlength="10" required autocomplete="new-password" placeholder="Min. 10 chars"></div>
@@ -442,47 +495,51 @@ function renderLogin6(){
     </form>`;
 
   const request = `
-    <p class="lg-note">Submit an official access request to the Chief System Administrator. Once verified, you receive an assigned username and a one-time activation code to set your password.</p>
+    <p class="lg-note">Routed <b>urgently</b> to your selected <b>County Office Administrator</b> (Kisumu Head Office or Homa Bay County Office) for verification and credential issuance.</p>
     <form data-form="request6">
-      <div class="grid g2" style="gap:8px">
-        <div class="field"><label>Full name</label><input class="input" name="name" required placeholder="Full staff name"></div>
-        <div class="field"><label>Phone number</label><input class="input" name="phone" placeholder="07..."></div>
-        <div class="field"><label>Job title</label><input class="input" name="jobTitle" required placeholder="e.g. Supporting Caregiver"></div>
+      <div class="grid g2" style="gap:6px">
+        <div class="field"><label>Full name *</label><input class="input" name="name" required placeholder="Full staff name"></div>
+        <div class="field"><label>Phone / WhatsApp *</label><input class="input" name="phone" required placeholder="07..."></div>
+        <div class="field"><label>Job title / Seat *</label><input class="input" name="jobTitle" required placeholder="e.g. Supporting Caregiver"></div>
         <div class="field"><label>Department</label><select class="input" name="departmentId">${DEPARTMENTS.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
-        <div class="field"><label>County office</label><select class="input" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
-        <div class="field"><label>Reason for access</label><input class="input" name="justification" required placeholder="Assigned role & area"></div>
+        <div class="field"><label>County Office Admin *</label><select class="input" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)} Admin</option>`).join('')}</select></div>
+        <div class="field"><label>Ministry area / Reason *</label><input class="input" name="justification" required placeholder="Assigned role & area"></div>
       </div>
-      <button class="btn btn-primary btn-block" type="submit">Submit Account Request</button>
+      <button class="btn btn-primary btn-block" type="submit">${ic('send',14)} Send Urgent Request to County Admin</button>
     </form>`;
 
   const forgot = `
-    <p class="lg-note">Request a 24-hour emergency login code from the System Administrator, or enter an issued emergency code below to set a replacement password immediately.</p>
-    <form data-form="forgot6" class="row" style="gap:8px;align-items:flex-end;margin-bottom:8px">
-      <div class="field" style="flex:1;margin:0"><label>Username</label><input class="input" name="username" required autocomplete="username" placeholder="Your username"></div>
-      <button class="btn btn-ghost" type="submit" style="white-space:nowrap">Request code</button>
+    <p class="lg-note">Submit an <b>urgent password recovery request</b> directly to your <b>County Office Administrator</b>, or redeem an issued 24-hour emergency code below.</p>
+    <form data-form="forgot6" style="margin-bottom:7px">
+      <div class="grid g3" style="gap:6px;align-items:flex-end">
+        <div class="field" style="margin:0"><label>Username / Email *</label><input class="input" name="username" required autocomplete="username" placeholder="Username"></div>
+        <div class="field" style="margin:0"><label>County Office *</label><select class="input" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+        <button class="btn btn-primary" type="submit" style="white-space:nowrap;padding:7px 10px">Alert County Admin</button>
+      </div>
     </form>
     <form data-form="emergency6">
-      <div class="grid g2" style="gap:8px">
-        <div class="field"><label>Emergency code</label><input class="input mono" name="code" placeholder="EMG-XXXXXXXX" required style="text-transform:uppercase"></div>
-        <div class="field"><label>Username</label><input class="input" name="username" required placeholder="Your username"></div>
+      <div class="grid g3" style="gap:6px">
+        <div class="field"><label>EMG code</label><input class="input mono" name="code" placeholder="EMG-XXXX" required style="text-transform:uppercase"></div>
+        <div class="field"><label>Username</label><input class="input" name="username" required placeholder="Username"></div>
+        <div class="field"><label>New password</label><input class="input" name="password" type="password" minlength="10" required placeholder="10+ chars"></div>
       </div>
-      <div class="field"><label>New personal password</label><input class="input" name="password" type="password" minlength="10" required placeholder="At least 10 characters"></div>
-      <button class="btn btn-primary btn-block" type="submit">Verify Emergency Code &amp; Reset</button>
+      <button class="btn btn-ghost btn-block" type="submit">Redeem 24h Emergency Code</button>
     </form>`;
 
-  const body = t==='demo'?demoTab : t==='activate'?activate : t==='request'?request : t==='forgot'?forgot : signIn;
+  const body = (!isActivated && t==='demo') ? demoTab : t==='activate' ? activate : t==='request' ? request : t==='forgot' ? forgot : signIn;
 
   return `<div class="lg6">
     <aside class="lg6-brand">
       <div class="lg6-brand-top">
-        <div class="row" style="gap:11px;margin-bottom:10px">
+        <div class="row" style="gap:11px;margin-bottom:8px">
           <img src="${window.LOGO||''}" alt="LOMAMO Foundation" class="lg6-logo" style="margin:0">
           <div>
             <div class="xs bold" style="letter-spacing:.11em;text-transform:uppercase;color:#F5C451">CareLink Operating System · LOMAMO Foundation</div>
             <div class="xs" style="color:#CBD6E8">Orphan Prevention, Clinical Care &amp; Partner Governance</div>
           </div>
         </div>
-        <h1>CareLink.<br><em>One Foundation. One Operating System.</em></h1>
+        <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
+        <div class="xs bold" style="color:#E2E8F0;margin:-4px 0 7px">One Foundation. One Operating System.</div>
 
         <figure class="lg6-showcase">
           <div class="lg6-photo-frame">
@@ -515,7 +572,7 @@ function renderLogin6(){
         <img src="${carelinkPhoto(curSlide.key)}" alt="">
         <div class="lg6-mobile-hero-txt">
           <div class="xs bold" style="color:#F5C451;text-transform:uppercase;letter-spacing:.08em">LOMAMO Foundation</div>
-          <b>One Foundation. <em>One Operating System.</em></b>
+          <b>CareLink. <em>Saving lives, preventing orphans.</em></b>
         </div>
       </div>
       <div class="lg6-card">
@@ -523,23 +580,23 @@ function renderLogin6(){
           <img src="${window.LOGO||''}" alt="" class="lg6-mark">
           <div style="flex:1">
             <div class="lg6-kicker">${esc(orgName())}</div>
-            <h2>${t==='demo'?'Active Demo Accounts':t==='activate'?'Activate Account':t==='request'?'Request an Account':t==='forgot'?'Account Recovery':'Sign In to Console'}</h2>
+            <h2>${(!isActivated && t==='demo')?'Active Demo Accounts':t==='activate'?'Activate Account':t==='request'?'Urgent County Account Request':t==='forgot'?'Urgent Password Recovery':'Official Staff Sign In'}</h2>
           </div>
           <button class="btn btn-xs btn-ghost" data-act="goto-landing" type="button">Front page</button>
         </div>
         ${hostLine}
         ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<span>${esc(LOGIN6.error)}</span></div>`:''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
-        <div class="lg-tabs">
+        <div class="lg-tabs" style="grid-template-columns:repeat(${isActivated?4:5},1fr)">
           ${tabBtn('signin','Sign in')}
-          ${tabBtn('demo','Demo')}
+          ${!isActivated ? tabBtn('demo','Demo') : ''}
           ${tabBtn('activate','Activate')}
           ${tabBtn('request','Request')}
           ${tabBtn('forgot','Recover')}
         </div>
         <div class="lg6-body">${body}</div>
         <div class="lg6-foot">
-          <span>CareLink · CareLink C-DIMS v${esc(APP.version)} · Schema ${esc(String(APP.schema))}</span>
+          <span>CareLink C-DIMS v${esc(APP.version)} · Schema ${esc(String(APP.schema))}</span>
           <span>Data Protection Act, 2019</span>
         </div>
       </div>
@@ -585,29 +642,32 @@ function renderOnboarding6(){
 
   let body = '';
   if(step===1){
-    body = `<p class="lg-note">Commission your published <b>CareLink C-DIMS</b> online site database: configure the <b>Chief System Administrator</b>, auto-generate strong unique SMS credentials for all staff accounts (with mandatory first-login privacy password creation), or load the synthetic 3,333-patient demonstration dataset.</p>
-      <div class="field"><label>Organisation name</label><input class="input" id="ob-org" value="${esc(ONB.org.name)}"></div>
+    body = `<p class="lg-note">Run the <b>4-Step Live Host Setup</b> to establish CareLink's institutional host &amp; organogram structure. Upon completion you return to the <b>Official Sign-In screen</b>, sign in as Chief System Administrator, change your password, and click <b>Activate System Globally</b> to generate the Team WhatsApp Credential Sheet.</p>
+      <div class="grid g2" style="gap:10px">
+        <div class="field"><label>Organisation name</label><input class="input" id="ob-org" value="${esc(ONB.org.name)}"></div>
+        <div class="field"><label>Official staff email domain</label><input class="input mono" id="ob-domain" value="${esc(ONB.org.emailDomain||'lomamo.example')}" placeholder="e.g. lomamofoundation.org"></div>
+      </div>
       <div class="grid g2" style="gap:10px">
         <div class="field"><label>Short name</label><input class="input" id="ob-short" value="${esc(ONB.org.shortName)}"></div>
         <div class="field"><label>Primary county office (Head Office)</label><select class="input" id="ob-county">${COUNTIES.map(c=>`<option value="${c.id}" ${ONB.org.county===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
       </div>
       <div class="ob-host ${host?'ok':'info'}">
         ${host ? `${ic('database',16)}<div><b>Unified Online Site Database connected at this address</b>
-            <span>Revision ${host.rev}${host.setup?' — already commissioned; sign in directly or review demonstration records.':''} Shared online database &amp; shared online intelligence active for all accounts.</span></div>`
-              : `${ic('database',16)}<div><b>Production Commissioning Ready</b>
-            <span>Completing this wizard configures the Chief System Administrator and generates downloadable CSV &amp; SMS credential packs for every account.</span></div>`}
+            <span>Revision ${host.rev}. Completing Steps 1–4 establishes global user structures and prepares Official Sign-In.</span></div>`
+              : `${ic('database',16)}<div><b>4-Step Live Host Commissioning Ready</b>
+            <span>Establishes global organogram accounts (including applicable Secretaries, Deputies &amp; Clerks), returns to Official Sign-In for Chief Admin password change, then enables <b>Activate System Globally</b>.</span></div>`}
       </div>`;
   }
   if(step===2){
-    body = `<p class="lg-note">Configure the <b>Chief System Administrator</b> account. This account commissions staff SMS credentials, oversees the unified online database, and holds audited Silent Workspace Override authority.</p>
+    body = `<p class="lg-note">Establish the <b>Chief System Administrator</b> commissioning account and initial setup password. Immediately after Step 4 returns you to the <b>Official Sign-In screen</b>, you will sign in with this initial setup password and be prompted to set your private personal password before clicking <b>Activate System Globally</b>.</p>
       <div class="grid g2" style="gap:10px">
-        <div class="field"><label>Chief System Administrator full name</label><input class="input" id="ob-name" value="${esc(ONB.admin.name)}" placeholder="e.g. Chief System Administrator"></div>
+        <div class="field"><label>Chief System Administrator full name</label><input class="input" id="ob-name" value="${esc(ONB.admin.name||'Chief System Administrator')}" placeholder="e.g. Chief System Administrator"></div>
         <div class="field"><label>Username</label><input class="input" id="ob-user" value="${esc(ONB.admin.username||'chief.admin')}" placeholder="chief.admin"></div>
       </div>
       <div class="grid g2" style="gap:10px">
-        <div class="field"><label>Private Administrator Password (12+ chars)</label><input class="input" id="ob-pw" type="password" minlength="12" autocomplete="new-password">
-          <div class="hint" id="ob-strength">At least 12 characters with uppercase, lowercase, digit &amp; symbol.</div></div>
-        <div class="field"><label>Repeat password</label><input class="input" id="ob-pw2" type="password" minlength="12" autocomplete="new-password"></div>
+        <div class="field"><label>Initial Commissioning Setup Password (12+ chars)</label><input class="input" id="ob-pw" type="password" minlength="12" autocomplete="new-password">
+          <div class="hint" id="ob-strength">At least 12 characters with uppercase, lowercase, digit &amp; symbol. You will replace this on Official Sign-In.</div></div>
+        <div class="field"><label>Repeat initial setup password</label><input class="input" id="ob-pw2" type="password" minlength="12" autocomplete="new-password"></div>
       </div>`;
   }
   if(step===3){
@@ -686,7 +746,13 @@ Object.assign(ACTIONS, {
   'goto-login': () => { APPX.screen='login'; LOGIN6.tab='signin'; LOGIN6.error=''; LOGIN6.notice=''; render(); },
   'open-signin': () => { APPX.screen='login'; LOGIN6.tab='signin'; LOGIN6.error=''; LOGIN6.notice=''; render(); window.scrollTo({top:0}); },
   'goto-landing': () => { APPX.screen='landing'; LOGIN6.error=''; render(); window.scrollTo({top:0}); },
-  'goto-onboard': () => { APPX.screen='onboard'; ONB.step=1; ONB.error=''; render(); window.scrollTo({top:0}); },
+  'goto-architecture': () => { APPX.screen='architecture'; LOGIN6.error=''; render(); window.scrollTo({top:0}); },
+  'goto-onboard': () => {
+    if (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) {
+      APPX.screen='login'; LOGIN6.tab='signin'; return render();
+    }
+    APPX.screen='onboard'; ONB.step=1; ONB.error=''; render(); window.scrollTo({top:0});
+  },
 
   /* Works everywhere (PC, Tablet, Onboarding, Sign-In, Settings) in one tap */
   'load-demo': async () => {
@@ -734,7 +800,8 @@ Object.assign(ACTIONS, {
       const name = ($('#ob-org')||{}).value || ONB.org.name;
       const short = ($('#ob-short')||{}).value || 'LOMAMO';
       const county = ($('#ob-county')||{}).value || 'kisumu';
-      ONB.org = {name:name.trim(), shortName:short.trim(), county};
+      const emailDomain = (($('#ob-domain')||{}).value || ONB.org.emailDomain || 'lomamo.example').replace(/^@+/,'').trim().toLowerCase();
+      ONB.org = {name:name.trim(), shortName:short.trim(), county, emailDomain};
       ONB.step = 2; return render();
     }
     if(step===2){
@@ -751,100 +818,31 @@ Object.assign(ACTIONS, {
       ONB.step = 3; return render();
     }
     if(step===3){
-      if(!ONB.host && typeof PROD_SETUP!=='undefined'){
-        ONB.busy = true; render();
-        try{
-          await PROD_SETUP.provisionProductionPack({
-            adminName: ONB.admin.name,
-            adminUsername: ONB.admin.username,
-            adminPassword: ONB.admin.password,
-            orgNameVal: ONB.org.name,
-            shortNameVal: ONB.org.shortName,
-            primaryCounty: ONB.org.county,
-            seedMode: ONB.seed
-          });
-          ONB.busy = false;
-          ONB.step = 4;
-          PROD_SETUP.downloadCSV();
-          return render();
-        }catch(e){
-          ONB.busy = false; ONB.error = 'Setup stopped: '+e.message; return render();
-        }
-      }
-      ONB.busy = true; render();
-      try{
-        DB.reset();
-        const now = new Date();
-        seedOfficial(DB.db, now, {patients: ONB.seed==='empty'?0:3333, mustChange:true});
-        const admin = DB.db.users.find(u=>u.username==='chief.admin') || DB.db.users[0];
-        admin.name = ONB.admin.name; admin.username = ONB.admin.username; admin.id = 'u-chief-admin';
-        admin.salt = newSalt(); admin.hash = strongHash(ONB.admin.password, admin.salt);
-        admin.mustChange = false; admin.provisioned = true; admin.execTeam = true;
-        DB.db.settings.org = ONB.org;
-        DB.db.settings.onboarding = {complete:true, step:9};
-        DB.db.meta.label = 'Live installation';
-        DB.save();
-        const r = await SYNC._json('api/setup', {method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({db: DB.db, admin: ONB.admin, org: ONB.org})});
-        if(!r.ok){
-          ONB.busy=false;
-          const b = r.body||{};
-          /* The host already holds an installation. That is an answer, not a
-             failure: the wizard stops commissioning and offers the three ways
-             forward, so nobody is left staring at step 3 of 4. */
-          if(b.code==='already_setup'){
-            ONB.hostSetup = { host:(ONB.host&&ONB.host.host)||location.host, accounts:b.accounts||0, admins:b.admins||[] };
-            ONB.advice = b.advice || 'If you are the administrator and need to commission this host again, restore a backup or clear the host database first (Settings -> Backup & restore on the host). Re-running first-run setup against a live installation is refused on purpose: it would replace every account and every record on it.';
-            ONB.error='';
-            AUDIT.append({actor:'first-run', action:'setup.already_provisioned', entity:'host',
-              detail:'Host answered already_setup; wizard switched to attach / sign-in / device-only paths'});
-            return render();
-          }
-          ONB.error = b.error || 'The host refused the first-run document.';
-          return render();
-        }
-        const login = await AUTH.loginOnline(ONB.admin.username, ONB.admin.password, 'first-run');
-        if(!login.ok){ ONB.busy=false; ONB.error = login.error||'The host accepted setup; please sign in manually.'; ONB.step=4; return render(); }
-        await SYNC.pullFull();
-        const accounts = OFFICIAL_ROSTER.filter(r=>r.username!==ONB.admin.username).map(r=>({
-          id:'u-'+r.username.replace(/[.]/g,'-'), username:r.username, name:r.name,
-          roleName:(ROLE(r.roleId)||{}).name||r.roleId, county:(COUNTIES.find(c=>c.id===r.countyId)||{}).name||'',
-          mustChange:true
-        }));
-        const prov = await SYNC._json('api/credentials/provision', {method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({accounts})});
-        ONB.issued = prov.ok ? prov.body.issued : null;
-        ONB.busy=false; ONB.step = 4;
-        if(ONB.issued){
-          const text = credMasterText(ONB.issued, ONB.host.host+':'+(ONB.host.port||location.port||8000));
-          downloadText('LOMAMO-C-DIMS-credentials-'+new Date().toISOString().slice(0,10)+'.txt', text);
-          LOGIN6.notice = 'The master credentials file has been downloaded. Keep it in secure custody.';
-        }
-        render();
-      }catch(e){
-        ONB.busy=false; ONB.error = 'Setup stopped: '+e.message; render();
-      }
-      return;
+      ONB.step = 4; return render();
     }
     if(step===4){
       ONB.busy = true; render();
       try{
-        if(ONB.seed==='reference'){
-          if((DB.db.patients||[]).length < 100) DB.seedOfficial({patients:3333, mustChange:false});
-          if(typeof SYNC!=='undefined' && SYNC.sessionToken) await SYNC.push();
-        } else {
-          DB.db.patients = []; DB.db.visits = []; DB.db.pdcas = []; DB.db.requests = [];
-          DB.save();
-          if(typeof SYNC!=='undefined' && SYNC.sessionToken) await SYNC.push();
-        }
-        if(ONB.host && typeof SYNC!=='undefined' && SYNC.sessionToken) await SYNC.pullFull();
+        const res = await PROD_SETUP.completeFourStepHostSetup({
+          orgNameVal: ONB.org.name,
+          shortNameVal: ONB.org.shortName,
+          emailDomain: ONB.org.emailDomain || 'lomamo.example',
+          loginUrl: (typeof location !== 'undefined' && location.origin && location.origin !== 'null') ? location.origin : 'https://carelink.lomamo.org',
+          primaryCounty: ONB.org.county || 'kisumu',
+          chiefName: ONB.admin.name || 'Chief System Administrator',
+          chiefUsername: ONB.admin.username || 'chief.admin',
+          chiefPassword: ONB.admin.password,
+          seedMode: ONB.seed
+        });
         APPX.showMustChange = false;
-        AUTH.mustChange = false;
         ONB.busy = false;
-        APPX.screen='login'; LOGIN6.tab='signin';
-        LOGIN6.notice = 'Setup complete. Sign in below to enter your console.';
+        APPX.screen = 'login';
+        LOGIN6.tab = 'signin';
+        LOGIN6.error = '';
+        LOGIN6.notice = `4-Step Live Host Setup complete. Sign in below as ${res.chiefUsername} (${res.chiefEmail}), set your private personal password, then click "Activate System Globally" to generate the Team WhatsApp Credential Sheet.`;
+        toast('Live Host Setup Complete', 'Sign in as Chief System Administrator to change your password and Activate System Globally.', 'ok');
         render();
-      }catch(e){ ONB.busy=false; ONB.error='Could not finish: '+e.message; render(); }
+      }catch(e){ ONB.busy=false; ONB.error='Could not finish host setup: '+e.message; render(); }
       return;
     }
   }
@@ -854,8 +852,33 @@ Object.assign(ACTIONS, {
   'msg-open': d => {
     const other = (DB.db.users||[]).find(u=>u.id===d.u);
     if(!other) return toast('Not found','That account no longer exists.','err');
-    if(!MESSAGING.inReach(AUTH.user, other)) return toast('Not permitted','That person is outside your reach.','err');
-    go('messages', {thread:'dm:'+[AUTH.user.id, other.id].sort().join(':')});
+    if(!MESSAGING.inReach(AUTH.user, other)){
+      go('messages', { thread:'global:all', mode:'global', focusChat:'1' });
+      setTimeout(()=>{ const el=document.querySelector('#msgComposeInput'); if(el) el.focus(); }, 30);
+      return toast('Opened Global Broadcast Channel', `${other.name.replace(/^Demo - /,'')} is in ${countyName(other.countyId)}; coordinate via the Global Foundation Channel.`, 'info');
+    }
+    const dmThread = 'dm:' + [AUTH.user.id, other.id].sort().join(':');
+    go('messages', { thread:dmThread, to:other.id, focusChat:'1' });
+    setTimeout(()=>{ const el=document.querySelector('#msgComposeInput'); if(el) el.focus(); }, 30);
+  },
+  'msg-save-draft': d => {
+    const inp = document.querySelector('#msgComposeInput');
+    const txt = inp ? String(inp.value||'').trim() : '';
+    if(!txt) return toast('Write a message first','Type your coordination note before saving it to Workspace Drafts.','warn');
+    DB.db.workspaceDrafts = DB.db.workspaceDrafts || [];
+    DB.db.workspaceDrafts.unshift({
+      id: uid('wdr'), kind:'message',
+      title: `Draft Message — ${d.title || d.thread || 'Coordination'}`,
+      ownerId: AUTH.user.id, countyId: AUTH.user.countyId || 'kisumu', dept: AUTH.user.departmentId || 'ministry',
+      targetView:'messages', targetParams:{ thread:d.thread||'global:all', draftText:txt, focusChat:'1' },
+      summary: txt.slice(0, 140),
+      payload:{ thread:d.thread||'global:all', text:txt },
+      updatedAt: todayISO(), status:'draft'
+    });
+    DB.save();
+    if(inp) inp.value = '';
+    toast('Saved to Workspace Drafts','Open Workspace Drafts in the left navigation at any time to review or send.','ok');
+    render();
   },
   'mj-load': async () => {
     SYNC.journal = await SYNC.mergeJournal();
@@ -912,15 +935,23 @@ Object.assign(FORMS, {
       if(local && local.ok === false){ LOGIN6.error = local.msg; return render(); }
     }
     if(AUTH.user){
+      AUTH.user.status = 'active';
+      AUTH.user.active = true;
+      AUTH.user.activatedAt = todayISO();
       AUTH.user.mustChange = false;
       AUTH.user.mustChangePassword = false;
       AUTH.user.dpaFirstLoginRequired = false;
       AUTH.user.passwordSetAt = todayISO();
+      AUDIT.append({ actor:AUTH.user.id, action:'account.self_activated', entity:'user', entityId:AUTH.user.id, detail:`${AUTH.user.username} completed first-login password change & self-activated account.` });
       DB.save();
     }
     AUTH.mustChange = false;
     LOGIN6.error='';
-    toast('Private password saved','Your console is now open with your personal encrypted password known only to you.','ok');
+    if(AUTH.user && AUTH.user.roleId==='chief' && typeof PROD_SETUP!=='undefined' && !PROD_SETUP.isGloballyActivated()){
+      toast('Password Updated — Ready for Global Activation','Click "Activate System Globally" at the top of your console to generate the Team WhatsApp Credential Sheet.','ok');
+    } else {
+      toast('Account Activated & Private Password Saved','Your console is now open with your personal encrypted password known only to you.','ok');
+    }
     render();
   },
 
@@ -953,29 +984,46 @@ Object.assign(FORMS, {
   request6: async (d) => {
     const body = {};
     ['name','jobTitle','departmentId','countyId','phone','justification'].forEach(k=>body[k]=String(d.get(k)||'').trim());
+    const cId = body.countyId || 'kisumu';
+    const assignedAdminUsername = cId === 'homabay' ? 'homabay.admin' : 'kisumu.admin';
+    const countyLabel = countyName(cId);
+    const payload = { ...body, countyId:cId, assignedCountyId:cId, assignedAdminUsername, urgent:true, priority:'urgent' };
     const r = await SYNC._json('api/public/account-request', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)});
+      body: JSON.stringify(payload)});
     const ref = (r.ok && r.body && r.body.ref) ? r.body.ref : ('REQ-' + Math.floor(100000 + Math.random()*900000));
     DB.db.accountRequests = DB.db.accountRequests || [];
-    DB.db.accountRequests.push({ id:uid('arq'), ref, ...body, status:'pending', submittedAt:new Date().toISOString() });
-    AUDIT.append({ actor:'public', action:'account.requested', entity:'accountRequest', entityId:ref, detail:`${body.name} (${body.jobTitle})` });
+    DB.db.accountRequests.unshift({
+      id:uid('arq'), ref, ...payload, contact:body.phone, reason:body.justification,
+      status:'open', at:new Date().toISOString(), submittedAt:new Date().toISOString()
+    });
+    AUDIT.append({ actor:'public', action:'account.requested.county_urgent', entity:'accountRequest', entityId:ref,
+      detail:`URGENT -> ${assignedAdminUsername} (${countyLabel}): ${body.name} (${body.jobTitle})` });
     DB.save();
     LOGIN6.tab='signin'; LOGIN6.error='';
-    LOGIN6.notice = `Request ${ref} recorded. Once approved, the System Administrator issues your username and ACT activation code.`;
+    LOGIN6.notice = `Urgent request ${ref} routed directly to the ${countyLabel} County Office Administrator (${assignedAdminUsername}) for immediate verification & credential issuance.`;
     render();
   },
 
   forgot6: async (d) => {
-    const username = String(d.get('username')||'').trim().toLowerCase();
+    const rawId = String(d.get('username')||'').trim().toLowerCase();
+    const matchedUser = (DB.db && DB.db.users || []).find(u => String(u.username||'').toLowerCase()===rawId || String(u.email||'').toLowerCase()===rawId);
+    const cId = String(d.get('countyId') || (matchedUser && matchedUser.countyId) || 'kisumu').trim();
+    const assignedAdminUsername = cId === 'homabay' ? 'homabay.admin' : 'kisumu.admin';
+    const countyLabel = countyName(cId);
+    const username = matchedUser ? matchedUser.username : rawId;
+    const payload = { username, identifier:rawId, countyId:cId, assignedCountyId:cId, assignedAdminUsername, urgent:true, priority:'urgent' };
     const r = await SYNC._json('api/auth/forgot', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({username})});
+      body: JSON.stringify(payload)});
     const ref = (r.ok && r.body && r.body.reference) ? r.body.reference : ('REC-' + Math.floor(10000 + Math.random()*90000));
     DB.db.recoveryRequests = DB.db.recoveryRequests || [];
-    DB.db.recoveryRequests.push({ id:uid('rec'), reference:ref, username, at:new Date().toISOString(), status:'open' });
-    AUDIT.append({ actor:username||'unknown', action:'auth.recovery_requested', entity:'user', entityId:username, detail:`Reference ${ref}` });
+    DB.db.recoveryRequests.unshift({
+      id:uid('rec'), reference:ref, ...payload, at:new Date().toISOString(), status:'open'
+    });
+    AUDIT.append({ actor:username||'unknown', action:'auth.recovery_requested.county_urgent', entity:'user', entityId:username,
+      detail:`URGENT -> ${assignedAdminUsername} (${countyLabel}) · Reference ${ref}` });
     DB.save();
     LOGIN6.error='';
-    LOGIN6.notice = `Recovery request ${ref} logged for the System Administrator, who can issue a 24-hour EMG code.`;
+    LOGIN6.notice = `Urgent recovery request ${ref} routed directly to your ${countyLabel} County Office Administrator (${assignedAdminUsername}), who can issue an immediate reset or 24-hour EMG code.`;
     LOGIN6.tab='forgot';
     render();
   },

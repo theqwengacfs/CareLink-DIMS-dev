@@ -99,43 +99,73 @@ const CREDITS = {
 /* ------------------------------------------------------------ views */
 function renderRecognition(user){
   if(!RBAC.has(user,'credit.view')) return deniedPanel('credit.view');
+  const sheet = (typeof APPX!=='undefined' && APPX.params && APPX.params.sheet) || 'overview';
   const mine = CREDITS.score(user);
   const band = scoreBand(mine.score);
   const bal = CREDITS.earned(user);
   const maySeeAll = RBAC.has(user,'credit.manage') || isGlobal(user) || ['director','program.admin','program.assistant'].includes(user.roleId);
-  const people = (DB.db.users||[]).filter(u=>u.status==='active' && (maySeeAll || u.id===user.id || u.countyId===user.countyId));
+  const people = (DB.db.users||[]).filter(u=>(u.status==='active'||u.status==='pending_activation') && (maySeeAll || u.id===user.id || u.countyId===user.countyId));
   const board = people.map(u=>({ u, s:CREDITS.score(u) })).sort((a,b)=>b.s.score-a.s.score);
+  const myRank = board.findIndex(b=>b.u.id===user.id) + 1;
+  const affordableCount = PERKS.filter(p=>bal.balance >= p.cost).length;
 
   const ring = `<div class="score-ring" style="--p:${mine.score}">
       <div class="sr-in"><b>${mine.score}<span>%</span></b><i>usage score</i></div>
     </div>`;
   const breakdown = mine.parts.map(p=>`
     <div class="sc-part">
-      <div class="spread"><b>${esc(p.k)}</b><span class="mono">${Math.round(p.w*p.v)} / ${p.w}</span></div>
+      <div class="spread"><b>${esc(p.k)}</b><span class="mono bold">${Math.round(p.w*p.v)} / ${p.w} pts</span></div>
       <div class="sc-bar"><span style="width:${Math.round(p.v*100)}%"></span></div>
-      <div class="xs muted">${esc(p.note)} · weight ${p.w}%</div>
+      <div class="spread xs muted"><span>${esc(p.note)}</span><span>Weight ${p.w}%</span></div>
     </div>`).join('');
 
-  return pageHead('C-DIMS coins & recognition',
-    'Your score, how it is calculated, and the coins it earns. The same page is the Foundation’s staff evaluation record.',
-    RBAC.has(user,'credit.manage')?`<button class="btn btn-sm btn-primary" data-act="coins-run">${ic('sparkles',15)} Close this month</button>`:'') +
-  `<div class="grid g4">
-    ${kpi('Your score', mine.score+'%', scoreBand(mine.score).name+' standing', band.tone==='ok'?'ok':band.tone==='crit'?'crit':'','target')}
-    ${kpi('Coins available', num(bal.balance), `earned ${num(bal.awarded)} · spent ${num(bal.spent)}`,'','sparkles')}
-    ${kpi('Rank', maySeeAll? '#'+(board.findIndex(b=>b.u.id===user.id)+1) : ' - ', `of ${board.length} in scope`,'','chart')}
-    ${kpi('Standing', band.name, (BADGE_DETAIL[band.name]||{blurb:''}).blurb.split(':')[0],'','shield')}
-  </div>
-  <div class="grid g2" style="margin-top:16px">
-    ${card('How your score is built', `<div class="sc-wrap">${ring}<div class="sc-parts">${breakdown}</div></div>
-      <div class="note" style="margin-top:12px">${ic('info',15)}<span>Every part is read from records you already
-      created. Nothing here is typed in by an administrator, and the same formula is used for everyone in the same role.</span></div>`)}
-    ${card('What the standing unlocks', `<div class="badge-ladder">
+  const spotlightBanner = `<div class="coins-hero-crest">
+    <div class="coins-hero-left">
+      ${ring}
+      <div class="coins-hero-meta">
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <span class="badge ${band.tone}">${esc(band.name)} Standing</span>
+          <span class="badge b-info nodot">Rank #${myRank || 1} of ${board.length}</span>
+        </div>
+        <h3>${esc(user.name.replace(/^Demo - /,''))}</h3>
+        <p class="small muted" style="margin:2px 0 8px">${esc((BADGE_DETAIL[band.name]||{}).blurb||'Verified field & console excellence.')}</p>
+        <div class="row" style="gap:10px;flex-wrap:wrap">
+          <span class="coins-wallet-pill">${ic('sparkles',14)} <b>${num(bal.balance)}</b> C-DIMS Coins Available</span>
+          <span class="xs muted">Earned <b>${num(bal.awarded)}</b> · Redeemed <b>${num(bal.spent)}</b> · <b>${affordableCount}/${PERKS.length}</b> perks unlocked</span>
+        </div>
+      </div>
+    </div>
+    <div class="coins-hero-right">
+      <div class="xs bold muted" style="text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Standing Value Ladder</div>
+      <div class="badge-ladder compact-ladder">
         ${['Platinum','Gold','Silver','Bronze','Building'].map(b=>`<div class="bl-row ${band.name===b?'on':''}">
-          <span class="badge ${BADGE_DETAIL[b].tone}" style="min-width:76px;justify-content:center">${b}</span>
-          <span class="small">${esc(BADGE_DETAIL[b].blurb)}</span></div>`).join('')}
-      </div>`)}
-  </div>
-  ${card('Leaderboard', (()=>{
+          <span class="badge b-${BADGE_DETAIL[b].tone}" style="min-width:78px;justify-content:center">${b}</span>
+          <span class="xs">${esc(BADGE_DETAIL[b].blurb.split('.')[0])}.</span>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  const sheetTabs = `<div class="tabs" style="margin:14px 0">
+    <button class="tab ${sheet==='overview'?'active':''}" data-act="go" data-v="recognition" data-sheet="overview">${ic('sparkles',14)} Recognition Overview</button>
+    <button class="tab ${sheet==='standings'?'active':''}" data-act="go" data-v="recognition" data-sheet="standings">${ic('chart',14)} Laureate Podium &amp; Standings (${board.length})</button>
+    <button class="tab ${sheet==='perks'?'active':''}" data-act="go" data-v="recognition" data-sheet="perks">${ic('package',14)} Rewards Catalogue (${PERKS.length})</button>
+    <button class="tab ${sheet==='formula'?'active':''}" data-act="go" data-v="recognition" data-sheet="formula">${ic('target',14)} Score Formula &amp; Coin Ledger</button>
+  </div>`;
+
+  const formulaCard = card('Transparent 5-Pillar Score Evidence & Monthly Coin Rate', `<div class="grid g2" style="gap:16px;align-items:center">
+      <div class="sc-parts">${breakdown}</div>
+      <div class="col" style="gap:10px">
+        <div class="note">${ic('shieldcheck',16)}<span><b>100% Evidence-Driven Formula:</b> Every point is computed directly from verified work in CareLink — patient registrations, hard-copy verification, longitudinal visits, national IDs, and 30-day PDCA timeliness.</span></div>
+        ${bal.events.length ? table([
+          {label:'Date', render:e=>`<span class="xs mono">${esc((e.at||'').replace('T',' ').slice(0,16))}</span>`},
+          {label:'Recognition Event', render:e=>esc(e.reason)},
+          {label:'Coins', cls:'num mono', render:e=>`<b style="color:${e.delta>0?'var(--ok)':'var(--crit)'}">${e.delta>0?'+':''}${e.delta}</b>`}
+        ], bal.events.slice(0,6)) : `<div class="xs muted">Monthly coin closures &amp; reward redemptions appear here automatically.</div>`}
+      </div>
+    </div>`, {sub:'Identical objective formula across every county office and role.'});
+
+  const leaderboardCard = card('Laureate Podium & Verified Staff Standings', (()=>{
       const top3 = board.slice(0,3);
       const podiumOrder = top3.length>=3 ? [top3[1], top3[0], top3[2]] : top3;
       const medalMeta = rank => rank===1
@@ -158,13 +188,13 @@ function renderRecognition(user){
             <b class="podium-name">${esc(item.u.name.replace(/^Demo - /,''))}</b>
             <span class="podium-role">${esc((roleObj(item.u.roleId)||{}).name||'')} · ${esc(countyName(item.u.countyId))}</span>
             <div class="podium-foot">
-              <span class="badge ${uBand.tone}">${uBand.name}</span>
+              <span class="badge b-${uBand.tone}">${uBand.name}</span>
               <span class="podium-coins">${ic('sparkles',13)} ${num(uCoins)} coins</span>
             </div>
           </div>`;
         }).join('')}
       </div>` : '';
-      return podiumHtml + `<div class="lb">
+      return podiumHtml + `<div class="lb" style="margin-top:14px">
         ${board.slice(0,12).map((b,i)=>{
           const uCoins = CREDITS.earned(b.u).balance;
           const uBand = scoreBand(b.s.score);
@@ -174,29 +204,30 @@ function renderRecognition(user){
             <div class="lb-id"><b>${esc(b.u.name.replace(/^Demo - /,''))}${b.u.id===user.id?' <span class="badge b-info nodot">You</span>':''}</b><span>${esc((roleObj(b.u.roleId)||{}).name||'')} · ${esc(countyName(b.u.countyId))}</span></div>
             <div class="lb-bar"><span style="width:${b.s.score}%"></span></div>
             <b class="mono lb-pct">${b.s.score}%</b>
-            <span class="badge ${uBand.tone} nodot">${uBand.name}</span>
+            <span class="badge b-${uBand.tone} nodot">${uBand.name}</span>
             <span class="lb-coin-pill">${ic('sparkles',12)} ${num(uCoins)}</span>
           </div>`;
         }).join('')}
       </div>`;
-    })(), {sub:'Scored objectively from verified system records in the register — refreshed on every monthly close.'})}
-  ${card('Rewards you can spend coins on', `<div class="perks perks-grid">
+    })(), {sub:'Scored objectively from verified system records — refreshed automatically & sealed at monthly close.'});
+
+  const perksCard = card('Foundation Rewards & Equipment Perks Catalogue', `<div class="perks perks-grid">
       ${PERKS.map((p,idx)=>{
         const canAfford = bal.balance >= p.cost;
         const pct = Math.min(100, Math.round((bal.balance / Math.max(1, p.cost)) * 100));
         const artThemes = [
           { bg:'linear-gradient(135deg,#1E3A8A,#0EA5E9)', ic:'image', tag:'Media & Creative Gear' },
-          { bg:'linear-gradient(135deg,#065F46,#10B981)', ic:'book', tag:'Study & Reference' },
-          { bg:'linear-gradient(135deg,#7C2D12,#F59E0B)', ic:'sparkles', tag:'Field Comfort & Kit' },
-          { bg:'linear-gradient(135deg,#581C87,#A855F7)', ic:'layers', tag:'Workspace Priority' },
-          { bg:'linear-gradient(135deg,#0F766E,#14B8A6)', ic:'award', tag:'Staff Recognition' },
-          { bg:'linear-gradient(135deg,#1E293B,#475569)', ic:'package', tag:'Department Loan' }
+          { bg:'linear-gradient(135deg,#065F46,#10B981)', ic:'book', tag:'Studio & Production' },
+          { bg:'linear-gradient(135deg,#7C2D12,#F59E0B)', ic:'layers', tag:'ICT Field Kit' },
+          { bg:'linear-gradient(135deg,#581C87,#A855F7)', ic:'sparkles', tag:'Commemorative Print' },
+          { bg:'linear-gradient(135deg,#0F766E,#14B8A6)', ic:'shield', tag:'Professional Growth' },
+          { bg:'linear-gradient(135deg,#1E293B,#475569)', ic:'package', tag:'Office Convenience' }
         ];
         const art = artThemes[idx % artThemes.length];
         return `<article class="perk-card ${canAfford?'perk-ready':''}">
           <div class="perk-art" style="background:${art.bg}">
-            <div class="perk-art-badge">${esc(titleCase(p.owner))} Dept</div>
-            <div class="perk-art-icon">${ic(art.ic==='award'?'sparkles':art.ic,26)}</div>
+            <div class="perk-art-badge">${esc(art.tag)} · ${esc(titleCase(p.owner))}</div>
+            <div class="perk-art-icon">${ic(art.ic,26)}</div>
             <div class="perk-cost-chip"><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="#FBBF24" stroke="#B45309" stroke-width="1.6"/><text x="10" y="13.5" text-anchor="middle" font-size="9" font-weight="800" fill="#78350F">C</text></svg> <b>${p.cost}</b> coins</div>
           </div>
           <div class="perk-body">
@@ -204,25 +235,39 @@ function renderRecognition(user){
             <p class="xs muted">${esc(p.note)}</p>
             <div class="perk-prog-wrap">
               <div class="spread xs" style="margin-bottom:4px">
-                <span class="muted">${canAfford?'Ready to redeem':`${bal.balance} / ${p.cost} coins saved`}</span>
+                <span class="muted">${canAfford?'Unlocked — ready to redeem':`${bal.balance} / ${p.cost} coins saved`}</span>
                 <b class="mono">${pct}%</b>
               </div>
               <div class="perk-prog"><span style="width:${pct}%"></span></div>
             </div>
             <div class="perk-foot">
-              <span class="xs muted">Custodian: <b>${esc(titleCase(p.owner))}</b></span>
+              <span class="xs muted">Custodian: <b>${esc(titleCase(p.owner))} Dept</b></span>
               <button class="btn btn-xs ${canAfford?'btn-primary':'btn-ghost'}" data-act="coins-redeem" data-id="${p.id}"
                 ${canAfford?'':'disabled'}>${canAfford?`${ic('check',12)} Redeem reward`:`Need ${p.cost-bal.balance} more`}</button>
             </div>
           </div>
         </article>`;
       }).join('')}
-    </div>`, {sub:'A CareLink coin unlocks supervised time with Foundation equipment & recognition perks — never access to patient records.'})}
-  ${bal.events.length? card('Your coin history', table([
-      {label:'When', render:e=>esc((e.at||'').replace('T',' ').slice(0,16))},
-      {label:'Reason', render:e=>esc(e.reason)},
-      {label:'Change', render:e=>`<b style="color:${e.delta>0?'var(--ok)':'var(--crit)'}">${e.delta>0?'+':''}${e.delta}</b>`}
-    ], bal.events.slice(0,15))) : ''}`;
+    </div>`, {sub:'C-DIMS Coins unlock supervised Foundation equipment loans & staff recognition perks — never access to patient records.'});
+
+  return pageHead('C-DIMS coins & staff recognition',
+    'Transparent data-completeness recognition, objective 5-pillar scoring, symmetrical standings, and Foundation equipment rewards.',
+    `<div class="row" style="gap:8px;flex-wrap:wrap">
+      ${RBAC.has(user,'hr.view')||RBAC.has(user,'credit.manage')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="evaluation">${ic('users',14)} Staff Evaluation Matrix</button>`:''}
+      ${RBAC.has(user,'credit.manage')?`<button class="btn btn-sm btn-primary" data-act="coins-run">${ic('sparkles',15)} Close Monthly Cycle</button>`:''}
+    </div>`)
+  + `<div class="grid g4" style="margin-bottom:14px">
+      ${kpi('Your usage & quality score', mine.score+'%', band.name+' standing', band.tone==='ok'?'ok':band.tone==='crit'?'crit':'info','target')}
+      ${kpi('Available C-DIMS coins', num(bal.balance), `Earned ${num(bal.awarded)} · Spent ${num(bal.spent)}`, 'ok', 'sparkles')}
+      ${kpi('Standing rank', maySeeAll || myRank ? '#'+(myRank||1) : '—', `Of ${num(board.length)} staff in scope`, 'info', 'chart')}
+      ${kpi('Rewards unlocked', `${affordableCount} / ${PERKS.length}`, affordableCount ? 'Ready for 1-click redemption' : 'Keep recording timely visits', affordableCount?'ok':'warn', 'package')}
+    </div>`
+  + spotlightBanner
+  + sheetTabs
+  + (sheet==='standings' ? leaderboardCard
+    : sheet==='perks' ? perksCard
+    : sheet==='formula' ? formulaCard
+    : `<div style="margin-bottom:16px">${formulaCard}</div><div style="margin-bottom:16px">${leaderboardCard}</div>${perksCard}`);
 }
 
 /* A supervisor's view: every account, its use of the console, and the

@@ -508,3 +508,100 @@ function chartWaterfall(steps, opts={}){
     ${tbl}
   </figure>`;
 }
+
+/* --- Crystal-Clear Expenditure Against Budget Board (Global & Costing) --- */
+function budgetVsActualBoard(lines, opts={}){
+  const fmt = opts.fmt || (v => (typeof money==='function' ? money(Math.round(v)) : fmtNum(Math.round(v))));
+  const clean = (lines||[]).map(r=>{
+    const budget = Math.max(0, Number(r.budget)||0);
+    const spent = Math.max(0, Number(r.spent ?? r.actual ?? r.paid)||0);
+    const committed = Math.max(0, Number(r.committed)||0);
+    const totalUsed = spent + committed;
+    const remaining = budget - totalUsed;
+    const pctUsed = budget > 0 ? +(100 * totalUsed / budget).toFixed(1) : (totalUsed > 0 ? 100 : 0);
+    const status = budget <= 0 ? { label:'Unbudgeted', tone:'b-neutral', bar:'#64748B' }
+      : pctUsed > 100 ? { label:'Over Budget', tone:'b-crit', bar:'#DC2626' }
+      : pctUsed >= 85 ? { label:'Near Ceiling', tone:'b-warn', bar:'#D97706' }
+      : { label:'Within Budget', tone:'b-ok', bar:'#059669' };
+    return { ...r, budget, spent, committed, totalUsed, remaining, pctUsed, status };
+  });
+
+  const totBudget = opts.totalBudget != null ? Number(opts.totalBudget) : clean.reduce((n,r)=>n+r.budget, 0);
+  const totSpent = opts.totalSpent != null ? Number(opts.totalSpent) : clean.reduce((n,r)=>n+r.spent, 0);
+  const totCommitted = clean.reduce((n,r)=>n+r.committed, 0);
+  const totUsed = totSpent + totCommitted;
+  const totRem = totBudget - totUsed;
+  const totPct = totBudget > 0 ? +(100 * totUsed / totBudget).toFixed(1) : 0;
+  const hasCommitted = totCommitted > 0 || opts.showCommitted;
+  const headColor = totPct > 100 ? '#DC2626' : (totPct >= 85 ? '#D97706' : '#059669');
+
+  return `<div class="bva-board">
+    <div class="bva-summary-grid">
+      <div class="bva-stat">
+        <span class="xs muted bold">APPROVED BUDGET</span>
+        <b class="mono">${esc(fmt(totBudget))}</b>
+        <span class="xs muted">${esc(opts.periodLabel || 'Authorised allocation')}</span>
+      </div>
+      <div class="bva-stat">
+        <span class="xs muted bold">ACTUAL EXPENDITURE${hasCommitted?' (+ COMMITTED)':''}</span>
+        <b class="mono" style="color:var(--ink)">${esc(fmt(totUsed))}</b>
+        <span class="xs muted">${hasCommitted ? `${esc(fmt(totSpent))} paid · ${esc(fmt(totCommitted))} committed` : `${totPct}% of approved ceiling`}</span>
+      </div>
+      <div class="bva-stat">
+        <span class="xs muted bold">${totRem >= 0 ? 'REMAINING BALANCE' : 'BUDGET OVERRUN'}</span>
+        <b class="mono" style="color:${headColor}">${totRem < 0 ? '-' : ''}${esc(fmt(Math.abs(totRem)))}</b>
+        <span class="xs" style="color:${headColor};font-weight:700">${totRem >= 0 ? `${(100 - Math.min(100, totPct)).toFixed(1)}% headroom available` : `${(totPct - 100).toFixed(1)}% above ceiling`}</span>
+      </div>
+    </div>
+    <div class="bva-overall-bar">
+      <div class="spread xs" style="margin-bottom:5px">
+        <span class="bold">Overall Expenditure Against Approved Budget</span>
+        <span class="mono bold" style="color:${headColor}">${totPct}% utilised</span>
+      </div>
+      <div class="progress ${totPct>100?'crit':totPct>=85?'warn':'ok'}" style="height:9px"><i style="width:${Math.min(100, Math.max(0, totPct))}%"></i></div>
+    </div>
+    <div class="tbl-wrap" style="margin-top:12px">
+      <table class="tbl align-sym bva-table">
+        <thead>
+          <tr>
+            <th>Budget Line / Expenditure Group</th>
+            <th class="num">Approved Budget</th>
+            <th class="num">Actual Spent</th>
+            ${hasCommitted ? '<th class="num">Committed</th>' : ''}
+            <th class="num">Remaining / Variance</th>
+            <th style="min-width:140px">Utilisation</th>
+            <th class="right">Standing</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${clean.map(r=>`<tr>
+            <td><div class="cellname">${r.color?`<span class="sw-dot" style="background:${esc(r.color)}"></span>`:''}${esc(r.label)}${r.sub?`<span class="sm">${esc(r.sub)}</span>`:''}</div></td>
+            <td class="num mono">${esc(fmt(r.budget))}</td>
+            <td class="num mono"><b>${esc(fmt(r.spent))}</b></td>
+            ${hasCommitted ? `<td class="num mono">${esc(fmt(r.committed))}</td>` : ''}
+            <td class="num mono" style="color:${r.remaining<0?'var(--crit)':'var(--ok)'};font-weight:700">${r.remaining<0?'-':''}${esc(fmt(Math.abs(r.remaining)))}</td>
+            <td>
+              <div class="row" style="gap:7px;align-items:center">
+                <div class="progress ${r.pctUsed>100?'crit':r.pctUsed>=85?'warn':'ok'}" style="flex:1;height:7px"><i style="width:${Math.min(100, Math.max(0, r.pctUsed))}%"></i></div>
+                <span class="xs mono bold" style="min-width:42px;text-align:right">${r.pctUsed}%</span>
+              </div>
+            </td>
+            <td class="right">${badge(r.status.label, r.status.tone, 'nodot')}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr class="ct-total-row">
+            <td><b>Total Expenditure Against Budget</b></td>
+            <td class="num mono"><b>${esc(fmt(totBudget))}</b></td>
+            <td class="num mono"><b>${esc(fmt(totSpent))}</b></td>
+            ${hasCommitted ? `<td class="num mono"><b>${esc(fmt(totCommitted))}</b></td>` : ''}
+            <td class="num mono" style="color:${headColor}"><b>${totRem<0?'-':''}${esc(fmt(Math.abs(totRem)))}</b></td>
+            <td class="mono bold">${totPct}% used</td>
+            <td class="right">${badge(totPct>100?'Over Budget':totPct>=85?'Near Ceiling':'Within Budget', totPct>100?'b-crit':totPct>=85?'b-warn':'b-ok', 'nodot')}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>`;
+}
+

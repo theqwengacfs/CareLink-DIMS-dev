@@ -978,6 +978,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_issue_emergency(body)
             if path == "/api/credentials/provision":
                 return self.api_provision(body)
+            if path == "/api/setup/activate-global":
+                return self.api_activate_global(body)
             if path == "/api/credentials/temp":
                 return self.api_temp_password(body)
             if path == "/api/reveal/request":
@@ -1180,7 +1182,8 @@ class Handler(BaseHTTPRequestHandler):
             server_audit(con, username or "-", "auth.recovery_requested",
                          "recovery requested" if exists else "recovery requested for unknown account")
         # The same answer either way: this endpoint must not reveal which accounts exist.
-        return self._json(200, {"ok": True, "reference": rid,
+        routed_county = str(body.get("countyId") or body.get("county") or "kisumu").strip().lower() or "kisumu"
+        return self._json(200, {"ok": True, "reference": rid, "routedCounty": routed_county,
                                 "message": "If that account exists, an administrator will see the request and issue an emergency code."})
 
     def api_emergency_login(self, body):
@@ -1265,6 +1268,43 @@ class Handler(BaseHTTPRequestHandler):
             server_audit(con, s["user"], "credentials.provisioned",
                          f"{len(issued)} account(s) issued", meta={"count": len(issued)})
         return self._json(200, {"ok": True, "issued": issued, "generated": now_iso()})
+
+    def api_activate_global(self, body):
+        s = self._session_or_401()
+        if not s:
+            return
+        with LOCK, connect() as con:
+            cur = load_current(con, force=True)
+            payload = json.loads(json.dumps(cur["payload"] or {}))
+            caps = user_caps(payload, s["user"])
+            if not (has_cap(caps, "system.config") or s["user"] == "chief.admin"):
+                return self._json(403, {"error": "Only the Chief System Administrator may activate CareLink globally."})
+            domain = str(body.get("emailDomain") or "lomamo.org").lstrip("@").strip().lower() or "lomamo.org"
+            portal_url = str(body.get("loginUrl") or body.get("portalUrl") or "").strip()
+            users = body.get("users")
+            if isinstance(users, list) and users:
+                for u in users:
+                    uname = str(u.get("username") or "").strip().lower()
+                    tpw = str(u.get("tempPassword") or "")
+                    if uname and len(tpw) >= 8:
+                        cred_set(con, uname, tpw, user_id=str(u.get("id") or f"u-{uname}"),
+                                 must_change=True, temp=True, by=s["user"], status="active")
+            settings = payload.setdefault("settings", {})
+            settings["globallyActivated"] = True
+            settings["globallyActivatedAt"] = now_iso()
+            settings["globallyActivatedBy"] = s["user"]
+            settings["awaitingGlobalActivation"] = False
+            org = settings.setdefault("org", {})
+            org["emailDomain"] = domain
+            if portal_url:
+                org["loginUrl"] = portal_url
+            meta = payload.setdefault("meta", {})
+            meta["globallyActivated"] = True
+            meta["demoDisabled"] = True
+            meta["productionMode"] = True
+            rev = write_revision(con, payload, s["user"], "global_activation")
+            server_audit(con, s["user"], "system.activated_globally", f"CareLink globally activated (@{domain})")
+        return self._json(200, {"ok": True, "globallyActivated": True, "rev": rev})
 
     def api_temp_password(self, body):
         s = self._session_or_401()
@@ -1388,7 +1428,8 @@ class Handler(BaseHTTPRequestHandler):
             con.execute("INSERT INTO account_requests (id,ref,name,payload,status,created) VALUES (?,?,?,?,?,?)",
                         (rid, ref, name, json.dumps(payload), "submitted", now_iso()))
             server_audit(con, "public", "account.requested", f"{ref} · {name}")
-        return self._json(200, {"ok": True, "ref": ref, "id": rid})
+        routed_county = (payload.get("countyId") or "kisumu").strip().lower() or "kisumu"
+        return self._json(200, {"ok": True, "ref": ref, "id": rid, "routedCounty": routed_county})
 
     def api_handle_account_request(self, body):
         s = self._session_or_401()

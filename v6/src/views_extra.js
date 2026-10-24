@@ -10,7 +10,7 @@ function calendarEvents(user){
   const mine = p => repo.patient(user, p.id);
   if(RBAC.has(user,'patient.list')){
     repo.patientList(user).forEach(p=>{
-      const v = DB.db.visits.filter(x=>x.patientId===p.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+      const v = DB.visitsFor(p.id)[0];
       if(v && v.nextDue) ev.push({ at:v.nextDue, kind:'visit', title:'Home visit due - '+p.code, detail:areaName(p.areaId), tone:'ok', ref:p.id, sensitive:true });
     });
     repo.requests(user).filter(r=>['approved','assigned'].includes(r.status)).forEach(r=>{

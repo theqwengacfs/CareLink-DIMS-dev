@@ -155,6 +155,11 @@ function renderFinance(user, params){
       ${kpi('Reconciled', money(e.tot.reconciled),'Evidence verified','ok','check')}
       ${kpi('Remaining available', money(e.tot.remaining), e.tot.remaining<0?'Overspent':'Available to commit',e.tot.remaining<0?'crit':'ok','layers')}
     </div>`
+  + (typeof budgetVsActualBoard==='function' ? `<div style="margin-bottom:16px">${card('Expenditure Against Approved Budget — Executive Clarity Board',
+      budgetVsActualBoard(activeRows.map((r,i)=>({
+        label:r.cat.name, sub:r.cat.group, budget:r.budget, spent:r.paid, committed:r.committed, color:colours[i%colours.length]
+      })), { totalBudget:e.tot.budget, totalSpent:e.tot.paid, showCommitted:true, periodLabel:e.period.label }),
+      {sub:'Crystal-clear comparison of Approved Budget, Paid, Committed, Remaining Headroom & % Utilisation across every line.'})}</div>` : '')
   + `<div class="grid g2" style="margin-bottom:16px">
       ${card('Paid expenditure mix by category', chartDonut(
         activeRows.filter(r=>r.paid>0).map((r,i)=>({ label:r.cat.name.split(' (')[0], value:Math.round(r.paid), color:colours[i%colours.length] })),
@@ -215,10 +220,15 @@ function renderFinance(user, params){
 }
 function renderBudget(user){
   const rows = repo.budget(user);   /* scoped: a county administrator sees only their own county */
-  return pageHead('Budget lines','Versioned monthly & annual budget lines. Changing a budget never rewrites the basis of a previously issued report.',
+  const e = REPORTS.expenditure(user, {});
+  return pageHead('Budget lines & expenditure against budget','Versioned monthly & annual budget ceilings paired with live actual expenditure and remaining headroom.',
     `<div class="row" style="gap:8px">${RBAC.has(user,'admin.ops')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="adminops" data-tab="annual">${ic('calendar',14)} Annual Budgeting & Societies</button>`:''}
     ${RBAC.has(user,'finance.budget.manage')?`<button class="btn btn-sm btn-primary" data-act="edit-budget">${ic('plus',15)} New budget version</button>`:''}</div>`)
-  + card('Budget versions', table([
+  + (typeof budgetVsActualBoard==='function' ? `<div style="margin-bottom:16px">${card('Live Expenditure Against Approved Budget Lines',
+      budgetVsActualBoard(e.rows.filter(r=>r.budget>0||r.paid>0||r.committed>0).map(r=>({
+        label:r.cat.name, sub:r.cat.group, budget:r.budget, spent:r.paid, committed:r.committed
+      })), { totalBudget:e.tot.budget, totalSpent:e.tot.paid, showCommitted:true, periodLabel:e.period.label }))}</div>` : '')
+  + card('Versioned budget register', table([
       {label:'County',render:b=>esc(countyName(b.countyId))},
       {label:'Category',render:b=>esc(BUDGET_CATEGORIES.find(c=>c.id===b.line)?.name||b.line)},
       {label:'Period',render:b=>esc(b.period)},
