@@ -1009,7 +1009,7 @@ function seedOfficial(db, now, opts={}){
         schedule: 'Bi-weekly Home Visit & 30-Day PDCA',
         bags: { BG1: nutProfile > 2 && kids < 4 ? 6 : 2, BG2: kids >= 4 ? 6 : 0, SPB: nutProfile <= 2 ? 5 : 0 },
         costs: { other: 14500 + (i % 9) * 1850, inpatient: hasHospitalVisits ? (12000 + (i % 5) * 4200) : 0, total: (14500 + (i % 9) * 1850) + (hasHospitalVisits ? (12000 + (i % 5) * 4200) : 0) },
-        sourceWorkbook: 'CareLink Unified Longitudinal Registry v6.5',
+        sourceWorkbook: 'CareLink Unified Longitudinal Registry v6.6',
         sourceSheet: area.name
       },
       consent:(()=>{
@@ -1352,7 +1352,7 @@ function execSeed(T, users){
         { time:'09:00', duration:'25 min', category:'Programme Caseload', text:'Q3 Orphan Prevention caseload review across all 10 ministry areas (3,333 households)', owner:idOf('program.admin') },
         { time:'09:25', duration:'25 min', category:'Clinical & Child Growth', text:'Programme stay profile (45-240d core, 241-330d extended) & paediatric Weight/BMI/MUAC surveillance', owner:idOf('mcm.kisumu') },
         { time:'09:50', duration:'20 min', category:'Hospital Linkage', text:'JOOTRH & Homa Bay Hospital Focal Desk turnaround & SHA enrolment drive', owner:idOf('focal.kisumu') },
-        { time:'10:10', duration:'20 min', category:'Digital Infrastructure', text:'CareLink C-DIMS v6.5 global activation & county office tablet sync audit', owner:idOf('chief.admin') }
+        { time:'10:10', duration:'20 min', category:'Digital Infrastructure', text:'CareLink C-DIMS v6.6 global activation & county office tablet sync audit', owner:idOf('chief.admin') }
       ],
       minutes:[
         { n:1, decision:'verified', text:'Active household caseload verified across Kisumu (7 areas) and Homa Bay (3 areas) with ≥12 longitudinal visits per enrolled beneficiary.' },

@@ -136,3 +136,36 @@ Modules added: `forms.js`, `pharmacy.js`, `leave.js`, `omaha.js`, `schedule.js`,
   field days, proposals carry reasons, adding twice is refused, future days cannot be marked missed.
 - Measured: 16 suites green, 1,541 view renders, 115 emitted controls all handled, 0 dead links.
 - Not measured: two physical devices on a real network, any external integration, real printing.
+
+---
+
+## v6.1.0 & v6.2.0 · 23 October 2026 · workbook mapping, households, TB dispensing, costing & public portal
+
+- Added `org_teams.js`, `household.js`, `costing.js`, `tb_dispensing.js`, `master_registry.js`, `master_analysis.js`, `waiting_urgent.js`, `portal_content.js`, `portal6.css`, `audit6.css`, `visual_audit.js`, `test/v61.js`, `test/v62.js`, `test/v63.js`.
+- Verified: 635/635 (`v61.js`), 180/180 (`v62.js`), 108/108 (`v63.js`), zero PII/workbook leakage (`verify_no_patient_data.py`).
+
+## v6.3.0 · 23 October 2026 · CareLink OS rebrand, clinical/partner consoles & hard-copy governance (PR #1)
+
+- Rebranded unified Operating System to **CareLink** with browser tab title **`CareLink C-DIMS`** (`formerName: 'LOMAMO C-DIMS'`).
+- Added `bmi_clinical6.js`, `discharge_hardcopy6.js`, `monday_procurement6.js`, `handover_partners6.js`, `carelink63.css`, `test/v64.js` (`82/82` assertions).
+
+## v6.4.0 · 24 October 2026 · Unified Online Site Database, Dev Console & County Admin Workflows (PR #2)
+
+- Added Vercel/cloud serverless backend `api/index.js` + `vercel.json`, `admin_workflows6.js` (`Operational Expenses`, Kisumu HQ preparation of Homa Bay Kenya reports, daily PAYG/transport, 9th statutory SHIF/PAYE/KRA/NSSF, annual budgeting & Filing of Societies), `dev_console6.js` (Development Console, SMS credential packs, DPA 12+ char private password enforcement, audited Chief Admin Silent Override), symmetrical zero-slice-text donut charts + View-as-Table, and `test/v65.js` (`68/68` assertions).
+
+## v6.5.0 · 24 October 2026 · Zero-Scroll Entry, Global Activation, Dual Messaging, 3,333 Longitudinal Records & AI Workflow Engine (PR #3)
+
+- Locked Landing & Sign-In strictly to `100dvh` zero-scroll viewports and moved Platform Architecture & Departments Working Together to `renderArchitecture6`.
+- Added 14 organogram-faithful Deputy, Secretary & Clerk seats only in applicable departments/levels.
+- Upgraded all **3,333 patients** with 100% complete anthropometry, `07001xxxxx` demo phones, mock household GPS, `44,995` longitudinal Home/Hospital/Homestay visits (`>=12` per patient), and paediatric Weight-for-Age, BMI-for-Age & MUAC growth curves.
+- Implemented 4-step Live Host Setup -> Official Login -> Password Change -> **`Activate System Globally`** -> WhatsApp credential sheet -> permanent removal of Demo / Live Host Setup UI from Landing & Sign-In + urgent County Admin routing of Sign-In Account & Password Recovery requests.
+- Added Dual-Mode Messaging (`1. Global` + `2. Ministry Area / Department`) + 1-click "Who Is Online" instant `#msgForm` composer, 5-lens Presidential/Governor/CHMT/MoH Presentation Hub (`govdashboard`), Harbour Dark default on Samsung Tab A11+ 5G / Wi-Fi Tablet, Universal Workspace Drafts Hub (`drafts`), symmetrical Executive Console & C-DIMS Coins workspaces, Global Expenditure-Against-Budget boards, and `workflow_engine6.js` (`WORKFLOW_ENGINE` driving 100% Data Quality).
+
+## v6.6.0 · 24 October 2026 · Anthropometric & MCM Caseload Registers Overhaul, Live Scroll Auto-Folding Rail & Single-Script Bundle Guard (PR #3 + v6.6 Release)
+
+- Synchronized `APP.version` and all release manifests/cache-busting entry loaders to **`6.6.0`**.
+- Implemented capture-phase `#content` scroll and feature-interaction auto-folding (`NAVP.installAutoFoldListeners`, `NAVP.foldForWorkspace`, `NAVP.syncDomRail`) smoothly collapsing the left navigation pane into the `100%` widescreen icon rail without losing focus.
+- Overhauled the **Patient Anthropometric & Nutritional Register (`bmiboard`)** and **Master Patient Register (`patients`)** with theme-safe `color-mix()` `.bmi-pill[data-tone]` badges, symmetrical 6-band WHO stratification matrix, `.reg-toolbar`, foodbag ration tags, 3-visit weigh-in dots, and 25-row pagination.
+- Overhauled and remade the **Medical Case Manager Caseload Register (`clinicalmcm`)** with a 4-tier Clinical Acuity Stratification Ribbon (`.mcm-acuity-ribbon`), 7-column paginated caseload register, and 8 multi-county 4-quadrant S-O-A-P clinical encounter cards (`.soap-encounter-card` / `.soap-quad-grid`).
+- Resolved single-`<script>` TDZ initialization order for `registerCountyUrgentActions` and added compiled browser bundle boot verification (`test/v66.js`: `68/68` assertions, `4,485` view renders, `90/90` kit/firewall, `50/50` server API, `CLEAN` zero-PII guard).
+

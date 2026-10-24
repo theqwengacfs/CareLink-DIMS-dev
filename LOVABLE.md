@@ -1,14 +1,14 @@
-# LOMAMO LOMAMO C-DIMS v6.1 — Dual Arena & Lovable.ai Development Guide
+# CareLink C-DIMS v6.6.0 — Dual Arena, Lovable.ai & Vercel Development Guide
 
 This repository is engineered for seamless **two-way GitHub co-development** across
-**Arena.ai**, **Lovable.ai**, and **local VS Code / Office Wi-Fi hosting**.
+**Arena.ai**, **Lovable.ai**, **Vercel**, and **local VS Code / Office Wi-Fi hosting**.
 
-## How the codebase works in both environments
+## How the codebase works in every environment
 
-1. **Modular source of truth (`v6/src/`)** — 50 modules, concatenated in a fixed
+1. **Modular source of truth (`v6/src/`)** — 61 JS modules + 6 CSS stylesheets, concatenated in a fixed
    order by the build. Nothing is bundled by a package manager: the modules are
    plain scripts that share one global scope, which is what lets the whole system
-   ship as one offline HTML file.
+   ship as one offline HTML file (`4.2 MB`).
 
    | Area | Files |
    |---|---|
@@ -16,21 +16,21 @@ This repository is engineered for seamless **two-way GitHub co-development** acr
    | Security, storage, workflow, audit | `core.js` |
    | Authority (levels, domains, departments) | `access_rules.js` |
    | Ministry teams, visit days, Monday rule | `org_teams.js` |
-   | Cost per patient engine | `costing.js` |
+   | Cost per patient & budget-vs-expenditure | `costing.js`, `charts.js` |
    | TB dispensing control | `tb_dispensing.js` |
-   | Master workbook mapping | `master_registry.js` |
-   | Master workbook analysis | `master_analysis.js` |
-   | Households & care chains | `household.js` |
-   | Waiting list & urgent cases | `waiting_urgent.js` |
+   | Anthropometry, Child Growth & MCM Clinical | `bmi_clinical6.js`, `discharge_hardcopy6.js` |
+   | Monday workflows, Handover & Gov/MoH Hub | `monday_procurement6.js`, `handover_partners6.js` |
+   | County Admin Ops, Dev Console & Global Activation | `admin_workflows6.js`, `dev_console6.js` |
+   | AI Smart Workflow Engine & Universal Drafts | `workflow_engine6.js`, `ai.js` |
+   | Master workbook mapping & analysis | `master_registry.js`, `master_analysis.js` |
+   | Households, Waiting list & Urgent cases | `household.js`, `waiting_urgent.js` |
    | Public portal content | `portal_content.js` |
-   | Device targeting & visual audit | `visual_audit.js` |
-   | Charts | `charts.js` |
-   | Themes | `themes.js` |
+   | Device targeting & visual audit | `visual_audit.js`, `themes.js` |
    | Reporting | `reports.js`, `indicators6.js`, `insight6.js`, `exportdocs.js` |
-   | Consoles | `views_*.js`, `hub6.js`, `workplace.js`, `care6_flows.js`, `pharmacy.js`, `leave.js`, `schedule.js`, `omaha.js`, `forms.js`, `import.js` |
+   | Consoles | `views_*.js`, `hub6.js`, `workplace.js`, `recognition.js`, `care6_flows.js`, `pharmacy.js`, `leave.js`, `schedule.js`, `omaha.js`, `forms.js`, `import.js` |
    | Shell & actions | `app.js`, `ui.js`, `navpane.js`, `pager.js`, `entry6.js`, `office_actions.js`, `care_actions.js` |
    | Embedded photography | `media6.js` (teamwork), `media_portal.js` (public portal) |
-   | Styles | `styles.css`, `console51.css`, `console6.css`, `portal6.css`, `audit6.css` |
+   | Styles | `styles.css`, `console51.css`, `console6.css`, `portal6.css`, `audit6.css`, `carelink63.css` |
 
 2. **Automatic zero-Python Vite sync (`tools/sync-lovable.mjs` + `vite.config.ts`)**:
    every `npm run dev` and `npm run build` compiles `v6/src/*` into both

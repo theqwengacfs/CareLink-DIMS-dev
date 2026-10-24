@@ -1,8 +1,8 @@
 {
   "name": "lomamo-carelink-dims-v6",
   "private": true,
-  "version": "6.4.0",
-  "description": "CareLink C-DIMS v6.4.0 · LOMAMO Foundation Unified Operating System",
+  "version": "6.6.0",
+  "description": "CareLink C-DIMS v6.6.0 · LOMAMO Foundation Unified Operating System",
   "type": "module",
   "scripts": {
     "predev": "node tools/sync-lovable.mjs",

@@ -119,16 +119,27 @@ async function tryResumeSession(){
   return true;
 }
 
+let _booted = false;
 async function boot(){
+  if(_booted) return;
+  _booted = true;
   DB.load();
   applyTheme();
-  /* The front door needs to know whether a host is answering before it draws. */
+  /* Draw immediately from local state so the Landing / Sign-In page is visible at 0ms
+     even while hostProbe() checks /api/health in the background. */
+  if(location.hash) parseHash();
+  render();
+  /* The front door probes whether a live host is answering and refreshes if needed. */
   try{ APPX.host = await hostProbe(); }catch(e){ APPX.host = null; }
   await tryResumeSession();
-  /* On a freshly deployed online site before commissioning, launch First-Run Setup automatically */
-  if(!AUTH.user && APPX.host && APPX.host.onlineDatabase && APPX.host.setup===false && !location.hash){
+  /* Respect explicit #/setup or #/onboard deep links while keeping Landing as default front door */
+  if(!AUTH.user && /^#\/?(setup|onboard)\b/i.test(location.hash||'')){
     APPX.screen = 'onboard';
     ONB.step = 1;
+  } else if(!AUTH.user && /^#\/?login\b/i.test(location.hash||'')){
+    APPX.screen = 'login';
+  } else if(!AUTH.user && /^#\/?architecture\b/i.test(location.hash||'')){
+    APPX.screen = 'architecture';
   }
   AUTH.listeners.push(()=>render());
   window.addEventListener('hashchange', ()=>{ parseHash(); render(); });
@@ -2772,7 +2783,12 @@ document.addEventListener('click',(e)=>{ const p=$('#searchPanel'); if(p && !e.t
    they had been typed above. */
 Object.assign(ACTIONS, FORMS_ACTIONS);
 Object.assign(FORMS, FORMS_FORMS);
+if(typeof registerCountyUrgentActions === 'function') registerCountyUrgentActions();
 
 /* ---------------- Start ---------------- */
 PAGER.install();
-window.addEventListener('DOMContentLoaded', boot);
+if(typeof document !== 'undefined' && (document.readyState === 'complete' || document.readyState === 'interactive')){
+  setTimeout(boot, 0);
+} else {
+  window.addEventListener('DOMContentLoaded', boot);
+}
