@@ -138,6 +138,7 @@ async function boot(){
   ['pointerdown','keydown','touchstart','wheel'].forEach(ev=>
     document.addEventListener(ev, ()=>{ if(AUTH.user) SESSION.touch(); }, {passive:true}));
   window.addEventListener('hashchange', ()=>{ if(AUTH.user) SESSION.touch(); });
+  if(typeof NAVP!=='undefined' && NAVP.installAutoFoldListeners) NAVP.installAutoFoldListeners();
   if(location.hash) parseHash();
   render();
   if(typeof SYNC!=='undefined') setTimeout(()=>SYNC.start(), 300);
@@ -159,6 +160,10 @@ function parseHash(){
 }
 function go(view, params={}){
   APPX.view = view; APPX.params = params;
+  if(typeof NAVP!=='undefined'){
+    NAVP._tempOpen = false;
+    NAVP._workspaceEngaged = (view !== 'home');
+  }
   if(typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.isActive()) SILENT_OVERRIDE.recordView(view);
   const q = Object.keys(params).length? '?'+Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&'):'';
   const target = `#/${view}${q}`;
@@ -593,6 +598,9 @@ function duplicatePress(act){
   return false;
 }
 function onClick(e){
+  if(e && e.target && e.target.closest && e.target.closest('#content') && typeof NAVP!=='undefined' && NAVP.foldForWorkspace){
+    NAVP.foldForWorkspace('content-click');
+  }
   const el = e.target.closest('[data-act]');
   if(!el) return;
   const act = el.dataset.act;
@@ -620,6 +628,7 @@ function onChange(e){
   const el = e.target;
   if(el.dataset.filter){
     const params = {...APPX.params, [el.dataset.filter]: el.value};
+    delete params.page;
     if(el.dataset.filter==='q'){
       clearTimeout(window.__qT);
       window.__qT = setTimeout(()=>go(el.dataset.view, params), 300);
@@ -1045,14 +1054,19 @@ const ACTIONS = {
   'nav-close':()=>{ APPX.navOpen=false; render(); },
   'nav-group':(d)=>{ NAVP.toggleGroup(AUTH.user, d.g, Number(d.i)||0); render(); },
   'nav-rail':()=>{
+    const pr = NAVP.prefs(AUTH.user);
     const cur = NAVP.effectiveRail(AUTH.user, APPX.view);
-    NAVP.setPref(AUTH.user, 'navRail', !cur);
-    NAVP.setPref(AUTH.user, 'navRailExplicit', true);
+    if(pr.autoFold !== false && !pr.rail){
+      if(cur) NAVP.expandTemporarily();
+      else NAVP.foldForWorkspace('rail-btn');
+    } else {
+      NAVP.setPref(AUTH.user, 'navRail', !cur);
+    }
     render();
   },
   'nav-autofold':()=>{
     NAVP.enableAutoFold(AUTH.user);
-    toast('Navigation auto-fold updated', NAVP.prefs(AUTH.user).autoFold && !NAVP.prefs(AUTH.user).railExplicit ? 'Left pane now folds automatically inside modules and expands on Console Home.' : 'Left pane pinned open.', 'info');
+    toast('Navigation auto-fold updated', NAVP.prefs(AUTH.user).autoFold ? 'Left pane now folds automatically for widescreen view when scrolling or working in the workspace.' : 'Left pane pinned open.', 'info');
     render();
   },
   /* Workspace themes (v5.1). Personal; never touches permissions or data. */
@@ -2721,6 +2735,17 @@ document.addEventListener('keydown', (e)=>{
   }
 });
 document.addEventListener('input',(e)=>{
+  if(e.target && e.target.dataset && e.target.dataset.filter==='q' && e.target.dataset.view){
+    const viewTarget = e.target.dataset.view;
+    const val = e.target.value;
+    clearTimeout(window.__qT);
+    window.__qT = setTimeout(()=>{
+      const params = {...APPX.params, q: val};
+      delete params.page;
+      go(viewTarget, params);
+    }, 320);
+    return;
+  }
   if(!e.target.matches('[data-search]')||!AUTH.user) return;
   const q=e.target.value.trim().toLowerCase();
   if(q.length<2) return;

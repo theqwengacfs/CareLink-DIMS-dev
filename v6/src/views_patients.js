@@ -612,28 +612,41 @@ function renderPatients(user, params){
     `${RBAC.has(user,'system.export')?`<button class="btn btn-sm btn-ghost" data-act="request-export">${ic('download',14)} Full export (dual approval)</button>`:''}
      ${RBAC.has(user,'patient.assess.create')?`<button class="btn btn-sm btn-primary" data-act="new-assessment">${ic('plus',15)} New assessment</button>`:''}`)
   + card('', `
-    <div class="row" style="margin-bottom:14px">
-      <div class="searchbox" style="display:block;flex:1;min-width:200px"><span>${ic('search',16)}</span>
-        <input class="input" style="padding-left:38px;height:42px" placeholder="Search name, code or CCC number" value="${esc(params.q||'')}" data-filter="q" data-view="patients"></div>
-      <select class="input" style="width:auto;min-width:150px" data-filter="area" data-view="patients">
-        <option value="">All ministry areas</option>
-        ${areas.map(a=>`<option value="${a.id}" ${params.area===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}
-      </select>
-      <select class="input" style="width:auto;min-width:170px" data-filter="status" data-view="patients">
-        <option value="">All statuses</option>
-        ${statuses.map(s=>`<option value="${s}" ${params.status===s?'selected':''}>${WORKFLOW.patient.labels[s]}</option>`).join('')}
-      </select>
-      ${RBAC.has(user,'patient.export')?`<button class="btn btn-sm btn-ghost" data-act="export-patients">${ic('download',14)} CSV</button>
-        <button class="btn btn-sm btn-ghost" data-act="export-patients-xlsx">${ic('download',14)} Excel</button>`:''}
+    <div class="reg-toolbar">
+      <div class="reg-toolbar-main">
+        <div class="reg-search">
+          ${ic('search',16)}
+          <input class="input" placeholder="Search beneficiary name, CareLink code or CCC number..." value="${esc(params.q||'')}" data-filter="q" data-view="patients">
+        </div>
+        <select class="input reg-select" data-filter="area" data-view="patients" aria-label="Filter by ministry area">
+          <option value="">All ministry areas (${areas.length})</option>
+          ${areas.map(a=>`<option value="${a.id}" ${params.area===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}
+        </select>
+        <select class="input reg-select" data-filter="status" data-view="patients" aria-label="Filter by programme status">
+          <option value="">All statuses</option>
+          ${statuses.map(s=>`<option value="${s}" ${params.status===s?'selected':''}>${WORKFLOW.patient.labels[s]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="reg-toolbar-pills">
+        ${(params.q||params.area||params.status)?`<button class="btn btn-xs btn-ghost" data-act="go" data-v="patients">${ic('x',12)} Reset</button>`:''}
+        ${RBAC.has(user,'patient.export')?`<button class="btn btn-xs btn-ghost" data-act="export-patients">${ic('download',13)} CSV</button>
+          <button class="btn btn-xs btn-ghost" data-act="export-patients-xlsx">${ic('download',13)} Excel</button>`:''}
+      </div>
     </div>
-    <div class="tbl-scroll">${table([
-      {label:'Beneficiary & Area',render:p=>`<div class="cellname">${esc(p.name)}<span class="sm">${esc(p.code)} · ${esc(areaName(p.areaId))} (${p.sex==='F'?'F':'M'}, ${p.age}y)</span></div>`},
-      {label:'Contact & Household GPS',render:p=>`<div class="small"><span class="mono">${esc(p.phone||'-')}</span><div class="xs muted">${esc(p.village||areaName(p.areaId))}${p.gps?` · <span class="mono">${(+p.gps.lat).toFixed(3)}, ${(+p.gps.lon).toFixed(3)}</span>`:''}</div></div>`},
-      {label:'Anthropometry',render:p=>{const c=p.clinical||{}; return `<div class="small mono">${c.weightKg?c.weightKg+' kg':'-'} · ${c.heightCm?c.heightCm+' cm':'-'}<div class="xs muted">BMI ${c.bmi||'-'}${c.muacCm?` · MUAC ${c.muacCm}cm`:''}</div></div>`;}},
+    <div class="tbl-scroll reg-tbl-wrap">${table([
+      {label:'Beneficiary & Catchment',render:p=>`<div class="reg-entity-cell">
+        <span class="reg-avatar" style="background:${p.age<18?'#0284C7':'#0F766E'}">${esc(initials(p.name))}</span>
+        <div class="reg-entity-meta">
+          <div class="cellname">${esc(p.name)}</div>
+          <div class="reg-subline"><span class="mono">${esc(p.code)}</span><span>·</span><span>${esc(areaName(p.areaId))}</span><span class="reg-cohort-tag ${p.age<18?'is-child':''}">${p.sex==='F'?'F':'M'} · ${p.age}y</span></div>
+        </div>
+      </div>`},
+      {label:'Contact & Household GPS',render:p=>`<div class="small"><b class="mono">${esc(p.phone||'-')}</b><div class="xs muted">${esc(p.village||areaName(p.areaId))}${p.gps?` · <span class="mono">${(+p.gps.lat).toFixed(3)}, ${(+p.gps.lon).toFixed(3)}</span>`:''}</div></div>`},
+      {label:'Anthropometry & BMI',render:p=>{const c=p.clinical||{}; return `<div class="col" style="gap:3px;align-items:flex-start"><div class="xs mono"><b>${c.weightKg?c.weightKg+' kg':'-'}</b> / ${c.heightCm?c.heightCm+' cm':'-'}${c.muacCm?` · MUAC ${c.muacCm}cm`:''}</div>${typeof BMI_CLINICAL!=='undefined'&&c.bmi?BMI_CLINICAL.badgeHTML(c.bmi, true, p.age):`<span class="xs muted">BMI ${c.bmi||'-'}</span>`}</div>`;}},
       {label:'Status',render:p=>pBadge(p.status)},
-      {label:'Days',cls:'num',render:p=>`<b class="tnum">${PAT.days(p)}</b>`},
+      {label:'Days',cls:'num mono',render:p=>`<b class="tnum">${PAT.days(p)}d</b>`},
       {label:'Caregiver',render:p=>`<span class="small">${esc(userName(p.caregiverId).replace(/^Demo - /,''))}</span>`},
-      {label:'Visits & Last Seen',render:p=>{const v=PAT.lastVisit(p); const vn=(DB.visitsFor?DB.visitsFor(p.id).length:0); return v?`<div class="small"><b>${vn} visits</b><div class="xs muted">Last ${fmtDate(v.date)}</div></div>`:`<span class="badge b-crit">none</span>`;}},
+      {label:'Visits & Last Seen',render:p=>{const v=PAT.lastVisit(p); const vn=(DB.visitsFor?DB.visitsFor(p.id).length:0); return v?`<div class="small"><b class="mono">${vn} visits</b><div class="xs muted">Last ${fmtDate(v.date)}</div></div>`:`<span class="badge b-crit">none</span>`;}},
       {label:'Alerts',render:p=>{const c=PAT.concerns(p);return c.length?badge(c.length+' open',c.some(x=>x.level==='clinical')?'b-crit':'b-warn','nodot'):'<span class="muted">-</span>';}},
       {label:'',cls:'act',render:p=>`<button class="btn btn-xs btn-ghost" data-act="open-patient" data-id="${p.id}">Open ${ic('chevron',11)}</button>`}
     ], pageRows, {emptyMsg:'No patients match these filters.', click:true,
@@ -974,7 +987,7 @@ function patientDocuments(user,p){
 }
 function patientTimeline(user,p){
   const ev = DB.db.audit.filter(a=>a.entityId===p.id||a.detail?.includes(p.code)).slice(-12).reverse();
-  const rows = DB.db.visits.filter(v=>v.patientId===p.id).map(v=>({at:v.date,t:'Home visit',d:titleCase(v.outcome)+' - '+v.notes,by:v.caregiverId}))
+  const rows = (DB.visitsFor ? DB.visitsFor(p.id) : DB.db.visits.filter(v=>v.patientId===p.id)).map(v=>({at:v.date,t:'Home visit',d:titleCase(v.outcome)+' - '+v.notes,by:v.caregiverId}))
     .concat(DB.db.requests.filter(r=>r.patientId===p.id).map(r=>({at:r.submittedAt,t:'Hospital request '+r.no,d:r.reason,by:r.requestedBy})))
     .concat(ev.map(e=>({at:e.ts,t:e.action,d:e.detail,by:e.actor})))
     .sort((a,b)=>new Date(b.at)-new Date(a.at)).slice(0,25);

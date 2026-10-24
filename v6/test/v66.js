@@ -131,6 +131,29 @@ test('3. All 3,333 patients have >=12 visits, 100% metadata & Child Weight/BMI/M
   const bmiChildrenSheet = String(run(`BMI_CLINICAL.renderBmiBoard(AUTH.user, {sheet:'children'})`));
   ok('BMI & Child Growth board renders dedicated Child Growth (Weight, BMI & MUAC) sheet',
     /MUAC|Paediatric|Child/i.test(bmiChildrenSheet) && !bmiChildrenSheet.includes('Access denied'));
+
+  /* Verify redesigned Patient Anthropometric & Nutritional Register + Protocol Queue + Global Register Toolbar */
+  const bmiOverview = String(run(`BMI_CLINICAL.renderBmiBoard(AUTH.user, {sheet:'overview'})`));
+  const bmiProtocol = String(run(`BMI_CLINICAL.renderBmiBoard(AUTH.user, {sheet:'protocol'})`));
+  ok('Anthropometric & Nutritional Register renders symmetrical 6-band WHO matrix, theme-safe data-tone pills, unified reg-toolbar, foodbag tags & pagination',
+    bmiOverview.includes('bmi-band-grid') && bmiOverview.includes('data-tone="') && !bmiOverview.includes('style="background:#FEF2F2') &&
+    bmiOverview.includes('reg-toolbar') && bmiOverview.includes('anthro-bag-tag') && bmiOverview.includes('visit-dots-3') && bmiOverview.includes('reg-pager-bar'));
+  ok('3-Visit Weigh-In & Plausibility Verification Queue sheet renders cleanly',
+    bmiProtocol.includes('Anthropometric Action & Verification Register') && bmiProtocol.includes('reg-toolbar'));
+
+  /* Verify Global Register Toolbar & Entity Cell applied to Master Patient Register */
+  const ptRegHtml = String(run(`renderPatients(AUTH.user, {})`));
+  ok('Master Patient Register shares unified reg-toolbar, reg-entity-cell & theme-safe BMI pills',
+    ptRegHtml.includes('reg-toolbar') && ptRegHtml.includes('reg-entity-cell') && ptRegHtml.includes('bmi-pill'));
+
+  /* Verify completely overhauled Medical Case Manager Caseload Register & 4-Quadrant SOAP Encounters */
+  const mcmTriage = String(run(`BMI_CLINICAL.renderMcmConsole(AUTH.user, {tab:'triage'})`));
+  const mcmSoap = String(run(`BMI_CLINICAL.renderMcmConsole(AUTH.user, {tab:'soap'})`));
+  ok('Medical Case Manager Caseload Register renders 4-tier acuity ribbon, unified reg-toolbar, clinical drivers, adherence standing & pagination',
+    mcmTriage.includes('mcm-acuity-ribbon') && mcmTriage.includes('reg-toolbar') && mcmTriage.includes('mcm-driver-chip') &&
+    mcmTriage.includes('mcm-adh-pill') && mcmTriage.includes('reg-pager-bar'));
+  ok('Medical Case Manager SOAP tab renders >=5 structured 4-quadrant S-O-A-P clinical encounter cards with vitals strip',
+    (mcmSoap.match(/soap-encounter-card/g) || []).length >= 5 && mcmSoap.includes('soap-quad-grid') && mcmSoap.includes('soap-vitals-strip'));
 });
 
 /* 4. Two-Mode Messaging & Who-Is-Online -> Instant Direct Chat Box Fix + Universal Drafts Hub */
@@ -176,25 +199,69 @@ test('5. Presidential, County Government & Ministry of Health Presentation Hub',
   ok('System Administrator Viewer Authority & Seat Activation lens renders', adminLens.includes('gov-toggle-seat'));
 });
 
-/* 6. Harbour Dark Default on Samsung A11+ 5G / Wi-Fi Tablet & Natural Auto-Folding Left Pane */
-test('6. Harbour Dark default on Samsung A11+ 5G / Wi-Fi Tablet & Natural Auto-Folding Left Pane', () => {
+/* 6. Harbour Dark Default on Samsung A11+ 5G / Wi-Fi Tablet & Automatic Workspace Scroll / Feature Folding Left Pane */
+test('6. Harbour Dark default on Samsung A11+ 5G / Wi-Fi Tablet & Automatic Workspace Scroll / Feature Folding Left Pane', () => {
   const tabCheck = J(`(()=>{
     const prevNav = globalThis.navigator;
     globalThis.navigator = { userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-X216B Tab A11+ 5G) AppleWebKit/537.36', maxTouchPoints: 5 };
     const u = DB.db.users.find(x => x.username === 'caregiver.manyatta');
     if (DB.db.personalPrefs && DB.db.personalPrefs[u.id]) delete DB.db.personalPrefs[u.id].wtheme;
     DB.db.settings.consoleThemeExplicit = false;
+    NAVP._tempOpen = false;
+    NAVP._workspaceEngaged = false;
     const resolved = WTHEME.resolveId(u);
     const railOnHome = NAVP.effectiveRail(u, 'home');
     globalThis.navigator = prevNav;
-    const desktopHomeRail = NAVP.effectiveRail(u, 'home');
-    const desktopModuleRail = NAVP.effectiveRail(u, 'patients');
-    return { resolved, railOnHome, desktopHomeRail, desktopModuleRail };
+
+    /* Desktop Console Home starts expanded; scrolling or clicking features on #content folds automatically to widescreen */
+    AUTH.login('caregiver.manyatta', 'LOMAMO2026');
+    go('home', {});
+    const desktopHomeInitialRail = NAVP.effectiveRail(AUTH.user, 'home');
+    const domTargets = {};
+    const mkMock = () => {
+      const cls = new Set(), attrs = {};
+      return {
+        cls, attrs,
+        classList: { add:c=>cls.add(c), remove:c=>cls.delete(c), contains:c=>cls.has(c) },
+        setAttribute: (k,v)=>{ attrs[k]=String(v); },
+        removeAttribute: (k)=>{ delete attrs[k]; },
+        getAttribute: (k)=>attrs[k] ?? null,
+        querySelector: ()=>null
+      };
+    };
+    domTargets['.app.shell.has-pane'] = mkMock();
+    domTargets['#npane'] = mkMock();
+    domTargets['.topbar.cbar'] = mkMock();
+    const origQS = document.querySelector;
+    document.querySelector = (sel) => domTargets[sel] || origQS(sel);
+    NAVP.foldForWorkspace('scroll');
+    document.querySelector = origQS;
+    const afterScrollRail = NAVP.effectiveRail(AUTH.user, 'home');
+    render();
+    const rootHtml = document.querySelector('#root').innerHTML;
+    const shellFoldedInDom = domTargets['.app.shell.has-pane'].cls.has('np-rail') &&
+      domTargets['.app.shell.has-pane'].attrs['data-widescreen'] === '1' &&
+      domTargets['#npane'].attrs['data-rail'] === '1' &&
+      domTargets['.topbar.cbar'].cls.has('cbar-rail') &&
+      rootHtml.includes('has-pane np-rail') && rootHtml.includes('data-rail="1"');
+
+    /* Manually expanding via topbar button opens temporarily, then scrolling/interacting on #content folds again! */
+    ACTIONS['nav-rail']();
+    const afterManualExpandRail = NAVP.effectiveRail(AUTH.user, 'home');
+    NAVP.foldForWorkspace('workspace-click');
+    const afterWorkspaceClickRail = NAVP.effectiveRail(AUTH.user, 'home');
+
+    const desktopModuleRail = NAVP.effectiveRail(AUTH.user, 'patients');
+    return { resolved, railOnHome, desktopHomeInitialRail, afterScrollRail, shellFoldedInDom, afterManualExpandRail, afterWorkspaceClickRail, desktopModuleRail };
   })()`);
   ok('Samsung Tab A11+ 5G / Wi-Fi Tablet resolves to Harbour Dark (harbour) by default', tabCheck.resolved === 'harbour', tabCheck.resolved);
   ok('Tablet folds left navigation pane automatically to icon rail', tabCheck.railOnHome === true);
-  ok('Desktop Console Home starts expanded and naturally auto-folds when opening workspace modules',
-    tabCheck.desktopHomeRail === false && tabCheck.desktopModuleRail === true, JSON.stringify(tabCheck));
+  ok('Desktop Console Home starts expanded and automatically folds to widescreen when scrolling on workspace',
+    tabCheck.desktopHomeInitialRail === false && tabCheck.afterScrollRail === true, JSON.stringify(tabCheck));
+  ok('Live DOM .shell & #npane update in-place to widescreen rail on workspace scroll without losing focus',
+    tabCheck.shellFoldedInDom === true, JSON.stringify(tabCheck));
+  ok('Expanding left pane via button unfolds temporarily and re-folds automatically when using features on workspace',
+    tabCheck.afterManualExpandRail === false && tabCheck.afterWorkspaceClickRail === true && tabCheck.desktopModuleRail === true, JSON.stringify(tabCheck));
 });
 
 /* 7. Executive Console, Global Expenditure Against Budget, C-DIMS Coins & CareLink AI Workflow Engine */
