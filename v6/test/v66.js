@@ -370,6 +370,73 @@ test('8. 4-Step Live Host Setup -> Official Login -> Must-Change Password -> Act
     hbQueue.acct.some(a => a.id === 'req-hb-test') && hbQueue.rec.some(r => r.id === 'rec-hb-test') && usersViewHtml.includes('county-approve-req') && usersViewHtml.includes('county-resolve-rec'));
 });
 
+/* 11. Compiled Single-File Browser Bundle (public/carelink-v6.html) Boot & Screen Render Guard */
+test('11. Compiled single-script browser HTML bundle boots cleanly and renders Landing, Sign-In, Architecture & Console without TDZ errors', async () => {
+  const vm = require('vm');
+  const html = fs.readFileSync(path.join(REPO, 'public', 'carelink-v6.html'), 'utf8');
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
+  ok('public/carelink-v6.html embeds assets + application script blocks', scripts.length === 2);
+
+  const store = new Map();
+  const el = (tag = 'div') => ({
+    tagName: tag.toUpperCase(), style: { setProperty() {}, removeProperty() {} }, dataset: {}, children: [],
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    appendChild(c) { this.children.push(c); return c; }, remove() {}, setAttribute() {}, getAttribute() { return null; }, removeAttribute() {},
+    addEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; }, closest() { return null; }, innerHTML: ''
+  });
+  const root = el('div'); root.id = 'root';
+  const winListeners = [];
+  const bctx = {
+    console, Math, Date, JSON, Promise, Set, Map, RegExp, Array, Object, Number, String, Boolean, Error, TypeError,
+    Uint8Array, Int32Array, Float64Array, ArrayBuffer, DataView,
+    encodeURIComponent, decodeURIComponent, parseInt, parseFloat, isNaN, isFinite,
+    btoa: s => Buffer.from(s, 'binary').toString('base64'),
+    atob: s => Buffer.from(s, 'base64').toString('binary'),
+    setTimeout: () => 1, clearTimeout: () => {}, setInterval: () => 1, clearInterval: () => {},
+    requestAnimationFrame: fn => { fn(); return 1; },
+    navigator: { userAgent: 'Mozilla/5.0 Chrome/125.0', maxTouchPoints: 0, onLine: true },
+    screen: { width: 1440, height: 900 },
+    location: { hash: '', href: 'https://carelink.vercel.app/carelink-v6.html', pathname: '/carelink-v6.html', search: '', protocol: 'https:', origin: 'https://carelink.vercel.app', reload() {} },
+    history: { replaceState() {}, pushState() {} },
+    localStorage: { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k), key: i => [...store.keys()][i] ?? null, get length() { return store.size; } },
+    sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    getComputedStyle: () => ({ getPropertyValue: () => '#ffffff', color: 'rgb(15, 23, 42)', backgroundColor: 'rgb(255, 255, 255)' }),
+    fetch: () => Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, onlineDatabase: true, setup: false, globallyActivated: false, rev: 0 }) }),
+    Blob: class { constructor(a) { this.a = a; } }, URL: { createObjectURL: () => 'blob:1', revokeObjectURL() {} }, AbortController,
+    addEventListener: (ev, fn) => { winListeners.push({ ev, fn }); }, removeEventListener: () => {}, scrollTo: () => {},
+    document: {
+      title: '', readyState: 'loading', documentElement: el('html'), head: el('head'), body: el('body'),
+      getElementById: id => id === 'root' ? root : null,
+      querySelector: sel => sel === '#root' ? root : null,
+      querySelectorAll: () => [], createElement: el, addEventListener: () => {}
+    },
+    window: null
+  };
+  bctx.window = bctx; bctx.globalThis = bctx; bctx.self = bctx;
+  vm.createContext(bctx);
+  vm.runInContext(scripts[0][1], bctx, { filename: 'carelink-assets.js' });
+  vm.runInContext(scripts[1][1], bctx, { filename: 'carelink-bundle.js' });
+  for (const l of winListeners) { if (l.ev === 'DOMContentLoaded') await l.fn(); }
+
+  const landingHtml = root.innerHTML;
+  ok('Compiled single-script bundle boots straight into visible Zero-Scroll Landing Page (not blank white)',
+    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1"') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
+
+  vm.runInContext(`APPX.screen = 'login'; render();`, bctx);
+  const loginHtml = root.innerHTML;
+  ok('Compiled single-script bundle renders Sign-In page cleanly',
+    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
+
+  vm.runInContext(`APPX.screen = 'architecture'; render();`, bctx);
+  const archHtml = root.innerHTML;
+  ok('Compiled single-script bundle renders Platform Architecture & Departments page cleanly',
+    archHtml.length > 3000 && archHtml.includes('ld-arch-page'), `len=${archHtml.length}`);
+
+  const hasCountyActs = vm.runInContext(`Boolean(ACTIONS['county-approve-req'] && ACTIONS['county-decline-req'] && ACTIONS['county-resolve-rec'])`, bctx);
+  ok('County urgent account & recovery ACTIONS are registered in compiled single-script bundle', hasCountyActs === true);
+});
+
 (async () => {
   for (const t of tests) {
     try { await t.fn(); }

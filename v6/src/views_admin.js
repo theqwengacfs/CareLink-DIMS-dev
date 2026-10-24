@@ -818,4 +818,3 @@ Sign in now — CareLink will prompt you to set a new private password known onl
     }
   });
 }
-registerCountyUrgentActions();
