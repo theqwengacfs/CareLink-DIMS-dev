@@ -3,7 +3,7 @@ import React from 'react';
 export default function App() {
   return (
     <iframe
-      src="/carelink-v6.html"
+      src="/carelink-v6.html?v=6.4.0"
       title="CareLink C-DIMS — LOMAMO Foundation Operating System"
       style={{
         border: 'none',

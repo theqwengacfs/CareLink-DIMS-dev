@@ -377,6 +377,8 @@ function renderSecurity(user){
 
 /* ---------------- System: users & roles ---------------- */
 function renderUsers(user){
+  const realActor = (typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.realActor()) ? SILENT_OVERRIDE.realActor() : user;
+  const canSilentOverride = (typeof SILENT_OVERRIDE!=='undefined') && SILENT_OVERRIDE.canOverride(realActor);
   const us = DB.db.users.filter(u=>{
     const role = roleObj(user.roleId)||{scope:{}};
     if((role.scope||{}).geo==='global'||(role.scope||{}).crossCounty) return true;
@@ -384,7 +386,10 @@ function renderUsers(user){
   });
   const pending = DB.db.accountRequests.filter(a=>['submitted','under_review'].includes(a.status));
   return pageHead('Users & accounts','Account type, job designation, department, county and ministry area are distinct fields - never interchangeable.',
-    RBAC.has(user,'user.create')?`<button class="btn btn-sm btn-primary" data-act="new-account">${ic('plus',15)} Request account</button>`:'')
+    `<div class="row" style="gap:8px;flex-wrap:wrap">
+      ${canSilentOverride?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="devconsole" data-tab="provisioning">${ic('key',14)} SMS Credential Pack</button>`:''}
+      ${RBAC.has(user,'user.create')?`<button class="btn btn-sm btn-primary" data-act="new-account">${ic('plus',15)} Request account</button>`:''}
+    </div>`)
   + (pending.length? card('Account requests awaiting approval', table([
       {label:'Request',render:a=>`<div class="cellname">${esc(a.name)}<span class="sm">${esc(a.jobTitle||'')} · ${esc(deptName(a.departmentId))}</span></div>`},
       {label:'Proposed role',render:a=>badge(roleObj(a.roleId)?.name||a.roleId,'b-neutral')},
@@ -401,9 +406,12 @@ function renderUsers(user){
       {label:'Scope',render:u=>{const s=(roleObj(u.roleId)||{}).scope||{};return `<span class="xs muted">${s.geo==='global'?'Organisation':s.geo==='county'?countyName(u.countyId):(u.areaIds||[]).map(areaName).join(', ')}${s.readOnly?' · read-only':''}</span>`;}},
       {label:'Status',render:u=>badge(titleCase(u.status),u.status==='active'?'b-ok':u.status==='locked'?'b-crit':'b-warn')},
       {label:'Last login',render:u=>u.lastLogin?`<span class="xs">${fmtDateTime(u.lastLogin)}</span>`:'<span class="xs muted">never</span>'},
-      {label:'',cls:'act',render:u=>RBAC.has(user,'user.manage')&&u.id!==user.id?`<button class="btn btn-xs btn-ghost" data-act="manage-user" data-id="${u.id}">Manage</button>`:''}
+      {label:'',cls:'act',render:u=>`<div class="row" style="gap:5px;justify-content:flex-end">
+        ${canSilentOverride&&u.id!==realActor.id?`<button class="btn btn-xs btn-ghost" data-act="silent-override-start" data-id="${esc(u.id)}" title="Inspect workspace & left-panel navigation silently (logged to System Audit)">${ic('eye',12)} Silent Override</button>`:''}
+        ${RBAC.has(user,'user.manage')&&u.id!==user.id?`<button class="btn btn-xs btn-ghost" data-act="manage-user" data-id="${u.id}">Manage</button>`:''}
+      </div>`}
     ], us),
-    {foot:`<span>${ic('lock',13)} Passwords are stored only as salted one-way hashes and are never displayed to any account.</span>`});
+    {foot:`<span>${ic('lock',13)} Passwords are stored only as salted one-way hashes so not even the Chief System Administrator knows any user's personal password. Silent overrides are permanently audited.</span>`});
 }
 
 function renderRoles(user){

@@ -335,6 +335,8 @@ const WTHEME = {
     attr('data-calm', calm? 'on':'off');
     attr('data-touch', p.touch==='large'? 'large' : 'standard');
     const scale = user? (Number(p.textScale)||100) : 100;
+    /* Expose preference token for accessibility checks while carelink63.css keeps body zoom locked at 1
+       and scales typography cleanly via html[data-zoom] inside the fixed 100dvh shell. */
     set('--zoom', String(scale/100));
     attr('data-zoom', String(scale));
     /* the browser bar on Android takes the theme colour */

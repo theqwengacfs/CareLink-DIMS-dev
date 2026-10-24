@@ -726,9 +726,9 @@ const DUALCHECK = {
           <div class="xs" style="text-transform:uppercase;letter-spacing:.09em;color:#FDE047;font-weight:800">Dual Simultaneous Co-Work Active · Mandatory Two-Account Cross-Check Enabled</div>
           <div class="small" style="margin-top:2px">Both <b>Administration</b> and <b>International Data</b> are working simultaneously. Every shared update is routed to the <b>Compare, Contrast & Cross-Check Workspace</b> (${pending} batch(es) awaiting 2/2 sign-off).</div>
         </div>
-        <div class="row" style="gap:8px">
-          <button class="btn btn-xs btn-primary" data-act="go" data-v="dualcheck">${ic('shield',13)} Compare & Cross-Check (${pending})</button>
-          <button class="btn btn-xs btn-ghost" data-act="coedit-solo" style="color:#fff;border-color:rgba(255,255,255,.4)">Return to Single-Operator Lock</button>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn btn-xs coedit-btn-primary" data-act="go" data-v="dualcheck">${ic('shield',13)} Compare &amp; Cross-Check (${pending})</button>
+          <button class="btn btn-xs coedit-btn-secondary" data-act="coedit-solo">Return to Single-Operator Lock</button>
         </div>
       </div>`;
     }
@@ -737,11 +737,11 @@ const DUALCHECK = {
       return `<div class="coedit-bar blocked no-print">
         <div>
           <div class="xs" style="text-transform:uppercase;letter-spacing:.09em;color:#FDA4AF;font-weight:800">Single-Operator Exclusivity Lock · Active Seat Held by ${esc(otherSideLabel)}</div>
-          <div class="small" style="margin-top:2px"><b>${esc(st.holderName)}</b> currently holds the active solo work lease. Admin and International Data work one person at a time by default - claim the solo seat if idle, or activate <b>Compare & Contrast Dual Co-Work Mode</b> to work together with mandatory two-account verification.</div>
+          <div class="small" style="margin-top:2px"><b>${esc(st.holderName)}</b> currently holds the active solo work lease. Admin and International Data work one person at a time by default - claim the solo seat if idle, or activate <b>Compare &amp; Contrast Dual Co-Work Mode</b> to work together with mandatory two-account verification.</div>
         </div>
-        <div class="row" style="gap:8px">
-          <button class="btn btn-xs btn-primary" data-act="coedit-claim">${ic('key',13)} Take Solo Seat</button>
-          <button class="btn btn-xs btn-ghost" data-act="coedit-concurrent" style="color:#fff;border-color:rgba(255,255,255,.45)">Work Simultaneously (Compare & Contrast)</button>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn btn-xs coedit-btn-primary" data-act="coedit-claim">${ic('key',13)} Take Solo Seat</button>
+          <button class="btn btn-xs coedit-btn-secondary" data-act="coedit-concurrent">Work Simultaneously (Compare &amp; Contrast)</button>
         </div>
       </div>`;
     }
@@ -751,9 +751,9 @@ const DUALCHECK = {
         <div class="xs" style="text-transform:uppercase;letter-spacing:.09em;color:#7DD3FC;font-weight:800">Single-Operator Active Seat · Exclusive to ${esc(sideLabel)}</div>
         <div class="small" style="margin-top:2px">Active operator: <b>${esc(user.name)}</b>. Counterpart office (${esc(otherSideLabel)}) is locked out unless Dual Simultaneous Co-Work Mode is opened.${pending?` <b>${pending} batch(es)</b> awaiting two-account cross-check.`:''}</div>
       </div>
-      <div class="row" style="gap:8px">
-        <button class="btn btn-xs btn-primary" data-act="go" data-v="dualcheck">${ic('check',13)} Co-Work & Cross-Check (${pending})</button>
-        <button class="btn btn-xs btn-ghost" data-act="coedit-concurrent" style="color:#fff;border-color:rgba(255,255,255,.35)">Enable Dual Mode</button>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn btn-xs coedit-btn-primary" data-act="go" data-v="dualcheck">${ic('check',13)} Co-Work &amp; Cross-Check (${pending})</button>
+        <button class="btn btn-xs coedit-btn-secondary" data-act="coedit-concurrent">Enable Dual Mode</button>
       </div>
     </div>`;
   },
@@ -1152,8 +1152,134 @@ const ROLE_CTX = {
     ];
   },
 
+  roleBarConfig(user){
+    const r = user.roleId;
+    const isKsmHQ = user.countyId === 'kisumu' || isGlobal(user);
+    if (r === 'chief') {
+      return {
+        tabs: [
+          { v: 'home', l: 'System Home', ic: 'home' },
+          { v: 'devconsole', l: 'Development Console', ic: 'flow' },
+          { v: 'users', l: 'Users & Silent Override', ic: 'userplus' },
+          { v: 'adminops', l: 'Admin Ops & 9th Statutory', ic: 'calendar' },
+          { v: 'history', l: 'Audit Trail', ic: 'history' },
+          { v: 'mastermap', l: 'Master Mapping', ic: 'columns' }
+        ],
+        cta: { act: 'go', v: 'devconsole', l: 'Open Dev Console & SMS Pack', ic: 'key' }
+      };
+    }
+    if (r === 'it') {
+      return {
+        tabs: [
+          { v: 'home', l: 'ICT Home', ic: 'home' },
+          { v: 'devconsole', l: 'Development Console', ic: 'flow' },
+          { v: 'health', l: 'System Health', ic: 'pulse' },
+          { v: 'backup', l: 'Backup & Restore', ic: 'database' },
+          { v: 'security', l: 'Security Self-Test', ic: 'lock' }
+        ],
+        cta: { act: 'go', v: 'devconsole', l: 'Cloud DB & AI Status', ic: 'database' }
+      };
+    }
+    if (['countyadmin', 'program.admin', 'program.assistant', 'assistant'].includes(r)) {
+      return {
+        tabs: [
+          { v: 'home', l: isKsmHQ ? 'Kisumu HQ Console' : 'Homa Bay Console', ic: 'home' },
+          { v: 'adminops', l: 'Daily PAYG · 9th Statutory · OpEx', ic: 'calendar' },
+          { v: 'hardcopy', l: 'Hard-Copy Intake & Scans', ic: 'upload' },
+          { v: 'finance', l: 'Expenditure & Budgets', ic: 'wallet' },
+          { v: 'monday', l: 'Monday Meeting', ic: 'users' },
+          { v: 'reports', l: isKsmHQ ? 'Kenya & County Reports' : 'County Reports', ic: 'file' }
+        ],
+        cta: { act: 'go', v: 'adminops', l: isKsmHQ ? 'Admin Ops & Kenya Reports' : 'Daily PAYG & Statutory', ic: 'wallet' }
+      };
+    }
+    if (['president', 'director'].includes(r)) {
+      return {
+        tabs: [
+          { v: 'home', l: 'Executive Home', ic: 'home' },
+          { v: 'executive', l: 'Executive Summary', ic: 'chart' },
+          { v: 'compare', l: 'Kisumu vs Homa Bay', ic: 'columns' },
+          { v: 'adminops', l: 'Statutory, OpEx & Societies', ic: 'calendar' },
+          { v: 'costing', l: 'Cost per Patient', ic: 'receipt' },
+          { v: 'reports', l: 'Report Centre', ic: 'file' }
+        ],
+        cta: { act: 'go', v: 'executive', l: 'National Oversight', ic: 'chart' }
+      };
+    }
+    if (['finance', 'procurement'].includes(r)) {
+      return {
+        tabs: [
+          { v: 'home', l: 'Finance Home', ic: 'home' },
+          { v: 'adminops', l: 'Daily PAYG · Weekly Suppliers · 9th Statutory', ic: 'calendar' },
+          { v: 'finance', l: 'Expenditure Ledger', ic: 'wallet' },
+          { v: 'costing', l: 'Cost per Patient', ic: 'receipt' },
+          { v: 'foodbudget', l: 'Projected Food Budget', ic: 'clipboard' },
+          { v: 'procurement', l: 'Procurement', ic: 'package' }
+        ],
+        cta: { act: 'go', v: 'adminops', l: 'Record PAYG / Supplier / Statutory', ic: 'plus' }
+      };
+    }
+    if (['mcm', 'nurse', 'depthead', 'clinician'].includes(r)) {
+      return {
+        tabs: [
+          { v: 'home', l: 'Clinical Home', ic: 'home' },
+          ...(RBAC.has(user, 'clinical.mcm') ? [{ v: 'clinicalmcm', l: 'Case Manager Console', ic: 'activity' }] : []),
+          { v: 'patients', l: 'Clinical Caseload', ic: 'users' },
+          { v: 'bmiboard', l: 'BMI Watchlist', ic: 'pulse' },
+          { v: 'pdca', l: '30-Day PDCA', ic: 'repeat' },
+          { v: 'requests', l: 'Hospital Referrals', ic: 'hospital' }
+        ],
+        cta: { act: 'go', v: RBAC.has(user, 'clinical.mcm') ? 'clinicalmcm' : 'patients', l: 'Clinical Triage', ic: 'activity' }
+      };
+    }
+    if (['caregiver', 'chw', 'coordinator'].includes(r)) {
+      return {
+        tabs: [
+          { v: 'home', l: 'Field Home', ic: 'home' },
+          { v: 'patients', l: 'My Households', ic: 'users' },
+          { v: 'visits', l: 'Home Visits', ic: 'clipboard' },
+          { v: 'pdca', l: '30-Day Reviews', ic: 'repeat' },
+          { v: 'schedule', l: 'Visit Schedule', ic: 'calendar' },
+          ...(RBAC.has(user, 'hosp.request.create') ? [{ v: 'requests', l: 'Hospital Escorts', ic: 'hospital' }] : [])
+        ],
+        cta: { act: 'go', v: 'visits', l: 'Log Home Visit', ic: 'plus' }
+      };
+    }
+    if (['mediahead', 'media', 'pr'].includes(r)) {
+      /* Strictly non-clinical: zero patient register or returning-patient checker links */
+      return {
+        tabs: [
+          { v: 'home', l: 'Media & Ethics Home', ic: 'home' },
+          ...(RBAC.has(user, 'media.view') ? [{ v: 'media', l: 'Media Library', ic: 'image' }, { v: 'studio', l: 'Media Studio', ic: 'send' }] : []),
+          ...(RBAC.has(user, 'media.consent.manage') ? [{ v: 'consent', l: 'Consent Register', ic: 'shield' }] : []),
+          ...(RBAC.has(user, 'pr.view') ? [{ v: 'pr', l: 'Public Relations', ic: 'send' }] : []),
+          { v: 'donor', l: 'Donor Summary', ic: 'heart' }
+        ],
+        cta: { act: 'go', v: RBAC.has(user, 'media.view') ? 'studio' : 'pr', l: 'Ethical Storytelling Desk', ic: 'image' }
+      };
+    }
+    if (r === 'hr') {
+      return {
+        tabs: [
+          { v: 'home', l: 'HR Home', ic: 'home' },
+          { v: 'staff', l: 'Staff Register', ic: 'idcard' },
+          { v: 'leave', l: 'Leave & Off-Days', ic: 'calendar' },
+          { v: 'handover', l: 'Delegation & Handover', ic: 'key' },
+          { v: 'workplans', l: 'Monthly Work Plans', ic: 'clipboard' }
+        ],
+        cta: { act: 'go', v: 'leave', l: 'Manage Staff Leave', ic: 'calendar' }
+      };
+    }
+    /* Fallback: derive up to 5 permitted pages from navModel */
+    const allowed = (typeof navModel === 'function' ? navModel(user).flatMap(g => g.items) : []).slice(0, 5);
+    return {
+      tabs: allowed.map(i => ({ v: i.id, l: i.label, ic: i.icon || 'file' })),
+      cta: allowed[1] ? { act: 'go', v: allowed[1].id, l: allowed[1].label, ic: allowed[1].icon || 'chevron' } : null
+    };
+  },
+
   contextStrip(user, view){
-    if(!user || view==='home' || view==='dualcheck') return '';
+    if(!user || view==='dualcheck') return '';
     const role = roleObj(user.roleId) || {};
     const dept = role.dept ? deptObj(role.dept) : null;
     const deptKey = role.dept || 'admin';
@@ -1163,16 +1289,15 @@ const ROLE_CTX = {
     const customLabel = ROLE_CTX.navLabel(user, view, (typeof VIEW_TITLES!=='undefined' && VIEW_TITLES[view]) || view);
     const deptTitle = dept ? dept.name : 'Operations';
     const roleTitle = role.name || user.roleId;
-    /* Avoid redundant repetition such as "Media & Information Governance · Media & Information Governance Head" */
     const cleanRoleBadge = roleTitle.startsWith(deptTitle) ? roleTitle.slice(deptTitle.length).trim().replace(/^[-·]\s*/,'') || 'Department Lead' : roleTitle;
     const roleVarianceMeta = {
       exec:     { icon:'chart',     mode:'Executive Governance Lens' },
-      admin:    { icon:'layers',    mode:'County & Programme Administration' },
+      admin:    { icon:'layers',    mode:'County & Head Office Administration' },
       medical:  { icon:'activity',  mode:'Clinical & Case Management Authority' },
       ministry: { icon:'heart',     mode:'Field Ministry & Household Care' },
       media:    { icon:'image',     mode:'Ethical Storytelling & Asset Custody' },
-      finance:  { icon:'wallet',    mode:'Financial Control & Ledger Reconciliation' },
-      procure:  { icon:'package',   mode:'Supply Chain & Foodbag Procurement' },
+      finance:  { icon:'wallet',    mode:'Financial Control, PAYG & Statutory Desk' },
+      procure:  { icon:'package',   mode:'Weekly Supplier & Foodbag Supply Chain' },
       me:       { icon:'chart',     mode:'M&E Indicators & Data Verification' },
       audit:    { icon:'shieldcheck',mode:'Independent Assurance & Audit Trail' },
       hr:       { icon:'idcard',    mode:'Human Capital, Leave & Policy Governance' },
@@ -1181,29 +1306,39 @@ const ROLE_CTX = {
       pr:       { icon:'send',      mode:'Public Relations & Partner Communications' },
       hospital: { icon:'hospital',  mode:'Hospital Desk & CCC Facility Continuum' },
       pharmacy: { icon:'package',   mode:'FEFO Pharmacy & TB Dispensing Control' },
-      it:       { icon:'settings',  mode:'CareLink OS Infrastructure & Security' },
+      it:       { icon:'settings',  mode:'CareLink OS Engineering & Cloud Systems' },
       intldata: { icon:'pulse',     mode:'International Clinical & Data Oversight' },
       homestay: { icon:'bed',       mode:'Short-Stay Recovery & Respite Care' }
     }[deptKey] || { icon:'shield', mode:'Role-Scoped Workspace' };
     const cleanUser = user.name.replace(/^Demo - /,'');
+    const barCfg = ROLE_CTX.roleBarConfig(user);
+    const tabsHTML = (barCfg.tabs && barCfg.tabs.length)
+      ? `<div class="ctx-role-tabs" role="navigation" aria-label="Role contextual workspace tabs">
+          ${barCfg.tabs.map(t => `<button type="button" class="ctx-rtab ${view === t.v ? 'on' : ''}" data-act="go" data-v="${esc(t.v)}">${ic(t.ic || 'file', 13)}<span>${esc(t.l)}</span></button>`).join('')}
+        </div>`
+      : '';
     return `<div class="ctx-strip no-print" data-dept="${esc(deptKey)}" data-role="${esc(user.roleId)}">
-      <div class="ctx-strip-left">
-        <div class="ctx-strip-emblem" aria-hidden="true">${ic(roleVarianceMeta.icon,18)}</div>
-        <div class="ctx-strip-copy">
-          <div class="ctx-strip-kicker">
-            <span class="ctx-os-pill">CareLink OS</span>
-            <span>${esc(deptTitle)}</span>
-            <span class="ctx-sep">·</span>
-            <span class="ctx-role-chip">${esc(cleanRoleBadge)}</span>
+      <div class="ctx-strip-top">
+        <div class="ctx-strip-left">
+          <div class="ctx-strip-emblem" aria-hidden="true">${ic(roleVarianceMeta.icon,18)}</div>
+          <div class="ctx-strip-copy">
+            <div class="ctx-strip-kicker">
+              <span class="ctx-os-pill">CareLink OS</span>
+              <span>${esc(deptTitle)}</span>
+              <span class="ctx-sep">·</span>
+              <span class="ctx-role-chip">${esc(cleanRoleBadge)}</span>
+            </div>
+            <div class="ctx-strip-title">${esc(customLabel)}</div>
+            <div class="ctx-strip-sub">Operator: <b>${esc(cleanUser)}</b> · ${esc(roleVarianceMeta.mode)}</div>
           </div>
-          <div class="ctx-strip-title">${esc(customLabel)}</div>
-          <div class="ctx-strip-sub">Active operator: <b>${esc(cleanUser)}</b> · ${esc(roleVarianceMeta.mode)} · Strict department & geography boundary enforced.</div>
+        </div>
+        <div class="ctx-strip-right">
+          <span class="ctx-scope-pill">${ic('shield',12)} ${esc(scope)}</span>
+          ${role.external ? `<span class="ctx-partner-pill">Partner Console</span>` : ''}
+          ${barCfg.cta && view !== barCfg.cta.v ? `<button type="button" class="btn btn-xs ctx-cta-btn" data-act="${esc(barCfg.cta.act)}" data-v="${esc(barCfg.cta.v)}">${ic(barCfg.cta.ic || 'chevron', 12)} <span>${esc(barCfg.cta.l)}</span></button>` : ''}
         </div>
       </div>
-      <div class="ctx-strip-right">
-        <span class="ctx-scope-pill">${ic('shield',12)} ${esc(scope)}</span>
-        ${role.external ? `<span class="ctx-partner-pill">Partner Console</span>` : ''}
-      </div>
+      ${tabsHTML}
     </div>`;
   },
 

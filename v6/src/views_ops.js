@@ -134,13 +134,17 @@ function renderRecon(user){
 
 /* ---------------- Finance ---------------- */
 function renderFinance(user, params){
+  if(params && params.viewMode){ APPX.chartViewMode = params.viewMode; if(typeof COST_STATE!=='undefined') COST_STATE.viewMode = params.viewMode; }
+  const tblMode = (typeof isChartTableMode==='function' && isChartTableMode());
   const e = REPORTS.expenditure(user,{ countyId: params.county });
-  const counties = COUNTIES.filter(c=>RBAC.has(user,'finance.view'));
-  const maxBudget = Math.max(...e.rows.map(r=>r.budget),1);
-  return pageHead('Expenditure', `${e.period.label} · ${countyName(e.countyId)||'All authorised counties'}`,
-    `<div class="row">
+  const activeRows = e.rows.filter(r=>r.budget>0 || r.paid>0 || r.committed>0);
+  const colours = typeof chartColours==='function' ? chartColours(activeRows.length||6) : CHART_PALETTE;
+  return pageHead('Expenditure & Financial Position', `${e.period.label} · ${countyName(e.countyId)||'All authorised counties'}`,
+    `<div class="row" style="gap:8px;flex-wrap:wrap">
       ${roleObj(user.roleId)?.scope?.geo==='global'?`<select class="input" style="width:auto" data-filter="county" data-view="finance">
         <option value="all">All counties</option>${COUNTIES.map(c=>`<option value="${c.id}" ${params.county===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`:''}
+      <button class="btn btn-sm ${tblMode?'btn-primary':'btn-ghost'}" data-act="toggle-chart-table-mode">${ic('columns',14)} ${tblMode?'Charts & tables view':'View all as tables'}</button>
+      ${RBAC.has(user,'admin.ops')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="adminops">${ic('calendar',14)} Admin Operations & 9th Statutory</button>`:''}
       <button class="btn btn-sm btn-ghost" data-act="export-finance">${ic('download',14)} CSV</button>
       <button class="btn btn-sm btn-primary" data-act="generate" data-type="expenditure">${ic('file',14)} Generate report</button>
     </div>`)
@@ -152,38 +156,68 @@ function renderFinance(user, params){
       ${kpi('Remaining available', money(e.tot.remaining), e.tot.remaining<0?'Overspent':'Available to commit',e.tot.remaining<0?'crit':'ok','layers')}
     </div>`
   + `<div class="grid g2" style="margin-bottom:16px">
-      ${card('Budget utilisation by category', e.rows.filter(r=>r.budget).map(r=>`
-        <div style="margin-bottom:14px">
-          <div class="spread" style="margin-bottom:5px"><span class="small bold">${esc(r.cat.name)}</span>
-            <span class="xs muted">${money(r.paid)} / ${money(r.budget)}</span></div>
-          <div class="progress ${r.usedPct>95?'crit':r.usedPct>80?'warn':''}"><i style="width:${clamp(r.usedPct,0,100)}%"></i></div>
-        </div>`).join(''), {sub:'Paid and committed against the current budget version'})}
-      ${card('Month-end projection', `<div class="dl">
-          <dt>Days elapsed</dt><dd>${e.daysElapsed} of ${e.daysInMonth}</dd>
-          <dt>Spend to date</dt><dd>${money(e.tot.paid+e.tot.committed)}</dd>
-          <dt>Projected month-end</dt><dd><b>${money(e.projected)}</b></dd>
-          <dt>Variance vs budget</dt><dd>${money(e.tot.budget-e.projected)}</dd>
-          <dt>Supporting evidence</dt><dd>${e.tx.filter(t=>t.receipt).length}/${e.tx.length} receipts</dd>
+      ${card('Paid expenditure mix by category', chartDonut(
+        activeRows.filter(r=>r.paid>0).map((r,i)=>({ label:r.cat.name.split(' (')[0], value:Math.round(r.paid), color:colours[i%colours.length] })),
+        { title:'Paid expenditure by category', fmt:v=>money(v), centerLabel:'TOTAL PAID', centerValue:money(e.tot.paid) }
+      ), {sub:'Clean symmetrical category share with full table view below.'})}
+      ${card('Budget vs Paid & Committed', chartGrouped({
+        labels:activeRows.slice(0,8).map(r=>r.cat.name.split(' (')[0].slice(0,15)),
+        series:[
+          { label:'Budget', values:activeRows.slice(0,8).map(r=>Math.round(r.budget)), color:CHART_PALETTE[0] },
+          { label:'Paid', values:activeRows.slice(0,8).map(r=>Math.round(r.paid)), color:CHART_PALETTE[3] },
+          { label:'Committed', values:activeRows.slice(0,8).map(r=>Math.round(r.committed)), color:CHART_PALETTE[1] }
+        ],
+        fmt:v=>money(v), title:'Budget vs paid and committed', labelHead:'Budget category', height:236
+      }), {sub:'Paid and committed compared symmetrically against approved budget lines.'})}
+    </div>`
+  + `<div class="grid g2" style="margin-bottom:16px">
+      ${card('Budget utilisation by category', activeRows.filter(r=>r.budget).map(r=>`
+        <div style="margin-bottom:12px">
+          <div class="spread" style="margin-bottom:4px"><span class="small bold">${esc(r.cat.name)}</span>
+            <span class="xs mono muted">${money(r.paid)} / ${money(r.budget)} (${r.usedPct}%)</span></div>
+          <div class="progress ${r.usedPct>95?'crit':r.usedPct>80?'warn':'ok'}"><i style="width:${clamp(r.usedPct,0,100)}%"></i></div>
+        </div>`).join('') || emptyState('No budget lines configured','Add versioned budget lines to track utilisation.','layers'),
+        {sub:'Paid and committed against the current budget version'})}
+      ${card('Month-end projection & Operational cadence', `<div class="dl">
+          <dt>Days elapsed</dt><dd class="mono">${e.daysElapsed} of ${e.daysInMonth}</dd>
+          <dt>Spend to date</dt><dd class="mono">${money(e.tot.paid+e.tot.committed)}</dd>
+          <dt>Projected month-end</dt><dd class="mono"><b>${money(e.projected)}</b></dd>
+          <dt>Variance vs budget</dt><dd class="mono">${money(e.tot.budget-e.projected)}</dd>
+          <dt>Supporting evidence</dt><dd class="mono">${e.tx.filter(t=>t.receipt).length}/${e.tx.length} receipts</dd>
         </div>
         <div class="divider"></div>
-        ${note('Budgeted, committed, paid, reconciled and remaining are distinct values and are never treated as interchangeable.','info')}`)}
+        ${note('Daily PAYG patient expenses & daily staff transport, weekly supplier runs, 9th-of-month statutory remittances (SHIF, PAYE, KRA, NSSF), and monthly Operational Expenses are managed in County & Head Office Admin Operations.','info')}`)}
     </div>`
-  + card('Category detail', table([
-      {label:'Category',render:r=>`<div class="cellname">${esc(r.cat.name)}<span class="sm">${esc(r.cat.group)}</span></div>`},
-      {label:'Budget',cls:'num',render:r=>money(r.budget)},
-      {label:'Committed',cls:'num',render:r=>money(r.committed)},
-      {label:'Paid',cls:'num',render:r=>money(r.paid)},
-      {label:'Reconciled',cls:'num',render:r=>money(r.reconciled)},
-      {label:'Remaining',cls:'num',render:r=>`<b>${money(r.remaining)}</b>`},
-      {label:'Used',cls:'num',render:r=>`${r.usedPct}%`},
-      {label:'Docs',cls:'num',render:r=>r.missingReceipt?badge(r.missingReceipt+' missing','b-warn','nodot'):badge('OK','b-ok','nodot')}
-    ], e.rows),
+  + card('Category detail (symmetrical ledger)', `<div class="tbl-wrap"><table class="tbl align-sym">
+      <thead><tr><th>Category</th><th class="num">Budget</th><th class="num">Committed</th><th class="num">Paid</th><th class="num">Reconciled</th><th class="num">Remaining</th><th class="num">Used</th><th class="num">Docs</th></tr></thead>
+      <tbody>${e.rows.map(r=>`<tr>
+        <td><div class="cellname">${esc(r.cat.name)}<span class="sm">${esc(r.cat.group)}</span></div></td>
+        <td class="num mono">${money(r.budget)}</td>
+        <td class="num mono">${money(r.committed)}</td>
+        <td class="num mono">${money(r.paid)}</td>
+        <td class="num mono">${money(r.reconciled)}</td>
+        <td class="num mono"><b>${money(r.remaining)}</b></td>
+        <td class="num mono">${r.usedPct}%</td>
+        <td class="num">${r.missingReceipt?badge(r.missingReceipt+' missing','b-warn','nodot'):badge('OK','b-ok','nodot')}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr class="ct-total-row">
+        <td><b>Total</b></td>
+        <td class="num mono"><b>${money(e.tot.budget)}</b></td>
+        <td class="num mono"><b>${money(e.tot.committed)}</b></td>
+        <td class="num mono"><b>${money(e.tot.paid)}</b></td>
+        <td class="num mono"><b>${money(e.tot.reconciled)}</b></td>
+        <td class="num mono"><b>${money(e.tot.remaining)}</b></td>
+        <td class="num mono"><b>${pct(e.tot.paid+e.tot.committed,e.tot.budget)}%</b></td>
+        <td class="num"></td>
+      </tr></tfoot>
+    </table></div>`,
     {foot:`<span>${ic('shield',13)} County offices see only their own financial records; organisation-wide consolidation requires explicit authorisation.</span>`});
 }
 function renderBudget(user){
   const rows = repo.budget(user);   /* scoped: a county administrator sees only their own county */
-  return pageHead('Budget lines','Versioned monthly budget lines. Changing a budget never rewrites the basis of a previously issued report.',
-    RBAC.has(user,'finance.budget.manage')?`<button class="btn btn-sm btn-primary" data-act="edit-budget">${ic('plus',15)} New budget version</button>`:'')
+  return pageHead('Budget lines','Versioned monthly & annual budget lines. Changing a budget never rewrites the basis of a previously issued report.',
+    `<div class="row" style="gap:8px">${RBAC.has(user,'admin.ops')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="adminops" data-tab="annual">${ic('calendar',14)} Annual Budgeting & Societies</button>`:''}
+    ${RBAC.has(user,'finance.budget.manage')?`<button class="btn btn-sm btn-primary" data-act="edit-budget">${ic('plus',15)} New budget version</button>`:''}</div>`)
   + card('Budget versions', table([
       {label:'County',render:b=>esc(countyName(b.countyId))},
       {label:'Category',render:b=>esc(BUDGET_CATEGORIES.find(c=>c.id===b.line)?.name||b.line)},
@@ -196,9 +230,30 @@ function renderBudget(user){
     {foot:'<span>Budget changes are audited. Historical reports retain the target and budget version used at generation time.</span>'});
 }
 function renderProcurement(user){
-  return pageHead('Procurement','')
-  + card('Procurement register', emptyState('Register ready','Procurement requests are raised from approved operational needs and linked to budget lines.','package'),
-    {sub:'Configured per county office - no fabricated supplier records'});
+  const suppliers = (typeof ADMIN_OPS!=='undefined') ? ADMIN_OPS.scopedList(user, 'adminOpsSuppliers') : [];
+  const totalScheduled = suppliers.reduce((n,s)=>n+(Number(s.amount)||0),0);
+  const paidSuppliers = suppliers.filter(s=>s.status==='paid');
+  return pageHead('Procurement & Weekly Supplier Schedule',
+    'Links approved Monday procurement needs, foodbag & medical requisitions, and weekly supplier settlement schedules.',
+    `<div class="row" style="gap:8px;flex-wrap:wrap">
+      ${RBAC.has(user,'monday.meeting')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="monday">${ic('users',14)} Monday Procurement</button>`:''}
+      <button class="btn btn-sm btn-ghost" data-act="go" data-v="foodbudget">${ic('clipboard',14)} Projected Food Budget</button>
+      ${RBAC.has(user,'admin.ops')?`<button class="btn btn-sm btn-primary" data-act="go" data-v="adminops" data-tab="daily_weekly">${ic('plus',14)} Weekly Supplier Payments</button>`:''}
+    </div>`)
+  + `<div class="grid g3" style="margin-bottom:16px">
+      ${kpi('Weekly supplier batches', num(suppliers.length), 'Scoped to your county authority', 'info', 'package')}
+      ${kpi('Total scheduled value', money(totalScheduled), 'Weekly supplier cycle', '', 'wallet')}
+      ${kpi('Settled & receipted', num(paidSuppliers.length), money(paidSuppliers.reduce((n,s)=>n+(Number(s.amount)||0),0)), 'ok', 'check')}
+    </div>`
+  + card('Weekly Supplier & Procurement Register', suppliers.length ? table([
+      {label:'Ref / Week', render:r=>`<div class="cellname">${esc(r.ref||r.id)}<span class="sm">${esc(r.weekLabel||fmtDate(r.date))}</span></div>`},
+      {label:'County', render:r=>esc(countyName(r.countyId))},
+      {label:'Supplier & Category', render:r=>`<b>${esc(r.supplier)}</b><div class="xs muted">${esc(r.category||'Foodbags & Supplies')}</div>`},
+      {label:'Invoice Ref', render:r=>`<span class="mono xs">${esc(r.invoiceNo||'-')}</span>`},
+      {label:'Amount', cls:'num', render:r=>`<b class="mono">${money(r.amount)}</b>`},
+      {label:'Status', render:r=>badge(titleCase(r.status||'scheduled'), r.status==='paid'?'b-ok':'b-warn')}
+    ], suppliers) : emptyState('Register ready','Procurement requests and weekly supplier payments appear here once scheduled in Admin Operations or Monday Meeting.','package'),
+    {sub:'Supplier payments are settled weekly against verified invoices and linked budget lines.'});
 }
 
 /* ---------------- Report centre ---------------- */
@@ -711,11 +766,13 @@ function renderReportView(user, params){
   const rec = DB.db.reports.find(r=>r.id===params.id);
   const type = rec? rec.type : params.type;
   const countyId = rec? rec.countyId : (params.countyId||user.countyId);
+  const tblMode = (typeof isChartTableMode==='function' && isChartTableMode());
   const html = buildReportDoc(type,{countyId: countyId==='all'?'all':countyId}, user);
-  return `<div class="row no-print" style="margin-bottom:14px;justify-content:space-between">
+  return `<div class="row no-print" style="margin-bottom:14px;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <button class="btn btn-sm btn-ghost" data-act="go" data-v="reports">${ic('chevron',13)} Back</button>
-      <div class="row">
+      <div class="row" style="gap:8px;flex-wrap:wrap">
         ${rec?`<span class="chip">${esc(rec.title)} · ${esc(rec.periodKey)} · v${rec.version}</span>`:`<span class="chip">Preview - not yet archived</span>`}
+        <button class="btn btn-sm ${tblMode?'btn-primary':'btn-ghost'}" data-act="toggle-chart-table-mode">${ic('columns',14)} ${tblMode?'Charts & tables':'Tables only'}</button>
         <button class="btn btn-sm btn-ghost" data-act="print">${ic('download',14)} Print / PDF</button>
         <button class="btn btn-sm btn-ghost" data-act="export-report-docx" data-type="${esc(type||'')}" data-county-id="${esc(countyId||'')}">${ic('download',14)} Word</button>
         ${rec?`<button class="btn btn-sm btn-ghost" data-act="export-report" data-id="${rec.id}">${ic('download',14)} CSV</button>`:''}

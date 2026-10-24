@@ -125,6 +125,11 @@ async function boot(){
   /* The front door needs to know whether a host is answering before it draws. */
   try{ APPX.host = await hostProbe(); }catch(e){ APPX.host = null; }
   await tryResumeSession();
+  /* On a freshly deployed online site before commissioning, launch First-Run Setup automatically */
+  if(!AUTH.user && APPX.host && APPX.host.onlineDatabase && APPX.host.setup===false && !location.hash){
+    APPX.screen = 'onboard';
+    ONB.step = 1;
+  }
   AUTH.listeners.push(()=>render());
   window.addEventListener('hashchange', ()=>{ parseHash(); render(); });
   document.addEventListener('click', onClick, false);
@@ -154,6 +159,7 @@ function parseHash(){
 }
 function go(view, params={}){
   APPX.view = view; APPX.params = params;
+  if(typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.isActive()) SILENT_OVERRIDE.recordView(view);
   const q = Object.keys(params).length? '?'+Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&'):'';
   const target = `#/${view}${q}`;
   if(AUTH.user) NAVH.mirror(target);
@@ -165,7 +171,9 @@ function go(view, params={}){
     if(id) MESSAGING.markRead(AUTH.user, id);
   }
   render();
-  window.scrollTo({top:0,behavior:'smooth'});
+  const contentEl = document.querySelector && document.querySelector('#content');
+  if(contentEl && typeof contentEl.scrollTo === 'function') contentEl.scrollTo({top:0,behavior:'auto'});
+  else window.scrollTo({top:0,behavior:'auto'});
 }
 function applyTheme(){
   /* Colour, density, text size, touch size and motion all come from one place,
@@ -413,20 +421,22 @@ function viewCrumb(){
     monday:'Monday Management Meeting', handover:'Delegation & Role Handover', hardcopy:'Hard-Copy Intake & Scanned Forms',
     clinicalmcm:'Medical Case Manager & Clinical Console', bmiboard:'BMI Nutritional Intelligence',
     cccdesk:'CCC / PSC Hospital Referral Desk', govdashboard:'Government Health Partnership',
-    intlmedical:'120+ Day PDCA & International Medical Review', foodbudget:'Projected Food & Hygiene Budget'};
+    intlmedical:'120+ Day PDCA & International Medical Review', foodbudget:'Projected Food & Hygiene Budget',
+    adminops:'Admin Operations & 9th Statutory', devconsole:'CareLink Development Console'};
   const baseTitle = labels[v]||titleCase(v);
   const t = (AUTH.user && typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel) ? ROLE_CTX.navLabel(AUTH.user, v, baseTitle) : baseTitle;
   const role = AUTH.user? (roleObj(AUTH.user.roleId)||{}).consoleTitle : '';
   return { title:t, path:[role||'CareLink C-DIMS', t].join(' · ') };
 }
-/* Photo-free contextual top strip: Demo Authorised-Account Switch Banner +
+/* Photo-free contextual top strip: Silent Admin Override Banner + Demo Switch Banner +
    Admin/Intl Single-Operator Co-Work Lease Bar + Role-Scoped Context Strip.
    All console and module photographs & captions have been removed by design. */
 function workspaceHeroBanner(view, user){
+  const overrideBar = (typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.bannerHTML) ? SILENT_OVERRIDE.bannerHTML() : '';
   const demoBar = (typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '';
   const coeditBar = (typeof DUALCHECK!=='undefined' && DUALCHECK.bannerHTML) ? DUALCHECK.bannerHTML(user) : '';
   const ctxStrip = (typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip) ? ROLE_CTX.contextStrip(user, view) : '';
-  return demoBar + coeditBar + ctxStrip;
+  return overrideBar + demoBar + coeditBar + ctxStrip;
 }
 function contentFor(view, params, user){
   const guard = (cap)=>{ if(!RBAC.assert(user,cap,{},false)) return deniedPanel(cap); return null; };
@@ -536,6 +546,9 @@ function contentFor(view, params, user){
       case 'govdashboard': return guard('gov.oversight')||HANDOVER_PARTNERS.renderGovDashboard(user, params);
       case 'intlmedical': return guard('intl.medical')||HANDOVER_PARTNERS.renderIntlMedical(user, params);
       case 'foodbudget': return (RBAC.has(user,'procurement.view')||RBAC.has(user,'finance.view'))?MONDAY_PROC.renderFoodBudget(user, params):deniedPanel('procurement.view');
+      /* CareLink v6.4 Admin Operations & Development Console */
+      case 'adminops': return (RBAC.has(user,'admin.ops')||RBAC.has(user,'finance.view'))?ADMIN_OPS.render(user, params):deniedPanel('admin.ops');
+      case 'devconsole': return DEV_CONSOLE.canAccess(user)?DEV_CONSOLE.render(user, params):deniedPanel('dev.console');
       default: return renderHome(user);
     }
     })();

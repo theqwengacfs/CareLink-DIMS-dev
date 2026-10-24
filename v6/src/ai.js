@@ -199,11 +199,11 @@ const AI_PROFILES = {
   },
   it: {
     id:'it',
-    title:'System Administration, Host & Ollama AI',
-    badge:'ICT & Host Console',
-    summary:'Central Wi-Fi SQLite host status, local Ollama LLM bridge, active accounts, RBAC matrix and backup readiness.',
+    title:'System Administration, Dev Console & Cloud DB AI',
+    badge:'System & Dev Console',
+    summary:'Shared Online Site Database status, CareLink Online Intelligence, First-Run SMS provisioning, RBAC matrix and backup readiness.',
     chips:[
-      'Check local Ollama & system host status',
+      'Check online site database & intelligence status',
       'Summarise governance & executive actions',
       'Show data quality findings',
       'Check equipment & inventory status',
@@ -215,19 +215,19 @@ const AI_PROFILES = {
 const VIEW_TO_AI_PROFILE = {
   executive:'executive', execconsole:'executive', governance:'executive', compare:'executive', donor:'executive', workplans:'executive', delegation:'executive',
   patients:'field', patient:'field', pipeline:'field', attention:'field', visits:'field', visitplan:'field', schedule:'field', weather:'field', repeat:'field', programdays:'field',
-  pdca:'clinical', careplans:'clinical', careplan:'clinical', forms:'clinical', form:'clinical', conditions:'clinical',
-  requests:'hospital', liaison:'hospital', referral:'hospital',
-  pharmacy:'pharmacy',
+  pdca:'clinical', careplans:'clinical', careplan:'clinical', forms:'clinical', form:'clinical', conditions:'clinical', bmiboard:'clinical', clinicalmcm:'clinical',
+  requests:'hospital', liaison:'hospital', referral:'hospital', cccdesk:'hospital',
+  pharmacy:'pharmacy', tbcare:'pharmacy',
   care:'homestay', 'care-resident':'homestay', 'care-incidents':'homestay',
-  finance:'finance', budget:'finance', procurement:'finance', recon:'finance',
+  finance:'finance', budget:'finance', procurement:'finance', recon:'finance', costing:'finance', foodbudget:'finance', adminops:'finance',
   analytics:'me', indicators:'me', interop:'me', reports:'me', report:'me', archive:'me', targets:'me', import:'me',
   media:'media', studio:'media', consent:'media', publish:'media', policy:'media',
   pr:'pr',
-  staff:'hr', hr:'hr', leave:'hr', welfare:'hr', interns:'hr', presence:'hr', recognition:'hr', evaluation:'hr',
+  staff:'hr', hr:'hr', leave:'hr', welfare:'hr', interns:'hr', presence:'hr', recognition:'hr', evaluation:'hr', handover:'hr',
   vehicles:'logistics', trips:'logistics', inventory:'logistics',
   library:'library',
   audit:'audit', history:'audit', security:'audit', quality:'audit', ohs:'audit',
-  users:'it', roles:'it', org:'it', registry:'it', workflows:'it', health:'it', backup:'it', settings:'it', mergejournal:'it'
+  users:'it', roles:'it', org:'it', registry:'it', workflows:'it', health:'it', backup:'it', settings:'it', mergejournal:'it', devconsole:'it'
 };
 
 const AI = {
@@ -260,57 +260,46 @@ const AI = {
   cfg(){
     if(!DB.db) DB.load();
     DB.db.settings.ai = Object.assign(
-      { enabled:true, mode:'auto', ollama:'http://127.0.0.1:11434', model:'llama3.2' },
+      { enabled:true, mode:'auto', provider:'online', ollama:'/api/ai', model:'carelink-online-v6.4' },
       DB.db.settings.ai || {}
     );
     return DB.db.settings.ai;
   },
 
-  /* Probe both Host LAN Ollama Proxy (/api/ai/probe) AND direct localhost Ollama */
+  /* Probe CareLink Shared Online Site Intelligence (/api/ai/probe) */
   async ollamaProbe(){
     const cfg = this.cfg();
     if(cfg.mode === 'offline') {
       this.status = { online:false, via:'offline', models:[], activeModel:'', lastChecked:new Date().toISOString(), error:'' };
       return false;
     }
-    /* 1. Try CareLink Host Server Proxy first (works across all Wi-Fi tablets + PCs) */
-    if(typeof fetch === 'function' && typeof location !== 'undefined' && /^https?:/.test(location.protocol) && typeof SYNC !== 'undefined' && SYNC.sessionToken){
+    if(typeof fetch === 'function' && typeof location !== 'undefined' && /^https?:/.test(location.protocol)){
       try{
-        const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 1400);
-        const r = await fetch('/api/ai/probe', {
+        const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 2200);
+        const headers = { 'Content-Type':'application/json' };
+        if(typeof SYNC !== 'undefined' && SYNC.sessionToken){
+          headers['X-CareLink-Session'] = SYNC.sessionToken;
+          headers['Authorization'] = 'Bearer ' + SYNC.sessionToken;
+        }
+        const r = await fetch('api/ai/probe', {
           method:'POST',
-          headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + SYNC.sessionToken },
-          body: JSON.stringify({ endpoint: cfg.ollama || 'http://127.0.0.1:11434' }),
+          headers,
+          body: JSON.stringify({ mode:'online-cloud' }),
           signal:ctl.signal
         });
         clearTimeout(t);
         if(r.ok){
           const body = await r.json();
-          if(body && (body.online || body.reachable)){
-            const models = (body.models || []).filter(Boolean);
-            const chosen = models.includes(cfg.model) ? cfg.model : (models[0] || cfg.model || 'llama3.2');
-            this.status = { online:true, via:'host-proxy', models, activeModel:chosen, lastChecked:new Date().toISOString(), error:'' };
+          if(body && (body.online || body.reachable || body.ok)){
+            const models = (body.models || [body.model]).filter(Boolean);
+            const chosen = models[0] || cfg.model || 'carelink-online-v6.4';
+            this.status = { online:true, via: body.mode || 'online-cloud', models, activeModel:chosen, lastChecked:new Date().toISOString(), error:'' };
             return true;
           }
         }
       }catch(e){}
     }
-    /* 2. Try direct browser-to-Ollama connection (standalone HTML / localhost desktop) */
-    const base = String(cfg.ollama || 'http://127.0.0.1:11434').replace(/\/$/,'');
-    if(!base) return false;
-    try{
-      const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 1400);
-      const r = await fetch(base + '/api/tags', { signal:ctl.signal });
-      clearTimeout(t);
-      if(r.ok){
-        const body = await r.json();
-        const models = ((body && body.models) || []).map(m=>m.name || m.model).filter(Boolean);
-        const chosen = models.includes(cfg.model) ? cfg.model : (models[0] || cfg.model || 'llama3.2');
-        this.status = { online:true, via:'direct-ollama', models, activeModel:chosen, lastChecked:new Date().toISOString(), error:'' };
-        return true;
-      }
-    }catch(e){}
-    this.status = { online:false, via:'offline', models:[], activeModel:'', lastChecked:new Date().toISOString(), error:'Ollama not reachable; using verified offline engine' };
+    this.status = { online:false, via:'offline', models:[], activeModel:'', lastChecked:new Date().toISOString(), error:'Online intelligence endpoint unreachable; using verified local CareLink engine' };
     return false;
   },
 
@@ -604,46 +593,36 @@ Try one of the workspace prompts below, or connect a local Ollama model for open
     ];
 
     try{
-      if(this.status.via === 'host-proxy'){
-        const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 18000);
-        const headers = { 'Content-Type':'application/json' };
-        if(typeof SYNC !== 'undefined' && SYNC.sessionToken) headers['Authorization'] = 'Bearer ' + SYNC.sessionToken;
-        const r = await fetch('/api/ai/chat', {
-          method:'POST', headers, signal:ctl.signal,
-          body: JSON.stringify({ endpoint: cfg.ollama || 'http://127.0.0.1:11434', model, prompt: sysPrompt + '\n\nQuestion: ' + String(qRaw||''), messages, stream:false })
-        });
-        clearTimeout(t);
-        if(r.ok){
-          const body = await r.json();
-          const reply = body && (body.reply || (body.message && body.message.content) || body.response);
-          if(reply && String(reply).trim()){
-            return {
-              text: String(reply).trim(),
-              evidence: ['Recorded fact', `Local Ollama (${model})`],
-              sources: [prof.badge, 'host ollama proxy'],
-              at: todayISO(), draft: true, specialist: prof.title
-            };
-          }
-        }
-      } else {
-        const base = String(cfg.ollama || 'http://127.0.0.1:11434').replace(/\/$/,'');
-        const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 18000);
-        const r = await fetch(base + '/api/chat', {
-          method:'POST', headers:{ 'Content-Type':'application/json' }, signal:ctl.signal,
-          body: JSON.stringify({ model, messages, stream:false })
-        });
-        clearTimeout(t);
-        if(r.ok){
-          const body = await r.json();
-          const reply = body && ((body.message && body.message.content) || body.response);
-          if(reply && String(reply).trim()){
-            return {
-              text: String(reply).trim(),
-              evidence: ['Recorded fact', `Local Ollama (${model})`],
-              sources: [prof.badge, 'direct ollama'],
-              at: todayISO(), draft: true, specialist: prof.title
-            };
-          }
+      const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 18000);
+      const headers = { 'Content-Type':'application/json' };
+      if(typeof SYNC !== 'undefined' && SYNC.sessionToken){
+        headers['X-CareLink-Session'] = SYNC.sessionToken;
+        headers['Authorization'] = 'Bearer ' + SYNC.sessionToken;
+      }
+      const r = await fetch('api/ai/chat', {
+        method:'POST', headers, signal:ctl.signal,
+        body: JSON.stringify({
+          model,
+          prompt: sysPrompt + '\n\nQuestion: ' + String(qRaw||''),
+          messages,
+          stream:false,
+          userContext:{ username:user.username, roleId:user.roleId, countyId:user.countyId }
+        })
+      });
+      clearTimeout(t);
+      if(r.ok){
+        const body = await r.json();
+        const reply = body && (body.reply || (body.message && body.message.content) || body.response);
+        if(reply && String(reply).trim()){
+          const combined = localAns.text && !String(reply).includes(localAns.text.slice(0,24))
+            ? `${localAns.text}\n\n${String(reply).trim()}`
+            : String(reply).trim();
+          return {
+            text: combined,
+            evidence: ['Shared Online Site Database', body.engine || `CareLink Online Intelligence (${model})`],
+            sources: [prof.badge, 'online site intelligence'],
+            at: todayISO(), draft: true, specialist: prof.title
+          };
         }
       }
     }catch(e){}

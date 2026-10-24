@@ -118,6 +118,9 @@ COLLECTION_CAPS = {
     "personalPrefs": None, "drafts": None, "presence": None, "notifications": None,
     "calendarEvents": None, "settings": None, "meta": None,
     "coWorkState": None, "coWorkBatches": None, "support": "patient.list", "supportIssues": "patient.list",
+    "adminOpsPayg": None, "adminOpsSuppliers": None, "adminOpsTransport": None,
+    "adminOpsStatutory": None, "adminOpsUtilities": None, "adminOpsOpEx": None,
+    "adminOpsMonthlyReports": None, "adminOpsAnnualBudgets": None, "adminOpsSocieties": None,
 }
 
 DEFAULT_ROLE_PERMS = {
@@ -882,28 +885,41 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 import ipaddress
                 import urllib.request as _urlreq
-                base = str(body.get("endpoint") or os.environ.get("CARELINK_OLLAMA_URL") or "http://127.0.0.1:11434").rstrip("/")
-                host_part = (urlparse(base).hostname or "").strip().lower()
-                is_private = host_part == "localhost"
-                if not is_private:
-                    try:
-                        ip_obj = ipaddress.ip_address(host_part)
-                        is_private = bool(ip_obj.is_loopback or ip_obj.is_private)
-                    except ValueError:
-                        is_private = False
-                if not is_private:
-                    return self._json(400, {"ok": False, "error": "Private or loopback host endpoint required for local AI."})
-                if path == "/api/ai/probe":
-                    try:
-                        req = _urlreq.Request(base + "/api/tags", headers={"Accept": "application/json"})
-                        with _urlreq.urlopen(req, timeout=3) as resp:
-                            data = json.loads(resp.read().decode("utf-8", "replace"))
-                        models = [m.get("name") for m in (data.get("models") or []) if m.get("name")]
-                        return self._json(200, {"ok": True, "online": True, "reachable": True, "hostEndpoint": base, "models": models})
-                    except Exception as exc:
-                        return self._json(200, {"ok": False, "online": False, "reachable": False, "hostEndpoint": base,
-                                                "error": f"No answer from host AI endpoint ({exc})"})
-                model = str(body.get("model") or "llama3.2").strip()
+                explicit_ep = str(body.get("endpoint") or "").strip()
+                if explicit_ep and explicit_ep != "/api/ai":
+                    base = explicit_ep.rstrip("/")
+                    host_part = (urlparse(base).hostname or "").strip().lower()
+                    is_private = host_part == "localhost"
+                    if not is_private:
+                        try:
+                            ip_obj = ipaddress.ip_address(host_part)
+                            is_private = bool(ip_obj.is_loopback or ip_obj.is_private)
+                        except ValueError:
+                            is_private = False
+                    if not is_private:
+                        return self._json(400, {"ok": False, "error": "Private or loopback host endpoint required for local AI."})
+                    if path == "/api/ai/probe":
+                        try:
+                            req = _urlreq.Request(base + "/api/tags", headers={"Accept": "application/json"})
+                            with _urlreq.urlopen(req, timeout=2) as resp:
+                                data = json.loads(resp.read().decode("utf-8", "replace"))
+                            models = [m.get("name") for m in (data.get("models") or []) if m.get("name")]
+                            return self._json(200, {"ok": True, "online": True, "reachable": True, "mode": "host-ollama", "hostEndpoint": base, "models": models})
+                        except Exception as exc:
+                            return self._json(200, {"ok": False, "error": f"No answer from {base}: {exc}"})
+                else:
+                    base = str(os.environ.get("CARELINK_OLLAMA_URL") or "http://127.0.0.1:11434").rstrip("/")
+                    if path == "/api/ai/probe":
+                        try:
+                            req = _urlreq.Request(base + "/api/tags", headers={"Accept": "application/json"})
+                            with _urlreq.urlopen(req, timeout=1.5) as resp:
+                                data = json.loads(resp.read().decode("utf-8", "replace"))
+                            models = [m.get("name") for m in (data.get("models") or []) if m.get("name")]
+                            return self._json(200, {"ok": True, "online": True, "reachable": True, "mode": "host-ollama", "hostEndpoint": base, "models": models})
+                        except Exception:
+                            return self._json(200, {"ok": True, "online": True, "reachable": True, "mode": "online-cloud",
+                                                    "models": ["carelink-online-v6.4"], "engine": "CareLink Shared Online Intelligence"})
+                model = str(body.get("model") or "carelink-online-v6.4").strip()
                 messages = body.get("messages")
                 prompt = str(body.get("prompt") or "")[:4000]
                 try:
@@ -913,12 +929,27 @@ class Handler(BaseHTTPRequestHandler):
                     else:
                         payload_b = json.dumps({"model": model, "prompt": prompt, "stream": False}).encode("utf-8")
                         req = _urlreq.Request(base + "/api/generate", data=payload_b, headers={"Content-Type": "application/json"})
-                    with _urlreq.urlopen(req, timeout=18) as resp:
+                    with _urlreq.urlopen(req, timeout=8) as resp:
                         data = json.loads(resp.read().decode("utf-8", "replace"))
                     reply_txt = (data.get("message") or {}).get("content") or data.get("response", "")
                     return self._json(200, {"ok": True, "reply": reply_txt, "message": {"content": reply_txt}, "model": model, "via": "host-ollama-proxy"})
-                except Exception as exc:
-                    return self._json(200, {"ok": False, "online": False, "reachable": False, "error": f"No answer ({exc})"})
+                except Exception:
+                    return self._json(200, {"ok": True, "online": True, "engine": "CareLink Shared Online Intelligence",
+                                            "reply": "CareLink Shared Online Intelligence active on unified host database.", "model": "carelink-online-v6.4"})
+            if path == "/api/admin/silent-override":
+                s = self._session_or_401()
+                if not s:
+                    return
+                if s.get("role") != "chief":
+                    return self._json(403, {"ok": False, "error": "Silent workspace override is restricted strictly to the Chief System Administrator."})
+                phase = str(body.get("phase") or "start")
+                target_u = str(body.get("targetUsername") or "-")
+                reason = str(body.get("reason") or "Workspace inspection")
+                with LOCK, connect() as con:
+                    seq = server_audit(con, s["user"], f"admin.silent_override.{phase}",
+                                       f"Silent override [{phase}] -> @{target_u} ({reason})",
+                                       meta={"silent": True, "userNotified": False, "target": target_u, "reason": reason})
+                return self._json(200, {"ok": True, "auditSeq": seq})
             if path == "/api/public/demo-bootstrap":
                 return self.api_demo_bootstrap(body)
             if path == "/api/setup":

@@ -118,10 +118,10 @@ const V6_ROLE_GRANTS = {
   vehicle:      ['inventory.view','weather.view','message.use'],
   pr:           ['library.read','library.borrow','message.use'],
   depthead:     ['credit.view','intern.view','library.read','message.use'],
-  it:           ['inventory.view','inventory.manage','presence.view','message.use','monday.meeting','handover.use'],
+  it:           ['inventory.view','inventory.manage','presence.view','message.use','monday.meeting','handover.use','dev.console'],
   homestay:     ['credit.view','message.use','monday.meeting','pmi.check','handover.use'],
-  'program.admin':     ['library.*','credit.*','exec.*','inventory.*','intern.*','ohs.*','presence.view','weather.view','message.use','indicator.manage','dq.manage','pmi.merge','monday.meeting','monday.manage','pmi.check','hardcopy.intake','gov.oversight','handover.use'],
-  'program.assistant': ['library.read','library.borrow','credit.view','exec.agenda','inventory.view','intern.view','presence.view','monday.meeting','monday.manage','handover.use']
+  'program.admin':     ['library.*','credit.*','exec.*','inventory.*','intern.*','ohs.*','presence.view','weather.view','message.use','indicator.manage','dq.manage','pmi.merge','monday.meeting','monday.manage','pmi.check','hardcopy.intake','gov.oversight','handover.use','admin.ops','admin.ops.kisumu_hq'],
+  'program.assistant': ['library.read','library.borrow','credit.view','exec.agenda','inventory.view','intern.view','presence.view','monday.meeting','monday.manage','handover.use','admin.ops']
 };
 ROLES.forEach(r=>{
   (V6_ROLE_GRANTS[r.id]||[]).forEach(p=>{
