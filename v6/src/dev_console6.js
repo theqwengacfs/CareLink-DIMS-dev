@@ -75,6 +75,8 @@ const PROD_SETUP = {
     admin.execTeam = true;
 
     DB.db.settings = DB.db.settings || {};
+    DB.db.settings.security = Object.assign({ loginAttempts: 6, passwordMinLength: 12, sessionLock: true }, DB.db.settings.security || {});
+    DB.db.settings.idleMinutes = DB.db.settings.idleMinutes || 30;
     DB.db.settings.org = {
       name: effectiveOrg,
       shortName: effectiveShort,
@@ -837,6 +839,143 @@ const SILENT_OVERRIDE = {
   }
 };
 
+/* ---------------- 2b. System Administrator Version Control Engine ---------------- */
+const VERSION_CONTROL = {
+  RELEASES: [
+    { tag:'v6.6.0', date:'2026-10-24', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
+      summary:'Official CareLink C-DIMS PDCA 120-Day & Discharge Engine, AI Monday Meeting Processor & Secretary Desk, Baseline-Anchored Charts, Dominant Dept Banners, Installable Font/Theme Packs, Tablet Foundation Default & System Admin Version Control.' },
+    { tag:'v6.5.0', date:'2026-10-23', channel:'Production', schema:63, author:'CareLink OS Core Engineering',
+      summary:'Global System Activation & WhatsApp Credential Sheet, Urgent County Sign-In Routing, CareLink AI Workflow Engine, Executive Sitting Console, C-DIMS Coins & Expenditure-vs-Budget Boards.' },
+    { tag:'v6.4.0', date:'2026-10-22', channel:'Production', schema:63, author:'CareLink OS Core Engineering',
+      summary:'County Admin Daily PAYG, Weekly Suppliers, 9th Statutory Deductions, Operational Expenses, Kisumu HQ Kenya Reports, Dedicated Dev Console & Audited Silent Override.' },
+    { tag:'v6.3.0', date:'2026-10-21', channel:'Production', schema:63, author:'CareLink OS Core Engineering',
+      summary:'3,333 Complete Beneficiary Longitudinal Records (12+ visits), Child Growth Curves, MCM SOAP Console, Hard-Copy Intake Scans, Monday Meeting & 4-Tier Procurement.' },
+    { tag:'v6.0.0', date:'2026-10-15', channel:'Foundation Baseline', schema:60, author:'LOMAMO Foundation ICT',
+      summary:'Unified CareLink C-DIMS Operating System across 10 Ministry Areas, Kisumu & Homa Bay County Offices, and PBKDF2-SHA256 Zero-Knowledge Vault.' }
+  ],
+
+  ensureStore(){
+    if(!DB.db) return;
+    DB.db.versionControl = DB.db.versionControl || { snapshots: [] };
+    if(!Array.isArray(DB.db.versionControl.snapshots)) DB.db.versionControl.snapshots = [];
+    if(!DB.db.versionControl.snapshots.length){
+      DB.db.versionControl.snapshots.push({
+        id: 'vcs-init-660',
+        tag: `v${APP.version}-baseline`,
+        category: 'System Release Baseline',
+        message: 'Initial CareLink v6.6.0 verified configuration & RBAC baseline checkpoint.',
+        author: 'Chief System Administrator',
+        createdAt: todayISO(),
+        checksum: this.computeChecksum(),
+        counts: this.captureCounts(),
+        configSnapshot: this.captureConfig()
+      });
+    }
+  },
+
+  captureConfig(){
+    const s = (DB.db && DB.db.settings) || {};
+    return JSON.parse(JSON.stringify({
+      consoleTheme: s.consoleTheme || 'foundation',
+      consoleThemeExplicit: Boolean(s.consoleThemeExplicit),
+      density: s.density || 'comfortable',
+      accentMode: s.accentMode || 'department',
+      programme: s.programme || { defaultDays: 90, maxDays: 120, reviewCadence: 30 },
+      security: s.security || { loginAttempts: 6, passwordMinLength: 12, sessionLock: true },
+      installedVisualPacks: s.installedVisualPacks || [],
+      customRoles: (DB.db && DB.db.customRoles) || []
+    }));
+  },
+
+  captureCounts(){
+    const db = DB.db || {};
+    return {
+      users: (db.users||[]).length,
+      patients: (db.patients||[]).length,
+      visits: (db.visits||[]).length,
+      customRoles: (db.customRoles||[]).length,
+      visualPacks: (db.settings && db.settings.installedVisualPacks || []).length,
+      auditEntries: (db.audit||[]).length
+    };
+  },
+
+  computeChecksum(){
+    const raw = JSON.stringify(this.captureConfig());
+    let h = 2166136261;
+    for(let i=0;i<raw.length;i++){
+      h ^= raw.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return 'sha-' + (h >>> 0).toString(16).padStart(8,'0');
+  },
+
+  commitSnapshot({ tag, category, message }, actor){
+    this.ensureStore();
+    const cleanTag = String(tag || `v${APP.version}-cp${DB.db.versionControl.snapshots.length+1}`).trim();
+    const snap = {
+      id: uid('vcs'),
+      tag: cleanTag,
+      category: category || 'Configuration Checkpoint',
+      message: String(message || 'System Administrator configuration checkpoint').trim(),
+      author: (actor && actor.name ? actor.name.replace(/^Demo - /,'') : 'Chief System Administrator'),
+      createdAt: new Date().toISOString(),
+      checksum: this.computeChecksum(),
+      counts: this.captureCounts(),
+      configSnapshot: this.captureConfig()
+    };
+    DB.db.versionControl.snapshots.unshift(snap);
+    AUDIT.append({
+      actor: (actor && actor.id) || 'system',
+      action: 'system.vcs.checkpoint_created',
+      entity: 'version_control',
+      entityId: snap.tag,
+      detail: `[${snap.category}] ${snap.message} (checksum ${snap.checksum})`
+    });
+    DB.save();
+    return snap;
+  },
+
+  diffAgainstLive(snapId){
+    this.ensureStore();
+    const snap = DB.db.versionControl.snapshots.find(s=>s.id===snapId);
+    if(!snap) return [];
+    const live = this.captureConfig();
+    const old = snap.configSnapshot || {};
+    const keys = ['consoleTheme','density','accentMode','programme','security','customRoles','installedVisualPacks'];
+    return keys.map(k=>{
+      const a = JSON.stringify(old[k]);
+      const b = JSON.stringify(live[k]);
+      return { key:k, changed: a !== b, snapshotVal: a, liveVal: b };
+    });
+  },
+
+  rollbackConfig(snapId, actor){
+    this.ensureStore();
+    const snap = DB.db.versionControl.snapshots.find(s=>s.id===snapId);
+    if(!snap || !snap.configSnapshot) return { ok:false, msg:'Checkpoint snapshot not found.' };
+    const cfg = JSON.parse(JSON.stringify(snap.configSnapshot));
+    DB.db.settings = DB.db.settings || {};
+    DB.db.settings.consoleTheme = cfg.consoleTheme || 'foundation';
+    DB.db.settings.consoleThemeExplicit = Boolean(cfg.consoleThemeExplicit);
+    DB.db.settings.density = cfg.density || 'comfortable';
+    DB.db.settings.accentMode = cfg.accentMode || 'department';
+    if(cfg.programme) DB.db.settings.programme = cfg.programme;
+    if(cfg.security) DB.db.settings.security = cfg.security;
+    DB.db.settings.installedVisualPacks = cfg.installedVisualPacks || [];
+    DB.db.customRoles = cfg.customRoles || [];
+    AUDIT.append({
+      actor: (actor && actor.id) || 'system',
+      action: 'system.vcs.rollback_executed',
+      entity: 'version_control',
+      entityId: snap.tag,
+      detail: `Restored configuration & role state from checkpoint ${snap.tag} (${snap.checksum}). Patient clinical data preserved untouched.`
+    });
+    DB.save();
+    if(typeof applyTheme === 'function') applyTheme();
+    return { ok:true, snap };
+  }
+};
+
 /* ---------------- 3. Dedicated Development Console ---------------- */
 const DEV_CONSOLE_STATE = {
   tab: 'telemetry',
@@ -890,27 +1029,41 @@ const DEV_CONSOLE = {
     const awaitingFirstLogin = users.filter(u => u.mustChangePassword).length;
     const overrideLogs = (DB.db.audit || []).filter(a => String(a.action || '').startsWith('system.silent_override')).slice(-30).reverse();
 
+    VERSION_CONTROL.ensureStore();
+    const vcsSnaps = DB.db.versionControl.snapshots || [];
+    const liveChecksum = VERSION_CONTROL.computeChecksum();
+
     const tabs = [
+      ['vcs', `Version Control (${vcsSnaps.length})`],
       ['telemetry', 'Online Site Database & Shared AI'],
       ['provisioning', 'First-Run Setup & SMS Credential Pack'],
       ...(isChief ? [['override', 'Chief Admin Silent Override']] : []),
       ['diagnostics', 'RBAC Matrix, Schema & Layout Diagnostics']
     ];
 
+    const devUtil = (typeof utilMenu === 'function') ? utilMenu('Admin Utilities', [
+      { label:'Commit Version Checkpoint', icon:'save', act:'dev-vcs-commit-modal' },
+      { label:'Export Release & VCS Ledger (.json)', icon:'download', act:'dev-vcs-export' },
+      { divider:true },
+      { label:'Probe Online DB & AI', icon:'refresh', act:'dev-probe-cloud' },
+      ...(isChief ? [{ label:'Launch First-Run Setup Wizard', icon:'sparkles', act:'goto-onboard' }] : [])
+    ], { icon:'settings' }) : '';
+
     const head = pageHead(
-      'CareLink Development Console',
-      `CareLink C-DIMS v${APP.version} (Build ${APP.build}) · Unified Online Site Database, Shared Online Intelligence, First-Run SMS Provisioning & Audited Silent Override.`,
+      'CareLink Development Console · Version Control & Cloud Governance',
+      `CareLink C-DIMS v${APP.version} (Build ${window.BUILD_STAMP || APP.build}) · System Administrator Version Control, Unified Online Site Database, Shared Intelligence & Audited Silent Override.`,
       `<div class="row" style="gap:8px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-ghost" data-act="dev-probe-cloud">${ic('refresh', 14)} ${DEV_CONSOLE_STATE.probing ? 'Probing...' : 'Probe Online DB & AI'}</button>
-        ${isChief ? `<button class="btn btn-sm btn-primary" data-act="goto-onboard">${ic('sparkles', 14)} Launch First-Run Setup Wizard</button>` : ''}
+        <button class="btn btn-sm btn-primary" data-act="dev-vcs-commit-modal">${ic('save', 14)} Commit Checkpoint</button>
+        <button class="btn btn-sm btn-ghost" data-act="dev-probe-cloud">${ic('refresh', 14)} ${DEV_CONSOLE_STATE.probing ? 'Probing...' : 'Probe Cloud'}</button>
+        ${devUtil}
       </div>`
     );
 
     const kpis = `<div class="grid g4" style="margin-bottom:16px">
-      ${kpi('Site Database Engine', cs ? cs.storageMode : ((typeof SYNC !== 'undefined' && SYNC.online) ? 'Online Synced DB' : 'Unified Site DB Ready'), `Schema v${APP.schema} · ${num(users.length)} accounts`, 'ok', 'database')}
-      ${kpi('Shared Online Intelligence', AI.status.available ? (AI.status.provider || 'Online Active') : 'Ready (Probe)', AI.status.model || 'Server-mediated /api/ai/*', 'info', 'sparkles')}
+      ${kpi('Active System Release', `v${APP.version}`, `Schema v${APP.schema} · Checksum ${liveChecksum}`, 'ok', 'flow')}
+      ${kpi('Site Database Engine', cs ? cs.storageMode : ((typeof SYNC !== 'undefined' && SYNC.online) ? 'Online Synced DB' : 'Unified Site DB Ready'), `${num(users.length)} accounts · ${num((DB.db.patients||[]).length)} patients`, 'info', 'database')}
       ${kpi('DPA Password Privacy', `${num(personalised)} private`, `${num(awaitingFirstLogin)} awaiting 1st-login change`, 'ok', 'lock')}
-      ${kpi('Silent Override Audit', `${num(overrideLogs.length)} events`, 'Hash-chained in System Audit', 'info', 'shieldcheck')}
+      ${kpi('VCS Checkpoints & Audit', `${num(vcsSnaps.length)} tags`, `${num(overrideLogs.length)} override audit logs`, 'info', 'shieldcheck')}
     </div>`;
 
     const tabBar = `<div class="tabs" role="tablist" style="margin-bottom:16px">
@@ -918,6 +1071,38 @@ const DEV_CONSOLE = {
     </div>`;
 
     let body = '';
+
+    if (tab === 'vcs') {
+      body = `<div class="grid g2" style="margin-bottom:16px">
+        ${card('Active Release Build & Configuration Integrity', `
+          <div class="dl">
+            <dt>Release Tag</dt><dd><b class="mono">CareLink C-DIMS v${esc(APP.version)}</b> ${badge('Production Active','b-ok',false)}</dd>
+            <dt>Database Schema</dt><dd class="mono">Schema v${esc(String(APP.schema))} (backward-compatible LWW merge)</dd>
+            <dt>Build Timestamp</dt><dd class="mono">${esc(window.BUILD_STAMP || APP.build || todayISO())}</dd>
+            <dt>Live Config Checksum</dt><dd class="mono bold">${esc(liveChecksum)}</dd>
+            <dt>Custom Roles &amp; Visual Packs</dt><dd>${num((DB.db.customRoles||[]).length)} custom role(s) &middot; ${num((DB.db.settings?.installedVisualPacks||[]).length)} custom pack(s)</dd>
+          </div>
+          <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">
+            <button class="btn btn-xs btn-primary" data-act="dev-vcs-commit-modal">${ic('plus',12)} Create Checkpoint Tag</button>
+            <button class="btn btn-xs btn-ghost" data-act="dev-vcs-export">${ic('download',12)} Export VCS Manifest (.json)</button>
+          </div>
+        `)}
+        ${card('System Administrator Checkpoint Snapshots', table([
+          { label:'Tag & Checksum', render:s=>`<b class="mono">${esc(s.tag)}</b><div class="xs mono muted">${esc(s.checksum)}</div>` },
+          { label:'Commit Summary', render:s=>`<b>${esc(s.category)}</b><div class="xs muted">${esc(s.message)}</div><div class="xs muted">By ${esc(s.author)} &middot; ${esc(fmtDateTime(s.createdAt))}</div>` },
+          { label:'Actions', cls:'right', render:s=>`<div class="row" style="gap:6px;justify-content:flex-end">
+            <button class="btn btn-xs btn-ghost" data-act="dev-vcs-diff" data-id="${esc(s.id)}">Diff</button>
+            ${isChief ? `<button class="btn btn-xs btn-soft" data-act="dev-vcs-rollback" data-id="${esc(s.id)}">Restore</button>` : ''}
+          </div>` }
+        ], vcsSnaps), { sub:'Snapshots preserve configuration, roles, security thresholds & visual packs while never overwriting clinical patient charts.' })}
+      </div>`
+      + card('Institutional Release History & Changelog Ledger', table([
+        { label:'Release', cls:'mono', render:r=>`<b>${esc(r.tag)}</b><div class="xs muted">${esc(r.date)}</div>` },
+        { label:'Channel', render:r=>badge(r.channel, r.tag==='v'+APP.version?'b-ok':'b-neutral', false) },
+        { label:'Schema', cls:'mono', render:r=>`v${r.schema}` },
+        { label:'Engineering & Governance Deliverables', render:r=>`<span class="small">${esc(r.summary)}</span>` }
+      ], VERSION_CONTROL.RELEASES));
+    }
 
     if (tab === 'telemetry') {
       const colCounts = Object.keys(DB.db || {}).filter(k => Array.isArray(DB.db[k])).map(k => ({ name: k, count: DB.db[k].length }));
@@ -1070,5 +1255,99 @@ Object.assign(ACTIONS, {
     const reason = reasonEl ? reasonEl.value : DEV_CONSOLE_STATE.overrideReason;
     SILENT_OVERRIDE.enter(d.id, reason);
   },
-  'silent-override-exit': () => SILENT_OVERRIDE.exit()
+  'silent-override-exit': () => SILENT_OVERRIDE.exit(),
+
+  'dev-vcs-commit-modal': () => {
+    VERSION_CONTROL.ensureStore();
+    const nextNum = (DB.db.versionControl.snapshots || []).length + 1;
+    openModal({
+      title: 'Commit System Version Control Checkpoint',
+      sub: 'Records a tagged configuration, custom-role & visual-pack snapshot with deterministic checksum.',
+      wide: false,
+      body: `<form id="vcsCommitForm">
+        <div class="grid g2">
+          <div class="field"><label>Version / Checkpoint Tag *</label>
+            <input class="input mono" name="tag" value="v${esc(APP.version)}-cp${nextNum}" required>
+          </div>
+          <div class="field"><label>Change Category</label>
+            <select class="input" name="category">
+              <option>Configuration Checkpoint</option>
+              <option>Roles &amp; Permissions Update</option>
+              <option>Theme &amp; Font Pack Release</option>
+              <option>Pre-Maintenance Safety Tag</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>Commit message / change notes *</label>
+          <textarea class="input" name="message" rows="3" required placeholder="Describe the system configuration, role customisation or policy adjustment captured in this checkpoint..."></textarea>
+        </div>
+      </form>`,
+      footer: `<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-act="dev-vcs-commit-save">${ic('save',14)} Commit Tag &amp; Snapshot</button>`
+    });
+  },
+
+  'dev-vcs-commit-save': () => {
+    const f = document.querySelector('#vcsCommitForm');
+    if(!f) return;
+    const fd = new FormData(f);
+    const msg = String(fd.get('message')||'').trim();
+    if(!msg) return toast('Commit message required','Describe what this checkpoint captures.','err');
+    const actor = SILENT_OVERRIDE.realActor() || AUTH.user;
+    const snap = VERSION_CONTROL.commitSnapshot({
+      tag: fd.get('tag'),
+      category: fd.get('category'),
+      message: msg
+    }, actor);
+    closeModal(true);
+    DEV_CONSOLE_STATE.tab = 'vcs';
+    toast('Version Checkpoint Committed', `Tag ${snap.tag} (${snap.checksum}) saved to Version Control.`, 'ok');
+    render();
+  },
+
+  'dev-vcs-diff': (d={}) => {
+    const diffs = VERSION_CONTROL.diffAgainstLive(d.id);
+    const snap = (DB.db.versionControl?.snapshots||[]).find(x=>x.id===d.id);
+    if(!snap) return;
+    openModal({
+      title: `Compare Checkpoint ${snap.tag} vs Live System`,
+      sub: `Snapshot taken ${fmtDateTime(snap.createdAt)} · Checksum ${snap.checksum}`,
+      wide: true,
+      body: table([
+        { label:'Configuration Domain', cls:'mono', render:r=>`<b>${esc(r.key)}</b>` },
+        { label:'Status', render:r=>badge(r.changed?'Modified Since Tag':'Identical', r.changed?'b-warn':'b-ok', false) },
+        { label:'Checkpoint Value', render:r=>`<code class="xs mono" style="word-break:break-all">${esc(String(r.snapshotVal||'').slice(0,120))}</code>` },
+        { label:'Live Value', render:r=>`<code class="xs mono" style="word-break:break-all">${esc(String(r.liveVal||'').slice(0,120))}</code>` }
+      ], diffs),
+      footer: `<button class="btn btn-ghost" data-act="close-modal">Close</button>`
+    });
+  },
+
+  'dev-vcs-rollback': (d={}) => {
+    const actor = SILENT_OVERRIDE.realActor() || AUTH.user;
+    if(!actor || actor.roleId !== 'chief') return toast('Chief System Administrator Only','Only the Chief System Administrator may restore a configuration checkpoint.','err');
+    const r = VERSION_CONTROL.rollbackConfig(d.id, actor);
+    if(!r.ok) return toast('Restore failed', r.msg, 'err');
+    toast('Checkpoint Restored', `Configuration restored to ${r.snap.tag} (${r.snap.checksum}) and logged in System Audit.`, 'ok');
+    render();
+  },
+
+  'dev-vcs-export': () => {
+    VERSION_CONTROL.ensureStore();
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      activeVersion: APP.version,
+      schema: APP.schema,
+      liveChecksum: VERSION_CONTROL.computeChecksum(),
+      releases: VERSION_CONTROL.RELEASES,
+      snapshots: DB.db.versionControl.snapshots
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `CareLink-VCS-Manifest-v${APP.version}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    toast('VCS Manifest Exported', `Downloaded ${a.download}.`, 'ok');
+  }
 });

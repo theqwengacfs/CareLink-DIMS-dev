@@ -558,6 +558,8 @@ const HANDOVER_PARTNERS = {
           <div class="row" style="gap:8px;flex-wrap:wrap">
             ${typeof BMI_CLINICAL!=='undefined' ? BMI_CLINICAL.badgeHTML(d.bmi, true) : ''}
             ${badge(d.intlStatus==='reviewed_concurred'?'Intl Medical Concurred':'Awaiting Intl Medical Review', d.intlStatus==='reviewed_concurred'?'b-ok':'b-warn')}
+            ${d.patientId ? `<button class="btn btn-xs btn-ghost" data-act="open-discharge-summary" data-id="${esc(d.patientId)}" data-mode="120day">${ic('file',12)} Official C-DIMS 120d Report</button>
+              <button class="btn btn-xs btn-ghost" data-act="export-pdca-word" data-id="${esc(d.patientId)}" data-mode="120day" title="Download Official C-DIMS 120-Day Report (.doc)">${ic('download',12)} .doc</button>` : ''}
             <button class="btn btn-xs btn-primary" data-act="intl-review-modal" data-id="${esc(d.id)}">${ic('check',12)} ${d.intlStatus==='reviewed_concurred'?'Update Advisory':'Record Intl Medical Review'}</button>
           </div>
         </div>

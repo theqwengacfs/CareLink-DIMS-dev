@@ -571,10 +571,10 @@ test('every theme meets its contrast targets', ()=>{
   return true;
 });
 
-test('a tablet opens in Harbour Dusk and a PC in the organisation default', ()=>{
-  ok('Harbour Dusk is a registered theme', run(`!!WTHEME.byId('harbour')`)===true);
-  ok('the tablet rule chooses Harbour Dusk', run(`(()=>{ const t=DEVICE.isTablet.bind(DEVICE); DEVICE.isTablet=()=>true; const r=DEVICE.themeDefault(); DEVICE.isTablet=t; return r; })()`)==='harbour');
-  ok('the desktop rule chooses the organisation default', run(`(()=>{ const t=DEVICE.isTablet.bind(DEVICE); DEVICE.isTablet=()=>false; const r=DEVICE.themeDefault(); DEVICE.isTablet=t; return r; })()`)==='foundation');
+test('both a tablet and a PC open in the standard Foundation Daylight default theme', ()=>{
+  ok('Harbour Dusk remains available as an optional field theme', run(`!!WTHEME.byId('harbour')`)===true);
+  ok('the tablet rule restores the standard Foundation Daylight default', run(`(()=>{ const t=DEVICE.isTablet.bind(DEVICE); DEVICE.isTablet=()=>true; const r=DEVICE.themeDefault(); DEVICE.isTablet=t; return r; })()`)==='foundation');
+  ok('the desktop rule chooses the standard Foundation Daylight default', run(`(()=>{ const t=DEVICE.isTablet.bind(DEVICE); DEVICE.isTablet=()=>false; const r=DEVICE.themeDefault(); DEVICE.isTablet=t; return r; })()`)==='foundation');
   ok('a personal choice still wins over the device rule', run(`(()=>{
       const u=DB.db.users.find(x=>x.username==='caregiver.nairobird');
       WTHEME.choose(u,'lake'); const t=DEVICE.isTablet.bind(DEVICE); DEVICE.isTablet=()=>true;
@@ -582,10 +582,10 @@ test('a tablet opens in Harbour Dusk and a PC in the organisation default', ()=>
   ok('the Galaxy A11 specification is carried', run(`DEVICE_PROFILES['galaxy-a11'].screen.resolution`)==='720 x 1560 (HD+)');
   ok('its CSS viewport is 360 x 780 at dpr 2', run(`DEVICE_PROFILES['galaxy-a11'].css.w`)===360 && run(`DEVICE_PROFILES['galaxy-a11'].css.h`)===780);
   ok('its panel is 6.4 inches at 268 ppi', run(`DEVICE_PROFILES['galaxy-a11'].screen.ppi`)===268);
-  ok('a Galaxy A11 user agent is recognised', run(`(()=>{
+  ok('a Galaxy A11 user agent is recognised and defaults to Foundation Daylight', run(`(()=>{
       globalThis.navigator = { userAgent:'Mozilla/5.0 (Linux; Android 11; SM-A115U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36', maxTouchPoints:5 };
       const id = DEVICE.detect().id, kind = DEVICE.detect().kind, theme = DEVICE.themeDefault();
-      return id==='galaxy-a11' && kind==='tablet' && theme==='harbour';
+      return id==='galaxy-a11' && kind==='tablet' && theme==='foundation';
     })()`)===true);
   return true;
 });

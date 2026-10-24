@@ -362,11 +362,12 @@ function renderShell(){
   const paneOn = NAVP.enabled(user);
   const railOn = paneOn && NAVP.effectiveRail(user, APPX.view);
   const flatItems = groups.flatMap(g=>g.items);
-  const quickBarIds = ['home','monday','messages','calendar'];
+  const quickBarIds = ['home','smartflow','monday','messages'];
   const quickBarItems = quickBarIds.map(id=>flatItems.find(i=>i.id===id)).filter(Boolean);
   const searchPh = RBAC.has(user,'patient.list') && !['mediahead','pr','finance','procurement','hr','welfare','vehicle','auditor','it','gov.partner','president'].includes(user.roleId)
     ? 'Search CareLink patients, forms, reports...'
     : 'Search CareLink workspace, pages & records...';
+  const countyDisp = user.countyId ? countyName(user.countyId) : 'Global / Head Office';
   return `<div class="app shell ${paneOn?'has-pane':''} ${railOn?'np-rail':''} ${APPX.navOpen?'np-open':''}">
     ${paneOn? NAVP.html(user, here) : ''}${paneOn? '<div class="np-scrim" data-act="nav-close"></div>' : ''}
     <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}">
@@ -377,12 +378,11 @@ function renderShell(){
         <button class="icon-btn" data-act="nav-forward" aria-label="Forward" title="Forward (Alt+Right)" ${NAVH.canForward()?'':'disabled aria-disabled="true"'}>${ic('forward',18)}</button>
       </div>
       <div class="cb-id">
-        <div class="cb-k"><span class="dot" style="background:${dept.accent}"></span><span class="cb-os-tag">CareLink</span> · ${esc(role.consoleTitle||role.name||'Console')}</div>
+        <div class="cb-k"><span class="dot" style="background:${dept.accent}"></span><span class="cb-os-tag">CareLink OS</span> · <span class="cb-role-tag">${esc(role.consoleTitle||role.name||'Console')}</span> · <span class="cb-county-tag">${esc(countyDisp)}</span></div>
         <h1>${esc(crumb.title)}</h1>
-        <div class="crumb">${esc(countyName(user.countyId))}${(role.scope||{}).geo==='areas'?' · '+(user.areaIds||[]).map(areaName).join(', '):''}</div>
       </div>
       <div class="cb-quick no-print" role="navigation" aria-label="Quick console shortcuts">
-        ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='monday'?'Monday':qi.label)}</span></button>`).join('')}
+        ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
       </div>
       <div class="searchbox"><span>${ic('search',16)}</span><input placeholder="${esc(searchPh)}" data-search aria-label="Search"></div>
       <div class="tb-actions">
@@ -390,8 +390,8 @@ function renderShell(){
         ${typeof SYNC!=='undefined'?SYNC.chip():''}
         <button class="btn btn-xs btn-ghost no-print tb-ai-label" data-act="toggle-ai" title="Open ${esc(aiProf.title||'Console AI')}">${ic('sparkles',14)} <span>${esc(aiProf.badge||'Console AI')}</span></button>
         <button class="icon-btn tb-ai-icon no-print" data-act="toggle-ai" aria-label="Open ${esc(aiProf.title||'Console AI')}" title="${esc(aiProf.title||'Console AI')}">${ic('sparkles',18)}</button>
-        <button class="icon-btn tb-theme" data-act="wtheme-open" aria-label="Workspace theme" title="Workspace theme">${ic('palette',18)}</button>
-        <button class="icon-btn" data-act="open-notifications" aria-label="Notifications" title="Notifications">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
+        <button class="icon-btn tb-theme no-print" data-act="wtheme-open" aria-label="Themes, Fonts & Visual Packs" title="Themes, Fonts & Visual Packs">${ic('palette',18)}</button>
+        <button class="icon-btn no-print" data-act="open-notifications" aria-label="Notifications" title="Notifications">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
         <button class="me-btn" data-act="toggle-user-menu" aria-label="Your account" title="${esc(user.name)} · ${esc(role.name||'')}">
           ${avatarFor(user.name, dept.accent, user.photo)}
           <span class="me-nm">${esc(user.name.replace(/^Demo - /,'').split(' ')[0])}</span>
@@ -1080,10 +1080,52 @@ const ACTIONS = {
     toast('Navigation auto-fold updated', NAVP.prefs(AUTH.user).autoFold ? 'Left pane now folds automatically for widescreen view when scrolling or working in the workspace.' : 'Left pane pinned open.', 'info');
     render();
   },
-  /* Workspace themes (v5.1). Personal; never touches permissions or data. */
-  'wtheme-open':()=>{ openThemePicker(); },
+  /* Workspace themes, font styles & installable visual packs. Personal; never touches permissions or data. */
+  'wtheme-open':(d={})=>{ openThemePicker(d.tab||'themes'); },
+  'wtheme-open-packs':()=>{ openThemePicker('packs'); },
+  'wtheme-tab':(d={})=>{ closeModal(true); openThemePicker(d.tab||'themes'); },
   'wtheme-more':()=>{ closeAllModals(); go('settings',{section:'appearance'}); },
   'studio-set':(d)=>{ const r=WTHEME.setStudio(AUTH.user, d.key, d.value); if(!r.ok) return toast('Not changed', r.msg, 'err'); render(); },
+  'studio-font-pick':(d={})=>{
+    const r = WTHEME.setStudio(AUTH.user, 'font', d.value);
+    if(!r.ok) return toast('Font not changed', r.msg, 'err');
+    closeModal(true); openThemePicker('fonts'); render();
+    toast('Font family applied', 'Updated workspace headings and body typography.', 'ok');
+  },
+  'pref-scale':(d={})=>{
+    const sc = Number(d.scale)||100;
+    DB.db.personalPrefs[AUTH.user.id] = DB.db.personalPrefs[AUTH.user.id] || {};
+    DB.db.personalPrefs[AUTH.user.id].textScale = sc;
+    DB.save(); applyTheme();
+    if(document.querySelector('#modalRoot .modal')){ closeModal(true); openThemePicker('fonts'); }
+    render();
+    toast('Text scale updated', `${sc}% typography active.`, 'ok');
+  },
+  'install-visual-pack':(d={})=>{
+    const r = WTHEME.installPack(AUTH.user, d.id);
+    if(!r.ok) return toast('Pack not applied', r.msg, 'err');
+    if(document.querySelector('#modalRoot .modal')){ closeModal(true); openThemePicker('packs'); }
+    render();
+    toast('Visual Pack Activated', `${r.pack.name} installed and applied to your console.`, 'ok');
+  },
+  'import-visual-pack-json':()=>{
+    const el = document.querySelector('#customVisualPackJson');
+    const raw = el ? el.value : '';
+    const r = WTHEME.importCustomPack(AUTH.user, raw);
+    if(!r.ok) return toast('Could not install pack', r.msg, 'err');
+    closeModal(true); openThemePicker('packs'); render();
+    toast('Custom Visual Pack Installed', `${r.pack.name} added to your pack library and activated.`, 'ok');
+  },
+  'export-visual-pack':()=>{
+    const json = WTHEME.exportCurrentPack(AUTH.user);
+    const blob = new Blob([json], { type:'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `CareLink-Visual-Pack-${AUTH.user.username}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
+    toast('Visual Pack Exported', 'Downloaded your active theme & font configuration (.json).', 'ok');
+  },
   'studio-preset':(d)=>{ const r=WTHEME.applyPreset(AUTH.user, d.id); if(!r.ok) return toast('Not applied', r.msg, 'err'); render(); toast('Look applied', r.preset.name+'. Only you see this. Reset it any time in Preferences.','ok'); },
   'studio-reset':()=>{ WTHEME.resetStudio(AUTH.user); render(); toast('Studio reset','Your colours and shapes are back to the theme.','ok'); },
   'set-wtheme':(d)=>{
@@ -1142,9 +1184,72 @@ const ACTIONS = {
     go('patient',{id:d.id});
   },
   'req-filter':(d)=>{ go('requests',{status:d.status}); },
-  /* Patient Discharge Summary, Referral, Hospital Post-Visit Follow-Up, Admin/Intl Co-Work & Demo Switch */
-  'open-discharge-summary':(d)=>{ PAT_DISCHARGE.openModal(d.id, AUTH.user); },
-  'print-discharge-summary':(d)=>{
+  /* Official CareLink C-DIMS PDCA 120-Day & Discharge Summary, Referral, Hospital Post-Visit Follow-Up */
+  'open-discharge-summary':(d={})=>{ PAT_DISCHARGE.openModal(d.id, AUTH.user, { mode: d.mode||'auto', subview: d.subview||'official' }); },
+  'pdca-sheet-mode':(d={})=>{
+    PAT_DISCHARGE._sheetMode = d.mode || 'auto';
+    PAT_DISCHARGE._sheetSubview = d.subview || 'official';
+    if(document.querySelector('#modalRoot .modal')){ closeModal(true); PAT_DISCHARGE.openModal(d.id, AUTH.user, { mode: d.mode||'auto', subview: d.subview||'official' }); }
+    else render();
+  },
+  'export-pdca-word':(d={})=>{ PAT_DISCHARGE.exportWord(d.id, AUTH.user, d.mode||'auto'); },
+  'export-pdca-json':(d={})=>{ PAT_DISCHARGE.exportMergeJson(d.id, AUTH.user, d.mode||'auto'); },
+  'print-discharge-summary':(d={})=>{
+    const p = repo.patient(AUTH.user, d.id) || (DB.db.patients||[]).find(x=>x.id===d.id);
+    if(p && typeof PAT_DISCHARGE!=='undefined' && PAT_DISCHARGE.renderOfficialTemplateHTML){
+      const compiled = PAT_DISCHARGE.compileOfficialPdcaData(p.id, { mode: d.mode||PAT_DISCHARGE._sheetMode||'auto' });
+      const docHtml = PAT_DISCHARGE.renderOfficialTemplateHTML(compiled, { standalone:true });
+      const w = window.open('', '_blank', 'width=940,height=920');
+      if(w){
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>CareLink C-DIMS Official PDCA - ${esc(p.code||p.id)}</title>
+        <style>
+          @page{size:A4;margin:12mm 14mm}
+          *{box-sizing:border-box}
+          body{margin:0;padding:18px;font-family:Calibri,'Segoe UI',system-ui,sans-serif;color:#0F1E36;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          .cdims-pdca-doc{max-width:790px;margin:0 auto}
+          .cdims-pdca-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:8px}
+          .cdims-pdca-brand{display:flex;align-items:center;gap:14px}
+          .cdims-pdca-logo{width:60px;height:60px;object-fit:contain}
+          .cdims-pdca-kicker{font-size:10px;font-weight:800;letter-spacing:.15em;color:#C8102E;text-transform:uppercase}
+          .cdims-pdca-h1{margin:2px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;color:#162F59;font-weight:700}
+          .cdims-pdca-area{font-size:12px;color:#475569;font-style:italic}
+          .cdims-pdca-modechip{padding:4px 10px;border-radius:999px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1E3A8A;font-size:9.5px;font-weight:800;letter-spacing:.08em}
+          .cdims-trirule{display:flex;height:4px;margin:8px 0 14px;border-radius:2px;overflow:hidden}
+          .cdims-pdca-sec-title{font-size:10.5px;font-weight:800;letter-spacing:.11em;color:#162F59;text-transform:uppercase;margin:13px 0 6px;display:flex;align-items:center;gap:6px}
+          .cdims-pdca-sec-title .sq{width:7px;height:7px;background:#C8102E;display:inline-block}
+          .cdims-meta-tbl{width:100%;border-collapse:collapse;margin-bottom:12px}
+          .cdims-meta-tbl td{border:1px solid #CBD5E1;padding:6px 9px;vertical-align:top;background:#F8FAFC}
+          .cdims-lbl{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:2px}
+          .cdims-pat-name{font-family:Georgia,serif;font-size:14px;font-weight:700;color:#8B1538}
+          .cdims-val{font-size:11.8px;color:#0F1E36;font-weight:600}
+          .cdims-anthro-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:11px 0}
+          .cdims-anthro-card{border:1px solid #CBD5E1;border-top-width:4px;border-radius:6px;padding:8px 10px;background:#fff}
+          .cdims-anthro-big{font-size:17px;font-weight:800;color:#162F59;margin:2px 0}
+          .cdims-anthro-big span{font-size:11px;font-weight:600;color:#64748B}
+          .cdims-anthro-sub{font-size:10px;color:#475569}
+          .cdims-aim-box{border-left:4px solid #C8102E;background:#FFF5F6;padding:9px 13px;border-radius:0 6px 6px 0;font-size:12px;line-height:1.48;color:#1E293B;margin-bottom:10px}
+          .cdims-pdca-row{display:grid;grid-template-columns:44px 1fr;border:1px solid #CBD5E1;border-radius:6px;overflow:hidden;margin-bottom:8px;background:#fff;page-break-inside:avoid}
+          .cdims-pdca-badge{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px}
+          .cdims-pdca-cell{padding:8px 12px}
+          .cdims-pdca-rhead{font-size:10.5px;font-weight:800;letter-spacing:.06em;margin-bottom:4px}
+          .cdims-pdca-rhead span{font-weight:500;color:#64748B;margin-left:7px;letter-spacing:0}
+          .cdims-pdca-ul{margin:0;padding-left:17px;font-size:11.6px;line-height:1.45;color:#1E293B}
+          .cdims-cc-sub{margin-top:6px;padding-top:5px;border-top:1px dashed #CBD5E1;font-size:11px;color:#334155}
+          .cdims-just-box{border-left:4px solid #162F59;background:#F1F5F9;padding:9px 13px;border-radius:0 6px 6px 0;font-size:12px;line-height:1.5;margin-bottom:10px}
+          .cdims-disch-banner{background:#162F59;color:#fff;padding:11px 15px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+          .cdims-disch-banner span{font-size:10px;font-weight:800;letter-spacing:.11em;color:#93C5FD;text-transform:uppercase}
+          .cdims-disch-banner b{font-size:15.5px;font-family:Georgia,serif}
+          .cdims-pdca-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+          .cdims-pdca-box{border:1px solid #CBD5E1;border-radius:6px;padding:9px 11px;background:#F8FAFC}
+          .cdims-sig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
+          .cdims-sig-line{border-bottom:1.5px solid #162F59;height:20px;margin-bottom:5px}
+          .cdims-pdca-foot{margin-top:16px;padding-top:6px;border-top:1px solid #CBD5E1;display:flex;justify-content:space-between;font-size:9.5px;color:#64748B}
+        </style></head><body>${docHtml}</body></html>`);
+        w.document.close();
+        setTimeout(()=>{ try{ w.focus(); w.print(); }catch(_e){} }, 180);
+        return;
+      }
+    }
     if(APPX.view !== 'patient' || APPX.params?.tab !== 'discharge'){
       closeAllModals();
       go('patient', { id:d.id, tab:'discharge' });
@@ -2774,7 +2879,13 @@ document.addEventListener('input',(e)=>{
     ${(!ps.length&&!rs.length)?`<div class="empty" style="padding:26px"><p class="small muted">No results within your authorised records.</p></div>`:''}`;
   panel.onclick=(ev)=>{ const b=ev.target.closest('[data-act]'); if(b){ panel.remove(); e.target.value=''; } };
 });
-document.addEventListener('click',(e)=>{ const p=$('#searchPanel'); if(p && !e.target.closest('#searchPanel') && !e.target.matches('[data-search]')) p.remove(); });
+document.addEventListener('click',(e)=>{
+  const p=$('#searchPanel');
+  if(p && !e.target.closest('#searchPanel') && !e.target.matches('[data-search]')) p.remove();
+  document.querySelectorAll('details.cl-util-menu[open]').forEach(det=>{
+    if(!det.contains(e.target) || e.target.closest('.cl-util-item')) det.removeAttribute('open');
+  });
+});
 
 /* ---------------- Later workspaces ----------------
    The handlers for paper forms, pharmacy, care plans, leave and visit

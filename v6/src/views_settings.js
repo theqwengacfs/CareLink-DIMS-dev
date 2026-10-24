@@ -433,11 +433,72 @@ function wtGridHtml(user, act){
   const cur = WTHEME.choice(user) || WTHEME.orgDefault();
   return `<div class="wt-grid">${wtAutoCard(cur, act)}${WTHEMES.map(t=>wtCard(t, cur, act)).join('')}</div>`;
 }
-function openThemePicker(){
+function visualPacksHtml(user){
+  const activePack = WTHEME.activePackId(user);
+  const packs = WTHEME.packs();
+  return `<div class="col" style="gap:12px">
+    <p class="small muted" style="margin:0">Install a complete Font Style + Workspace Theme + Banner Visual Pack in one click, or paste / upload a custom CareLink Visual Pack (.json) below.</p>
+    <div class="grid g2" style="gap:10px">
+      ${packs.map(pk=>{
+        const on = activePack === pk.id;
+        return `<div class="card" style="margin:0;border:${on?'2px solid var(--accent)':'1px solid var(--line)'}">
+          <div class="card-b" style="padding:12px 14px">
+            <div class="spread" style="gap:8px;margin-bottom:4px">
+              <b style="font-size:13.5px">${esc(pk.name)}</b>
+              ${badge(on?'Installed & Active':('v'+pk.version), on?'b-ok':'b-neutral', false)}
+            </div>
+            <div class="xs muted" style="margin-bottom:5px">${esc(pk.category||'Visual Pack')} · Font: <b>${esc((pk.config&&pk.config.font)||'standard')}</b> · Theme: <b>${esc((pk.config&&pk.config.wtheme)||'foundation')}</b></div>
+            <div class="xs" style="margin-bottom:10px">${esc(pk.blurb||'')}</div>
+            <button class="btn btn-xs ${on?'btn-ghost':'btn-primary'}" data-act="install-visual-pack" data-id="${esc(pk.id)}">${ic(on?'check':'download',13)} ${on?'Re-apply Pack':'Install & Activate Pack'}</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="divider"></div>
+    <div class="card" style="margin:0;background:var(--surface-2)">
+      <div class="card-b" style="padding:12px 14px">
+        <div class="spread" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <b class="small">${ic('upload',14)} Install Custom Font & Theme Pack (.json)</b>
+          <button class="btn btn-xs btn-ghost" data-act="export-visual-pack">${ic('download',13)} Export My Current Pack (.json)</button>
+        </div>
+        <textarea class="input mono" id="customVisualPackJson" rows="3" placeholder='{"name":"Kisumu Clinical Serif Pack","version":"1.0","config":{"wtheme":"lake","font":"editorial","corners":"soft","cards":"lifted"}}' style="font-size:11.5px"></textarea>
+        <div class="row" style="margin-top:8px;gap:8px">
+          <button class="btn btn-xs btn-primary" data-act="import-visual-pack-json">${ic('plus',13)} Install Custom Pack</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openThemePicker(tab='themes'){
   const user = AUTH.user; if(!user) return;
-  openModal({ title:'Workspace theme', sub:'Your own choice. It changes colour only, never what you may open or see.', wide:true,
-    body: wtGridHtml(user,'set-wtheme'),
-    footer:`<button class="btn btn-ghost" data-act="wtheme-more">More appearance settings</button><button class="btn btn-ghost" data-act="close-modal">Close</button>`});
+  const st = WTHEME.studio(user);
+  const scale = Number((DB.db.personalPrefs[user.id]||{}).textScale)||100;
+  const tabsBar = `<div class="tabs" style="margin-bottom:14px">
+    <button class="tab ${tab==='themes'?'active':''}" data-act="wtheme-tab" data-tab="themes">${ic('palette',14)} Colour Themes (${WTHEMES.length})</button>
+    <button class="tab ${tab==='fonts'?'active':''}" data-act="wtheme-tab" data-tab="fonts">${ic('file',14)} Font Styles & Scale (${STUDIO.font.opts.length})</button>
+    <button class="tab ${tab==='packs'?'active':''}" data-act="wtheme-tab" data-tab="packs">${ic('package',14)} Installable Visual Packs (${WTHEME.packs().length})</button>
+  </div>`;
+  const fontsPane = `<div class="col" style="gap:12px">
+    <p class="small muted" style="margin:0">Choose an offline-ready institutional font family for your console headings, banners and tables. Changes apply immediately to your workspace.</p>
+    <div class="grid g2" style="gap:10px">
+      ${STUDIO.font.opts.map(o=>{
+        const on = st.font===o.v;
+        const hStack = (STUDIO.font.headStacks && STUDIO.font.headStacks[o.v]) || 'inherit';
+        return `<button class="st-pre" style="text-align:left;border:${on?'2px solid var(--accent)':'1px solid var(--line)'}" data-act="studio-font-pick" data-value="${esc(o.v)}">
+          <div class="spread" style="width:100%"><b style="font-family:${esc(hStack)};font-size:15px">${esc(o.l)}</b>${on?badge('Active','b-ok',false):''}</div>
+          <span style="font-family:${esc(STUDIO.font.stacks[o.v]||'inherit')}">CareLink OS · Serving our Neighbours in Love · 3,333 Records</span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="divider"></div>
+    ${settingRow('Text size scale','Scales console typography cleanly inside your fixed workspace.',
+      `<div class="seg">${[100,110,125].map(n=>`<button class="${scale===n?'on':''}" data-act="pref-scale" data-scale="${n}">${n}%</button>`).join('')}</div>`)}
+  </div>`;
+  const content = tab==='fonts' ? fontsPane : (tab==='packs' ? visualPacksHtml(user) : wtGridHtml(user,'set-wtheme'));
+  openModal({ title:'Workspace Theme, Font Styles & Visual Packs', sub:'Personalise your console typography, colour palette and visual pack without affecting permissions or records.', wide:true,
+    body: tabsBar + content,
+    footer:`<button class="btn btn-ghost" data-act="wtheme-more">Full appearance settings</button><button class="btn btn-ghost" data-act="close-modal">Close</button>`});
 }
 
 function studioHtml(user){
@@ -458,7 +519,10 @@ function studioHtml(user){
     ${settingRow('Cards','', seg('cards'))}
     ${STUDIO.kpiStyle ? settingRow('KPI stat cards','Vivid fills stat boxes with rich jewel gradients; Tinted uses soft washes with crisp coloured numbers.', seg('kpiStyle')) : ''}
     </div>
-    <div class="row" style="margin-top:12px"><button class="btn btn-ghost" data-act="studio-reset">Reset the studio</button></div>`;
+    <div class="row" style="margin-top:12px"><button class="btn btn-ghost" data-act="studio-reset">Reset the studio</button></div>
+    <div class="divider"></div>
+    <h4 style="margin:0 0 8px">Installable Font & Theme Visual Packs</h4>
+    ${visualPacksHtml(user)}`;
 }
 
 function settingsAppearance(user){
@@ -473,7 +537,7 @@ function settingsAppearance(user){
   const devDefault = (typeof DEVICE!=='undefined')? (WTHEME.byId(DEVICE.themeDefault())||{}).name : '';
   return `${card('Workspace theme', `
       <p class="small muted" style="margin:0 0 12px">Twenty vibrant workspace themes paired with 15 departmental colour schemes. A theme changes colour and contrast only and never changes permissions, records, or status meaning.</p>
-      ${dev?`<div class="note" style="margin-bottom:12px">${ic('package',15)}<span class="small">This device is a <b>${esc(dev.kind)}</b> (${esc(dev.name)}), so it opens in <b>${esc(devDefault)}</b> until you choose a theme here. A tablet opens in Harbour Dusk by design: a dark, low-glare surface reads better in the field than a white one, and every Harbour Dusk pair is contrast-checked in the Visual &amp; accessibility audit. Your own choice always wins, and so does an organisation default set by an administrator.</span></div>`:''}
+      ${dev?`<div class="note" style="margin-bottom:12px">${ic('package',15)}<span class="small">This device is a <b>${esc(dev.kind)}</b> (${esc(dev.name)}), so it opens in the standard <b>${esc(devDefault)}</b> theme across PC and tablets until you choose another theme or visual pack here. Field teams working in low light can switch to <b>Harbour Dusk</b> or <b>Night Ward</b> in one tap, and every pair is contrast-checked in the Visual &amp; accessibility audit.</span></div>`:''}
       ${wtGridHtml(user,'set-wtheme')}`)}
     ${card('Creative studio', studioHtml(user))}
     ${card('Navigation', `

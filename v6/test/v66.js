@@ -199,8 +199,8 @@ test('5. Presidential, County Government & Ministry of Health Presentation Hub',
   ok('System Administrator Viewer Authority & Seat Activation lens renders', adminLens.includes('gov-toggle-seat'));
 });
 
-/* 6. Harbour Dark Default on Samsung A11+ 5G / Wi-Fi Tablet & Automatic Workspace Scroll / Feature Folding Left Pane */
-test('6. Harbour Dark default on Samsung A11+ 5G / Wi-Fi Tablet & Automatic Workspace Scroll / Feature Folding Left Pane', () => {
+/* 6. Standard Foundation Daylight Default on Samsung A11+ 5G / Wi-Fi Tablet & Automatic Workspace Scroll / Feature Folding Left Pane */
+test('6. Standard Foundation Daylight default on Samsung A11+ 5G / Wi-Fi Tablet & Automatic Workspace Scroll / Feature Folding Left Pane', () => {
   const tabCheck = J(`(()=>{
     const prevNav = globalThis.navigator;
     globalThis.navigator = { userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-X216B Tab A11+ 5G) AppleWebKit/537.36', maxTouchPoints: 5 };
@@ -245,23 +245,27 @@ test('6. Harbour Dark default on Samsung A11+ 5G / Wi-Fi Tablet & Automatic Work
       domTargets['.topbar.cbar'].cls.has('cbar-rail') &&
       rootHtml.includes('has-pane np-rail') && rootHtml.includes('data-rail="1"');
 
-    /* Manually expanding via topbar button opens temporarily, then scrolling/interacting on #content folds again! */
+    /* Hovering #npane blocks auto-fold so scrolling inside the left pane is 100% error-proof */
     ACTIONS['nav-rail']();
     const afterManualExpandRail = NAVP.effectiveRail(AUTH.user, 'home');
+    NAVP._hoveringPane = true;
+    NAVP.foldForWorkspace('scroll');
+    const staysOpenWhileHoveringPane = NAVP.effectiveRail(AUTH.user, 'home') === false;
+    NAVP._hoveringPane = false;
     NAVP.foldForWorkspace('workspace-click');
     const afterWorkspaceClickRail = NAVP.effectiveRail(AUTH.user, 'home');
 
     const desktopModuleRail = NAVP.effectiveRail(AUTH.user, 'patients');
-    return { resolved, railOnHome, desktopHomeInitialRail, afterScrollRail, shellFoldedInDom, afterManualExpandRail, afterWorkspaceClickRail, desktopModuleRail };
+    return { resolved, railOnHome, desktopHomeInitialRail, afterScrollRail, shellFoldedInDom, afterManualExpandRail, staysOpenWhileHoveringPane, afterWorkspaceClickRail, desktopModuleRail };
   })()`);
-  ok('Samsung Tab A11+ 5G / Wi-Fi Tablet resolves to Harbour Dark (harbour) by default', tabCheck.resolved === 'harbour', tabCheck.resolved);
+  ok('Samsung Tab A11+ 5G / Wi-Fi Tablet restores standard Foundation Daylight (foundation) by default (Harbour Dark removed as default)', tabCheck.resolved === 'foundation', tabCheck.resolved);
   ok('Tablet folds left navigation pane automatically to icon rail', tabCheck.railOnHome === true);
   ok('Desktop Console Home starts expanded and automatically folds to widescreen when scrolling on workspace',
     tabCheck.desktopHomeInitialRail === false && tabCheck.afterScrollRail === true, JSON.stringify(tabCheck));
   ok('Live DOM .shell & #npane update in-place to widescreen rail on workspace scroll without losing focus',
     tabCheck.shellFoldedInDom === true, JSON.stringify(tabCheck));
-  ok('Expanding left pane via button unfolds temporarily and re-folds automatically when using features on workspace',
-    tabCheck.afterManualExpandRail === false && tabCheck.afterWorkspaceClickRail === true && tabCheck.desktopModuleRail === true, JSON.stringify(tabCheck));
+  ok('Hovering/scrolling inside #npane never triggers accidental fold, while clicking workspace features folds cleanly',
+    tabCheck.afterManualExpandRail === false && tabCheck.staysOpenWhileHoveringPane === true && tabCheck.afterWorkspaceClickRail === true && tabCheck.desktopModuleRail === true, JSON.stringify(tabCheck));
 });
 
 /* 7. Executive Console, Global Expenditure Against Budget, C-DIMS Coins & CareLink AI Workflow Engine */
@@ -436,6 +440,128 @@ test('11. Compiled single-script browser HTML bundle boots cleanly and renders L
 
   const hasCountyActs = vm.runInContext(`Boolean(ACTIONS['county-approve-req'] && ACTIONS['county-decline-req'] && ACTIONS['county-resolve-rec'])`, bctx);
   ok('County urgent account & recovery ACTIONS are registered in compiled single-script bundle', hasCountyActs === true);
+});
+
+/* 12. 10-Pillar Overhaul Verification: Monday AI Engine & Secretary Desk, Zero Downward Bars, Official C-DIMS PDCA (120d + Discharge), Version Control, Visual Packs & Role-Customized Smart QA */
+test('12. 10-Pillar Overhaul: Monday AI Engine & Secretary Desk, Upright Baseline Charts, Official C-DIMS PDCA, Version Control, Visual Packs & Role-Customized Consoles', () => {
+  /* Re-seed fast reference cohort after Test 8 global activation cleared demo records (3,333-patient scale already verified in Tests 1-7) */
+  run('DB.seedOfficial({patients:120});');
+
+  /* Pillar 1: Monday Management Meeting, Admin Assistant Secretary Desk & Post-Close AI Processing Engine */
+  as('secretary.kisumu');
+  const secDeskHtml = String(run(`MONDAY_PROC.render(AUTH.user, {tab:'secretary'})`));
+  ok('Admin Assistant (secretary.kisumu) receives processed Master Agenda Pack & Minutes Recording Desk with custom template support',
+    secDeskHtml.includes('Master Agenda') && secDeskHtml.includes('monday-minutes-save') && secDeskHtml.includes('monday-upload-minutes-tpl'));
+
+  const procPlan = J(`MONDAY_PROC.runProcessingEngine({ countyId:'kisumu', weekOf:'2026-10-26', trigger:'test_close' }, AUTH.user)`);
+  ok('Closing Monday sitting triggers AI Meeting Processing Engine generating departmental operational plans & dispatches',
+    Boolean(procPlan && procPlan.id && Array.isArray(procPlan.deptDirectives) && procPlan.deptDirectives.length >= 3));
+  const engineHtml = String(run(`MONDAY_PROC.render(AUTH.user, {tab:'engine'})`));
+  ok('Monday AI Engine tab renders generated weekly operational directives', engineHtml.includes('Weekly Operational Directives') && engineHtml.includes('Meeting Processing Engine'));
+
+  /* Pillar 2: Zero Downward-Going Bars in Charts & Waterfall Visuals */
+  const wfCheck = J(`(()=>{
+    const svg = chartWaterfall([
+      { label:'Approved Budget', value:500000, kind:'total' },
+      { label:'Committed', value:-180000 },
+      { label:'Disbursed', value:-360000 },
+      { label:'Variance', value:-40000, kind:'total' }
+    ]);
+    const rects = [...svg.matchAll(/<rect[^>]*\\by="([0-9.-]+)"[^>]*\\bheight="([0-9.-]+)"/g)].map(m=>({y:+m[1], h:+m[2]}));
+    /* Baseline in chartWaterfall (H=280, padT=34, padB=54 -> inner=192) is 226; every bar bottom (y+h) sits on 226 with zero plunge below baseline and zero negative heights */
+    const plunged = rects.filter(r => r.h < 0 || (r.y + r.h) > 226.5);
+    const allGrounded = rects.length >= 4 && rects.every(r => Math.abs((r.y + r.h) - 226) <= 0.5);
+    const barSvg = chartBars([{label:'A', value:-25}, {label:'B', value:80}]);
+    const negRects = [...barSvg.matchAll(/height="(-[0-9.]+)"/g)];
+    return { rectCount: rects.length, allGrounded, plungedCount: plunged.length, negRects: negRects.length, hasOverrun: /Overrun|-40,000/.test(svg) };
+  })()`);
+  ok('Waterfall & bar charts stand strictly upright on the zero baseline with ZERO downward-plunging bars even on negative variances',
+    wfCheck.rectCount >= 4 && wfCheck.allGrounded === true && wfCheck.plungedCount === 0 && wfCheck.negRects === 0 && wfCheck.hasOverrun === true, JSON.stringify(wfCheck));
+
+  /* Pillar 3: Official CareLink C-DIMS PDCA Template for BOTH 120+ Days in Program AND Regular Discharged Patients */
+  as('mcm.kisumu');
+  const pdcaAudit = J(`(()=>{
+    const pts = repo.patientList(AUTH.user);
+    const p120 = pts.find(p => p.status==='active' && daysBetween(p.enrolledAt, todayISO()) >= 120) || pts[0];
+    const pDis = pts.find(p => p.status==='discharged') || pts[1];
+    const html120 = PAT_DISCHARGE.renderOfficialTemplateHTML(p120, AUTH.user, '120day');
+    const htmlDis = PAT_DISCHARGE.renderOfficialTemplateHTML(pDis, AUTH.user, 'discharge');
+    const d120 = PAT_DISCHARGE.compileOfficialPdcaData(p120, AUTH.user, '120day');
+    return {
+      has120Title: html120.includes('Patient PDCA 120-Day Report') && html120.includes('ESTIMATED DATE OF DISCHARGE'),
+      hasDisTitle: htmlDis.includes('Patient PDCA Discharge Summary Report') && htmlDis.includes('CONFIRMED DATE OF DISCHARGE'),
+      hasStages: ['cdims-stage-dx','cdims-stage-p','cdims-stage-d','cdims-stage-rx','cdims-stage-c','cdims-stage-a'].every(c => html120.includes(c) && htmlDis.includes(c)),
+      mergeFieldsReady: Boolean(d120.patient_name && d120.aim && Array.isArray(d120.challenges) && Array.isArray(d120.interventions) && Array.isArray(d120.treatments) && Array.isArray(d120.check_findings) && Array.isArray(d120.act_actions))
+    };
+  })()`);
+  ok('Official CareLink C-DIMS PDCA Template renders both 120-Day Report and Discharge Summary Report with all Dx/P/D/Rx/C/A stages & merge fields',
+    pdcaAudit.has120Title && pdcaAudit.hasDisTitle && pdcaAudit.hasStages && pdcaAudit.mergeFieldsReady, JSON.stringify(pdcaAudit));
+  const pdcaRegHtml = String(run(`renderPdca(AUTH.user)`));
+  as('chief.admin');
+  const intlHtml = String(run(`HANDOVER_PARTNERS.renderIntlMedical(AUTH.user, {})`));
+  ok('PDCA Follow-Up workspace & 120+d International Medical Review wire directly to Official C-DIMS PDCA Report & Word export',
+    pdcaRegHtml.includes('Official CareLink C-DIMS PDCA Register') && pdcaRegHtml.includes('export-pdca-word') && intlHtml.includes('export-pdca-word'));
+
+  /* Pillar 4: System Administrator Version Control Module inside Development Console */
+  as('chief.admin');
+  const vcsAudit = J(`(()=>{
+    const devHtml = DEV_CONSOLE.render(AUTH.user, { tab:'vcs' });
+    const snap = VERSION_CONTROL.commitSnapshot({ tag:'v6.6.0-qa1', category:'Configuration Checkpoint', message:'Automated test snapshot' }, AUTH.user);
+    WTHEME.setOrgDefault(AUTH.user, 'lake');
+    const diff = VERSION_CONTROL.diffAgainstLive(snap.id);
+    const changedTheme = diff.some(d => d.key === 'consoleTheme' && d.changed === true);
+    const rb = VERSION_CONTROL.rollbackConfig(snap.id, AUTH.user);
+    const restored = DB.db.settings.consoleTheme === snap.configSnapshot.consoleTheme;
+    return { hasVcsTab: devHtml.includes('Version Control') && devHtml.includes('Institutional Release History'), tag: snap.tag, changedTheme, rbOk: rb.ok, restored };
+  })()`);
+  ok('System Admin Version Control commits tagged checkpoints, detects live configuration diffs, and executes audited rollback',
+    vcsAudit.hasVcsTab && vcsAudit.changedTheme && vcsAudit.rbOk && vcsAudit.restored, JSON.stringify(vcsAudit));
+
+  /* Pillar 6: Dominant Departmental Banner, Fixed Workspace Headings & Installable Font/Theme Visual Packs */
+  const packAudit = J(`(()=>{
+    const packCount = WTHEME.packs().length;
+    const r1 = WTHEME.installPack(AUTH.user, 'pack-clinical-editorial');
+    const r2 = WTHEME.importCustomPack(AUTH.user, JSON.stringify({ name:'Nyanza Executive Pack', version:'1.1', config:{ wtheme:'savannah', font:'humanist', corners:'soft', cards:'lifted' } }));
+    const banner = ROLE_CTX.contextStrip(AUTH.user, 'home');
+    return { packCount, r1Ok: r1.ok, r2Ok: r2.ok, newCount: WTHEME.packs().length, hasDomBanner: banner.includes('ctx-os-badge') && banner.includes('ctx-county-chip') && banner.includes('wtheme-open-packs') };
+  })()`);
+  ok('Installable Font & Theme Visual Packs (built-in + custom JSON) and Dominant Departmental Banner work cleanly',
+    packAudit.packCount >= 6 && packAudit.r1Ok && packAudit.r2Ok && packAudit.newCount === packAudit.packCount + 1 && packAudit.hasDomBanner, JSON.stringify(packAudit));
+
+  /* Pillar 10: Role-Customized Smart Workflow/QA & Unique Context-Specific Left-Pane Consoles (Built-in + Custom Role) */
+  const roleUniqueness = J(`(()=>{
+    /* Create a custom user-defined role + user to verify custom-role Workflow & Left-Pane isolation */
+    DB.db.customRoles = DB.db.customRoles || [];
+    DB.db.customRoles.push({ id:'nutrition.auditor', name:'County Nutrition QA Officer', consoleTitle:'Nutrition QA Console', dept:'clinical', scope:'county', perms:['bmiboard.view','monday.meeting','msg.use','credit.view'] });
+    DB.db.customRoles = DB.db.customRoles || [];
+    if(!DB.db.customRoles.some(r => r.id === 'nutrition.auditor')){
+      DB.db.customRoles.push({ id:'nutrition.auditor', name:'County Nutrition QA Officer', dept:'clinical', scope:'county', perms:['patient.list','patient.view','pdca.manage','report.view'] });
+    }
+    const customUser = { id:'u-cust-nutr', username:'nutrition.qa', name:'Beatrice Auma', roleId:'nutrition.auditor', departmentId:'clinical', countyId:'kisumu', status:'active' };
+    const mediaUser = DB.db.users.find(u => u.username === 'media.head' || u.roleId === 'mediahead');
+    const mcmUser = DB.db.users.find(u => u.username === 'mcm.kisumu');
+
+    const mediaWf = WORKFLOW_ENGINE.render(mediaUser, {});
+    const mcmWf = WORKFLOW_ENGINE.render(mcmUser, {});
+    const customWf = WORKFLOW_ENGINE.render(customUser, {});
+
+    const mediaNav = navModel(mediaUser).flatMap(g => g.items.map(i => i.id));
+    const customNav = navModel(customUser).flatMap(g => g.items.map(i => i.id));
+    const govUser = DB.db.users.find(u => u.username === 'gov.kisumu');
+    const govNav = navModel(govUser).flatMap(g => g.items.map(i => i.id));
+
+    return {
+      mediaCustomized: mediaWf.includes('Media Storytelling Consent') && !mediaWf.includes('scoped clinical/ministry files'),
+      mcmCustomized: mcmWf.includes('Medical Case Manager SOAP') && mcmWf.includes('120-Day PDCA'),
+      customCustomized: customWf.includes('County Nutrition QA Officer') && /Custom Role Workflow &(amp;)? QA Hub/.test(customWf),
+      mediaNoPatients: !mediaNav.includes('patients') && !mediaNav.includes('clinicalmcm'),
+      customScopedNav: !customNav.includes('finance') && !customNav.includes('staff') && !customNav.includes('studio'),
+      govNoDraftsOrMsgs: !govNav.includes('drafts') && !govNav.includes('messages') && !govNav.includes('patients')
+    };
+  })()`);
+  ok('Smart Workflow/QA and Left-Pane Navigation are strictly customized per built-in & custom user-defined role (consoles remain unique role workspaces)',
+    roleUniqueness.mediaCustomized && roleUniqueness.mcmCustomized && roleUniqueness.customCustomized &&
+    roleUniqueness.mediaNoPatients && roleUniqueness.customScopedNav && roleUniqueness.govNoDraftsOrMsgs, JSON.stringify(roleUniqueness));
 });
 
 (async () => {
