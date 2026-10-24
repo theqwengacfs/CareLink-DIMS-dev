@@ -173,42 +173,106 @@ function renderLibrary(user){
    ===================================================================== */
 function renderExecConsole(user){
   if(!isExecutive(user)) return `<div class="card"><div class="card-b">${emptyState('Reserved for the executive team',
-    'This console holds the Country Director’s agenda, minutes and decisions. Membership is granted by the Director from the Users & accounts page; it is not implied by any role.', 'lock')}</div></div>`;
+    'This console holds the Country Director\u2019s agenda, minutes and decisions. Membership is granted by the Director from the Users & accounts page; it is not implied by any role.', 'lock')}</div></div>`;
+  const sheet = (APPX.params && APPX.params.sheet) || 'all';
   const meetings = (DB.db.execMeetings||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const next = meetings.find(m=>m.status==='agenda');
-  const last = meetings.find(m=>m.status==='minuted');
-  const openActions = meetings.flatMap(m=>(m.actions||[]).map(a=>({...a, meeting:m.title, id:m.id})))
-    .filter(a=>!a.done);
-  return pageHead('Executive console', 'The Country Director’s agenda, minutes, decisions and actions. Visible to the executive team only.',
-    RBAC.has(user,'exec.manage')?`<button class="btn btn-sm btn-primary" data-act="exec-new">${ic('plus',15)} New meeting</button>`:'') +
-  `<div class="grid g3">
-    ${kpi('Meetings recorded', num(meetings.filter(m=>m.status==='minuted').length), 'with minutes','','archive')}
-    ${kpi('Next meeting', next? fmtDate(next.date) : ' - ', next? esc(next.title):'no agenda open','','calendar')}
-    ${kpi('Open actions', num(openActions.length), openActions.length? 'awaiting owners':'all closed', openActions.length?'warn':'ok','target')}
-  </div>
-  <div class="grid g2" style="margin-top:16px">
-    ${card('Next agenda', next ? `<div class="ex-next"><div class="ex-date">${fmtDate(next.date)}</div>
-        <h4>${esc(next.title)}</h4><div class="xs muted">Chair: ${esc(userName(next.chair)||'Country Director')}</div>
-        <ol class="ex-agenda">${(next.agenda||[]).map(a=>`<li><b>${esc(a.text)}</b><span>${esc(userName(a.owner)||'')} · ${esc(a.time||'')}</span></li>`).join('')}</ol>
-      </div>` : emptyState('No agenda open','The Director has not published the next agenda.','calendar'))}
-    ${card('Open actions', openActions.length ? openActions.map(a=>`<div class="ex-action">
-        <div style="flex:1"><b>${esc(a.text)}</b><div class="xs muted">${esc(userName(a.owner)||'')} · due ${esc((a.due||'').slice(0,10))} · ${esc(a.meeting)}</div></div>
-        ${RBAC.has(user,'exec.manage')?`<button class="btn btn-xs btn-ghost" data-act="exec-done" data-m="${a.id}" data-i="${(meetings.find(m=>m.id===a.id)||{actions:[]}).actions.indexOf(a)}">Mark done</button>`:''}
-      </div>`).join('') : emptyState('Every action is closed','Nothing is outstanding from the executive meetings.','check'))}
-  </div>
-  ${meetings.map(m=>card(`${esc(m.title)} · ${fmtDate(m.date)}`,
-    `<div class="row" style="gap:8px;margin-bottom:10px">
-      <span class="badge ${m.status==='minuted'?'b-ok':'b-warn'}">${esc(titleCase(m.status))}</span>
-      <span class="xs muted">Chair ${esc(userName(m.chair)||'Country Director')}</span>
-      <span class="xs muted">${(m.agenda||[]).length} agenda items</span>
-      <span class="xs muted">${(m.minutes||[]).length} minuted</span></div>
-    <div class="ex-cols">
-      <div><div class="k xs muted">AGENDA</div><ol class="ex-agenda">${(m.agenda||[]).map(a=>`<li><b>${esc(a.text)}</b><span>${esc(userName(a.owner)||'')}</span></li>`).join('')||'<li class="muted">Not published</li>'}</ol></div>
-      <div><div class="k xs muted">MINUTES & DECISIONS</div>
-        ${(m.minutes||[]).map(x=>`<div class="ex-min"><b>${x.n}. ${esc((x.decision||'noted').toUpperCase())}</b><p>${esc(x.text)}</p></div>`).join('')||'<p class="small muted">Minutes are not yet circulated.</p>'}
-        ${m.status==='agenda' && RBAC.has(user,'exec.manage')?`<button class="btn btn-xs btn-ghost" data-act="exec-minute" data-id="${m.id}">Add a minute</button>`:''}
+  const next = meetings.find(m=>m.status==='agenda') || meetings[0];
+  const minutedList = meetings.filter(m=>m.status==='minuted'||m.status==='closed');
+  const allActions = meetings.flatMap(m=>(m.actions||[]).map((a, idx)=>({...a, meeting:m.title, meetingId:m.id, actionIdx:idx})));
+  const openActions = allActions.filter(a=>!a.done && a.status!=='done');
+  const doneActions = allActions.filter(a=>a.done || a.status==='done');
+  const totalAgenda = meetings.reduce((n,m)=>n+(m.agenda||[]).length, 0);
+  const totalMinutes = meetings.reduce((n,m)=>n+(m.minutes||[]).length, 0);
+
+  const tabBar = `<div class="tabs" style="margin:14px 0">
+    <button class="tab ${sheet==='all'?'active':''}" data-act="go" data-v="execconsole" data-sheet="all">${ic('layers',14)} Executive Overview &amp; Sittings (${meetings.length})</button>
+    <button class="tab ${sheet==='agenda'?'active':''}" data-act="go" data-v="execconsole" data-sheet="agenda">${ic('calendar',14)} Sitting Agenda Pack (${next?(next.agenda||[]).length:0})</button>
+    <button class="tab ${sheet==='minutes'?'active':''}" data-act="go" data-v="execconsole" data-sheet="minutes">${ic('clipboard',14)} Resolutions &amp; Signed Minutes (${totalMinutes})</button>
+    <button class="tab ${sheet==='actions'?'active':''}" data-act="go" data-v="execconsole" data-sheet="actions">${ic('target',14)} Action Tracker (${openActions.length} open)</button>
+  </div>`;
+
+  const agendaCard = card('Upcoming Executive Sitting & Timed Agenda Sheet', next ? `
+    <div class="exec-sitting-head">
+      <div class="spread" style="gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div>
+          <span class="badge b-info">${esc(next.cadence || 'Statutory Executive Sitting')}</span>
+          <h4 style="margin:6px 0 2px;font-size:16px">${esc(next.title)}</h4>
+          <div class="xs muted">${ic('calendar',12)} ${fmtDate(next.date)} · ${esc(next.venue || 'Kisumu Head Office Boardroom')}</div>
+        </div>
+        <div class="exec-officers">
+          <div class="xs muted">Chair: <b>${esc(userName(next.chair)||'Country Director')}</b></div>
+          <div class="xs muted">Secretary: <b>${esc(userName(next.secretary)||'Executive Secretary')}</b></div>
+          <div class="xs muted">Quorum: <b>${(next.members||[]).length} executive seats</b></div>
+        </div>
       </div>
-    </div>`, {sub:'Confidential to the executive team'}))}`;
+      ${table([
+        { label:'#', cls:'mono', render:a=>`0${a._i}` },
+        { label:'Slot', cls:'mono', render:a=>`<b>${esc(a.time || ('09:' + String((a._i-1)*20).padStart(2,'0')))}</b>${a.duration?`<div class="xs muted">${esc(a.duration)}</div>`:''}` },
+        { label:'Agenda Item & Governance Focus', render:a=>`${a.category?`<span class="badge b-neutral nodot" style="margin-bottom:3px">${esc(a.category)}</span> `:''}<div class="cellname">${esc(a.text)}</div>` },
+        { label:'Accountable Lead', render:a=>`<span class="small">${esc(userName(a.owner)||'Executive Lead')}</span>` }
+      ], (next.agenda||[]).map((a, idx)=>({...a, _i:idx+1})), {emptyMsg:'Agenda items pending publication.'})}
+    </div>` : emptyState('No agenda open','The Country Director has not published the next agenda.','calendar'));
+
+  const actionsCard = card(`Executive Action & Follow-Up Matrix (${openActions.length} open · ${doneActions.length} completed)`,
+    allActions.length ? table([
+      { label:'Action Item', render:a=>`<div class="cellname">${esc(a.text)}<span class="sm">${esc(a.meeting)}</span></div>` },
+      { label:'Lead Owner', render:a=>`<span class="small">${esc(userName(a.owner)||'-')}</span>` },
+      { label:'Due Date', cls:'mono', render:a=>fmtDate(a.due) },
+      { label:'Status', render:a=>(a.done||a.status==='done') ? badge('Completed','b-ok') : badge(a.priority==='high'?'Urgent Open':'Open','b-warn') },
+      { label:'', cls:'act', render:a=>(!a.done && a.status!=='done' && RBAC.has(user,'exec.manage'))
+        ? `<button class="btn btn-xs btn-primary" data-act="exec-done" data-m="${esc(a.meetingId)}" data-i="${a.actionIdx}">Mark done</button>` : '' }
+    ], sheet==='actions' ? allActions : openActions.concat(doneActions.slice(0,2))) : emptyState('Every action is closed','Nothing is outstanding from executive sittings.','check'));
+
+  const archiveCards = meetings.map(m=>card(`${esc(m.title)} · ${fmtDate(m.date)}`,
+    `<div class="exec-meta-strip">
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <span class="badge ${m.status==='minuted'||m.status==='closed'?'b-ok':'b-info'}">${esc(titleCase(m.status))}</span>
+        <span class="xs muted">Chair: <b>${esc(userName(m.chair)||'Country Director')}</b></span>
+        <span class="xs muted">Secretary: <b>${esc(userName(m.secretary)||'Executive Secretary')}</b></span>
+        <span class="xs muted">Venue: <b>${esc(m.venue||'Head Office Boardroom')}</b></span>
+      </div>
+      <div class="row" style="gap:8px">
+        ${badge((m.agenda||[]).length+' agenda items','b-neutral','nodot')}
+        ${badge((m.minutes||[]).length+' resolutions','b-ok','nodot')}
+      </div>
+    </div>
+    <div class="grid g2 exec-sym-cols" style="margin-top:12px;align-items:stretch">
+      <div class="exec-pane">
+        <div class="xs bold muted" style="letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">${ic('calendar',12)} Structured Sitting Agenda</div>
+        <ol class="ex-agenda">${(m.agenda||[]).map(a=>`<li>
+          <div class="spread" style="gap:8px"><b>${esc(a.text)}</b>${a.time?`<span class="xs mono badge b-neutral nodot">${esc(a.time)}</span>`:''}</div>
+          <span>Lead: ${esc(userName(a.owner)||'Executive Team')}${a.category?' · '+esc(a.category):''}</span>
+        </li>`).join('')||'<li class="muted">Not published</li>'}</ol>
+      </div>
+      <div class="exec-pane">
+        <div class="spread" style="margin-bottom:8px">
+          <span class="xs bold muted" style="letter-spacing:.08em;text-transform:uppercase">${ic('check',12)} Recorded Resolutions &amp; Minutes</span>
+          ${m.status==='agenda' && RBAC.has(user,'exec.manage')?`<button class="btn btn-xs btn-ghost" data-act="exec-minute" data-id="${m.id}">${ic('plus',11)} Add minute</button>`:''}
+        </div>
+        ${(m.minutes||[]).map(x=>`<div class="ex-min">
+          <div class="spread" style="margin-bottom:3px"><b>Resolution #${x.n}</b>${badge(titleCase(x.decision||'noted'), x.decision==='approved'||x.decision==='verified'||x.decision==='confirmed'?'b-ok':'b-info','nodot')}</div>
+          <p>${esc(x.text)}</p>
+        </div>`).join('')||'<p class="small muted">Minutes awaiting confirmation by the Executive Secretary &amp; Chair.</p>'}
+      </div>
+    </div>`, {sub:'Confidential to the LOMAMO Executive Team · Symmetric Governance Record'})).join('');
+
+  return pageHead('Executive governance console',
+    'Country Director\u2019s structured sitting agendas, timed deliberations, numbered resolutions and accountable executive actions.',
+    `<div class="row" style="gap:8px;flex-wrap:wrap">
+      ${RBAC.has(user,'report.executive')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="executive">${ic('chart',14)} Cross-County Dashboard</button>`:''}
+      ${RBAC.has(user,'exec.manage')?`<button class="btn btn-sm btn-primary" data-act="exec-new">${ic('plus',15)} Convene Sitting</button>`:''}
+    </div>`)
+  + `<div class="grid g4">
+      ${kpi('Executive sittings', num(meetings.length), `${num(minutedList.length)} minuted & signed`, 'info', 'archive')}
+      ${kpi('Next scheduled sitting', next ? fmtDate(next.date) : '—', next ? esc(next.title) : 'No open sitting', '', 'calendar')}
+      ${kpi('Agenda & resolutions', `${num(totalAgenda)} / ${num(totalMinutes)}`, 'Published items vs recorded minutes', 'ok', 'clipboard')}
+      ${kpi('Executive actions', num(openActions.length), openActions.length ? `${num(doneActions.length)} completed · ${num(openActions.length)} open` : '100% closed on schedule', openActions.length?'warn':'ok', 'target')}
+    </div>`
+  + tabBar
+  + (sheet==='agenda' ? agendaCard
+    : sheet==='actions' ? actionsCard
+    : sheet==='minutes' ? archiveCards
+    : `<div class="grid g2" style="margin-bottom:16px;align-items:stretch">${agendaCard}${actionsCard}</div>${archiveCards}`);
 }
 
 /* =====================================================================
@@ -395,7 +459,9 @@ function renderPresence(user){
     {label:'Presence', render:u=>PRESENCE.online(u)?'<span class="badge b-ok">Online</span>':'<span class="badge b-neutral">Offline</span>'},
     {label:'Last seen', render:u=>{ const p=(DB.db.presence||{})[u.id]; return p? fmtDateTime(p.at): (u.lastLogin? fmtDateTime(u.lastLogin):' - '); }},
     {label:'Location', render:u=>{ const p=(DB.db.presence||{})[u.id]; return p&&p.lat? `<span class="mono xs">${(+p.lat).toFixed(3)}, ${(+p.lon).toFixed(3)}${p.accuracy?' ±'+p.accuracy+'m':''}</span>`:'<span class="xs muted">not shared</span>'; }},
-    {label:'', render:u=>u.id===user.id?'':`<button class="btn btn-xs btn-ghost" data-act="msg-open" data-u="${u.id}">Message</button>`}
+    {label:'', render:u=>u.id===user.id?'':(MESSAGING.inReach(user,u)
+      ? `<button class="btn btn-xs btn-primary" data-act="msg-open" data-u="${u.id}">${ic('send',11)} Message</button>`
+      : `<button class="btn btn-xs btn-ghost" data-act="msg-open" data-u="${u.id}" title="Cross-county colleague — opens Global Broadcast">${ic('wifi',11)} Global Chat</button>`)}
   ], people)}
   </div></div>`;
 }

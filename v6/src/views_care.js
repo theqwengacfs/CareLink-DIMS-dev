@@ -411,70 +411,155 @@ function messageThreads(user){
 }
 
 function renderMessages(user, params={}){
-  const threads = messageThreads(user);
-  const activeId = params.thread || threads[0]?.thread || null;
-  const active = threads.find(t=>t.thread===activeId)||null;
+  const allThreads = messageThreads(user);
+  const mode = params.mode || 'all';
+  const myDept = user.departmentId || (roleObj(user.roleId)||{}).dept || 'ministry';
+  const myAreas = (user.areaIds && user.areaIds.length)
+    ? user.areaIds
+    : (['chief','director','program.admin','program.assistant','president'].includes(user.roleId)
+        ? COUNTIES.flatMap(c=>c.areas.map(a=>a.id))
+        : (COUNTIES.find(c=>c.id===user.countyId)?.areas||[]).map(a=>a.id));
+
+  /* Ensure quick-access channels exist in thread list even before first message */
+  const ensureVirtual = (tid, kind) => {
+    let found = allThreads.find(t=>t.thread===tid);
+    if(!found) found = { thread:tid, kind, msgs:[], last:null, unread:0 };
+    return found;
+  };
+  const globalChannels = [
+    ensureVirtual('global:all', 'global'),
+    ...(user.countyId ? [ensureVirtual('global:'+user.countyId, 'global')] : [])
+  ];
+  const internalChannels = [
+    ensureVirtual('dept:'+myDept, 'dept'),
+    ...myAreas.map(aid => ensureVirtual('area:'+aid, 'area'))
+  ];
+
+  /* Resolve requested direct colleague or thread immediately (fixes Who-Is-Online -> Message journey!) */
+  let requestedThread = params.thread || null;
+  if(!requestedThread && params.to){
+    requestedThread = 'dm:' + [user.id, params.to].sort().join(':');
+  }
+  const visibleThreads = mode === 'internal'
+    ? [...internalChannels, ...allThreads.filter(t=>(t.kind==='dept'||t.kind==='area') && !internalChannels.some(x=>x.thread===t.thread))]
+    : mode === 'global'
+      ? [...globalChannels, ...allThreads.filter(t=>(t.kind==='global'||t.kind==='direct') && !globalChannels.some(x=>x.thread===t.thread))]
+      : [...allThreads, ...globalChannels.filter(g=>!allThreads.some(t=>t.thread===g.thread)), ...internalChannels.filter(ic0=>!allThreads.some(t=>t.thread===ic0.thread))];
+
+  const activeId = requestedThread || visibleThreads[0]?.thread || 'global:all';
+  let active = visibleThreads.find(t=>t.thread===activeId) || allThreads.find(t=>t.thread===activeId) || null;
+  if(!active && activeId){
+    const synthKind = activeId.startsWith('dept:') ? 'dept'
+      : activeId.startsWith('area:') ? 'area'
+      : activeId.startsWith('global:') ? 'global' : 'direct';
+    active = { thread:activeId, kind:synthKind, msgs:[], last:null, unread:0 };
+  }
+
   const colleagues = DB.db.users.filter(u=>MESSAGING.inReach(user,u));
   const online = colleagues.filter(u=>presenceOf(u.id).state==='online');
   const flagged = RBAC.has(user,'hr.view')? (DB.db.messages||[]).filter(m=>m.flagged) : [];
-  const threadLabel = t => {
-    if(t.kind==='dept') return { title:deptName(t.thread.replace('dept:','')), sub:'Department channel' };
-    const other = t.msgs.find(m=>m.from!==user.id)?.from || t.msgs[0]?.to.find(x=>x!==user.id);
-    return { title:userName(other||''), sub:'Direct message' };
+
+  const dmOtherId = t => {
+    if(!t || t.kind!=='direct') return '';
+    if(t.thread && t.thread.startsWith('dm:')){
+      const parts = t.thread.slice(3).split(':');
+      return parts.find(id=>id!==user.id) || '';
+    }
+    return t.msgs.find(m=>m.from!==user.id)?.from || t.msgs[0]?.to?.find(x=>x!==user.id) || '';
   };
-  return pageHead('Messages', 'Internal communication for coordination. Patient-specific detail belongs in the patient record, not in a chat.',
-    PAGER.record(threads.map(t=>({id:t.thread,label:threadLabel(t).title})), activeId, 'messages','thread','','Conversation')+`<button class="btn btn-sm btn-primary" data-act="compose-message">${ic('plus',15)} New message</button>`)
-  + `<div class="grid g4" style="margin-bottom:16px">
-      ${kpi('Unread', num(threads.reduce((n,t)=>n+t.unread,0)),'Across your conversations',threads.some(t=>t.unread)?'warn':'ok','bell')}
-      ${kpi('Colleagues online', num(online.length),'In your county or organisation','ok','users')}
-      ${kpi('Conversations', num(threads.length),'Direct and departmental','','send')}
-      ${RBAC.has(user,'hr.view')? kpi('Flagged for review', num(flagged.length),'By the local assistant, pending a person',flagged.length?'warn':'','alert') : kpi('Messages sent', num((DB.db.messages||[]).filter(m=>m.from===user.id).length),'By you, in all conversations','','send')}
+
+  const threadLabel = t => {
+    if(!t) return { title:'Conversation', sub:'' };
+    if(t.kind==='global'){
+      const sc = t.thread.replace('global:','');
+      return {
+        title: sc==='all' ? 'Global Foundation Broadcast' : `${countyName(sc)} County Broadcast`,
+        sub: sc==='all' ? 'Global Messaging Tool · All Departments & Counties' : `County-Wide Coordination · ${countyName(sc)}`
+      };
+    }
+    if(t.kind==='dept') return { title:`${deptName(t.thread.replace('dept:',''))} Team Chat`, sub:'Internal Departmental Coordination Chat' };
+    if(t.kind==='area') return { title:`${areaName(t.thread.replace('area:',''))} Area Chat`, sub:'Internal Ministry Area Coordination Chat' };
+    const otherId = dmOtherId(t);
+    const otherObj = (DB.db.users||[]).find(u=>u.id===otherId);
+    return {
+      title: (otherObj ? otherObj.name.replace(/^Demo - /,'') : userName(otherId||'')),
+      sub: otherObj ? `Direct Staff Chat · ${(roleObj(otherObj.roleId)||{}).name||''} · ${countyName(otherObj.countyId)}` : 'Direct Staff Chat'
+    };
+  };
+
+  const prefillText = params.draftText || '';
+
+  return pageHead('Messaging & Departmental / Area Coordination Hub',
+    'Two governed communication modes: (1) Global & Direct Staff Messaging across the Foundation, and (2) Internal Coordination Chat for your Ministry Area or Department. Patient identifiers remain strictly inside clinical records.',
+    `<div class="row" style="gap:8px;flex-wrap:wrap">
+      <button class="btn btn-sm btn-ghost" data-act="go" data-v="drafts" data-kind="message">${ic('edit',14)} Message Drafts</button>
+      <button class="btn btn-sm btn-primary" data-act="compose-message">${ic('plus',15)} New Message</button>
+    </div>`)
+  + `<div class="grid g4" style="margin-bottom:14px">
+      ${kpi('Unread Messages', num(allThreads.reduce((n,t)=>n+t.unread,0)),'Across direct, area & global channels',allThreads.some(t=>t.unread)?'warn':'ok','bell')}
+      ${kpi('Colleagues Online', num(online.length),'Active within your messaging reach','ok','users')}
+      ${kpi('Area & Dept Channels', num(internalChannels.length),`${deptName(myDept)} + ${myAreas.length} ministry area(s)`,'info','layers')}
+      ${RBAC.has(user,'hr.view')? kpi('Flagged for review', num(flagged.length),'Advisory review by HR officer',flagged.length?'warn':'','alert') : kpi('Messages Sent', num((DB.db.messages||[]).filter(m=>m.from===user.id).length),'Sent from your console','','send')}
+    </div>`
+  + `<div class="tabs" style="margin-bottom:14px">
+      <button class="tab ${mode==='all'?'active':''}" data-act="go" data-v="messages" data-mode="all">All Channels &amp; Direct Chats (${visibleThreads.length})</button>
+      <button class="tab ${mode==='global'?'active':''}" data-act="go" data-v="messages" data-mode="global" data-thread="global:all">${ic('wifi',13)} 1. Global &amp; Direct Staff Messaging</button>
+      <button class="tab ${mode==='internal'?'active':''}" data-act="go" data-v="messages" data-mode="internal" data-thread="${esc(internalChannels[0]?.thread||'dept:'+myDept)}">${ic('users',13)} 2. Ministry Area &amp; Department Coordination Chat</button>
     </div>`
   + `<div class="msg-layout">
       <aside class="msg-list">
-        <div class="msg-list-h">Conversations</div>
-        ${threads.length? threads.map(t=>{const l=threadLabel(t);return `
-          <button class="msg-thread ${t.thread===activeId?'on':''}" data-act="open-thread" data-thread="${esc(t.thread)}">
-            <div class="row" style="gap:8px;align-items:center">
-              <b>${esc(l.title)}</b>${t.unread?`<span class="msg-dot">${t.unread}</span>`:''}
+        <div class="msg-list-h">${mode==='internal'?'Area & Department Channels':mode==='global'?'Global & Direct Chats':'Active Channels & Chats'}</div>
+        ${visibleThreads.map(t=>{const l=threadLabel(t); const badgeKind = t.kind==='global'?'Global':t.kind==='area'?'Area':t.kind==='dept'?'Dept':'Direct'; return `
+          <button class="msg-thread ${t.thread===activeId?'on':''}" data-act="open-thread" data-thread="${esc(t.thread)}" data-mode="${esc(mode)}">
+            <div class="spread" style="gap:6px;align-items:center">
+              <b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.title)}</b>
+              <span class="row" style="gap:4px">${t.unread?`<span class="msg-dot">${t.unread}</span>`:''}<span class="badge b-neutral nodot" style="font-size:9.5px;padding:1px 6px">${badgeKind}</span></span>
             </div>
-            <span>${esc((t.last?.text||'').slice(0,60))}</span>
-            <em>${esc(fmtDateTime(t.last?.at))}</em>
-          </button>`; }).join('') : `<div class="empty" style="padding:20px"><p class="small muted">No conversations yet. Start one with a colleague.</p></div>`}
+            <span>${esc((t.last?.text||'Tap to open coordination chat & compose message').slice(0,58))}</span>
+            <em>${t.last?.at ? esc(fmtDateTime(t.last.at)) : 'Ready to message'}</em>
+          </button>`; }).join('')}
       </aside>
       <section class="msg-pane">
         ${active? `
           <div class="msg-pane-h">
-            <div><b>${esc(threadLabel(active).title)}</b><span>${esc(threadLabel(active).sub)} · ${active.msgs.length} messages</span></div>
-            ${active.kind==='direct'?presenceTag(active.msgs.find(m=>m.from!==user.id)?.from||''):''}
+            <div>
+              <b>${esc(threadLabel(active).title)}</b>
+              <span>${esc(threadLabel(active).sub)} · ${active.msgs.length} message(s)</span>
+            </div>
+            <div class="row" style="gap:8px">
+              ${active.kind==='direct' && dmOtherId(active) ? presenceTag(dmOtherId(active)) : badge(active.kind==='global'?'Global Broadcast':active.kind==='area'?'Ministry Area Chat':'Department Chat','b-info','nodot')}
+            </div>
           </div>
           <div class="msg-scroll">
-            ${active.msgs.map(m=>`<div class="msg ${m.from===user.id?'mine':''}">
-              <div class="msg-meta">${esc(userName(m.from))} · ${fmtDateTime(m.at)}${m.flagged?' · flagged':''}</div>
+            ${active.msgs.length ? active.msgs.map(m=>`<div class="msg ${m.from===user.id?'mine':''}">
+              <div class="msg-meta">${esc(userName(m.from).replace(/^Demo - /,''))} · ${fmtDateTime(m.at)}${m.flagged?' · flagged':''}</div>
               <div class="msg-body">${esc(m.text)}</div>
               ${m.flagged?`<div class="msg-flag">${ic('alert',12)} Flagged locally: ${esc(m.flagReason||'')} - a person decides what happens next.</div>`:''}
-            </div>`).join('')}
+            </div>`).join('') : `<div class="note" style="margin:8px 0">${ic('send',15)}<span><b>Direct Coordination Ready:</b> Write your message to <b>${esc(threadLabel(active).title)}</b> in the chat box below and press <b>Send Message</b> (or save as a draft for later review).</span></div>`}
           </div>
           <form class="msg-compose" data-form="message" id="msgForm">
             <input type="hidden" name="thread" value="${esc(active.thread)}">
-            <textarea class="input" name="text" rows="2" placeholder="Write a coordination message. Do not include patient identifiers." required></textarea>
-            <button class="btn btn-primary" type="submit">Send</button>
+            <textarea class="input" name="text" id="msgComposeInput" rows="2" ${params.focusChat?'autofocus':''} placeholder="Write a professional coordination message to ${esc(threadLabel(active).title)} (no patient names, codes or phone numbers)..." required>${esc(prefillText)}</textarea>
+            <div class="col" style="gap:6px;justify-content:flex-end">
+              <button class="btn btn-primary btn-sm" type="submit">${ic('send',13)} Send</button>
+              <button class="btn btn-ghost btn-xs" type="button" data-act="msg-save-draft" data-thread="${esc(active.thread)}" data-title="${esc(threadLabel(active).title)}">Save Draft</button>
+            </div>
           </form>` : `
-          <div class="msg-empty">${emptyState('Select a conversation','Or start a new one. Messages are for coordination, not for clinical records.','send')}</div>`}
+          <div class="msg-empty">${emptyState('Select a conversation','Choose Global Messaging, a Ministry Area / Department channel, or a colleague on the right.','send')}</div>`}
       </section>
       <aside class="msg-side">
-        ${card(`People (${colleagues.length})`, `
+        ${card(`Direct Colleagues (${colleagues.length})`, `
           <div class="msg-filter-wrap" style="margin-bottom:8px">
-            <input class="input" type="search" placeholder="Filter ${colleagues.length} colleagues..." oninput="const q=this.value.toLowerCase();this.closest('.card-b').querySelectorAll('.msg-person-row').forEach(el=>{el.style.display=el.dataset.search.includes(q)?'flex':'none';});">
+            <input class="input" type="search" placeholder="Search ${colleagues.length} staff to chat..." oninput="const q=this.value.toLowerCase();this.closest('.card-b').querySelectorAll('.msg-person-row').forEach(el=>{el.style.display=el.dataset.search.includes(q)?'flex':'none';});">
           </div>
           <div class="col msg-people-scroll" style="gap:6px">${colleagues.map(u=>`
           <div class="row msg-person-row" data-search="${esc((u.name+' '+(roleObj(u.roleId)?.name||'')+' '+u.username).toLowerCase())}" style="gap:8px;justify-content:space-between">
-            <button class="msg-person" data-act="compose-message" data-to="${u.id}">
+            <button class="msg-person" data-act="msg-open" data-u="${u.id}" title="Open instant chat with ${esc(u.name.replace(/^Demo - /,''))}">
               <span class="avatar" style="width:24px;height:24px;font-size:10px;background:${WTHEME.safeFill((deptObj((roleObj(u.roleId)||{}).dept)||{}).accent||'#475569')}">${initials(u.name)}</span>
               <span><b>${esc(u.name.replace(/^Demo - /,''))}</b><em>${esc(roleObj(u.roleId)?.name||'')}</em></span>
             </button>
             ${presenceTag(u.id)}
-          </div>`).join('')}</div>`, {sub:`All ${colleagues.length} online & offline colleagues in scope — scroll to view everyone.`})}
+          </div>`).join('')}</div>`, {sub:`Tap any colleague to open their direct chat box immediately.`})}
         ${flagged.length && RBAC.has(user,'hr.view')? card('Flagged messages', `<div class="col" style="gap:8px">
           ${flagged.slice(0,5).map(m=>`<div><div class="xs muted">${esc(userName(m.from))} · ${fmtDateTime(m.at)}</div><div class="small">${esc(m.text.slice(0,140))}</div>
             <div class="xs" style="color:var(--warn)">${esc(m.flagReason||'')}</div></div>`).join('')}

@@ -250,12 +250,36 @@ const OFFICIAL_ROSTER = [
   { name:'County Health Partnership Desk · Homa Bay (seat to be confirmed)', username:'gov.homabay', roleId:'gov.partner', countyId:'homabay', areas:[], dept:'exec', job:'County Government of Homa Bay · County Health Management Team', agency:'County Government of Homa Bay', unconfirmed:true },
   { name:'National Health Oversight Desk · MOH / NASCOP (seat to be confirmed)', username:'gov.national', roleId:'gov.partner', countyId:'kisumu', areas:[], dept:'exec', job:'Ministry of Health Kenya · NASCOP & Community Health Partnership', agency:'Ministry of Health Kenya', unconfirmed:true },
   { name:'International Medical Team Specialist (seat to be confirmed)', username:'intl.medical', roleId:'intl.medical', countyId:'kisumu', areas:[], dept:'medical', job:'International Medical Team · 120+ Day PDCA & Global Clinical Review', specialty:'Infectious Disease & Nutritional Recovery', unconfirmed:true },
-  { name:'International Medical PDCA Lead (seat to be confirmed)', username:'intl.pdca', roleId:'intl.medical', countyId:'kisumu', areas:[], dept:'medical', job:'International Medical PDCA Overstay Review Lead', specialty:'HIV/TB Resistance & Complex Case PDCA', unconfirmed:true }
+  { name:'International Medical PDCA Lead (seat to be confirmed)', username:'intl.pdca', roleId:'intl.medical', countyId:'kisumu', areas:[], dept:'medical', job:'International Medical PDCA Overstay Review Lead', specialty:'HIV/TB Resistance & Complex Case PDCA', unconfirmed:true },
+
+  /* Organogram-applicable Deputies, Secretaries & Departmental Clerks (strictly in applicable offices/levels only) */
+  { name:'Executive & Management Meeting Secretary (seat to be confirmed)', username:'exec.secretary', roleId:'program.assistant', countyId:'kisumu', areas:[], dept:'exec', job:'Executive & Management Meeting Secretary · Head Office Kisumu', seatTier:'secretary', unconfirmed:true },
+  { name:'County Office Secretary · Kisumu (seat to be confirmed)', username:'secretary.kisumu', roleId:'assistant', countyId:'kisumu', areas:[], dept:'admin', job:'County Office Secretary & Receptionist · Kisumu Head Office', seatTier:'secretary', unconfirmed:true },
+  { name:'County Office Secretary · Homa Bay (seat to be confirmed)', username:'secretary.homabay', roleId:'assistant', countyId:'homabay', areas:[], dept:'admin', job:'County Office Secretary & Receptionist · Homa Bay Office', seatTier:'secretary', unconfirmed:true },
+  { name:'Records & Hard-Copy Intake Clerk · Kisumu (seat to be confirmed)', username:'clerk.records.kisumu', roleId:'assistant', countyId:'kisumu', areas:[], dept:'admin', job:'Records & Hard-Copy Assessment Filing Clerk · Kisumu Head Office', seatTier:'clerk', unconfirmed:true },
+  { name:'Records & Hard-Copy Intake Clerk · Homa Bay (seat to be confirmed)', username:'clerk.records.homabay', roleId:'assistant', countyId:'homabay', areas:[], dept:'admin', job:'Records & Hard-Copy Assessment Filing Clerk · Homa Bay Office', seatTier:'clerk', unconfirmed:true },
+  { name:'John Shikuku Omolo', username:'deputy.procurement', roleId:'procurement', countyId:'kisumu', areas:[], dept:'procure', job:'Deputy Head of Procurement Department (deputises Allan Dennis Wayodi)', seatTier:'deputy',
+    permOverrides:{ grant:['vehicle.view','trip.log'] } },
+  { name:'Procurement & Foodbag Stores Clerk · Kisumu (seat to be confirmed)', username:'clerk.stores.kisumu', roleId:'procurement', countyId:'kisumu', areas:[], dept:'procure', job:'Procurement & Foodbag Stores Clerk (Bag 1 / Bag 2 / Special tally)', seatTier:'clerk', unconfirmed:true },
+  { name:'Deputy Finance Officer · Head Office (seat to be confirmed)', username:'deputy.finance', roleId:'finance', countyId:'kisumu', areas:[], dept:'finance', job:'Deputy Finance Officer · Kisumu Head Office', seatTier:'deputy', unconfirmed:true },
+  { name:'Accounts & Voucher Reconciliation Clerk · Kisumu (seat to be confirmed)', username:'clerk.accounts.kisumu', roleId:'finance', countyId:'kisumu', areas:[], dept:'finance', job:'Accounts & Hospital Receipt Reconciliation Clerk · Kisumu', seatTier:'clerk', unconfirmed:true },
+  { name:'Deputy Head of Medical & Clinical Services (seat to be confirmed)', username:'deputy.medical', roleId:'mcm', countyId:'kisumu', areas:[], dept:'medical', job:'Deputy Head of Medical & Clinical Services · Kisumu', seatTier:'deputy', unconfirmed:true },
+  { name:'Pharmacy & TB Stock Tally Clerk · Kisumu (seat to be confirmed)', username:'clerk.pharmacy.kisumu', roleId:'nurse', countyId:'kisumu', areas:[], dept:'medical', job:'Pharmacy Dispensing & TB Pyridoxine Tally Clerk · Kisumu', seatTier:'clerk', unconfirmed:true },
+  { name:'M&E Data Verification Clerk · Kisumu (seat to be confirmed)', username:'clerk.data.kisumu', roleId:'me', countyId:'kisumu', areas:[], dept:'me', job:'M&E Data Entry & Area Sheet Verification Clerk · Kisumu', seatTier:'clerk', unconfirmed:true },
+  { name:'M&E Data Verification Clerk · Homa Bay (seat to be confirmed)', username:'clerk.data.homabay', roleId:'me', countyId:'homabay', areas:[], dept:'me', job:'M&E Data Entry & Area Sheet Verification Clerk · Homa Bay', seatTier:'clerk', unconfirmed:true },
+  { name:'Deputy Human Resource Officer (seat to be confirmed)', username:'deputy.hr', roleId:'hr', countyId:'kisumu', areas:[], dept:'hr', job:'Deputy Human Resource Officer · Kisumu Head Office', seatTier:'deputy', unconfirmed:true }
 ];
 
 /* Every name on the official roster, lower-cased, so the generated reference
    register can be checked against it. */
-const STAFF_NAMES = new Set(OFFICIAL_ROSTER.map(r=>String(r.name||'').toLowerCase()));
+const STAFF_NAMES = new Set([
+  'moses nyanjong', 'moses otieno', 'john shikuku', 'john omolo',
+  ...OFFICIAL_ROSTER.flatMap(r=>{
+    const n = String(r.name||'').replace(/\(.*?\)/g,'').trim().toLowerCase();
+    const w = n.split(/\s+/).filter(Boolean);
+    return w.length >= 2 ? [n, w[0]+' '+w[1], w[0]+' '+w[w.length-1]] : [n];
+  })
+]);
 
 /* ---------------- 6. Names for the reference register ---------------- */
 const KENYAN_GIVEN_F = ['Addah','Anyango','Akinyi','Achieng','Atieno','Awuor','Adhiambo','Njeri','Wanjiku','Amina','Faith','Grace','Mercy','Esther','Linet','Millicent','Pamela','Rosemary','Beatrice','Caroline','Hellen','Jane','Judith','Keziah','Lydia','Margaret','Nancy','Purity','Rachael','Sarah','Sharon','Susan','Tabitha','Violet','Winnie','Zainabu'];
@@ -485,6 +509,147 @@ function enrichV6Collections(db, T){
     }
   });
 
+  /* County-routed Sign-In Account Requests & Urgent Password Recovery Requests for Kisumu & Homa Bay County Office Admins */
+  if(!Array.isArray(db.accountRequests) || db.accountRequests.length < 2){
+    db.accountRequests = [
+      { id:'acr-seed-1', at:ago(1), name:'Beatrice Akinyi Ochieng', roleId:'caregiver', countyId:'kisumu', assignedCountyId:'kisumu',
+        assignedAdminUsername:'kisumu.admin', urgent:true, contact:'0700201104', email:'beatrice.akinyi@lomamo.example',
+        reason:'Newly assigned Nyalenda Cluster B field caregiver — requires mobile tablet sign-in before Monday area briefing.', status:'open', demo:true },
+      { id:'acr-seed-2', at:ago(2), name:'Samuel Odhiambo Otieno', roleId:'assistant', countyId:'homabay', assignedCountyId:'homabay',
+        assignedAdminUsername:'homabay.admin', urgent:true, contact:'0700201198', email:'samuel.otieno@lomamo.example',
+        reason:'Homa Bay County Office hard-copy intake filing desk support — requires verified County Office account.', status:'open', demo:true }
+    ];
+  }
+  if(!Array.isArray(db.recoveryRequests) || db.recoveryRequests.length < 2){
+    db.recoveryRequests = [
+      { id:'rec-seed-1', at:ago(0.4), identifier:'caregiver.manyatta', username:'caregiver.manyatta', countyId:'kisumu', assignedCountyId:'kisumu',
+        assignedAdminUsername:'kisumu.admin', urgent:true, contact:'0700304411',
+        reason:'Field tablet replaced after rain screen damage; urgent temporary password reset needed before household visits.', status:'open', demo:true },
+      { id:'rec-seed-2', at:ago(0.8), identifier:'caregiver.ndhiwa', username:'caregiver.ndhiwa', countyId:'homabay', assignedCountyId:'homabay',
+        assignedAdminUsername:'homabay.admin', urgent:true, contact:'0700304482',
+        reason:'Locked out after 5 offline PIN retries in Ndhiwa cluster; urgent County Office Admin reset requested.', status:'open', demo:true }
+    ];
+  }
+
+  /* Populate Waiting List & Urgent Cases across Kisumu & Homa Bay if sparse */
+  if(!Array.isArray(db.waitingList) || db.waitingList.length < 6){
+    const wlAreas = ['nyalenda','manyatta','kondele','ahero','hb_town','ndhiwa','kendu','ombeyi'];
+    db.waitingList = wlAreas.map((aid, wIdx)=>({
+      id:'wl-seed-'+(wIdx+1), code:'WL-2026-'+String(101+wIdx),
+      name:['Grace Atieno Ouma','Peter Omondi Owino','Millicent Akoth Onyango','Josephine Auma Okoth','Daniel Otieno Odongo','Eunice Adhiambo Oloo','Caleb Ochieng Juma','Rosemary Anyango Otieno'][wIdx],
+      age:[34, 7, 42, 4, 51, 29, 9, 63][wIdx], sex:wIdx%2===0?'F':'M',
+      countyId:['hb_town','ndhiwa','kendu'].includes(aid)?'homabay':'kisumu', areaId:aid,
+      priority:wIdx%3===0?'high':(wIdx%3===1?'medium':'standard'),
+      reason:wIdx%2===0?'Post-discharge oncology/HIV household vulnerability & 3 school-age children':'Paediatric malnutrition follow-up & household food insecurity',
+      referredBy:wIdx%2===0?'JOOTRH Social Work Desk':'Area Coordinator Screening',
+      addedAt:ago(12 - wIdx).slice(0,10), status:wIdx<6?'waiting':'scheduled_assessment', demo:true
+    }));
+  }
+  if(!Array.isArray(db.urgentCases) || db.urgentCases.length < 6){
+    const activePts = (db.patients||[]).filter(p=>p.status==='active');
+    if(activePts.length >= 6){
+      db.urgentCases = activePts.slice(0, 8).map((pt, uIdx)=>({
+        id:'urg-seed-'+(uIdx+1), code:'URGCAS-'+String(201+uIdx),
+        patientId:pt.id, patientName:pt.name, countyId:pt.countyId, areaId:pt.areaId,
+        severity:uIdx<3?'critical':'high',
+        category:['Emergency Hospital Transfer','Severe Paediatric MUAC Alert','Acute Medication Stockout Risk','Post-Operative Wound Review'][uIdx%4],
+        summary:`Urgent clinical & household escalation for ${pt.name} (${pt.clinical?.diagnosis||'Active Care'}) — coordinated between Caregiver, MCM and Hospital Focal Desk.`,
+        raisedBy:pt.caregiverId || uCg, raisedAt:ago(5 - Math.min(4, uIdx)),
+        owner:pt.countyId==='homabay' ? 'u-mcm-homabay' : uMcm,
+        status:uIdx<5?'open':'stabilised', demo:true
+      }));
+    }
+  }
+
+  /* Seed Global Broadcast + Departmental + Ministry Area Coordination Chat channels (readBy includes recipients so unread starts at 0) */
+  if(!Array.isArray(db.messages) || !db.messages.some(m=>m.kind==='global' || m.kind==='area')){
+    db.messages = db.messages || [];
+    const activeIds = (db.users||[]).filter(u=>u.status==='active' && !['gov.partner','ccc.partner'].includes(u.roleId)).map(u=>u.id);
+    const seedMsg = (id, thread, kind, fromId, toIds, text, daysBack) => {
+      if(db.messages.some(x=>x.id===id)) return;
+      const recips = toIds.filter(x=>x && x!==fromId);
+      db.messages.push({
+        id, thread, kind, from:fromId, to:recips, text,
+        at:ago(daysBack), readBy:[fromId, ...recips], flagged:false, flagReason:'', demo:true
+      });
+    };
+    seedMsg('msg-glob-1','global:all','global','u-director', activeIds,
+      'Global Coordination Notice: Monday cross-county reporting closes at 08:30 EAT. Please ensure all 30-day PDCA reviews, paediatric MUAC measurements and hospital receipts are verified in your workspace.', 2);
+    seedMsg('msg-glob-2','global:kisumu','global','u-kisumu-admin', (db.users||[]).filter(u=>u.countyId==='kisumu').map(u=>u.id),
+      'Kisumu County Office: Field vehicle dispatch for JOOTRH & KCRH specialist clinics departs at 07:45 EAT tomorrow. Confirm escort manifests with Transport Coordinator.', 1);
+    seedMsg('msg-glob-3','global:homabay','global','u-homabay-admin', (db.users||[]).filter(u=>u.countyId==='homabay').map(u=>u.id),
+      'Homa Bay County Office: Weekly nutritional Bag 1, Bag 2 & Special Therapeutic Bag consignments verified at Homa Bay store ahead of Makongeni, Shauri Yako & Sofia home visits.', 1);
+    /* Internal Ministry Area Coordination Channels across all 10 Ministry Areas */
+    const areaNotes = {
+      nyalenda:'Nyalenda Area Team: Tuesday household route confirmed; prioritise 3-visit anthropometry & child MUAC follow-ups near Ring Road corridor.',
+      nairobird:'Nairobi Road Corridor Team: Coordinate Wednesday home visits with Nyamasaria CHW focal point before midday rain window.',
+      manyatta:'Manyatta Area Team: Kondele & Manyatta B nutrition foodbag distribution ready for morning collection from Kisumu store.',
+      nyahera:'Nyahera Area Team: Chulaimbo outpatient referral reviews scheduled for Thursday morning; transport escort confirmed.',
+      chiga:'Chiga Area Team: Household WASH & LLIN mosquito net verification scheduled across Kolwa East cluster.',
+      ombeyi:'Ombeyi Area Team: Fortnightly adherence check and Bag 1 household delivery aligned with Ombeyi Health Centre clinic day.',
+      ahero:'Ahero Area Team: Nyando corridor home visits and Ahero County Hospital outpatient follow-ups coordinated for Wednesday.',
+      makongeni:'Makongeni Area Team: Homa Bay East caregiver & coordinator morning briefing at 08:00 EAT prior to household rounds.',
+      shauriyako:'Shauri Yako Area Team: Outpatient clinic escort handover with Homa Bay Teaching & Referral Hospital Focal Person complete.',
+      sofia:'Sofia Area Team: Paediatric growth & maternal recovery visits scheduled across Homa Bay West households.'
+    };
+    Object.entries(areaNotes).forEach(([aid, txt], idx)=>{
+      const aUsers = (db.users||[]).filter(u=>u.status==='active' && ((u.areaIds||[]).includes(aid) || ['countyadmin','assistant','mcm','coordinator'].includes(u.roleId))).map(u=>u.id);
+      const sender = (db.users||[]).find(u=>(u.areaIds||[]).includes(aid))?.id || 'u-kisumu-admin';
+      seedMsg('msg-area-'+aid, 'area:'+aid, 'area', sender, aUsers, txt, (idx % 4) + 1);
+    });
+    /* Internal Departmental Coordination Channels */
+    [
+      ['ministry','u-coord-kisumu','Ministry & Field Care Coordination: Ensure all hard-copy initial assessment scans are handed to County Admin Assistants by 16:30 EAT.'],
+      ['medical','u-mcm-kisumu','Medical Case Management: 120+ day PDCA clinical extension dossiers reviewed ahead of International Medical Team concurrence.'],
+      ['hospital','u-focal-kisumu','Hospital Continuum Desk: All JOOTRH & Homa Bay outpatient discharge summaries and SHA claim receipts uploaded for reconciliation.'],
+      ['finance','u-finance-kisumu','Finance & Accounts: Operational Expenses and statutory deductions prepared ahead of the 9th-of-month compliance deadline.'],
+      ['procure','u-procure-kisumu','Procurement & Stores: Supplier batch inspection for Bag 1, Bag 2 and Special Therapeutic Food Bags completed with zero variance.'],
+      ['hr','u-hr-lead','Human Resources & Welfare: Verify signed leave handover & role acceptance reports before approving upcoming off-days.'],
+      ['media','u-media-head','Media & Governance: Written informed storytelling consents verified on all scheduled impact features; quarterly 122-item asset check complete.']
+    ].forEach(([did, fromU, txt], idx)=>{
+      const dUsers = (db.users||[]).filter(u=>u.status==='active' && (u.departmentId===did || ['chief','director','program.admin'].includes(u.roleId))).map(u=>u.id);
+      seedMsg('msg-dept-'+did, 'dept:'+did, 'dept', fromU, dUsers, txt, (idx % 3) + 1);
+    });
+  }
+
+  /* Seed Universal Workspace Drafts across accounts (Draft Messages, Draft Home Visits, Draft Requests, Draft Reports) */
+  if(!Array.isArray(db.workspaceDrafts) || !db.workspaceDrafts.length){
+    const p0 = (db.patients||[])[0] || { id:'p00001', code:'LOM-NYA-10001', name:'Beneficiary', countyId:'kisumu', areaId:'nyalenda' };
+    const p1 = (db.patients||[])[12] || p0;
+    db.workspaceDrafts = [
+      { id:'wdr-1', kind:'visit', title:`Draft Home Visit — ${p0.code} (${p0.village||'Nyalenda'})`, ownerId:'u-caregiver-nyalenda', countyId:'kisumu', dept:'ministry',
+        targetView:'patient', targetParams:{id:p0.id, tab:'visits'}, patientId:p0.id,
+        summary:`Weight ${p0.clinical?.weightKg||54} kg, MUAC ${p0.clinical?.muacCm||23.5} cm, Bag 1 delivered; awaiting final caregiver review before syncing to central register.`,
+        payload:{ patientId:p0.id, weight:p0.clinical?.weightKg||54, muacCm:p0.clinical?.muacCm||23.5, notes:'Household visit completed; medication adherence good; awaiting supervisor note before final sync.' },
+        updatedAt:ago(1), status:'draft' },
+      { id:'wdr-2', kind:'message', title:'Draft Area Coordination Note — Thursday JOOTRH Escort', ownerId:'u-caregiver-nyalenda', countyId:'kisumu', dept:'ministry',
+        targetView:'messages', targetParams:{thread:'area:nyalenda', mode:'internal'},
+        summary:'Confirming two ambulatory outpatient escorts for Thursday 08:00 EAT departure from Nyalenda stage (zero patient PII in chat).',
+        payload:{ thread:'area:nyalenda', text:'Team: confirming two outpatient escorts ready for Thursday 08:00 EAT pickup at Nyalenda stage.' },
+        updatedAt:ago(1), status:'draft' },
+      { id:'wdr-3', kind:'request', title:`Draft Hospital Specialist Referral — ${p1.code}`, ownerId:'u-mcm-kisumu', countyId:'kisumu', dept:'medical',
+        targetView:'requests', targetParams:{}, patientId:p1.id,
+        summary:'Outpatient nutritional & clinical review referral to JOOTRH; awaiting latest lab slip attachment before submission.',
+        payload:{ patientId:p1.id, facility:'JOOTRH Outpatient Specialist Clinic', priority:'urgent', reason:'30-day clinical & nutritional review' },
+        updatedAt:ago(2), status:'draft' },
+      { id:'wdr-4', kind:'report', title:'Draft Monthly Operational Expenses & Budget Variance Narrative', ownerId:'u-finance-kisumu', countyId:'kisumu', dept:'finance',
+        targetView:'finance', targetParams:{},
+        summary:'Kisumu & Homa Bay monthly expenditure-against-budget commentary prepared for Country Director & Chief Program Administrator review.',
+        payload:{ period:'2026-10', notes:'All statutory NSSF, SHA & Housing Levy lines within approved ceiling; hospital referral receipts 98% reconciled.' },
+        updatedAt:ago(2), status:'draft' },
+      { id:'wdr-5', kind:'report', title:'Draft Executive Sitting Briefing — Q4 Child Nutrition & Orphan Prevention', ownerId:'u-chief-admin', countyId:'kisumu', dept:'admin',
+        targetView:'execconsole', targetParams:{},
+        summary:'Cross-county executive briefing covering 3,333 longitudinal patient files, paediatric MUAC recovery curves and county urgent desk SLA.',
+        payload:{ period:'2026-Q4', notes:'Prepared for Executive Sitting agenda item #2.' },
+        updatedAt:ago(1), status:'draft' },
+      { id:'wdr-6', kind:'message', title:'Draft Homa Bay Team Notice — Friday Home Visit Schedule', ownerId:'u-homabay-admin', countyId:'homabay', dept:'admin',
+        targetView:'messages', targetParams:{thread:'global:homabay', mode:'global'},
+        summary:'Reminder to Makongeni, Shauri Yako & Sofia caregivers to sync offline tablet drafts by 16:00 EAT Friday.',
+        payload:{ thread:'global:homabay', text:'Homa Bay Team: kindly review and sync all draft home visits and field forms before 16:00 EAT on Friday.' },
+        updatedAt:ago(1), status:'draft' }
+    ];
+  }
+
   /* Reset seed coWork state cleanly so DUALCHECK.ensureStore() populates canonical dual-verification batches */
   delete db.coWorkState;
   delete db.coWorkBatches;
@@ -666,7 +831,8 @@ function seedOfficial(db, now, opts={}){
       given = sex==='F' ? pick(KENYAN_GIVEN_F) : pick(KENYAN_GIVEN_M);
       surname = pick(KENYAN_SURNAMES);
     }
-    const age = int(2, 84);
+    const age = (i % 4 === 0) ? (1 + (i % 17)) : int(18, 84);
+    const ageMonths = age < 5 ? (age * 12 + (i % 11)) : (age * 12);
     const dobDate = new Date(T.getTime() - (age*365 + int(10, 340))*DAY);
     const dob = iso(dobDate).slice(0, 10);
     const planned = tail ? 240 : pick(PROGRAM_DURATION_DEFAULT);
@@ -683,46 +849,104 @@ function seedOfficial(db, now, opts={}){
     const dischargeIso = status==='discharged' ? iso(new Date(T.getTime() - agoDays*DAY)) : null;
     const dischargeDate = dischargeIso ? dischargeIso.slice(0, 10) : null;
     const pid = 'p' + String(i).padStart(5,'0');
-    /* Keep compact QA edge cases on i<=12 for dataQuality & PMI merge tests; 99.6%+ have complete ID & phone */
-    const duplicateOf = (i >= 5 && i <= 12) ? 'p' + String(i - 4).padStart(5,'0') : null;
-    /* National IDs for invented people are drawn from the 9x,xxx,xxx band,
-       which no Kenyan identity number has reached. The same reasoning as the
-       telephone numbers: a fabricated patient carrying an identity number that
-       belongs to a real person would publish that person's number beside a
-       diagnosis they do not have. */
+    /* Keep 2 PMI duplicate-ID candidates on i=5..6 for DQ6 blocking tests, while EVERY SINGLE ONE of the 3,333 patients has a complete National ID / Birth Cert and verified Kenyan telephone */
+    const duplicateOf = (i === 5 || i === 6) ? 'p' + String(i - 4).padStart(5,'0') : null;
     const nationalId = duplicateOf
       ? (patients.find(p=>p.id===duplicateOf)||{}).nationalId || String(int(90000000,99999999))
-      : (i <= 4 ? '' : (age < 18 ? 'BC-' + String(10000000 + i) : String(90000000 + (i*7919) % 9999999)));
-    /* Demo telephone numbers stay inside the 0700 block, which is not an
-       allocated Kenyan mobile range. A seeded registry must never publish a
-       number that could belong to a real subscriber: these people are invented,
-       and an invented patient beside a real person's number is a breach of that
-       person's data. The convention matches the demo rows used everywhere else
-       (0700000000, 0700000001) and is what the sweep in
-       v6/tools/verify_no_patient_data.py treats as synthetic. */
-    const phone = i <= 3 ? '' : ('0700' + String(100000 + ((i * 7919) % 99999)).padStart(6,'0'));
-    const diag = diagnoses[(i - 1) % diagnoses.length];
+      : (age < 18 ? 'BC-' + String(10000000 + i) : String(90000000 + (i*7919) % 9999999));
+    const phone = '0700' + String(100000 + ((i * 7919) % 99999)).padStart(6,'0');
+    const diag = age < 5
+      ? ['Malnutrition (child)','Pneumonia','Severe malaria','Acute diarrhoea','HIV - on ART','TB - treatment'][(i - 1) % 6]
+      : (age < 15
+        ? ['Malnutrition (child)','HIV - on ART','TB - treatment','Severe malaria','Pneumonia','Chronic wound'][(i - 1) % 6]
+        : diagnoses[(i - 1) % diagnoses.length]);
     const condCat = /HIV|TB|Cryptococcal/i.test(diag) ? 'infectious'
       : (/cancer|Kaposi/i.test(diag) ? 'oncology'
       : (/Malnutrition/i.test(diag) ? 'nutrition' : 'chronic'));
-    const baseWt = age < 12 ? int(10, 32) : int(46, 76);
-    const currWt = Math.round((baseWt + 1.8 + (i % 5) * 0.9) * 10) / 10;
-    const htCm = age < 12 ? int(78, 142) : int(152, 182);
+
+    /* WHO / Kenya MoH age-calibrated height (cm), weight (kg), BMI-for-Age & MUAC (mm) */
+    let baseHtCm, htCm, baseBmiTarget, gainBmi, baseMuacMm, currMuacMm;
+    const nutProfile = i % 10; /* 0 = recovering SAM, 1..2 = recovering MAM, 3..8 = normal growth, 9 = higher BMI */
+    if(age < 5){
+      baseHtCm = Math.round(74 + (age - 1) * 8.5 + (i % 5));
+      htCm = Math.round(baseHtCm + Math.min(3, Math.max(1, Math.round(days / 90))));
+      baseBmiTarget = nutProfile === 0 ? 12.6 : (nutProfile <= 2 ? 13.6 : (nutProfile <= 8 ? (15.0 + (i % 3) * 0.5) : 17.4));
+      gainBmi = nutProfile <= 2 ? 1.5 : 0.6;
+      baseMuacMm = nutProfile === 0 ? (109 + (i % 5)) : (nutProfile <= 2 ? (116 + (i % 7)) : (128 + (i % 16)));
+      currMuacMm = Math.min(162, baseMuacMm + (nutProfile <= 2 ? 12 : 6));
+    } else if(age < 10){
+      baseHtCm = Math.round(108 + (age - 5) * 5.8 + (i % 5));
+      htCm = Math.round(baseHtCm + Math.min(2, Math.max(1, Math.round(days / 110))));
+      baseBmiTarget = nutProfile === 0 ? 13.0 : (nutProfile <= 2 ? 14.0 : (nutProfile <= 8 ? (15.4 + (i % 4) * 0.45) : 18.6));
+      gainBmi = nutProfile <= 2 ? 1.4 : 0.5;
+      baseMuacMm = nutProfile === 0 ? (128 + (i % 5)) : (nutProfile <= 2 ? (136 + (i % 7)) : (149 + (i % 18)));
+      currMuacMm = Math.min(190, baseMuacMm + (nutProfile <= 2 ? 11 : 5));
+    } else if(age < 18){
+      baseHtCm = Math.round(138 + (age - 10) * 4.1 + (i % 6));
+      htCm = Math.round(baseHtCm + (days >= 120 ? 1 : 0));
+      baseBmiTarget = nutProfile === 0 ? 14.8 : (nutProfile <= 2 ? 16.1 : (nutProfile <= 8 ? (18.2 + (i % 4) * 0.7) : 23.2));
+      gainBmi = nutProfile <= 2 ? 1.5 : 0.6;
+      baseMuacMm = nutProfile === 0 ? (152 + (i % 6)) : (nutProfile <= 2 ? (164 + (i % 12)) : (188 + (i % 24)));
+      currMuacMm = Math.min(248, baseMuacMm + (nutProfile <= 2 ? 13 : 6));
+    } else {
+      baseHtCm = 154 + (i % 26);
+      htCm = baseHtCm;
+      baseBmiTarget = nutProfile === 0 ? 15.2 : (nutProfile <= 2 ? 17.1 : (nutProfile <= 7 ? (20.4 + (i % 4) * 0.9) : (nutProfile === 8 ? 26.8 : 30.8)));
+      gainBmi = nutProfile <= 2 ? 1.6 : (nutProfile >= 8 ? -0.4 : 0.6);
+      baseMuacMm = nutProfile === 0 ? (181 + (i % 7)) : (nutProfile <= 2 ? (196 + (i % 18)) : (236 + (i % 38)));
+      currMuacMm = Math.min(315, baseMuacMm + (nutProfile <= 2 ? 14 : 5));
+    }
+    const baseWt = Math.round(baseBmiTarget * Math.pow(baseHtCm / 100, 2) * 10) / 10;
+    const currWt = Math.round((baseBmiTarget + gainBmi) * Math.pow(htCm / 100, 2) * 10) / 10;
     const bmi = Math.round((currWt / Math.pow(htCm/100, 2)) * 10) / 10;
-    const bpStr = (108 + (i % 28)) + '/' + (68 + (i % 18));
+    const bpStr = age < 8 ? '96/60' : ((108 + (i % 28)) + '/' + (68 + (i % 18)));
     const guardianName = pick(KENYAN_GUARDIANS);
-    const kids = int(1, 5);
+    const kids = age < 18 ? int(1, 4) : int(1, 5);
+    const maleKids = Math.floor(kids / 2) + (i % 2);
+    const femaleKids = Math.max(0, kids - maleKids);
     const village = pick(villagesByArea[area.id] || ['Central Sub-Location']);
+    const areaGeo = {
+      nyalenda:   { lat:-0.1142, lon:34.7695, sub:'Kisumu Central', ward:'Nyalenda A / B', landmark:'Near Nyalenda Health Centre & Ring Road Stage' },
+      nairobird:  { lat:-0.1065, lon:34.7882, sub:'Kisumu Central', ward:'Migosi / Nyamasaria Corridor', landmark:'Off Nairobi Highway by Nyamasaria Footbridge' },
+      manyatta:   { lat:-0.0948, lon:34.7798, sub:'Kisumu East',    ward:'Manyatta B / Kondele', landmark:'Near Manyatta Primary & Kondele Junction' },
+      nyahera:    { lat:-0.0245, lon:34.7160, sub:'Kisumu West',    ward:'North West Kisumu', landmark:'Near Nyahera Sub-County Hospital Market' },
+      chiga:      { lat:-0.1095, lon:34.8490, sub:'Kisumu East',    ward:'Kolwa East', landmark:'Near Chiga Market & Health Dispensary' },
+      ombeyi:     { lat:-0.1290, lon:34.9720, sub:'Muhoroni / Miwani', ward:'Ombeyi', landmark:'Near Ombeyi Chief Camp & Health Centre' },
+      ahero:      { lat:-0.1744, lon:34.9169, sub:'Nyando',         ward:'Ahero Town', landmark:'Near Ahero County Hospital & Kochogo Road' },
+      makongeni:  { lat:-0.5318, lon:34.4628, sub:'Homa Bay Town',  ward:'Homa Bay East', landmark:'Near Makongeni Primary & Pier Corridor' },
+      shauriyako: { lat:-0.5255, lon:34.4545, sub:'Homa Bay Town',  ward:'Homa Bay Central', landmark:'Near Homa Bay Teaching & Referral Hospital' },
+      sofia:      { lat:-0.5382, lon:34.4589, sub:'Homa Bay Town',  ward:'Homa Bay West', landmark:'Near Sofia Market & St. Paul Junction' }
+    }[area.id] || { lat:-0.1022, lon:34.7617, sub:'Kisumu Central', ward:'Central Ward', landmark:'Near Ministry Area Focal Point' };
+    const ptLat = +(areaGeo.lat + (((i * 37) % 140) - 70) * 0.00012).toFixed(5);
+    const ptLon = +(areaGeo.lon + (((i * 53) % 140) - 70) * 0.00012).toFixed(5);
+    const gpsObj = { lat:ptLat, lon:ptLon, accuracyM: 6 + (i % 9) };
+    const locationObj = {
+      county: area.countyId==='homabay' ? 'Homa Bay' : 'Kisumu',
+      subCounty: areaGeo.sub,
+      ward: areaGeo.ward,
+      village,
+      landmark: areaGeo.landmark,
+      gpsText: `${ptLat.toFixed(4)}, ${ptLon.toFixed(4)} (±${gpsObj.accuracyM}m)`
+    };
     const objSet = careObjectives[i % careObjectives.length];
+    /* Wise realistic setting proportions:
+       - ~30.8% (i % 13 < 4) have Hospital Referral/Outpatient visits alongside Home Visits
+       - Only ~7.1% (i % 14 === 3 = 238 of 3,333 patients) ever required Homestay / Care Centre admission/respite */
+    const hasHospitalVisits = (i % 13 < 4) || (i % 10 === 1) || (i <= 30);
+    const hadHomestay = (i % 14 === 3);
+
     const pObj = {
       id:pid, code:'LOM-'+area.id.slice(0,3).toUpperCase()+'-'+String(10000+i),
-      name:given+' '+surname, sex, age, dob, nationalId,
+      name:given+' '+surname, sex, age, ageMonths, dob, nationalId,
       sha:'SHA-KE-' + String(100000 + i),
       phone,
       village,
+      gps: gpsObj,
+      location: locationObj,
       guardian:guardianName,
       childrenCount:kids,
       baselineWeightKg:baseWt,
+      hadHomestay,
       countyId:area.countyId, areaId:area.id, caregiverId:caregiver,
       status,
       intake:intakeIso, enrolledAt:intakeDate,
@@ -739,9 +963,12 @@ function seedOfficial(db, now, opts={}){
         art: /HIV/i.test(diag),
         baselineWeightKg: baseWt,
         weightKg: currWt,
+        baselineHeightCm: baseHtCm,
         heightCm: htCm,
         bmi: bmi,
-        muacMm: age < 5 ? int(118, 142) : int(225, 290),
+        baselineMuacMm: baseMuacMm,
+        muacMm: currMuacMm,
+        muacCm: +(currMuacMm / 10).toFixed(1),
         bp: bpStr,
         adherence: pick(['Good','Good','Good','Fair']),
         functionalStatus: pick(['Ambulatory','Ambulatory','Assisted mobility']),
@@ -758,7 +985,33 @@ function seedOfficial(db, now, opts={}){
         reviewCadence: 30,
         updatedAt: intakeDate
       },
-      household:{ children:kids, orphansSupported:int(0,2), guardian:guardianName, village },
+      household:{ children:kids, maleChildren:maleKids, femaleChildren:femaleKids, orphansSupported:int(0,2), guardian:guardianName, village },
+      metadata:{
+        householdSize: kids + (age < 18 ? 2 : 1) + (i % 2),
+        dependentsUnder18: kids,
+        housingType: ['Semi-permanent iron-sheet dwelling','Permanent masonry household','Rental single-room compound'][i % 3],
+        waterSource: ['Piped municipal standpipe','Protected community borehole','Treated rainwater tank'][i % 3],
+        nearestFacility: area.countyId==='homabay' ? 'Homa Bay County Teaching & Referral Hospital' : 'JOOTRH / Sub-County Hospital',
+        primaryCaregiverRelation: age < 18 ? 'Parent / Maternal Guardian' : 'Spouse / Adult Household Kin',
+        shaStatus: 'Active SHA Verified',
+        enrolledBy: caregiver,
+        lastVerifiedAt: intakeDate
+      },
+      master:{
+        insurance: 'SHA + LOMAMO Medical Safety Net',
+        spouseId: age >= 20 ? String(28000000 + ((i * 3571) % 8999999)) : '',
+        newInMonth: days <= 30 ? 'Yes (Current Cycle)' : 'Continuing Cohort',
+        repeatPatient: (i % 29 === 0),
+        relocated: false,
+        orphansPrevented: kids,
+        becameOrphans: 0,
+        minimalCareFlag: days > 183 ? 'x' : '',
+        schedule: 'Bi-weekly Home Visit & 30-Day PDCA',
+        bags: { BG1: nutProfile > 2 && kids < 4 ? 6 : 2, BG2: kids >= 4 ? 6 : 0, SPB: nutProfile <= 2 ? 5 : 0 },
+        costs: { other: 14500 + (i % 9) * 1850, inpatient: hasHospitalVisits ? (12000 + (i % 5) * 4200) : 0, total: (14500 + (i % 9) * 1850) + (hasHospitalVisits ? (12000 + (i % 5) * 4200) : 0) },
+        sourceWorkbook: 'CareLink Unified Longitudinal Registry v6.5',
+        sourceSheet: area.name
+      },
       consent:(()=>{
         const st = pick(['granted','granted','granted','pending','withdrawn']);
         const scope = pick(['internal','storytelling','donor_report']);
@@ -767,28 +1020,56 @@ function seedOfficial(db, now, opts={}){
             storytelling:scope==='storytelling'&&st==='granted', donor:scope!=='internal'&&st==='granted', research:false } };
       })(),
       faithRecord: rnd()>0.45 ? 'reported' : 'not_recorded',
-      docsVerified: i > 8,
+      docsVerified: i > 2,
       flags: isPipeline ? ['duplicate_check_pending'] : [],
       pdcaStage: ['Plan','Do','Check','Act'][i % 4],
       demo:true, source:'reference-register'
     };
     patients.push(pObj);
 
-    /* 100% OF ALL 3,333 PATIENTS: 2-3 dated household & clinical follow-up visits */
-    const visitCount = 2 + (i % 2);
+    /* 100% OF ALL 3,333 PATIENTS: 12 to 15 longitudinal Home + Hospital / Homestay visits
+       with realistic progressive Weight (kg), Height (cm), BMI & MUAC (mm/cm) measurements */
+    const visitCount = 12 + (i % 4); /* 12, 13, 14 or 15 visits for every single patient */
+    const hospFacility = area.countyId==='homabay'
+      ? 'Homa Bay County Teaching & Referral Hospital'
+      : (i % 2 === 0 ? 'JOOTRH Outpatient Specialist Clinic' : 'Kisumu County Referral Hospital');
     for(let v=0; v<visitCount; v++){
-      const offsetDays = Math.max(2, Math.floor((days * (v + 1)) / (visitCount + 1)));
+      const frac = (v + 1) / visitCount;
+      const offsetDays = Math.max(1, Math.min(days, Math.round(days * frac)));
       const vd = new Date(intake.getTime() + offsetDays * DAY);
       const vdIso = iso(vd);
-      const vWt = Math.round((baseWt + ((currWt - baseWt) * (v + 1) / visitCount)) * 10) / 10;
-      const sumTxt = visitSummaries[(i + v) % visitSummaries.length];
+      const vHt = Math.round((baseHtCm + (htCm - baseHtCm) * frac) * 10) / 10;
+      const vWt = Math.round((baseWt + (currWt - baseWt) * frac) * 10) / 10;
+      const vBmi = Math.round((vWt / Math.pow(vHt / 100, 2)) * 10) / 10;
+      const vMuac = Math.round(baseMuacMm + (currMuacMm - baseMuacMm) * frac);
+      let vType = 'home';
+      let vActor = caregiver;
+      let sumTxt = visitSummaries[(i + v) % visitSummaries.length];
+      if(hadHomestay && (v === 2 || (v === 5 && i % 28 === 3))){
+        vType = 'homestay';
+        vActor = area.countyId==='homabay' ? 'u-homestay-homabay' : 'u-homestay-kisumu';
+        sumTxt = age < 18
+          ? `Short-term Care Centre / Homestay therapeutic nutrition & guardian respite review (MUAC ${(vMuac/10).toFixed(1)} cm, Wt ${vWt} kg).`
+          : `Short-term Homestay post-discharge stabilization & supervised medication check completed (Wt ${vWt} kg, BP ${bpStr}).`;
+      } else if(hasHospitalVisits && (v === 4 || (v === 9 && i % 6 === 0))){
+        vType = 'hospital';
+        vActor = area.countyId==='homabay' ? 'u-focal-homabay' : 'u-focal-kisumu';
+        sumTxt = `Escorted outpatient clinical review at ${hospFacility}; labs, prescription refill & next review date verified.`;
+      } else if(v === visitCount - 1 && i % 5 === 0){
+        vType = 'clinical';
+        vActor = area.countyId==='homabay' ? 'u-mcm-homabay' : 'u-mcm-kisumu';
+      }
+      const bagCode = (vType === 'home' && v % 2 === 0) ? (nutProfile <= 2 ? 'SPB' : (kids >= 4 ? 'BG2' : 'BG1')) : '';
       visits.push({
         id:'v'+pid+'-'+v, patientId:pid,
-        by:caregiver, caregiverId:caregiver,
+        by:vActor, caregiverId:caregiver,
         countyId:area.countyId, areaId:area.id,
         date:vdIso.slice(0,10), recordedAt:vdIso,
-        type: v===visitCount-1 && i%4===0 ? 'clinical' : 'home',
-        weight:vWt, bp:bpStr, adherence:pObj.clinical.adherence,
+        type:vType,
+        facility: vType==='hospital' ? hospFacility : (vType==='homestay' ? 'LOMAMO Homestay & Care Centre' : ''),
+        weight:vWt, heightCm:vHt, bmi:vBmi, muacMm:vMuac, muacCm:+(vMuac/10).toFixed(1),
+        foodBag:bagCode, bp:bpStr, adherence:pObj.clinical.adherence,
+        gps: gpsObj, location: village + ' (' + locationObj.gpsText + ')',
         outcome:'seen',
         summary:sumTxt, notes:sumTxt,
         nextAction:'Scheduled 30-day PDCA & household check',
@@ -922,27 +1203,59 @@ function seedOfficial(db, now, opts={}){
     }
   }
 
-  /* Remap any sample records from seedDemo (forms, Rx, Omaha, care residents) onto valid official IDs */
+  /* Remap sample records & enrich Homestay / Care Centre, Waiting List, Urgent Cases & departmental registers */
   if(patients.length >= 6){
     (db.formRecords||[]).forEach((fr, idx)=>{
-      const pt = patients[idx % 6];
+      const pt = patients[idx % Math.min(24, patients.length)];
       fr.patientId = pt.id; fr.patientName = pt.name; fr.countyId = pt.countyId; fr.areaId = pt.areaId;
       fr.enteredBy = pt.caregiverId; fr.verifiedBy = fr.status==='verified' ? 'u-mcm-kisumu' : undefined;
     });
     (db.clinicalRx||[]).forEach((rx, idx)=>{
-      const pt = patients[idx % 6];
+      const pt = patients[idx % Math.min(20, patients.length)];
       rx.patientId = pt.id; rx.patientName = pt.name; rx.countyId = pt.countyId; rx.areaId = pt.areaId;
-      rx.prescribedBy = 'u-mcm-kisumu'; rx.dispensedBy = rx.status==='dispensed' ? 'u-nurse-kisumu' : undefined;
+      rx.prescribedBy = pt.countyId==='homabay' ? 'u-mcm-homabay' : 'u-mcm-kisumu';
+      rx.dispensedBy = rx.status==='dispensed' ? (pt.countyId==='homabay' ? 'u-nurse-homabay' : 'u-nurse-kisumu') : undefined;
     });
     (db.omahaPlans||[]).forEach((om, idx)=>{
-      const pt = patients[idx % 6];
+      const pt = patients[idx % Math.min(20, patients.length)];
       om.patientId = pt.id; om.patientName = pt.name; om.countyId = pt.countyId; om.areaId = pt.areaId;
-      om.createdBy = 'u-mcm-kisumu'; om.approvedBy = 'u-nurse-kisumu';
+      om.createdBy = pt.countyId==='homabay' ? 'u-mcm-homabay' : 'u-mcm-kisumu';
+      om.approvedBy = pt.countyId==='homabay' ? 'u-nurse-homabay' : 'u-nurse-kisumu';
     });
-    (db.careResidents||[]).forEach((cr, idx)=>{
-      const pt = patients[idx % 6];
-      cr.patientId = pt.id; cr.name = pt.name;
+    const homestayPool = patients.filter(p=>p.hadHomestay && p.status==='active');
+    const hsPick = homestayPool.length >= 9 ? homestayPool.slice(0, 9) : patients.slice(0, Math.min(6, patients.length));
+    db.careBeds = Array.from({length:12}, (_, bIdx)=>{
+      const occ = bIdx < hsPick.length ? hsPick[bIdx] : null;
+      const wing = bIdx < 4 ? 'Paediatric & Nutrition Wing' : (bIdx < 8 ? 'Female Recovery Wing' : 'Male Stabilization Wing');
+      return {
+        id:'bed-'+(bIdx+1), code:'CC-B'+String(bIdx+1).padStart(2,'0'), wing,
+        countyId: bIdx >= 9 ? 'homabay' : 'kisumu',
+        status: occ ? 'occupied' : (bIdx === 10 ? 'cleaning' : 'available'),
+        residentId: occ ? ('res-'+(bIdx+1)) : null,
+        patientId: occ ? occ.id : null, demo:true
+      };
     });
+    db.careResidents = hsPick.map((pt, rIdx)=>({
+      id:'res-'+(rIdx+1), patientId:pt.id, name:pt.name, bedId:'bed-'+(rIdx+1),
+      countyId:pt.countyId, areaId:pt.areaId,
+      admitted:iso(new Date(T.getTime() - (6 + (rIdx % 12))*DAY)).slice(0,10),
+      expectedDischarge:iso(new Date(T.getTime() + (5 + (rIdx % 9))*DAY)).slice(0,10),
+      reason: pt.age < 18
+        ? 'Short-term therapeutic nutritional stabilization & supervised MUAC catch-up'
+        : 'Post-hospital clinical respite, wound/medication supervision & household readiness',
+      status:'admitted', dietary: pt.age < 18 ? 'High-protein F-100 / Enriched Paediatric Diet' : 'Balanced therapeutic recovery diet',
+      demo:true
+    }));
+    db.careLogs = hsPick.slice(0, 8).map((pt, lIdx)=>({
+      id:'clog-'+(lIdx+1), residentId:'res-'+(lIdx+1), patientId:pt.id, countyId:pt.countyId,
+      at:iso(new Date(T.getTime() - (lIdx % 4)*DAY)),
+      shift: lIdx % 2 === 0 ? 'Morning (07:00–15:00)' : 'Evening (15:00–22:00)',
+      by: pt.countyId==='homabay' ? 'u-homestay-homabay' : 'u-homestay-kisumu',
+      meals:'Breakfast, enriched midday meal & evening porridge completed (100% intake)',
+      vitals:`Wt ${pt.clinical.weightKg} kg · MUAC ${pt.clinical.muacCm} cm · BP ${pt.clinical.bp}`,
+      note:'Resident comfortable, medications taken on schedule, guardian updated by Homestay Coordinator.',
+      demo:true
+    }));
   }
 
   db.patients = patients;
@@ -995,12 +1308,32 @@ function librarySeed(users){
 /* ---------- recognition: initial scores ---------- */
 function creditsSeed(users, patients, visits){
   const out = {};
+  const visitsByCg = Object.create(null);
+  (visits||[]).forEach(v=>{
+    const cid = v.caregiverId || v.by;
+    if(cid) visitsByCg[cid] = (visitsByCg[cid] || 0) + 1;
+  });
+  const ptsByCg = Object.create(null);
+  const docsByCg = Object.create(null);
+  const ptsByCounty = Object.create(null);
+  const docsByCounty = Object.create(null);
+  (patients||[]).forEach(p=>{
+    if(p.caregiverId){
+      ptsByCg[p.caregiverId] = (ptsByCg[p.caregiverId] || 0) + 1;
+      if(p.docsVerified) docsByCg[p.caregiverId] = (docsByCg[p.caregiverId] || 0) + 1;
+    }
+    if(p.countyId){
+      ptsByCounty[p.countyId] = (ptsByCounty[p.countyId] || 0) + 1;
+      if(p.docsVerified) docsByCounty[p.countyId] = (docsByCounty[p.countyId] || 0) + 1;
+    }
+  });
   users.forEach((u, idx)=>{
-    const mine = patients.filter(p=>p.caregiverId===u.id || p.countyId===u.countyId);
-    const recorded = visits.filter(v=>v.caregiverId===u.id).length;
-    const documented = mine.filter(p=>p.docsVerified).length;
+    const isCg = u.roleId==='caregiver';
+    const mineCount = isCg ? (ptsByCg[u.id] || 0) : ((ptsByCg[u.id] || 0) + (ptsByCounty[u.countyId] || 0));
+    const recorded = visitsByCg[u.id] || 0;
+    const documented = isCg ? (docsByCg[u.id] || 0) : (docsByCounty[u.countyId] || 0);
     out[u.id] = { coins: 8 + (idx % 6)*4, used: (idx % 3)*2, lastAward:null, manual:0,
-      base: { patients: u.roleId==='caregiver'? mine.length : 0, visits: recorded, documented } };
+      base: { patients: isCg ? mineCount : 0, visits: recorded, documented } };
   });
   return out;
 }
@@ -1012,31 +1345,57 @@ function execSeed(T, users){
   const idOf = u => ((users||[]).find(x=>x.username===u)||{}).id || ('u-'+u.replace(/[.]/g,'-'));
   return [
     { id:'ex-001', date:d(21), title:'October Cross-County Executive Review', status:'minuted',
-      chair:idOf('director'), members:['director','president','program.admin','chief.admin','program.assistant','kisumu.admin','homabay.admin','mcm.kisumu'].map(idOf),
+      venue:'Kisumu Head Office Boardroom & Homa Bay Video Link', cadence:'Monthly Statutory Sitting',
+      chair:idOf('director'), secretary:idOf('exec.secretary'),
+      members:['director','president','program.admin','chief.admin','program.assistant','exec.secretary','kisumu.admin','homabay.admin','mcm.kisumu'].map(idOf),
       agenda:[
-        { text:'Q3 Orphan Prevention caseload review across all 10 ministry areas', owner:idOf('program.admin') },
-        { text:'Programme stay profile (45-240d core, 241-330d extended medical cases)', owner:idOf('mcm.kisumu') },
-        { text:'JOOTRH Hospital Focal Desk turnaround & SHA enrolment drive', owner:idOf('focal.kisumu') },
-        { text:'LOMAMO C-DIMS v6 live office Wi-Fi rollout across tablets', owner:idOf('chief.admin') }
+        { time:'09:00', duration:'25 min', category:'Programme Caseload', text:'Q3 Orphan Prevention caseload review across all 10 ministry areas (3,333 households)', owner:idOf('program.admin') },
+        { time:'09:25', duration:'25 min', category:'Clinical & Child Growth', text:'Programme stay profile (45-240d core, 241-330d extended) & paediatric Weight/BMI/MUAC surveillance', owner:idOf('mcm.kisumu') },
+        { time:'09:50', duration:'20 min', category:'Hospital Linkage', text:'JOOTRH & Homa Bay Hospital Focal Desk turnaround & SHA enrolment drive', owner:idOf('focal.kisumu') },
+        { time:'10:10', duration:'20 min', category:'Digital Infrastructure', text:'CareLink C-DIMS v6.5 global activation & county office tablet sync audit', owner:idOf('chief.admin') }
       ],
       minutes:[
-        { n:1, decision:'verified', text:'Active household caseload verified across Kisumu (7 areas) and Homa Bay (3 areas) with zero unreviewed stays beyond 330 days.' },
-        { n:2, decision:'approved', text:'Hospital Focal Desk cleared 94% of urgent oncology and TB referrals within 72 hours.' },
-        { n:3, decision:'confirmed', text:'Finance confirmed 100% receipt verification prior to monthly county close.' }
+        { n:1, decision:'verified', text:'Active household caseload verified across Kisumu (7 areas) and Homa Bay (3 areas) with ≥12 longitudinal visits per enrolled beneficiary.' },
+        { n:2, decision:'approved', text:'Hospital Focal Desk cleared 94% of urgent oncology, paediatric nutrition and TB referrals within 72 hours.' },
+        { n:3, decision:'confirmed', text:'Finance & Procurement confirmed 100% expenditure-against-budget voucher reconciliation prior to monthly county close.' }
       ],
       actions:[
-        { id:'exa-1', owner:idOf('program.admin'), due:d(-5), status:'open', text:'Complete Homa Bay Sofia boundary verification with County Office Administrator' },
-        { id:'exa-2', owner:idOf('focal.kisumu'), due:d(-8), status:'open', text:'Reconcile remaining October JOOTRH outpatient transport vouchers' },
-        { id:'exa-3', owner:idOf('chief.admin'), due:d(2), status:'done', text:'Deploy automatic Windows Wi-Fi firewall rule across main office host' }
+        { id:'exa-1', owner:idOf('program.admin'), due:d(-5), priority:'high', status:'open', text:'Complete Homa Bay Sofia boundary verification with County Office Administrator' },
+        { id:'exa-2', owner:idOf('focal.kisumu'), due:d(-8), priority:'medium', status:'open', text:'Reconcile remaining October JOOTRH outpatient transport vouchers' },
+        { id:'exa-3', owner:idOf('chief.admin'), due:d(2), priority:'high', status:'done', text:'Deploy automatic Windows Wi-Fi firewall rule across main office host' }
       ] },
-    { id:'ex-002', date:d(-7), title:'November Programme & Budget Planning Session', status:'agenda',
-      chair:idOf('director'), members:['director','program.admin','chief.admin','program.assistant','mcm.kisumu'].map(idOf),
+    { id:'ex-002', date:d(-7), title:'November Programme, Nutrition & Budget Sitting', status:'agenda',
+      venue:'Kisumu Head Office Executive Suite', cadence:'Monthly Budget & Operations Sitting',
+      chair:idOf('director'), secretary:idOf('exec.secretary'),
+      members:['director','program.admin','chief.admin','program.assistant','exec.secretary','finance.kisumu','procurement','mcm.kisumu'].map(idOf),
       agenda:[
-        { text:'November food-bag & nutrition procurement ceiling', owner:idOf('finance.kisumu') },
-        { text:'End-of-year graduation readiness for 180-day stable households', owner:idOf('mcm.kisumu') },
-        { text:'Intern cohort research presentations', owner:idOf('hr.officer') }
+        { time:'09:00', duration:'30 min', category:'Budget vs Expenditure', text:'November Operational Expenses & food-bag procurement ceiling vs October actuals', owner:idOf('finance.kisumu') },
+        { time:'09:30', duration:'25 min', category:'Clinical Graduation', text:'End-of-year graduation readiness for 180-day clinically stable households', owner:idOf('mcm.kisumu') },
+        { time:'09:55', duration:'20 min', category:'Homestay Capacity', text:'Care Centre & Homestay stabilization occupancy audit (paediatric & post-op wings)', owner:idOf('homestay.kisumu') },
+        { time:'10:15', duration:'15 min', category:'HR & Attachments', text:'University intern cohort aggregate research presentations & handover calendar', owner:idOf('hr.officer') }
       ],
-      minutes:[], actions:[] }
+      minutes:[
+        { n:1, decision:'noted', text:'Pre-sitting Operational Expenses vs Approved Budget pack circulated by Head Office Admin 48 hours ahead of sitting.' }
+      ],
+      actions:[
+        { id:'exa-4', owner:idOf('finance.kisumu'), due:d(-3), priority:'high', status:'open', text:'Publish consolidated Kisumu & Homa Bay Operational Expenses variance sheet before 09:00 sitting' },
+        { id:'exa-5', owner:idOf('procurement'), due:d(-4), priority:'medium', status:'open', text:'Table Monday Bag 1 / Bag 2 / Special Therapeutic Bag unit-price comparison' }
+      ] },
+    { id:'ex-003', date:d(48), title:'September Statutory Governance & Safeguards Audit', status:'closed',
+      venue:'Kisumu Head Office Boardroom', cadence:'Quarterly Governance Sitting',
+      chair:idOf('president'), secretary:idOf('exec.secretary'),
+      members:['president','director','program.admin','chief.admin','auditor','media.head'].map(idOf),
+      agenda:[
+        { time:'10:00', duration:'30 min', category:'Safeguards', text:'Zero-PII public storytelling & written consent audit across Media releases', owner:idOf('media.head') },
+        { time:'10:30', duration:'30 min', category:'Internal Audit', text:'Dual-verification compliance on initial hard-copy intake & discharge scans', owner:idOf('auditor') }
+      ],
+      minutes:[
+        { n:1, decision:'approved', text:'100% of external media stories carried verified written consent release; zero unconsented photographs found.' },
+        { n:2, decision:'confirmed', text:'Physical hard-copy-first signature scan policy reaffirmed across Kisumu and Homa Bay County Admin desks.' }
+      ],
+      actions:[
+        { id:'exa-6', owner:idOf('auditor'), due:d(20), priority:'medium', status:'done', text:'Sign off Q3 physical-to-digital intake verification sample across all 10 areas' }
+      ] }
   ];
 }
 
@@ -1121,19 +1480,60 @@ function isExecutive(user){
   if(user.roleId==='director' || user.roleId==='chief' || user.roleId==='president') return true;
   return EXEC_DEFAULT.includes(user.username);
 }
+let _usageScoreCache = null;
+function _ensureUsageScoreCache(db){
+  const pts = db.patients || [];
+  const vis = db.visits || [];
+  const pds = db.pdcas || [];
+  if(_usageScoreCache && _usageScoreCache.pts===pts && _usageScoreCache.ptsLen===pts.length
+    && _usageScoreCache.vis===vis && _usageScoreCache.visLen===vis.length
+    && _usageScoreCache.pds===pds && _usageScoreCache.pdsLen===pds.length){
+    return _usageScoreCache;
+  }
+  const visByCg = Object.create(null);
+  for(let i=0;i<vis.length;i++){
+    const c = vis[i].caregiverId || vis[i].by;
+    if(c) visByCg[c] = (visByCg[c] || 0) + 1;
+  }
+  const openPdcaByOwner = Object.create(null);
+  for(let i=0;i<pds.length;i++){
+    if(pds[i].status==='open' && pds[i].owner){
+      openPdcaByOwner[pds[i].owner] = (openPdcaByOwner[pds[i].owner] || 0) + 1;
+    }
+  }
+  const cgStats = Object.create(null);
+  const countyStats = Object.create(null);
+  for(let i=0;i<pts.length;i++){
+    const p = pts[i];
+    if(p.caregiverId){
+      const s = cgStats[p.caregiverId] || (cgStats[p.caregiverId] = { n:0, doc:0, id:0 });
+      s.n++; if(p.docsVerified) s.doc++; if(p.nationalId) s.id++;
+    }
+    if(p.countyId){
+      const cs = countyStats[p.countyId] || (countyStats[p.countyId] = { n:0, doc:0, id:0 });
+      cs.n++; if(p.docsVerified) cs.doc++; if(p.nationalId) cs.id++;
+    }
+  }
+  _usageScoreCache = { pts, ptsLen:pts.length, vis, visLen:vis.length, pds, pdsLen:pds.length, visByCg, openPdcaByOwner, cgStats, countyStats };
+  return _usageScoreCache;
+}
 function usageScore(user, db){
   if(!user) return 0;
-  const mine = (db.patients||[]).filter(p=>p.caregiverId===user.id || (user.roleId!=='caregiver' && p.countyId===user.countyId));
-  const visits = (db.visits||[]).filter(v=>v.caregiverId===user.id);
-  const documented = mine.filter(p=>p.docsVerified).length;
-  const withId = mine.filter(p=>p.nationalId).length;
-  const openPdca = (db.pdcas||[]).filter(x=>x.owner===user.id && x.status==='open').length;
+  const c = _ensureUsageScoreCache(db || {});
+  const bucket = user.roleId==='caregiver'
+    ? (c.cgStats[user.id] || { n:0, doc:0, id:0 })
+    : (c.countyStats[user.countyId] || c.cgStats[user.id] || { n:0, doc:0, id:0 });
+  const mineLen = bucket.n;
+  const documented = bucket.doc;
+  const withId = bucket.id;
+  const visitLen = c.visByCg[user.id] || 0;
+  const openPdca = c.openPdcaByOwner[user.id] || 0;
   const parts = [
-    { k:'Records registered', w:30, v: mine.length ? Math.min(1, mine.length/Math.max(20, mine.length*0.85)) : 0, note:mine.length+' patients in scope' },
-    { k:'Field documentation', w:25, v: mine.length ? documented/mine.length : 0, note:documented+' of '+mine.length+' verified' },
-    { k:'Activity recorded', w:20, v: Math.min(1, visits.length/Math.max(12, mine.length*0.35||1)), note:visits.length+' visits' },
-    { k:'Identity completeness', w:15, v: mine.length ? withId/mine.length : 0, note:withId+' national IDs captured' },
-    { k:'Follow-up discipline', w:10, v: mine.length ? Math.max(0, 1 - openPdca/Math.max(1,mine.length)) : 0, note:openPdca+' open PDCA' }
+    { k:'Records registered', w:30, v: mineLen ? Math.min(1, mineLen/Math.max(20, mineLen*0.85)) : 0, note:mineLen+' patients in scope' },
+    { k:'Field documentation', w:25, v: mineLen ? documented/mineLen : 0, note:documented+' of '+mineLen+' verified' },
+    { k:'Activity recorded', w:20, v: Math.min(1, visitLen/Math.max(12, mineLen*0.35||1)), note:visitLen+' visits' },
+    { k:'Identity completeness', w:15, v: mineLen ? withId/mineLen : 0, note:withId+' national IDs captured' },
+    { k:'Follow-up discipline', w:10, v: mineLen ? Math.max(0, 1 - openPdca/Math.max(1,mineLen)) : 0, note:openPdca+' open PDCA' }
   ];
   const score = Math.round(parts.reduce((n,p)=>n + p.w*p.v, 0));
   return { score, parts };

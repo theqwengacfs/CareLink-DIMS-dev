@@ -61,10 +61,33 @@ const NAVP = {
 
   prefs(user){
     const p = (DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id]) || {};
-    return { layout: p.navLayout==='tabs'? 'tabs' : 'pane', rail: p.navRail===true, groups: (p.navGroups && typeof p.navGroups==='object')? p.navGroups : {} };
+    return {
+      layout: p.navLayout==='tabs'? 'tabs' : 'pane',
+      rail: p.navRail===true,
+      autoFold: p.navAutoFold!==false,
+      railExplicit: p.navRailExplicit===true,
+      groups: (p.navGroups && typeof p.navGroups==='object')? p.navGroups : {}
+    };
   },
   enabled(user){ return !!user && NAVP.prefs(user).layout==='pane'; },
   narrow(){ try{ return (window.innerWidth||1280) < NAV_PANE_MIN; }catch(e){ return false; } },
+
+  /* Natural / automatic folding: folds automatically into the sleek icon rail
+     when working inside workspace modules or on tablets, and naturally returns
+     to expanded on Console Home unless manually pinned by the user. */
+  effectiveRail(user, view){
+    if(!user) return false;
+    const pr = NAVP.prefs(user);
+    if(pr.rail) return true;
+    if(pr.railExplicit && !pr.rail) return false;
+    if(!pr.autoFold) return false;
+    const curView = view || (typeof APPX!=='undefined' && APPX.view) || 'home';
+    const isTab = (typeof DEVICE!=='undefined' && DEVICE.isTablet && DEVICE.isTablet());
+    let compactDesktop = false;
+    try{ const w = window.innerWidth||1366; compactDesktop = (w >= NAV_PANE_MIN && w <= 1260); }catch(e){}
+    if(isTab || compactDesktop) return true;
+    return curView !== 'home';
+  },
 
   setPref(user, key, value){
     DB.db.personalPrefs = DB.db.personalPrefs || {};
@@ -83,11 +106,25 @@ const NAVP = {
     groups[label] = !NAVP.isOpen(user, label, index, false);
     NAVP.setPref(user, 'navGroups', groups);
   },
-  toggleRail(user){ NAVP.setPref(user, 'navRail', !NAVP.prefs(user).rail); },
+  toggleRail(user){
+    const next = !NAVP.prefs(user).rail;
+    NAVP.setPref(user, 'navRail', next);
+    NAVP.setPref(user, 'navRailExplicit', true);
+  },
+  enableAutoFold(user){
+    const pr = NAVP.prefs(user);
+    const nextAuto = !(pr.autoFold && !pr.railExplicit);
+    NAVP.setPref(user, 'navAutoFold', nextAuto);
+    NAVP.setPref(user, 'navRailExplicit', !nextAuto);
+    if(nextAuto) NAVP.setPref(user, 'navRail', false);
+  },
 
   /* The pane. `here(id)` says whether a page is the one on screen. */
   html(user, here){
     const pr = NAVP.prefs(user);
+    const curView = (typeof APPX!=='undefined' && APPX.view) || 'home';
+    const effRail = NAVP.effectiveRail(user, curView);
+    const autoActive = pr.autoFold && !pr.railExplicit;
     const groups = NAVP.groups(user);
     const role = roleObj(user.roleId) || {};
     const dept = deptObj(user.departmentId) || { accent:'#C8102E' };
@@ -108,7 +145,7 @@ const NAVP = {
         </div>
       </section>`;
     }).join('');
-    return `<nav class="npane" id="npane" aria-label="Pages in this console" data-rail="${pr.rail?1:0}">
+    return `<nav class="npane" id="npane" aria-label="Pages in this console" data-rail="${effRail?1:0}" data-autofold="${autoActive?1:0}">
       <div class="np-brand">
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
         <div class="np-id"><div class="np-os">CareLink OS</div><b>${esc(role.consoleTitle||role.name||'Console')}</b>
@@ -119,7 +156,8 @@ const NAVP = {
       <div class="np-foot">
         <button class="np-i" data-act="wtheme-open" title="Workspace theme">${ic('palette',18)}<span class="np-l">Theme</span></button>
         <button class="np-i" data-act="go" data-v="settings" title="Preferences">${ic('settings',18)}<span class="np-l">Preferences</span></button>
-        <button class="np-i np-collapse" data-act="nav-rail" title="${pr.rail?'Expand the pane':'Fold the pane to icons'}" aria-pressed="${pr.rail}">${ic('panel',18)}<span class="np-l">${pr.rail?'Expand':'Fold pane'}</span></button>
+        <button class="np-i" data-act="nav-autofold" title="Toggle natural auto-folding of left pane" aria-pressed="${autoActive}">${ic('sparkles',18)}<span class="np-l">Auto-fold: ${autoActive?'ON':'OFF'}</span></button>
+        <button class="np-i np-collapse" data-act="nav-rail" title="${effRail?'Pin pane open':'Fold the pane to icons'}" aria-pressed="${effRail}">${ic('panel',18)}<span class="np-l">${effRail?'Pin open':'Fold pane'}</span></button>
         <div class="np-meta">${total} pages for your role</div>
       </div>
     </nav>`;

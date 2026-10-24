@@ -6,7 +6,397 @@
 
 /* ---------------- 1. Production Setup & DPA Password Policy ---------------- */
 const PROD_SETUP = {
-  lastPack: null, /* One-time in-memory credential pack for immediate SMS export; never stored in DB */
+  lastPack: null, /* One-time in-memory credential pack for immediate SMS/WhatsApp export; never stored in DB */
+  lastWhatsappSheet: '',
+
+  isGloballyActivated() {
+    if (DB.db && DB.db.settings && DB.db.settings.globallyActivated) return true;
+    if (DB.db && DB.db.meta && DB.db.meta.globallyActivated) return true;
+    if (typeof APPX !== 'undefined' && APPX.host && APPX.host.globallyActivated) return true;
+    return false;
+  },
+
+  isAwaitingGlobalActivation() {
+    if (this.isGloballyActivated()) return false;
+    return Boolean(DB.db && DB.db.settings && DB.db.settings.awaitingGlobalActivation);
+  },
+
+  defaultPortalUrl() {
+    try {
+      if (DB.db && DB.db.settings && DB.db.settings.org && DB.db.settings.org.loginUrl) return DB.db.settings.org.loginUrl;
+      if (typeof location !== 'undefined' && location.origin && location.origin !== 'null') return location.origin;
+    } catch (_e) {}
+    return 'https://carelink.lomamo.org';
+  },
+
+  defaultEmailDomain() {
+    const cfg = DB.db && DB.db.settings && DB.db.settings.org && DB.db.settings.org.emailDomain;
+    return String(cfg || 'lomamo.example').replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
+  },
+
+  /* Step 4 completion of 4-Step Live Host Setup:
+     Establishes system & global organogram structures, configures Chief System Admin
+     with mandatory password change on Official Sign-In, and enables "Activate System Globally". */
+  async completeFourStepHostSetup({ orgNameVal, orgName, shortNameVal, shortName, emailDomain, loginUrl, portalUrl, primaryCounty, chiefName, chiefUsername, chiefPassword, chiefTempPassword, seedMode }) {
+    const domain = String(emailDomain || 'lomamo.example').replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
+    const portal = String(loginUrl || portalUrl || this.defaultPortalUrl()).trim();
+    const chiefUser = String(chiefUsername || 'chief.admin').trim().toLowerCase();
+    const chiefFull = String(chiefName || 'Chief System Administrator').trim();
+    const effectivePw = chiefPassword || chiefTempPassword || 'TempSetup#2026!';
+    const effectiveOrg = orgNameVal || orgName || 'LOMAMO Foundation Kenya';
+    const effectiveShort = shortNameVal || shortName || 'LOMAMO';
+
+    DB.reset();
+    const now = new Date();
+    seedOfficial(DB.db, now, { patients: seedMode === 'empty' ? 0 : 3333, mustChange: true });
+
+    let admin = (DB.db.users || []).find(u => u.username === chiefUser || u.roleId === 'chief');
+    const cSalt = newSalt();
+    const cHash = strongHash(effectivePw, cSalt);
+    if (!admin) {
+      admin = {
+        id: 'u-chief', username: chiefUser, name: chiefFull, roleId: 'chief',
+        departmentId: 'exec', countyId: primaryCounty || 'kisumu', areaIds: []
+      };
+      DB.db.users.unshift(admin);
+    }
+    admin.name = chiefFull;
+    admin.username = chiefUser;
+    admin.email = `${chiefUser}@${domain}`;
+    admin.salt = cSalt;
+    admin.hash = cHash;
+    admin.status = 'pending_activation';
+    admin.active = true;
+    /* Chief System Administrator MUST change password right after signing in on Official Sign-In */
+    admin.mustChange = true;
+    admin.mustChangePassword = true;
+    admin.dpaFirstLoginRequired = true;
+    admin.demo = false;
+    admin.execTeam = true;
+
+    DB.db.settings = DB.db.settings || {};
+    DB.db.settings.org = {
+      name: effectiveOrg,
+      shortName: effectiveShort,
+      county: primaryCounty || 'kisumu',
+      primaryCounty: primaryCounty || 'kisumu',
+      emailDomain: domain,
+      loginUrl: portal
+    };
+    DB.db.settings.onboarding = { complete: true, step: 4 };
+    DB.db.settings.hostSetupComplete = true;
+    DB.db.settings.awaitingGlobalActivation = true;
+    DB.db.settings.globallyActivated = false;
+    DB.db.meta = Object.assign({}, DB.db.meta || {}, {
+      setupComplete: true,
+      hostCommissionedAt: todayISO(),
+      globallyActivated: false,
+      label: 'Host Commissioned · Awaiting Global Activation'
+    });
+    AUDIT.append({
+      actor: admin.id,
+      action: 'system.host_setup_completed',
+      entity: 'system',
+      entityId: 'four-step-host-setup',
+      detail: `4-Step Live Host Setup completed for ${DB.db.settings.org.name}. Returning to Official Sign-In for Chief Admin (${chiefUser}) password change & Global System Activation.`
+    });
+    DB.save();
+
+    /* Synchronize live host setup state to Unified Online Site Database if reachable */
+    try {
+      await fetch('api/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          admin: { name: chiefFull, username: chiefUser, email: admin.email, password: effectivePw, countyId: primaryCounty || 'kisumu', mustChange: true },
+          org: DB.db.settings.org,
+          awaitingGlobalActivation: true,
+          globallyActivated: false,
+          db: DB.db
+        })
+      });
+    } catch (_e) {}
+
+    if (typeof AUTH !== 'undefined' && AUTH.logout) AUTH.logout();
+    return { ok: true, chiefUsername: chiefUser, chiefEmail: admin.email, loginUrl: portal };
+  },
+
+  /* Chief System Administrator clicks "Activate System Globally":
+     Generates ALL organogram user accounts, official emails, usernames, login URL &
+     one-time temporary passwords formatted for the Team WhatsApp Platform, and
+     permanently removes all Demo / Setup elements from Landing and Sign-In. */
+  async activateSystemGlobally(opts = {}) {
+    const actor = (typeof SILENT_OVERRIDE !== 'undefined' && SILENT_OVERRIDE.realActor()) || AUTH.user;
+    if (!actor || actor.roleId !== 'chief') {
+      toast('Chief System Administrator Only', 'Only the Chief System Administrator can Activate System Globally.', 'err');
+      return null;
+    }
+    const domain = String(opts.emailDomain || this.defaultEmailDomain()).replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
+    const portalUrl = String(opts.loginUrl || opts.portalUrl || this.defaultPortalUrl()).trim();
+    const roster = (typeof OFFICIAL_ROSTER !== 'undefined' && Array.isArray(OFFICIAL_ROSTER)) ? OFFICIAL_ROSTER : [];
+
+    DB.db.users = DB.db.users || [];
+    const packRows = [];
+
+    /* Ensure Chief Admin account is active, non-demo, and carries official email */
+    actor.demo = false;
+    actor.status = 'active';
+    actor.active = true;
+    actor.email = actor.email && actor.email.includes('@') ? actor.email.replace(/@.+$/, '@' + domain) : `${actor.username}@${domain}`;
+
+    /* Provision / finalize every single organogram account (including applicable Secretaries, Deputies & Clerks) */
+    for (let i = 0; i < roster.length; i++) {
+      const r = roster[i];
+      const uname = String(r.username || '').trim().toLowerCase();
+      if (!uname || uname === String(actor.username || '').toLowerCase()) continue;
+
+      let u = DB.db.users.find(x => String(x.username || '').toLowerCase() === uname);
+      const cId = r.countyId !== undefined ? r.countyId : (r.county !== undefined ? r.county : 'kisumu');
+      const deptId = r.dept || (roleObj(r.roleId) || {}).dept || 'admin';
+      const jobTitle = r.job || r.title || (roleObj(r.roleId) || {}).name || r.roleId;
+      const cleanName = String(r.name || (u && u.name) || uname).replace(/^Demo - /, '');
+      const officialEmail = `${uname}@${domain}`;
+      const tempPassword = this.generateStrongPassword(12);
+      const salt = newSalt();
+      const hash = strongHash(tempPassword, salt);
+
+      if (!u) {
+        u = {
+          id: 'u-' + uname.replace(/[.]/g, '-'),
+          username: uname,
+          createdAt: todayISO()
+        };
+        DB.db.users.push(u);
+      }
+      u.name = cleanName;
+      u.username = uname;
+      u.email = officialEmail;
+      u.roleId = r.roleId;
+      u.departmentId = deptId;
+      u.countyId = cId;
+      u.areaIds = r.areas || u.areaIds || [];
+      u.jobTitle = jobTitle;
+      u.seatTier = r.seatTier || u.seatTier || 'staff';
+      u.unconfirmed = Boolean(r.unconfirmed);
+      if (r.permOverrides) u.permOverrides = r.permOverrides;
+      u.demo = false;
+      u.active = true;
+      u.status = 'pending_activation';
+      u.mustChange = true;
+      u.mustChangePassword = true;
+      u.dpaFirstLoginRequired = true;
+      u.provisionedAt = todayISO();
+      u.loginUrl = portalUrl;
+      u.salt = salt;
+      u.hash = hash;
+
+      const deptLabel = (typeof deptName === 'function' ? deptName(deptId) : deptId) || 'Foundation';
+      const countyLabel = cId ? countyName(cId) : 'Head Office (All Counties)';
+      const roleLabel = (roleObj(u.roleId) || {}).name || u.roleId;
+
+      packRows.push({
+        name: cleanName,
+        username: uname,
+        email: officialEmail,
+        loginUrl: portalUrl,
+        tempPassword,
+        role: roleLabel,
+        department: deptLabel,
+        seatTier: u.seatTier,
+        county: countyLabel,
+        whatsappBlock:
+          `*${cleanName}*\n` +
+          `• Seat / Role: ${jobTitle} (${countyLabel})\n` +
+          `• Portal URL: ${portalUrl}\n` +
+          `• Username: \`${uname}\`  |  Official Email: \`${officialEmail}\`\n` +
+          `• Temporary Password: \`${tempPassword}\`\n` +
+          `• Activation: Sign in at the Portal URL and set your private 12+ character password to activate your account.`,
+        smsText: `CareLink C-DIMS (${portalUrl}): ${cleanName} | Username: ${uname} | Email: ${officialEmail} | Temp Password: ${tempPassword} — Sign in & change password to activate your account.`
+      });
+    }
+
+    /* Strip any leftover demo flags on non-roster accounts */
+    (DB.db.users || []).forEach(u => { u.demo = false; });
+
+    DB.db.settings = DB.db.settings || {};
+    DB.db.settings.org = Object.assign({}, DB.db.settings.org || {}, {
+      emailDomain: domain,
+      loginUrl: portalUrl
+    });
+    DB.db.settings.globallyActivated = true;
+    DB.db.settings.globallyActivatedAt = todayISO();
+    DB.db.settings.globallyActivatedBy = actor.username;
+    DB.db.settings.awaitingGlobalActivation = false;
+    DB.db.meta = Object.assign({}, DB.db.meta || {}, {
+      globallyActivated: true,
+      globallyActivatedAt: todayISO(),
+      demoDisabled: true,
+      productionMode: true,
+      label: 'Globally Activated Official Production System'
+    });
+    if (typeof APPX !== 'undefined' && APPX.host) {
+      APPX.host.globallyActivated = true;
+    }
+
+    AUDIT.append({
+      actor: actor.id,
+      action: 'system.activated_globally',
+      entity: 'system',
+      entityId: 'global-activation',
+      detail: `Chief System Admin (${actor.username}) activated CareLink globally across ${packRows.length + 1} organogram accounts (@${domain}); demo & host-setup screens permanently removed.`
+    });
+    DB.save();
+
+    /* Push global activation + salted user vault to Unified Online Site Database if online */
+    try {
+      const tok = (typeof SYNC !== 'undefined' && (SYNC.sessionToken || SYNC.token)) ? (SYNC.sessionToken || SYNC.token) : '';
+      await fetch('api/setup/activate-global', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { 'X-CareLink-Session': tok } : {}),
+        body: JSON.stringify({
+          emailDomain: domain,
+          loginUrl: portalUrl,
+          activatedBy: actor.username,
+          users: DB.db.users,
+          settings: DB.db.settings,
+          meta: DB.db.meta
+        })
+      });
+    } catch (_e) {}
+
+    /* Build formatted Team WhatsApp Broadcast Sheet grouped by Department */
+    const byDept = {};
+    packRows.forEach(r => {
+      (byDept[r.department] = byDept[r.department] || []).push(r);
+    });
+    const orgTitle = (DB.db.settings.org && DB.db.settings.org.name) || 'LOMAMO Foundation Kenya';
+    const waLines = [
+      `*==================================================*`,
+      `*CARELINK C-DIMS — OFFICIAL GLOBAL ACTIVATION SHEET*`,
+      `*${orgTitle}*`,
+      `*==================================================*`,
+      `Portal Login URL: ${portalUrl}`,
+      `Activated By: ${actor.name} (${actor.username})`,
+      `Date: ${new Date().toISOString().slice(0, 10)}`,
+      ``,
+      `*HOW EACH STAFF MEMBER ACTIVATES THEIR ACCOUNT:*`,
+      `1. Open ${portalUrl} and sign in on the Official Sign-In screen using your *Username* (or *Official Email*) and *Temporary Password* below.`,
+      `2. CareLink immediately prompts you to set your own private 12+ character password known ONLY to you.`,
+      `3. Once saved, your individual account status becomes *Activated* automatically.`,
+      `4. Forgot password or new county staff? Use *Request / Recover* on Sign-In (routed urgently to your County Office Admin).`,
+      ``
+    ];
+    Object.keys(byDept).forEach(dept => {
+      waLines.push(`*--------------------------------------------------*`);
+      waLines.push(`*DEPARTMENT: ${dept.toUpperCase()} (${byDept[dept].length} accounts)*`);
+      waLines.push(`*--------------------------------------------------*`);
+      byDept[dept].forEach((r, idx) => {
+        waLines.push(`${idx + 1}. ${r.whatsappBlock}`);
+        waLines.push(``);
+      });
+    });
+
+    this.lastWhatsappSheet = waLines.join('\n');
+    this.lastPack = {
+      ok: true,
+      generatedAt: todayISO(),
+      chiefUsername: actor.username,
+      emailDomain: domain,
+      siteUrl: portalUrl,
+      count: packRows.length,
+      rows: packRows,
+      pack: packRows,
+      whatsappText: this.lastWhatsappSheet
+    };
+    return this.lastPack;
+  },
+
+  downloadWhatsappTxt() {
+    const p = this.lastPack;
+    if (!p || !p.rows.length) return toast('Activate System Globally first', 'Generate the organogram WhatsApp credential sheet first.', 'warn');
+    download('CareLink-Official-WhatsApp-Activation-Sheet-' + todayISO().slice(0, 10) + '.txt', p.whatsappText || this.lastWhatsappSheet, 'text/plain;charset=utf-8');
+  },
+
+  async copyWhatsappSheet() {
+    const txt = (this.lastPack && this.lastPack.whatsappText) || this.lastWhatsappSheet;
+    if (!txt) return toast('No WhatsApp sheet in memory', 'Click Activate System Globally first.', 'warn');
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(txt);
+        toast('Copied for Team WhatsApp Platform', `${this.lastPack.count} organogram accounts copied — paste directly into official LOMAMO WhatsApp dispatches.`, 'ok');
+        return;
+      }
+    } catch (_e) {}
+    this.downloadWhatsappTxt();
+  },
+
+  globalActivationBannerHTML(user) {
+    if (!user || user.roleId !== 'chief') return '';
+    if (this.isGloballyActivated()) {
+      return `<div class="card" style="margin-bottom:14px;padding:12px 16px;border-left:4px solid var(--ok);background:var(--surface)">
+        <div class="spread" style="gap:12px;flex-wrap:wrap">
+          <div class="row" style="gap:10px">
+            ${badge('System Globally Activated', 'b-ok')}
+            <span class="small">Official mode locked — all Demo &amp; Live Host Setup options have been permanently removed from Landing &amp; Sign-In. Individual staff activate their accounts on first login.</span>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            ${this.lastPack ? `<button class="btn btn-xs btn-primary" data-act="copy-whatsapp-pack">${ic('send',12)} Copy WhatsApp Sheet (${this.lastPack.count})</button>
+              <button class="btn btn-xs btn-ghost" data-act="dl-whatsapp-txt">${ic('download',12)} WhatsApp .TXT</button>
+              <button class="btn btn-xs btn-ghost" data-act="dev-dl-sms-csv">${ic('download',12)} Master .CSV</button>` : `<button class="btn btn-xs btn-ghost" data-act="open-global-activate">${ic('key',12)} Re-issue Unclaimed WhatsApp Sheet</button>`}
+          </div>
+        </div>
+      </div>`;
+    }
+    return `<div class="card" style="margin-bottom:16px;padding:16px 20px;border:2px solid #D97706;background:linear-gradient(135deg, rgba(245,158,11,.12), rgba(15,118,110,.08))">
+      <div class="spread" style="gap:16px;flex-wrap:wrap;align-items:center">
+        <div style="flex:1;min-width:260px">
+          <div class="xs bold" style="text-transform:uppercase;letter-spacing:.09em;color:#B45309;margin-bottom:4px">${ic('sparkles',13)} Final Commissioning Step · Chief System Administrator Authority</div>
+          <div style="font-size:16.5px;font-weight:800;margin-bottom:4px">Ready to Activate CareLink C-DIMS Globally Across All LOMAMO Departments</div>
+          <div class="small muted">Generates every organogram account name, official email, username, login URL &amp; one-time password formatted for your <b>Team WhatsApp Platform</b>, requires each user to self-activate by changing their password on first login, and <b>permanently removes all Demo &amp; Host Setup UI</b> from Landing and Sign-In.</div>
+        </div>
+        <button class="btn btn-primary" style="padding:11px 20px;font-weight:800" data-act="open-global-activate">${ic('shieldcheck',16)} Activate System Globally</button>
+      </div>
+    </div>`;
+  },
+
+  openGlobalActivateModal() {
+    const actor = (typeof SILENT_OVERRIDE !== 'undefined' && SILENT_OVERRIDE.realActor()) || AUTH.user;
+    if (!actor || actor.roleId !== 'chief') return toast('Chief System Administrator Only', '', 'err');
+    const pack = this.lastPack;
+    const rosterCount = (typeof OFFICIAL_ROSTER !== 'undefined' ? OFFICIAL_ROSTER.length : 0);
+    openModal({
+      title: this.isGloballyActivated() ? 'Official Team WhatsApp Activation Sheet' : 'Activate CareLink System Globally',
+      sub: `${orgName()} · Complete Organogram Provisioning & Permanent Demo Removal`,
+      wide: true,
+      body: `<form id="globalActivateForm">
+        <div class="grid g2" style="gap:12px;margin-bottom:12px">
+          <div class="field"><label>Official Staff Email Domain *</label>
+            <input class="input mono" name="emailDomain" value="${esc(this.defaultEmailDomain())}" placeholder="e.g. lomamofoundation.org" required>
+            <div class="hint">Every organogram seat receives <code>username@domain</code> alongside their username.</div>
+          </div>
+          <div class="field"><label>Official System Login URL *</label>
+            <input class="input mono" name="loginUrl" value="${esc(this.defaultPortalUrl())}" required>
+            <div class="hint">Included on every staff member's WhatsApp dispatch block.</div>
+          </div>
+        </div>
+        <div class="alert info" style="margin-bottom:12px">${ic('shield',16)}<div>
+          <b>What happens when you click Activate System Globally:</b>
+          <div class="small" style="margin-top:4px">1. All <b>${num(rosterCount)} organogram accounts</b> (Leadership, County Admins, Area Coordinators, Caregivers, Clinicians, Hospital Desk, Finance, Procurement, Media, HR, Audit, ICT, plus applicable Secretaries, Deputies &amp; Clerks) receive official emails &amp; unique temporary passwords.<br>
+          2. Each staff member activates their own account upon logging in and setting their private password.<br>
+          3. All Demo tabs, "Explore demo accounts", and "Live host setup" links are <b>permanently removed</b> from Landing &amp; Sign-In.</div>
+        </div></div>
+        ${pack && pack.whatsappText ? `<div class="field">
+          <label>Ready-to-Share Team WhatsApp Credential Sheet (${num(pack.count)} staff accounts)</label>
+          <textarea class="input mono" rows="10" readonly style="font-size:11.5px;line-height:1.45">${esc(pack.whatsappText)}</textarea>
+        </div>` : ''}
+      </form>`,
+      footer: `<button class="btn btn-ghost" data-act="close-modal">Close</button>
+        ${pack ? `<button class="btn btn-ghost" data-act="dl-whatsapp-txt">${ic('download',14)} Download WhatsApp (.txt)</button>
+          <button class="btn btn-ghost" data-act="dev-dl-sms-csv">${ic('download',14)} Download Master (.csv)</button>
+          <button class="btn btn-primary" data-act="copy-whatsapp-pack">${ic('send',14)} Copy for Team WhatsApp</button>`
+        : `<button class="btn btn-primary" data-act="exec-global-activate">${ic('shieldcheck',15)} Confirm &amp; Activate System Globally</button>`}`
+    });
+  },
 
   generateStrongPassword(len = 14) {
     const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -290,13 +680,13 @@ const PROD_SETUP = {
 
   downloadCSV() {
     const p = this.lastPack;
-    if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a one-time SMS credential pack first.', 'warn');
+    if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a credential sheet first.', 'warn');
     const escCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [
-      ['Full Name', 'Username', 'One-Time Strong Password', 'Assigned Role', 'Office / County', 'Ready-to-Send SMS Message'].map(escCsv).join(','),
-      ...p.rows.map(r => [r.name, r.username, r.tempPassword, r.role, r.county, r.smsText].map(escCsv).join(','))
+      ['Full Name / Organogram Seat', 'Username', 'Official Email', 'Portal Login URL', 'One-Time Temporary Password', 'Assigned Role', 'Department', 'Office / County', 'WhatsApp / SMS Dispatch'].map(escCsv).join(','),
+      ...p.rows.map(r => [r.name, r.username, r.email || `${r.username}@${this.defaultEmailDomain()}`, r.loginUrl || p.siteUrl || this.defaultPortalUrl(), r.tempPassword, r.role, r.department || '', r.county, r.whatsappBlock || r.smsText].map(escCsv).join(','))
     ];
-    download('CareLink-SMS-Credentials-Pack-' + todayISO().slice(0, 10) + '.csv', lines.join('\r\n'), 'text/csv;charset=utf-8');
+    download('CareLink-Official-Organogram-Credentials-' + todayISO().slice(0, 10) + '.csv', lines.join('\r\n'), 'text/csv;charset=utf-8');
   },
 
   downloadSMSText() {
@@ -660,6 +1050,21 @@ Object.assign(ACTIONS, {
   },
   'dev-dl-sms-csv': () => PROD_SETUP.downloadCSV(),
   'dev-dl-sms-txt': () => PROD_SETUP.downloadSMSText(),
+  'dl-whatsapp-txt': () => PROD_SETUP.downloadWhatsappTxt(),
+  'copy-whatsapp-pack': () => PROD_SETUP.copyWhatsappSheet(),
+  'open-global-activate': () => PROD_SETUP.openGlobalActivateModal(),
+  'exec-global-activate': async () => {
+    const f = document.querySelector('#globalActivateForm');
+    const fd = f ? new FormData(f) : null;
+    const emailDomain = fd ? fd.get('emailDomain') : PROD_SETUP.defaultEmailDomain();
+    const loginUrl = fd ? fd.get('loginUrl') : PROD_SETUP.defaultPortalUrl();
+    const pack = await PROD_SETUP.activateSystemGlobally({ emailDomain, loginUrl });
+    if (pack) {
+      toast('CareLink System Activated Globally', `${pack.count} organogram accounts generated for WhatsApp dispatch. Demo & setup prompts permanently removed.`, 'ok');
+      PROD_SETUP.openGlobalActivateModal();
+      render();
+    }
+  },
   'silent-override-start': d => {
     const reasonEl = $('#silentOverrideReason');
     const reason = reasonEl ? reasonEl.value : DEV_CONSOLE_STATE.overrideReason;

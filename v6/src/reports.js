@@ -38,7 +38,7 @@ const REPORTS = {
     const cutoff = f.cutoff? new Date(f.cutoff): new Date();
     const rows = ps.map(p=>{
       const days = Math.max(0, daysBetween(p.intake||p.created||cutoff, p.status==='discharged'&&p.discharge? p.discharge: cutoff));
-      const lastVisit = DB.db.visits.filter(v=>v.patientId===p.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+      const lastVisit = DB.visitsFor(p.id)[0];
       const openPdca = DB.db.pdcas.filter(x=>x.patientId===p.id && x.status==='open').length;
       const milestone = days>=180?180: days>=120?120: days>=100?100: days>=60?60:0;
       return { p, days, milestone, lastVisit, openPdca,
@@ -82,7 +82,7 @@ const REPORTS = {
     const notFound = DB.db.visits.filter(v=>idset.has(v.patientId) && v.outcome==='not_found' && inRange(v.date, period));
     const openConcerns = DB.db.concerns.filter(c=>idset.has(c.patientId)&&c.status==='open');
     const overdue = all.filter(p=>{
-      const lv = DB.db.visits.filter(v=>v.patientId===p.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+      const lv = DB.visitsFor(p.id)[0];
       return ['active','extension'].includes(p.status) && (!lv || daysBetween(lv.date,cutoff)>21);
     });
     const followup = new Set([...openConcerns.map(c=>c.patientId), ...overdue.map(p=>p.id)]);

@@ -69,14 +69,15 @@ const DQ6 = {
     });
 
     const inScope = new Set(ps.map(p=>p.id));
+    const pMap = new Map(ps.map(p=>[p.id, p]));
     (DB.db.requests||[]).filter(r=>inScope.has(r.patientId))
       .forEach(r=>{ if(['completed','reconciled'].includes(r.status) && !r.clinicalReport)
         push('warn','request-no-report',`${r.no||r.id} is closed without a clinical report`,'request',r.id); });
 
     (DB.db.visits||[]).forEach(v=>{
-      if(!inScope.has(v.patientId)) return;
-      const p = ps.find(x=>x.id===v.patientId);
-      if(p && p.discharge && v.date && new Date(v.date) > new Date(p.discharge))
+      const p = pMap.get(v.patientId);
+      if(!p) return;
+      if(p.discharge && v.date && new Date(v.date) > new Date(p.discharge))
         push('warn','visit-after-discharge',`A visit to ${p.code} is dated after discharge`,'visit',v.id);
     });
 

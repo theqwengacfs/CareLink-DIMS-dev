@@ -963,3 +963,194 @@ details.chart-table[open] > summary.chart-table-btn{
   display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
   gap:12px; margin-top:10px; font-size:12.5px;
 }
+
+/* ============================================================
+   CareLink v6.5 — Global Symmetry, Expenditure-Against-Budget,
+   Executive Console, C-DIMS Coins, CareLink AI Workflow Engine,
+   Global System Activation & Natural Auto-Fold Hover-Rail
+   ============================================================ */
+
+/* 1. Natural Auto-Folding Left Navigation Rail with Smooth Hover-Peek */
+@media (min-width:1000px){
+  .shell.has-pane.np-rail .npane{
+    transition:width .18s ease, box-shadow .18s ease;
+  }
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover,
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:focus-within{
+    width:258px !important;
+    z-index:60;
+    box-shadow:0 18px 42px rgba(2,6,23,.38);
+  }
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover .np-id,
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover .np-gt,
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover .np-chev,
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover .np-l,
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover .np-meta,
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover .tcount{
+    display:inline-flex !important;
+    opacity:1 !important;
+    width:auto !important;
+  }
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover .np-items{
+    display:flex !important;
+  }
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover .np-i,
+  .shell.has-pane.np-rail .npane[data-autofold="1"]:hover .np-gh{
+    justify-content:flex-start !important;
+    padding-inline:12px !important;
+  }
+}
+
+/* 2. Global Workspace Symmetry & Clean Justification */
+.grid{ align-items:stretch; }
+.grid > .card, .grid > .kpi{ height:100%; display:flex; flex-direction:column; }
+.grid > .card > .card-b{ flex:1 1 auto; }
+.page-h{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:16px; flex-wrap:wrap; margin-bottom:16px;
+}
+.page-h p{ max-width:78ch; text-align:justify; hyphens:none !important; }
+.card-b p.small, .exec-pane p, .ld-team-body p{ text-align:justify; hyphens:none !important; }
+
+/* 3. Crystal-Clear Expenditure Against Budget Board (Global & Costing) */
+.bva-board{ display:flex; flex-direction:column; gap:14px; }
+.bva-summary-grid{
+  display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px;
+}
+@media (max-width:900px){ .bva-summary-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+@media (max-width:520px){ .bva-summary-grid{ grid-template-columns:1fr; } }
+.bva-stat{
+  padding:13px 15px; border-radius:12px;
+  background:var(--surface-2); border:1px solid var(--line);
+  border-top:3.5px solid var(--accent);
+  display:flex; flex-direction:column; gap:3px;
+}
+.bva-stat.ok{ border-top-color:var(--ok); }
+.bva-stat.warn{ border-top-color:var(--warn); }
+.bva-stat.crit{ border-top-color:var(--crit); }
+.bva-stat.info{ border-top-color:var(--info); }
+.bva-stat span{ font-size:11px; font-weight:750; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+.bva-stat b{ font-size:19px; font-weight:800; color:var(--ink); letter-spacing:-.02em; }
+.bva-stat em{ font-style:normal; font-size:11.5px; color:var(--muted); }
+.bva-overall-bar-wrap{
+  padding:11px 14px; border-radius:11px; background:var(--surface-2); border:1px solid var(--line);
+}
+.bva-overall-track, .bva-row-bar{
+  position:relative; height:10px; border-radius:999px; background:var(--line);
+  overflow:hidden; display:flex;
+}
+.bva-seg-actual{ height:100%; background:linear-gradient(90deg, #0284C7, #0D9488); }
+.bva-seg-actual.over{ background:linear-gradient(90deg, #DC2626, #B91C1C); }
+.bva-seg-actual.near{ background:linear-gradient(90deg, #D97706, #B45309); }
+.bva-seg-commit{ height:100%; background:#F59E0B; opacity:.78; }
+.bva-legend{ display:flex; gap:14px; flex-wrap:wrap; margin-top:7px; font-size:11.5px; color:var(--muted); }
+.bva-legend i{ display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:middle; }
+.bva-table th, .bva-table td{ vertical-align:middle; }
+
+/* 4. Executive Console & Meeting / Agenda Symmetry */
+.exec-sitting-head{
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid var(--line);
+}
+.exec-meta-strip{
+  display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-bottom:14px;
+}
+@media (max-width:860px){ .exec-meta-strip{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+.exec-meta-cell{
+  padding:10px 12px; border-radius:10px; background:var(--surface-2); border:1px solid var(--line);
+}
+.exec-meta-cell span{ display:block; font-size:10.5px; font-weight:750; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+.exec-meta-cell b{ display:block; margin-top:2px; font-size:13px; color:var(--ink); }
+.exec-sym-cols{
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; align-items:stretch;
+}
+@media (max-width:860px){ .exec-sym-cols{ grid-template-columns:1fr; } }
+.exec-pane{
+  padding:13px 15px; border-radius:11px; background:var(--surface-2); border:1px solid var(--line);
+  display:flex; flex-direction:column; gap:6px; height:100%;
+}
+
+/* 5. C-DIMS Coins & Staff Recognition Crest + Symmetry */
+.coins-hero-crest{
+  display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;
+  padding:18px 22px; border-radius:15px;
+  background:linear-gradient(125deg, #09162D 0%, #132E5E 55%, #0F5156 100%);
+  color:#F8FAFC; border:1.5px solid rgba(245,196,81,.42);
+  box-shadow:0 10px 26px rgba(9,22,45,.18);
+}
+.coins-wallet-pill{
+  padding:12px 18px; border-radius:13px; text-align:right; min-width:170px;
+  background:rgba(255,255,255,.09); border:1px solid rgba(245,196,81,.38);
+  display:flex; flex-direction:column; gap:2px;
+}
+.compact-ladder{
+  display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:8px;
+}
+@media (max-width:780px){ .compact-ladder{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+
+/* 6. CareLink AI Smart Workflow Engine & 100% Data Quality Strip */
+.wf-strip{
+  padding:13px 16px; border-radius:14px; margin-bottom:14px;
+  background:linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  border:1.5px solid var(--dept-line, var(--line));
+  box-shadow:0 4px 14px rgba(15,23,42,.06);
+}
+.wf-strip-head{
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--line);
+}
+.wf-ai-pill{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800;
+  background:linear-gradient(90deg, #0F294A, #1D4ED8); color:#FFFFFF;
+}
+.wf-mini-meters{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.wf-meter-chip{
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 9px; border-radius:999px; font-size:11.5px;
+  background:var(--surface); border:1px solid var(--line); color:var(--ink);
+}
+.wf-meter-chip i{ font-style:normal; color:var(--muted); font-size:11px; }
+.wf-meter-chip.ok{ border-color:var(--ok); }
+.wf-task-mini{
+  padding:11px 13px; border-radius:11px; background:var(--surface); border:1px solid var(--line);
+  display:flex; flex-direction:column; height:100%;
+}
+.wf-mini-title{ line-height:1.34; color:var(--ink); }
+.wf-row-card{
+  display:grid; grid-template-columns:64px minmax(0,1fr) auto; gap:14px; align-items:center;
+  padding:13px 16px; border-radius:12px; background:var(--surface-2); border:1px solid var(--line);
+}
+@media (max-width:720px){ .wf-row-card{ grid-template-columns:1fr; } }
+.wf-rank-badge{
+  height:54px; border-radius:11px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:var(--surface); border:1.5px solid var(--accent); color:var(--ink);
+}
+.wf-rank-badge small{ font-size:10px; color:var(--muted); }
+
+/* 7. Prominent Activate System Globally & Urgent County Sign-In Queue Banners */
+.global-activate-banner{
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  padding:15px 20px; border-radius:14px; margin-bottom:14px;
+  background:linear-gradient(110deg, #07192F 0%, #0F3D5E 52%, #065F46 100%);
+  color:#FFFFFF; border:2px solid #F5C451;
+  box-shadow:0 10px 28px rgba(7,25,47,.26);
+}
+.btn-global-activate{
+  background:linear-gradient(180deg, #F5C451 0%, #D99B1E 100%) !important;
+  color:#071326 !important; font-weight:850 !important;
+  border:1.5px solid #FEF08A !important;
+  padding:10px 18px !important; border-radius:11px !important;
+  box-shadow:0 6px 18px rgba(0,0,0,.32) !important;
+}
+.btn-global-activate:hover{
+  background:linear-gradient(180deg, #FDE047 0%, #EAB308 100%) !important;
+  transform:translateY(-1px);
+}
+.county-urgent-banner{
+  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+  padding:12px 16px; border-radius:12px; margin-bottom:12px;
+  background:linear-gradient(95deg, #7F1D1D 0%, #991B1B 60%, #7C2D12 100%);
+  color:#FFFFFF; border:1.5px solid #FCA5A5;
+}
+

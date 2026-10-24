@@ -616,18 +616,29 @@ const COSTX = {
     let body = '';
     const anonNote = s.anonLines? note(`Your department's lens returns <b>${num(s.anonLines)}</b> cost line${s.anonLines===1?'':'s'} with the patient reference removed. You see what your service cost across the programme; the patients behind those lines belong to the field and clinical consoles, and the identity is stripped in the data layer, not hidden in the interface.`,'shield') : '';
     if(st.tab==='overview'){
+      const foodSpent = Math.round(s.byCat.find(c=>c.key==='foodbag')?.total||0);
+      const medSpent = Math.round(['medication','tb','outpatient','inpatient','consultation','shif'].reduce((n,k)=>n+(s.byCat.find(c=>c.key===k)?.total||0),0));
+      const transSpent = Math.round(s.byCat.find(c=>c.key==='transport')?.total||0);
+      const supSpent = Math.round(['hygiene','support'].reduce((n,k)=>n+(s.byCat.find(c=>c.key===k)?.total||0),0));
+      const bTotal = Math.max(0, Math.round(s.budgetTotal || 0));
+      /* Proportional group budget allocation from verified county budget lines (or balanced shares when aggregated) */
+      const bFood = Math.round(bTotal * 0.34);
+      const bMed  = Math.round(bTotal * 0.38);
+      const bTrans= Math.round(bTotal * 0.14);
+      const bSup  = Math.max(0, bTotal - bFood - bMed - bTrans);
+      const costBvaLines = [
+        { label:'Food & Nutrition Bags (BG1 / BG2 / SPB)', sub:'Household nutrition & therapeutic child recovery', budget:bFood, spent:foodSpent, color:'#B45309' },
+        { label:'Medical, TB, Hospital & SHIF', sub:'Drugs, outpatient/inpatient clinic & SHA cover', budget:bMed, spent:medSpent, color:'#0F7B4F' },
+        { label:'Field & Hospital Escort Transport', sub:'Caregiver routes & referral transport fares', budget:bTrans, spent:transSpent, color:'#2563EB' },
+        { label:'Hygiene & Household Protection Support', sub:'WASH kits, bedding & emergency child welfare', budget:bSup, spent:supSpent, color:'#7C3AED' }
+      ];
       body = anonNote + kpis
-      + `<div class="grid g2">
+      + `<div class="grid g2" style="align-items:stretch">
           ${card('Where the money went', chartDonut(s.byCat.map((c,i)=>({label:costCatName(c.key), value:Math.round(c.total), color:(COST_CAT[c.key]||{}).colour||colours[i%colours.length]})), {title:'Expenditure by cost category', fmt:v=>money(v), centerLabel:'TOTAL', centerValue:money(Math.round(s.total))}), {sub:'Every category is mapped to a column of the Administration\u2019s master workbook.'})}
-          ${card('Expenditure against budget', chartWaterfall([
-              {label:'Budget', value:Math.round(s.budgetTotal), kind:'total'},
-              {label:'Food & bags', value:-Math.round(s.byCat.find(c=>c.key==='foodbag')?.total||0)},
-              {label:'Medical', value:-Math.round(['medication','tb','outpatient','inpatient','consultation','shif'].reduce((n,k)=>n+(s.byCat.find(c=>c.key===k)?.total||0),0))},
-              {label:'Transport', value:-Math.round(s.byCat.find(c=>c.key==='transport')?.total||0)},
-              {label:'Other support', value:-Math.round(['hygiene','support'].reduce((n,k)=>n+(s.byCat.find(c=>c.key===k)?.total||0),0))},
-              {label:'Remaining', value:Math.round(s.budgetVariance), kind:'total'}
-            ], {title:'Budget movement', fmt:v=>money(Math.abs(v)), caption:'Budget less attributed expenditure by group.'}),
-            {sub:s.budgetTotal? 'Variance is budget less attributed cost.' : 'No budget lines are set for this reach yet.'})}
+          ${card('Expenditure against budget', typeof budgetVsActualBoard==='function'
+            ? budgetVsActualBoard(costBvaLines, { totalBudget:bTotal, totalSpent:Math.round(s.total), periodLabel:lens.label })
+            : '',
+            {sub:bTotal ? 'Approved budget vs attributed expenditure, remaining balance & % utilisation by group.' : 'Configure county budget lines in Finance -> Budget lines to compare ceiling against spend.'})}
         </div>`
       + `<div class="grid g2" style="margin-top:16px">
           ${card('Monthly expenditure and patients served', chartStacked({

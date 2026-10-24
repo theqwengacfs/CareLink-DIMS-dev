@@ -108,10 +108,30 @@ const DB = {
       ohsIncidents:[], ohsChecks:[], dataElements:[], indicators:[], dqIssues:[],
       devices:[], devicesPending:[], passwordVault:[], mergeJournal:[], weatherCache:{},
       referrals:[],
-      /* v6.4 Admin Operations collections */
+      /* v6.4 Admin Operations & Urgent Access Recovery collections */
       adminOpsPayg:[], adminOpsSuppliers:[], adminOpsTransport:[],
       adminOpsStatutory:[], adminOpsUtilities:[], adminOpsOpEx:[],
-      adminOpsMonthlyReports:[], adminOpsAnnualBudgets:[], adminOpsSocieties:[]};
+      adminOpsMonthlyReports:[], adminOpsAnnualBudgets:[], adminOpsSocieties:[],
+      recoveryRequests:[], workflowActionsLog:[], workspaceDrafts:[]};
+  },
+
+  /* Fast O(1) per-patient longitudinal lookup indexes (auto-invalidating on mutation) */
+  _vIdx: null, _vRef: null, _vLen: -1, _vTail: null,
+  visitsFor(patientId){
+    const arr = (this.db && this.db.visits) || [];
+    const tail = arr.length ? arr[arr.length - 1] : null;
+    if(!this._vIdx || this._vRef !== arr || this._vLen !== arr.length || this._vTail !== tail){
+      const m = new Map();
+      for(let i = 0; i < arr.length; i++){
+        const v = arr[i];
+        let bucket = m.get(v.patientId);
+        if(!bucket){ bucket = []; m.set(v.patientId, bucket); }
+        bucket.push(v);
+      }
+      m.forEach(list => list.sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))));
+      this._vIdx = m; this._vRef = arr; this._vLen = arr.length; this._vTail = tail;
+    }
+    return this._vIdx.get(patientId) || [];
   },
 
   load(){
@@ -271,9 +291,10 @@ const AUDIT = {
 const AUTH = {
   user:null, session:null, listeners:[],
   login(username, password){
-    const u = DB.db.users.find(x=>x.username.toLowerCase()===String(username).toLowerCase().trim());
-    if(!u){ AUDIT.append({actor:'anonymous',action:'auth.failed',entity:'user',entityId:username,detail:'Unknown username'}); return {ok:false,msg:'No account matches that username.'}; }
-    if(u.status!=='active'){ AUDIT.append({actor:u.id,action:'auth.blocked',entity:'user',entityId:u.id,detail:`Account status: ${u.status}`}); return {ok:false,msg:`This account is ${u.status}. Contact the County Office Administrator.`}; }
+    const q = String(username||'').toLowerCase().trim();
+    const u = DB.db.users.find(x=>x.username.toLowerCase()===q || String(x.email||'').toLowerCase()===q);
+    if(!u){ AUDIT.append({actor:'anonymous',action:'auth.failed',entity:'user',entityId:username,detail:'Unknown username or email'}); return {ok:false,msg:'No account matches that username or email.'}; }
+    if(!['active','pending_activation'].includes(u.status)){ AUDIT.append({actor:u.id,action:'auth.blocked',entity:'user',entityId:u.id,detail:`Account status: ${u.status}`}); return {ok:false,msg:`This account is ${u.status}. Contact your County Office Administrator.`}; }
     if(u.hash !== strongHash(password, u.salt)){
       u.failedLogins = (u.failedLogins||0)+1;
       AUDIT.append({actor:u.id,action:'auth.failed',entity:'user',entityId:u.id,detail:'Incorrect password'});
@@ -323,7 +344,9 @@ const AUTH = {
   mustChange:false,
 
   async loginOnline(username, password, device){
-    const name = String(username||'').trim();
+    const raw = String(username||'').trim();
+    const byMail = DB.db && DB.db.users ? DB.db.users.find(x=>String(x.email||'').toLowerCase()===raw.toLowerCase()) : null;
+    const name = byMail ? byMail.username : raw;
     if(typeof SYNC === 'undefined' || !SYNC.available()){
       return {ok:false, code:'offline', error:'No network'};
     }
@@ -507,8 +530,9 @@ const repo = {
   },
   visits(user,patientId){
     const p=this.patient(user,patientId); if(!p) return [];
-    if(!RBAC.can(user,'visit.view',{countyId:p.countyId,areaId:p.areaId},true).ok && !RBAC.can(user,'patient.view.clinical',{},true).ok) return [];
-    return DB.db.visits.filter(v=>v.patientId===patientId).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const roleAllowed = ['chief','director','program.admin','program.assistant','countyadmin','assistant','depthead','me','liaison','homestay'].includes(user.roleId);
+    if(!roleAllowed && !RBAC.can(user,'visit.view',{countyId:p.countyId,areaId:p.areaId},true).ok && !RBAC.can(user,'patient.view.clinical',{},true).ok && !RBAC.has(user,'visit.create')) return [];
+    return DB.visitsFor(patientId).slice();
   },
   requests(user){
     if(!RBAC.has(user,'hosp.request.create') && !RBAC.has(user,'hosp.request.review') &&
@@ -883,6 +907,23 @@ const MESSAGING = {
       const to = (DB.db.users||[]).filter(u=>u.departmentId===d && MESSAGING.inReach(user,u)).map(u=>u.id);
       if(!to.length) return { ok:false, error:'No one in your reach belongs to that department.' };
       return { ok:true, kind:'dept', to };
+    }
+    if(t.startsWith('area:')){
+      const a = t.slice(5);
+      const areaObj = (typeof COUNTIES!=='undefined' ? COUNTIES.flatMap(c=>c.areas.map(x=>({...x,countyId:c.id}))) : []).find(x=>x.id===a);
+      if(!areaObj) return { ok:false, error:'That ministry area does not exist.' };
+      const to = (DB.db.users||[]).filter(u=>u.id!==user.id && u.status==='active' && (
+        (u.areaIds||[]).includes(a) || (u.countyId===areaObj.countyId && ['countyadmin','assistant','mcm','coordinator','depthead'].includes(u.roleId))
+      )).map(u=>u.id);
+      if(!to.length) return { ok:false, error:'No active staff are assigned to that ministry area.' };
+      return { ok:true, kind:'area', to };
+    }
+    if(t.startsWith('global:')){
+      const scope = t.slice(7);
+      if(scope !== 'all' && !(typeof COUNTIES!=='undefined' && COUNTIES.some(c=>c.id===scope))) return { ok:false, error:'Invalid global broadcast channel.' };
+      const to = (DB.db.users||[]).filter(u=>u.id!==user.id && u.status==='active' && !['gov.partner','ccc.partner'].includes(u.roleId) && (scope==='all' || u.countyId===scope)).map(u=>u.id);
+      if(!to.length) return { ok:false, error:'No active recipients in that global channel.' };
+      return { ok:true, kind:'global', to };
     }
     return { ok:false, error:'That is not a valid conversation.' };
   },

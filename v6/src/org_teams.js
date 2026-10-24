@@ -153,19 +153,19 @@ const HOSPITAL_TEAM = {
    One row per department Administration named. `deputy` carries the written
    delegation, so a console can show who acts when the head is away. */
 const DEPARTMENT_LEADS = [
-  { dept:'exec',      head:'director',            title:'Organisation Director',            deputy:'program.admin', deputyTitle:'Internal Operations Manager' },
-  { dept:'admin',     head:'chief.admin',         title:'Chief Admin (Kisumu Admin)',        deputy:'kisumu.assistant', deputyTitle:'Chief Admin Assistant / Kisumu Admin Assistant' },
-  { dept:'procure',   head:'procurement',         title:'Head of Procurement Department',    deputy:'vehicle.officer', deputyTitle:'Deputy Head of Procurement' },
+  { dept:'exec',      head:'director',            title:'Organisation Director',            deputy:'program.admin', deputyTitle:'Internal Operations Manager', secretary:'exec.secretary', secretaryTitle:'Executive & Management Meeting Secretary' },
+  { dept:'admin',     head:'chief.admin',         title:'Chief Admin (Kisumu Admin)',        deputy:'kisumu.assistant', deputyTitle:'Chief Admin Assistant / Kisumu Admin Assistant', secretary:'secretary.kisumu', clerks:['clerk.records.kisumu','clerk.records.homabay'] },
+  { dept:'procure',   head:'procurement',         title:'Head of Procurement Department',    deputy:'deputy.procurement', deputyTitle:'Deputy Head of Procurement (John Shikuku Omolo)', clerks:['clerk.stores.kisumu'] },
   { dept:'vehicle',   head:'coord.ombeyi',        title:'Head of Vehicle & Transport Department', deputy:'vehicle.officer', deputyTitle:'Deputy Head of Vehicle & Transport' },
   { dept:'media',     head:'media.head',          title:'Head of Media Department (Kisumu)', deputy:'media.homabay', deputyTitle:'Head of Media Department (Homa Bay) - equal privileges' },
   { dept:'pr',        head:'pr.officer',          title:'In charge of the Public Relations Office' },
   { dept:'hospital',  head:'focal.kisumu',        title:'Head of Hospital Department',       deputy:'liaison.kisumu', deputyTitle:'Assigned by the head when unavailable' },
   { dept:'welfare',   head:'welfare.officer',     title:'Head of Staff Welfare Department' },
   { dept:'ministry',  head:'coord.nyalenda',      title:'Ministry Area Coordinators (one per area)', deputy:'coord.homabay', deputyTitle:'Homa Bay County Coordinator' },
-  { dept:'hr',        head:'hr.officer',          title:'Human Resource Officer', unconfirmed:true },
-  { dept:'finance',   head:'finance.kisumu',      title:'Finance Officer (Kisumu)', unconfirmed:true },
-  { dept:'me',        head:'me.kisumu',           title:'M&E / Data Officer (Kisumu)', unconfirmed:true },
-  { dept:'medical',   head:'mcm.kisumu',          title:'Medical Case Manager (Kisumu)', unconfirmed:true },
+  { dept:'hr',        head:'hr.officer',          title:'Human Resource Officer', deputy:'deputy.hr', deputyTitle:'Deputy Human Resource Officer', unconfirmed:true },
+  { dept:'finance',   head:'finance.kisumu',      title:'Finance Officer (Kisumu)', deputy:'deputy.finance', deputyTitle:'Deputy Finance Officer (Head Office)', clerks:['clerk.accounts.kisumu'], unconfirmed:true },
+  { dept:'me',        head:'me.kisumu',           title:'M&E / Data Officer (Kisumu)', deputy:'me.homabay', deputyTitle:'M&E Officer (Homa Bay)', clerks:['clerk.data.kisumu','clerk.data.homabay'], unconfirmed:true },
+  { dept:'medical',   head:'depthead.medical',    title:'Head of Medical Department', deputy:'deputy.medical', deputyTitle:'Deputy Head of Medical & Clinical Services', clerks:['clerk.pharmacy.kisumu'], unconfirmed:true },
   { dept:'audit',     head:'auditor',             title:'Internal Auditor', unconfirmed:true },
   { dept:'it',        head:'ict.officer',         title:'ICT & Host Officer', unconfirmed:true }
 ];

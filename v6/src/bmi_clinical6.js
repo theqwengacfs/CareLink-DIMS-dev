@@ -29,6 +29,49 @@ const BMI_CLINICAL = {
     return BMI_BANDS.find(b=>v >= b.min && v <= b.max) || BMI_BANDS[BMI_BANDS.length-1];
   },
 
+  /* WHO / Kenya MoH BMI-for-Age classification for children & adolescents (<18 yrs) */
+  classifyPediatricBmi(bmiVal, ageYears){
+    const v = Number(bmiVal), age = Number(ageYears ?? 8);
+    if(!(v > 0)) return this.classify(0);
+    if(age >= 18) return this.classify(v);
+    const cuts = age < 5
+      ? { sam:12.9, under:13.9, over:17.2, obese:18.6 }
+      : (age < 10
+        ? { sam:13.3, under:14.2, over:18.4, obese:20.6 }
+        : { sam:15.0, under:16.4, over:22.8, obese:26.2 });
+    if(v < cuts.sam)   return { ...BMI_BANDS[0], label:`Paediatric Severe Thinness / SAM (${age}y)`, short:'Child SAM', cuts };
+    if(v < cuts.under) return { ...BMI_BANDS[1], label:`Paediatric Thinness / MAM (${age}y)`, short:'Child MAM', cuts };
+    if(v <= cuts.over) return { ...BMI_BANDS[2], label:`Healthy BMI-for-Age (${age}y)`, short:'Healthy BMI-for-Age', cuts };
+    if(v <= cuts.obese)return { ...BMI_BANDS[3], label:`Paediatric Overweight-for-Age (${age}y)`, short:'Child Overweight', cuts };
+    return { ...BMI_BANDS[4], label:`Paediatric Obesity-for-Age (${age}y)`, short:'Child Obesity', cuts };
+  },
+
+  /* WHO / Kenya MoH IMAM MUAC Tape Classification (6–59 mos, 5–9 yrs, 10–17 yrs, Adults) */
+  muacCutoffs(ageYears){
+    const age = Number(ageYears ?? 4);
+    if(age < 5)  return { sam:115, mam:125, max:165, group:'Under-5 (6–59 mos)' };
+    if(age < 10) return { sam:135, mam:145, max:195, group:'School-Age (5–9 yrs)' };
+    if(age < 18) return { sam:160, mam:185, max:250, group:'Adolescent (10–17 yrs)' };
+    return { sam:185, mam:220, max:320, group:'Adult (18+ yrs)' };
+  },
+
+  classifyMuac(muacMm, ageYears){
+    const m = Number(muacMm);
+    const c = this.muacCutoffs(ageYears);
+    if(!(m > 0)) return { id:'unknown', label:'MUAC Pending', short:'MUAC Pending', hex:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', cuts:c };
+    const cm = (m / 10).toFixed(1);
+    if(m < c.sam) return { id:'sam', label:`RED Tape · SAM (${cm} cm < ${(c.sam/10).toFixed(1)} cm)`, short:`RED · SAM (${cm} cm)`, tone:'b-crit', hex:'#DC2626', bg:'#FEF2F2', border:'#FCA5A5', cuts:c, guidance:'Immediate IMAM therapeutic feeding (RUTF / F-75 / Special Bag) & clinical evaluation.' };
+    if(m < c.mam) return { id:'mam', label:`YELLOW Tape · MAM (${cm} cm)`, short:`AMBER · MAM (${cm} cm)`, tone:'b-warn', hex:'#D97706', bg:'#FFFBEB', border:'#FCD34D', cuts:c, guidance:'Supplementary nutrition (RUSF / Special Food Bag) & fortnightly MUAC tape check.' };
+    return { id:'normal', label:`GREEN Tape · Nourished (${cm} cm)`, short:`GREEN · ${cm} cm`, tone:'b-ok', hex:'#059669', bg:'#ECFDF5', border:'#6EE7B7', cuts:c, guidance:'Adequate mid-upper arm circumference for age — maintain balanced nutrition.' };
+  },
+
+  muacBadgeHTML(muacMm, ageYears, compact=false){
+    const b = this.classifyMuac(muacMm, ageYears);
+    return `<span class="bmi-pill" style="background:${b.bg};color:${b.hex};border-color:${b.border}" title="${esc(b.guidance||'')}">
+      <i style="background:${b.hex}"></i><b>${esc(compact ? b.short : b.label)}</b>
+    </span>`;
+  },
+
   plausibilityCheck(weightKg, heightCm, prevWeightKg, ageYears){
     const issues = [];
     const w = Number(weightKg), h = Number(heightCm), age = Number(ageYears ?? 35);
@@ -39,11 +82,11 @@ const BMI_CLINICAL = {
       if(age < 18 && (h < 45 || h > 200)) issues.push({ level:'warn', text:`Paediatric height ${h} cm appears unusual — verify tape measurement.` });
       if(age >= 18 && (w < 24 || w > 190)) issues.push({ level:'warn', text:`Adult weight ${w} kg is extreme — confirm scale calibration before saving.` });
       const bmi = this.compute(w, h);
-      if(bmi && (bmi < 11.5 || bmi > 52)) issues.push({ level:'warn', text:`Calculated BMI (${bmi} kg/m²) is physiologically extreme — double-check weight/height transposition.` });
+      if(bmi && (bmi < 11.0 || bmi > 52)) issues.push({ level:'warn', text:`Calculated BMI (${bmi} kg/m²) is physiologically extreme — double-check weight/height transposition.` });
       if(Number(prevWeightKg) > 0){
         const deltaPct = ((w - Number(prevWeightKg)) / Number(prevWeightKg)) * 100;
         if(deltaPct <= -10) issues.push({ level:'crit', text:`Rapid weight loss of ${Math.abs(deltaPct).toFixed(1)}% (${prevWeightKg} -> ${w} kg) — immediate clinical & nutritional red-flag review required.` });
-        else if(Math.abs(deltaPct) >= 18) issues.push({ level:'warn', text:`Large single-interval weight swing (${deltaPct>0?'+':''}${deltaPct.toFixed(1)}%) — verify reading for clerical error.` });
+        else if(Math.abs(deltaPct) >= 18 && age >= 12) issues.push({ level:'warn', text:`Large single-interval weight swing (${deltaPct>0?'+':''}${deltaPct.toFixed(1)}%) — verify reading for clerical error.` });
       }
     }
     return {
@@ -56,40 +99,51 @@ const BMI_CLINICAL = {
   patientBmiInfo(p){
     if(!p) return null;
     const cl = p.clinical || {};
-    const visits = (DB.db && DB.db.visits || []).filter(v=>v.patientId===p.id).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const visitsDesc = (typeof DB !== 'undefined' && DB.visitsFor) ? DB.visitsFor(p.id) : ((DB.db && DB.db.visits || []).filter(v=>v.patientId===p.id));
     /* Synthesize deterministic realistic height/weight if legacy demo patient only had weight or bmi */
     let w = Number(cl.weightKg || p.weightKg || 0);
     let h = Number(cl.heightCm || p.heightCm || 0);
     let bmi = Number(cl.bmi || 0);
+    const age = Number(p.age ?? 34);
+    const isChild = age < 18;
     if(!h && w > 0 && bmi > 0){
       h = Math.round(Math.sqrt(w / bmi) * 100);
     } else if(!h){
       const seed = String(p.id||'p1').split('').reduce((n,c)=>n+c.charCodeAt(0),0);
-      const age = p.age || 34;
-      h = age < 15 ? (115 + (seed % 38)) : (154 + (seed % 24));
+      h = age < 5 ? (78 + (seed % 26)) : (age < 15 ? (115 + (seed % 38)) : (154 + (seed % 24)));
     }
     if(!w){
       const seed = String(p.id||'p1').split('').reduce((n,c)=>n*3+c.charCodeAt(0),7);
-      const bandPick = [15.4, 17.3, 20.8, 22.4, 23.6, 26.8, 31.2][seed % 7];
+      const bandPick = isChild ? [13.5, 14.8, 15.8, 16.4, 17.6][seed % 5] : [15.4, 17.3, 20.8, 22.4, 23.6, 26.8, 31.2][seed % 7];
       w = +(bandPick * Math.pow(h / 100, 2)).toFixed(1);
     }
     bmi = this.compute(w, h) || bmi;
-    const baseW = Number(p.baselineWeightKg || cl.baselineWeightKg || +(w - 1.8).toFixed(1));
-    const band = this.classify(bmi);
+    const baseW = Number(p.baselineWeightKg || cl.baselineWeightKg || +(w - 1.4).toFixed(1));
+    const muacMm = Number(cl.muacMm || (visitsDesc[0] && visitsDesc[0].muacMm) || (age < 5 ? 131 : (age < 10 ? 152 : (age < 18 ? 192 : 245))));
+    const baseMuacMm = Number(cl.baselineMuacMm || Math.max(105, muacMm - 7));
+    const band = isChild ? this.classifyPediatricBmi(bmi, age) : this.classify(bmi);
+    const muacBand = this.classifyMuac(muacMm, age);
     const visitsSinceWeigh = cl.lastWeighedVisitCount != null
-      ? Math.max(0, visits.length - Number(cl.lastWeighedVisitCount))
-      : (visits.length % 4);
+      ? Math.max(0, visitsDesc.length - Number(cl.lastWeighedVisitCount))
+      : (visitsDesc.length % 4);
     const dueThreeVisitRule = p.status === 'active' && visitsSinceWeigh >= 3;
-    const check = this.plausibilityCheck(w, h, baseW, p.age || 34);
+    const check = this.plausibilityCheck(w, h, baseW, age);
     return {
       patient: p,
+      isChild,
+      age,
       weightKg: w,
       heightCm: h,
       baselineWeightKg: baseW,
       weightDeltaKg: +(w - baseW).toFixed(1),
       bmi,
       band,
-      visitsCount: visits.length,
+      muacMm,
+      muacCm: +(muacMm / 10).toFixed(1),
+      baselineMuacMm: baseMuacMm,
+      muacDeltaMm: muacMm - baseMuacMm,
+      muacBand,
+      visitsCount: visitsDesc.length,
       visitsSinceWeigh,
       dueThreeVisitRule,
       plausibility: check,
@@ -98,12 +152,171 @@ const BMI_CLINICAL = {
     };
   },
 
-  badgeHTML(bmiVal, compact=false){
-    const b = this.classify(bmiVal);
+  badgeHTML(bmiVal, compact=false, ageYears=null){
+    const b = (ageYears != null && Number(ageYears) < 18) ? this.classifyPediatricBmi(bmiVal, ageYears) : this.classify(bmiVal);
     const numTxt = Number(bmiVal) > 0 ? `${Number(bmiVal).toFixed(1)} · ` : '';
-    return `<span class="bmi-pill" style="background:${b.bg};color:${b.hex};border-color:${b.border}" title="${esc(b.guidance)}">
+    return `<span class="bmi-pill" style="background:${b.bg};color:${b.hex};border-color:${b.border}" title="${esc(b.guidance||'')}">
       <i style="background:${b.hex}"></i><b>${esc(numTxt)}${esc(compact ? b.short : b.label)}</b>
     </span>`;
+  },
+
+  /* Reusable WHO/MoH longitudinal growth curve SVG (Weight, BMI-for-Age, MUAC Tape) */
+  renderGrowthSvg(points, opts={}){
+    const W = 360, H = 190, padL = 40, padR = 14, padT = 18, padB = 30;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    if(!points || !points.length){
+      return `<div class="xs muted" style="padding:22px;text-align:center">No anthropometric points recorded yet.</div>`;
+    }
+    const vals = points.map(pt=>Number(pt.v)).filter(v=>isFinite(v) && v > 0);
+    const bandNums = (opts.zones||[]).flatMap(z=>[z.from, z.to]).filter(v=>isFinite(v));
+    let minV = Math.min(...vals, ...(bandNums.length ? [Math.min(...vals) - 0.8] : []));
+    let maxV = Math.max(...vals, ...(bandNums.length ? [Math.max(...vals) + 0.8] : []));
+    if(opts.minFloor != null) minV = Math.min(minV, opts.minFloor);
+    if(opts.maxCeil != null) maxV = Math.max(maxV, opts.maxCeil);
+    if(maxV - minV < 2) { minV -= 1; maxV += 1; }
+    const yOf = v => padT + plotH - ((Math.max(minV, Math.min(maxV, v)) - minV) / (maxV - minV)) * plotH;
+    const xOf = idx => points.length === 1 ? padL + plotW / 2 : padL + (idx / (points.length - 1)) * plotW;
+
+    const zoneRects = (opts.zones||[]).map(z=>{
+      const hi = Math.min(maxV, z.to);
+      const lo = Math.max(minV, z.from);
+      if(hi <= lo) return '';
+      const y1 = yOf(hi), y2 = yOf(lo);
+      return `<rect x="${padL}" y="${y1.toFixed(1)}" width="${plotW}" height="${Math.max(1, y2-y1).toFixed(1)}" fill="${z.fill}" opacity="0.55"/>`;
+    }).join('');
+
+    const ticks = [0, 0.5, 1].map(f=>{
+      const tv = minV + (maxV - minV) * f;
+      const y = yOf(tv);
+      return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="rgba(148,163,184,.25)" stroke-dasharray="3,3"/>
+        <text x="${padL-5}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="9.5" fill="currentColor" opacity="0.68">${tv.toFixed(opts.decimals ?? 1)}</text>`;
+    }).join('');
+
+    const pathD = points.map((pt, idx)=>`${idx===0?'M':'L'}${xOf(idx).toFixed(1)},${yOf(pt.v).toFixed(1)}`).join(' ');
+    const areaD = `${pathD} L${xOf(points.length-1).toFixed(1)},${(padT+plotH).toFixed(1)} L${xOf(0).toFixed(1)},${(padT+plotH).toFixed(1)} Z`;
+    const stroke = opts.color || '#0F766E';
+    const dots = points.map((pt, idx)=>{
+      const cx = xOf(idx), cy = yOf(pt.v);
+      const dotFill = pt.type==='homestay' ? '#7C3AED' : (pt.type==='hospital' ? '#2563EB' : stroke);
+      return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${idx===points.length-1?4.2:2.9}" fill="${dotFill}" stroke="#fff" stroke-width="1.2">
+        <title>${esc(pt.date||'')} (${esc(pt.type||'home')}): ${Number(pt.v).toFixed(opts.decimals ?? 1)} ${esc(opts.unit||'')}</title>
+      </circle>`;
+    }).join('');
+
+    const firstLbl = points[0]?.date ? points[0].date.slice(5) : 'Start';
+    const midLbl = points[Math.floor(points.length/2)]?.date ? points[Math.floor(points.length/2)].date.slice(5) : '';
+    const lastLbl = points[points.length-1]?.date ? points[points.length-1].date.slice(5) : 'Latest';
+    const delta = +(points[points.length-1].v - points[0].v).toFixed(opts.decimals ?? 1);
+
+    return `<div class="growth-chart-box" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)">
+      <div class="spread" style="margin-bottom:4px;gap:6px">
+        <div>
+          <div class="small bold">${esc(opts.title||'Growth Curve')}</div>
+          <div class="xs muted">${esc(opts.subtitle||'Longitudinal trajectory')}</div>
+        </div>
+        <div style="text-align:right">
+          <b class="mono" style="font-size:15px;color:${stroke}">${Number(points[points.length-1].v).toFixed(opts.decimals ?? 1)} ${esc(opts.unit||'')}</b>
+          <div class="xs mono ${delta>=0?'ok':'crit'}">${delta>=0?'+':''}${delta} ${esc(opts.unit||'')} (${points.length} visits)</div>
+        </div>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;overflow:visible" role="img" aria-label="${esc(opts.title||'Growth chart')}">
+        ${zoneRects}
+        ${ticks}
+        <path d="${areaD}" fill="${stroke}" opacity="0.10"/>
+        <path d="${pathD}" fill="none" stroke="${stroke}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dots}
+        <text x="${padL}" y="${H-8}" font-size="9.5" fill="currentColor" opacity="0.65">${esc(firstLbl)}</text>
+        <text x="${(padL+plotW/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">${esc(midLbl)}</text>
+        <text x="${W-padR}" y="${H-8}" text-anchor="end" font-size="9.5" fill="currentColor" opacity="0.65">${esc(lastLbl)}</text>
+      </svg>
+      <div class="row" style="gap:10px;margin-top:4px;flex-wrap:wrap;justify-content:space-between">
+        <span class="xs muted"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${stroke};margin-right:4px"></span>Home visit</span>
+        <span class="xs muted"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#2563EB;margin-right:4px"></span>Hospital clinic</span>
+        <span class="xs muted"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#7C3AED;margin-right:4px"></span>Homestay / Care Centre</span>
+      </div>
+    </div>`;
+  },
+
+  /* Complete 3-panel Weight, BMI-for-Age & MUAC Growth Surveillance card for any Child or Adult patient */
+  renderPatientGrowthCharts(p){
+    if(!p) return '';
+    const bi = this.patientBmiInfo(p);
+    const visitsChron = ((typeof DB !== 'undefined' && DB.visitsFor) ? DB.visitsFor(p.id) : ((DB.db&&DB.db.visits||[]).filter(v=>v.patientId===p.id)))
+      .slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const age = Number(p.age ?? 8);
+    const isChild = age < 18;
+    const mCuts = this.muacCutoffs(age);
+    const wtPts = visitsChron.filter(v=>Number(v.weight)>0).map(v=>({ date:v.date, type:v.type, v:Number(v.weight) }));
+    const bmiPts = visitsChron.map(v=>{
+      const h = Number(v.heightCm || bi.heightCm || 120);
+      const val = Number(v.bmi) || (Number(v.weight)>0 ? this.compute(v.weight, h) : 0);
+      return val > 0 ? { date:v.date, type:v.type, v:val } : null;
+    }).filter(Boolean);
+    const muacPts = visitsChron.map((v, idx)=>{
+      const rawMm = Number(v.muacMm) || Math.round(bi.baselineMuacMm + ((bi.muacMm - bi.baselineMuacMm) * ((idx+1)/Math.max(1, visitsChron.length))));
+      return { date:v.date, type:v.type, v:+(rawMm / 10).toFixed(1) };
+    });
+
+    const pBmiCuts = isChild
+      ? (age < 5 ? { sam:12.9, under:13.9, over:17.2 } : (age < 10 ? { sam:13.3, under:14.2, over:18.4 } : { sam:15.0, under:16.4, over:22.8 }))
+      : { sam:16.0, under:18.5, over:25.0 };
+
+    const wtSvg = this.renderGrowthSvg(wtPts, {
+      title: isChild ? `Child Weight-for-Age Trajectory (${age} yrs)` : 'Longitudinal Weight Trajectory',
+      subtitle: `Baseline ${bi.baselineWeightKg.toFixed(1)} kg -> Current ${bi.weightKg.toFixed(1)} kg`,
+      unit:'kg', decimals:1, color:'#0F766E'
+    });
+    const bmiSvg = this.renderGrowthSvg(bmiPts, {
+      title: isChild ? `WHO BMI-for-Age Curve (${age} yrs)` : 'WHO Adult BMI Trajectory',
+      subtitle: isChild ? 'Shaded SAM / MAM / Healthy BMI-for-Age Z-bands' : 'Shaded WHO nutritional reference bands',
+      unit:'kg/m²', decimals:1, color:bi.band.hex || '#2563EB',
+      minFloor: pBmiCuts.sam - 0.8, maxCeil: pBmiCuts.over + 1.4,
+      zones:[
+        { from:0, to:pBmiCuts.sam, fill:'#FECACA' },
+        { from:pBmiCuts.sam, to:pBmiCuts.under, fill:'#FDE68A' },
+        { from:pBmiCuts.under, to:pBmiCuts.over, fill:'#BBF7D0' },
+        { from:pBmiCuts.over, to:60, fill:'#BFDBFE' }
+      ]
+    });
+    const muacSvg = this.renderGrowthSvg(muacPts, {
+      title: isChild ? `Child MUAC Tape Chart (${mCuts.group})` : 'Adult MUAC Arm Tape Curve',
+      subtitle: `Red <${(mCuts.sam/10).toFixed(1)} cm · Amber ${(mCuts.sam/10).toFixed(1)}–${((mCuts.mam-1)/10).toFixed(1)} cm · Green ≥${(mCuts.mam/10).toFixed(1)} cm`,
+      unit:'cm', decimals:1, color:bi.muacBand.hex || '#059669',
+      minFloor: (mCuts.sam/10) - 0.8, maxCeil: (mCuts.mam/10) + 2.2,
+      zones:[
+        { from:0, to:mCuts.sam/10, fill:'#FECACA' },
+        { from:mCuts.sam/10, to:mCuts.mam/10, fill:'#FDE68A' },
+        { from:mCuts.mam/10, to:40, fill:'#BBF7D0' }
+      ]
+    });
+
+    const homeN = visitsChron.filter(v=>v.type==='home'||v.type==='clinical').length;
+    const hospN = visitsChron.filter(v=>v.type==='hospital').length;
+    const hsN = visitsChron.filter(v=>v.type==='homestay').length;
+
+    return `<div class="growth-surveillance-wrap">
+      <div class="spread" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          ${badge(isChild ? `Paediatric Growth Chart · ${age} yrs (${p.sex})` : `Adult Anthropometry · ${age} yrs (${p.sex})`, isChild?'b-info':'b-neutral')}
+          ${this.badgeHTML(bi.bmi, false, age)}
+          ${this.muacBadgeHTML(bi.muacMm, age)}
+        </div>
+        <div class="xs muted mono">
+          <b>${visitsChron.length}</b> total visits: <b>${homeN}</b> Home · <b>${hospN}</b> Hospital · <b>${hsN}</b> Homestay
+        </div>
+      </div>
+      <div class="grid g3" style="gap:12px;margin-bottom:12px">${wtSvg}${bmiSvg}${muacSvg}</div>
+      ${table([
+        { label:'Visit #', cls:'mono', render:r=>`#${r._n}` },
+        { label:'Date', cls:'mono', render:r=>fmtDate(r.date) },
+        { label:'Care Setting', render:r=>r.type==='homestay'?badge('Homestay / Care Centre','b-warn'):(r.type==='hospital'?badge('Hospital Clinic','b-info'):badge(r.type==='clinical'?'MCM Clinical':'Home Visit','b-ok')) },
+        { label:'Weight (kg)', cls:'num mono', render:r=>r.weight?`<b>${Number(r.weight).toFixed(1)} kg</b>`:'-' },
+        { label:'Height (cm)', cls:'num mono', render:r=>`${Number(r.heightCm||bi.heightCm).toFixed(0)} cm` },
+        { label:'BMI / BMI-for-Age', render:r=>{ const bv = r.bmi || this.compute(r.weight, r.heightCm||bi.heightCm); return bv ? this.badgeHTML(bv, true, age) : '-'; } },
+        { label:'MUAC Tape', render:r=>r.muacMm ? this.muacBadgeHTML(r.muacMm, age, true) : '-' },
+        { label:'Nutrition Bag', render:r=>r.foodBag ? badge(r.foodBag,'b-info','nodot') : '<span class="xs muted">—</span>' }
+      ], visitsChron.map((v, i)=>({...v, _n:i+1})).slice(-8).reverse(), {emptyMsg:'No visit anthropometry recorded.'})}
+    </div>`;
   },
 
   ensureClinicalStore(){
@@ -165,11 +378,59 @@ const BMI_CLINICAL = {
     });
 
     const canRecord = RBAC.has(user,'visit.create') || RBAC.has(user,'patient.view.clinical') || RBAC.has(user,'hardcopy.intake');
+    const sheet = params.sheet || 'overview';
+    const childCohort = allInfo.filter(x=>x.isChild);
+    const childU5 = childCohort.filter(x=>x.age < 5);
+    const childRedMuac = childCohort.filter(x=>x.muacBand.id==='sam');
+    const childAmberMuac = childCohort.filter(x=>x.muacBand.id==='mam');
+    const selectedChildInfo = (params.childId && childCohort.find(x=>x.patient.id===params.childId)) || childCohort[0] || allInfo[0];
+
+    const sheetBar = `<div class="tabs" style="margin-bottom:14px">
+      <button class="tab ${sheet==='overview'?'active':''}" data-act="go" data-v="bmiboard" data-sheet="overview">${ic('activity',14)} All-Ages BMI Nutritional Board (${num(allInfo.length)})</button>
+      <button class="tab ${sheet==='children'?'active':''}" data-act="go" data-v="bmiboard" data-sheet="children">${ic('heart',14)} Child Weight, BMI-for-Age & MUAC Charts (${num(childCohort.length)})</button>
+    </div>`;
+
+    if(sheet === 'children'){
+      const childFiltered = childCohort.filter(x=>
+        (!areaFilter || x.patient.areaId===areaFilter) &&
+        (!q || (x.patient.name+' '+x.patient.code+' '+areaName(x.patient.areaId)).toLowerCase().includes(q))
+      );
+      return pageHead('Paediatric growth charts — Weight, BMI-for-Age & MUAC surveillance',
+        `${num(childCohort.length)} children & adolescents (<18 yrs) in scope · WHO / Kenya MoH IMAM MUAC tape bands (6–59 mos, 5–9 yrs, 10–17 yrs) & longitudinal 12+ visit trajectories.`,
+        `${canRecord?`<button class="btn btn-sm btn-primary" data-act="bmi-record-modal" data-id="${esc(selectedChildInfo?.patient?.id||'')}">${ic('plus',15)} Record Child Weight / Height / MUAC</button>`:''}`)
+      + sheetBar
+      + `<div class="grid g4" style="margin-bottom:14px">
+          ${kpi('Children & adolescents (<18y)', num(childCohort.length), `${num(childU5.length)} Under-5s (6–59 mos) · ${num(childCohort.length - childU5.length)} 5–17 yrs`, 'info', 'users')}
+          ${kpi('RED MUAC Tape (SAM)', num(childRedMuac.length), 'Immediate IMAM therapeutic RUTF / clinical triage', childRedMuac.length?'crit':'ok', 'alert')}
+          ${kpi('YELLOW MUAC Tape (MAM)', num(childAmberMuac.length), 'Supplementary nutrition & Special Food Bag', childAmberMuac.length?'warn':'ok', 'activity')}
+          ${kpi('GREEN MUAC Tape (Healthy)', num(childCohort.length - childRedMuac.length - childAmberMuac.length), 'Catch-up & sustained linear child growth', 'ok', 'check')}
+        </div>`
+      + (selectedChildInfo ? card(`Longitudinal child growth charts — ${selectedChildInfo.patient.name} (${selectedChildInfo.patient.code} · ${selectedChildInfo.age} yrs · ${areaName(selectedChildInfo.patient.areaId)})`,
+          `<div class="row" style="gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+            <label class="xs bold muted">Inspect child growth curve:</label>
+            <select class="input" style="max-width:360px" onchange="go('bmiboard',{sheet:'children',childId:this.value,area:'${esc(areaFilter)}'})">
+              ${childFiltered.slice(0, 120).map(x=>`<option value="${esc(x.patient.id)}" ${x.patient.id===selectedChildInfo.patient.id?'selected':''}>${esc(x.patient.name)} (${x.age}y ${x.patient.sex} · ${esc(areaName(x.patient.areaId))} · MUAC ${x.muacCm} cm)</option>`).join('')}
+            </select>
+            <button class="btn btn-xs btn-ghost" data-act="go" data-v="patient" data-id="${esc(selectedChildInfo.patient.id)}" data-tab="visits">${ic('user',12)} Open Full Child File</button>
+          </div>`
+          + this.renderPatientGrowthCharts(selectedChildInfo.patient),
+          { sub:'Three synchronised WHO/MoH anthropometric charts plotted across every Home, Hospital & Homestay visit.' }) : '')
+      + card(`Paediatric anthropometric register (${num(childFiltered.length)} children <18 yrs)`,
+          table([
+            { label:'Child Beneficiary', render:x=>`<button class="linkbtn cellname" data-act="go" data-v="bmiboard" data-sheet="children" data-child-id="${esc(x.patient.id)}">${esc(x.patient.name)}</button><div class="xs muted mono">${esc(x.patient.code)} · ${x.age} yrs (${x.patient.sex}) · ${esc(areaName(x.patient.areaId))}</div>` },
+            { label:'Weight Gain', cls:'mono', render:x=>`<b>${x.weightKg.toFixed(1)} kg</b> · ${x.heightCm} cm<div class="xs ${x.weightDeltaKg>=0?'ok':'crit'}">Baseline ${x.baselineWeightKg.toFixed(1)} kg (${x.weightDeltaKg>=0?'+':''}${x.weightDeltaKg} kg)</div>` },
+            { label:'WHO BMI-for-Age', render:x=>this.badgeHTML(x.bmi, true, x.age) },
+            { label:'MUAC Tape Band', render:x=>`${this.muacBadgeHTML(x.muacMm, x.age, true)}<div class="xs muted mono">${x.muacDeltaMm>=0?'+':''}${(x.muacDeltaMm/10).toFixed(1)} cm vs intake</div>` },
+            { label:'Visits Logged', cls:'num mono', render:x=>`${x.visitsCount} visits` },
+            { label:'', cls:'act', render:x=>`<button class="btn btn-xs btn-ghost" data-act="go" data-v="bmiboard" data-sheet="children" data-child-id="${esc(x.patient.id)}">View 3 Charts</button>` }
+          ], childFiltered.slice(0, 60), {emptyMsg:'No paediatric patients in current filter.'}));
+    }
 
     return pageHead('BMI nutritional status & anthropometric intelligence',
-      `${esc(roleLens)} · Standardised WHO/MOH nutritional classification, 3-visit weight rule enforcement, and plausibility verification.`,
+      `${esc(roleLens)} · Standardised WHO/MOH nutritional classification, child growth curves, 3-visit weight rule enforcement, and plausibility verification.`,
       `${canRecord?`<button class="btn btn-sm btn-primary" data-act="bmi-record-modal">${ic('plus',15)} Record / Verify Weight & Height</button>`:''}
        ${RBAC.has(user,'clinical.mcm')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="clinicalmcm">${ic('activity',15)} Case Manager Console</button>`:''}`)
+    + sheetBar
     + `<div class="bmi-legend-strip">
         ${BMI_BANDS.map(b=>`<button class="bmi-band-card ${bandFilter===b.id?'on':''}" data-act="go" data-v="bmiboard" data-band="${bandFilter===b.id?'':b.id}" style="--bc:${b.hex};--bbg:${b.bg};--bbr:${b.border}">
           <div class="spread"><span class="xs bold" style="color:${b.hex}">${esc(b.short)}</span><b class="mono" style="font-size:18px;color:${b.hex}">${num(counts[b.id]||0)}</b></div>
@@ -448,7 +709,7 @@ Object.assign(ACTIONS, {
     p.clinical.bmiCategory = band.label;
     p.clinical.bmiVerifiedBy = AUTH.user.id;
     p.clinical.bmiVerifiedAt = new Date().toISOString();
-    const vCount = (DB.db.visits||[]).filter(v=>v.patientId===p.id).length;
+    const vCount = DB.visitsFor ? DB.visitsFor(p.id).length : (DB.db.visits||[]).filter(v=>v.patientId===p.id).length;
     p.clinical.lastWeighedVisitCount = vCount;
     AUDIT.append({ actor:AUTH.user.id, action:'patient.bmi.recorded', entity:'patient', entityId:p.id,
       detail:`${p.code}: ${w} kg / ${h} cm -> BMI ${bmi} (${band.short}) · ${fd.get('context')}` });
