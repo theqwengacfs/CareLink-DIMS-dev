@@ -633,7 +633,8 @@ function renderLogin6(){
         ${LOGIN6.error?(()=>{
           const isKvUnavailable = /refused the (read|write)|could not be read|not configured/i.test(LOGIN6.error) && !/WRONGTYPE/i.test(LOGIN6.error);
           const showResetBtn = !isActivated && !isKvUnavailable && (commissionedEntryActive() || (host && host.setup) || /invalid online database|malformed JSON|WRONGTYPE|corrupted|KV/i.test(LOGIN6.error));
-          return `<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span><div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">${isKvUnavailable ? `<button class="btn btn-xs btn-primary" type="button" data-act="login-retry-kv">${ic('refresh',12)} Retry Cloud KV Connection</button>` : ''}${showResetBtn ? `<button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button>` : ''}</div></div></div>`;
+          const showOfflineBtn = isKvUnavailable && !isActivated && !demoBlocked;
+          return `<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span><div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">${isKvUnavailable ? `<button class="btn btn-xs btn-primary" type="button" data-act="login-retry-kv">${ic('refresh',12)} Retry Cloud KV Connection</button>` : ''}${showOfflineBtn ? `<button class="btn btn-xs btn-ghost" type="button" data-act="login-offline-device-mode" style="background:#FFFFFF;color:#0F172A;border:1px solid #94A3B8;font-weight:700">${ic('laptop',12)} Open Offline Console on This Device</button>` : ''}${showResetBtn ? `<button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button>` : ''}</div></div></div>`;
         })():''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
         <div class="lg-tabs" style="grid-template-columns:repeat(${demoBlocked?4:5},1fr)">
@@ -960,7 +961,28 @@ Object.assign(ACTIONS, {
       render();
     }
   },
+  'sync-retry': async () => {
+    closeModal();
+    if (typeof SYNC !== 'undefined' && SYNC.deviceOnlyOverride) {
+      SYNC.deviceOnlyOverride = false;
+      const diag = SYNC._json ? await SYNC._json('api/kv-diagnostics', { skipAuthHeader: true, timeoutMs: 10000 }) : null;
+      if (diag && diag.ok && diag.body && diag.body.ok) {
+        toast('Cloud KV Reachable', 'Online KV store is now responding. Sign out and sign back in to sync live with Cloud KV.', 'ok');
+        await SYNC.start();
+      } else {
+        SYNC.deviceOnlyOverride = true;
+        SYNC.state = 'device';
+        SYNC.message = 'Offline/static mode — local records only';
+        SYNC.bump();
+        const errMsg = (diag && diag.body && diag.body.error) || 'Cloud KV is still unavailable; staying in Offline Device Mode.';
+        toast('Cloud KV Still Unavailable', errMsg, 'err');
+      }
+      return;
+    }
+    if (typeof SYNC !== 'undefined') await SYNC.start();
+  },
   'login-retry-kv': async () => {
+    if (typeof SYNC !== 'undefined') SYNC.deviceOnlyOverride = false;
     LOGIN6.busy = true; LOGIN6.error = ''; LOGIN6.notice = ''; render();
     try {
       const diag = (typeof SYNC !== 'undefined' && SYNC._json)
@@ -985,6 +1007,64 @@ Object.assign(ACTIONS, {
       toast('Cloud KV Unavailable', LOGIN6.error, 'err');
       render();
     }
+  },
+  'login-offline-device-mode': async () => {
+    if (demoEntryBlocked()) {
+      return toast('Offline Evaluation Locked', 'This installation is globally activated and requires the shared online KV store.', 'err');
+    }
+    const typedUser = String((($('#lg-u') || {}).value) || LOGIN6.usernameDraft || 'director').trim().toLowerCase();
+    if (typeof SYNC !== 'undefined') {
+      clearTimeout(SYNC._timer);
+      if (SYNC.stopPolling) SYNC.stopPolling();
+      if (SYNC.storeToken) SYNC.storeToken(null);
+      SYNC.deviceOnlyOverride = true;
+      SYNC.state = 'device';
+      SYNC.message = 'Offline/static mode — local records only';
+      SYNC.bump();
+    }
+    if (!(DB.db && Array.isArray(DB.db.patients) && DB.db.patients.length >= 100)) {
+      DB.seedOfficial({ patients: 3333, mustChange: false });
+    } else if (DB.db && Array.isArray(DB.db.users)) {
+      DB.db.users.forEach(u => {
+        if (u && !u.hash) {
+          u.salt = u.salt || newSalt();
+          u.hash = strongHash('LOMAMO2026', u.salt);
+          u.status = 'active';
+          u.active = true;
+          u.mustChange = false;
+        }
+      });
+    }
+    const users = (DB.db && Array.isArray(DB.db.users)) ? DB.db.users : [];
+    const target = users.find(u =>
+      String(u.username || '').toLowerCase() === typedUser ||
+      String(u.email || '').toLowerCase() === typedUser ||
+      String(u.roleId || '').toLowerCase() === typedUser
+    ) || users.find(u => u.username === 'director') || users[0];
+    if (!target) {
+      return toast('No Local Account Found', 'Could not provision local evaluation accounts.', 'err');
+    }
+    if (!target.hash || !target.salt) {
+      target.salt = newSalt();
+      target.hash = strongHash('LOMAMO2026', target.salt);
+    }
+    target.mustChange = false;
+    target.mustChangePassword = false;
+    target.status = 'active';
+    target.active = true;
+    const localRes = AUTH.login(target.username, 'LOMAMO2026');
+    if (!localRes.ok) {
+      LOGIN6.error = '';
+      LOGIN6.notice = `Switched this tab to Offline Device Mode (3,333 patients). Sign in with demonstration password LOMAMO2026 (e.g. ${target.username}).`;
+      return render();
+    }
+    LOGIN6.error = '';
+    LOGIN6.busy = false;
+    APPX.screen = 'app';
+    SESSION.start();
+    NAVH.reset(); NAVH.push('home', {}); APPX.view = 'home'; APPX.params = {};
+    render();
+    toast('Offline Device Console Opened', `Signed in as ${target.jobTitle || target.name} on this device only while Cloud KV is offline.`, 'warn');
   },
   'ob-retry-host': async () => {
     ONB.busy = true; ONB.error = ''; render();

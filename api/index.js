@@ -14,7 +14,9 @@
 
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
+import tls from 'node:tls';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 
@@ -163,15 +165,134 @@ function kvConfig() {
   return list.length ? list[0] : null;
 }
 
+function redisTcpCandidates() {
+  const raws = [
+    process.env.CARELINK_REDIS_URL,
+    process.env.KV_URL,
+    process.env.REDIS_URL,
+    process.env.UPSTASH_REDIS_URL,
+    process.env.STORAGE_URL,
+  ];
+  const out = [];
+  const seen = new Set();
+  for (const r of raws) {
+    const clean = String(r || '').trim().replace(/^["']+|["']+$/g, '').trim();
+    if (!/^rediss?:\/\//i.test(clean)) continue;
+    try {
+      const u = new URL(clean);
+      const id = `${u.protocol}//${u.username}:${u.password}@${u.host}${u.pathname}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const dbMatch = /^\/(\d+)$/.exec(u.pathname || '');
+      out.push({
+        protocol: u.protocol.toLowerCase(),
+        host: u.hostname,
+        port: Number(u.port) || 6379,
+        username: u.username ? decodeURIComponent(u.username) : '',
+        password: u.password ? decodeURIComponent(u.password) : '',
+        db: dbMatch ? Number(dbMatch[1]) : 0,
+      });
+    } catch { /* ignore malformed URL */ }
+  }
+  return out;
+}
+
+function encodeRespCommand(args) {
+  const chunks = [Buffer.from(`*${args.length}\r\n`, 'utf8')];
+  for (const arg of args) {
+    const b = Buffer.isBuffer(arg) ? arg : Buffer.from(String(arg), 'utf8');
+    chunks.push(Buffer.from(`$${b.length}\r\n`, 'utf8'), b, Buffer.from('\r\n', 'utf8'));
+  }
+  return Buffer.concat(chunks);
+}
+
+function parseNextRespReply(buf, offset = 0) {
+  const crlf = buf.indexOf('\r\n', offset);
+  if (crlf === -1) return null;
+  const prefix = buf[offset];
+  const head = buf.subarray(offset + 1, crlf).toString('utf8');
+  if (prefix === 43) return { ok: true, value: head, next: crlf + 2 }; // '+'
+  if (prefix === 45) return { ok: false, error: head, next: crlf + 2 }; // '-'
+  if (prefix === 58) return { ok: true, value: Number(head), next: crlf + 2 }; // ':'
+  if (prefix === 36) { // '$'
+    const byteLen = Number(head);
+    if (byteLen === -1) return { ok: true, value: null, next: crlf + 2 };
+    const end = crlf + 2 + byteLen;
+    if (buf.length < end + 2) return null;
+    const strVal = buf.subarray(crlf + 2, end).toString('utf8');
+    return { ok: true, value: strVal, next: end + 2 };
+  }
+  return { ok: false, error: `Unexpected RESP prefix ${String.fromCharCode(prefix)}`, next: crlf + 2 };
+}
+
+function execRedisTcpCommand(cfg, cmdArgs, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const pipeline = [];
+    if (cfg.password) {
+      pipeline.push(cfg.username ? ['AUTH', cfg.username, cfg.password] : ['AUTH', cfg.password]);
+    }
+    if (cfg.db > 0) pipeline.push(['SELECT', String(cfg.db)]);
+    pipeline.push(cmdArgs);
+    const expectedReplies = pipeline.length;
+    const payload = Buffer.concat(pipeline.map(encodeRespCommand));
+
+    let settled = false;
+    let recv = Buffer.alloc(0);
+    const finish = (err, val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { sock.destroy(); } catch { /* ignore */ }
+      if (err) reject(err);
+      else resolve(val);
+    };
+
+    const sock = cfg.protocol === 'rediss:'
+      ? tls.connect({ host: cfg.host, port: cfg.port, servername: cfg.host })
+      : net.createConnection({ host: cfg.host, port: cfg.port });
+
+    const timer = setTimeout(() => {
+      finish(new Error(`Redis TCP connection timed out (${cfg.host}:${cfg.port})`));
+    }, timeoutMs);
+
+    sock.once('error', (err) => finish(err));
+    sock.once('connect', () => {
+      if (cfg.protocol !== 'rediss:') sock.write(payload);
+    });
+    sock.once('secureConnect', () => {
+      sock.write(payload);
+    });
+    sock.on('data', (chunk) => {
+      recv = recv.length ? Buffer.concat([recv, chunk]) : chunk;
+      let pos = 0;
+      const replies = [];
+      while (replies.length < expectedReplies) {
+        const parsed = parseNextRespReply(recv, pos);
+        if (!parsed) return;
+        pos = parsed.next;
+        replies.push(parsed);
+      }
+      for (const r of replies) {
+        if (!r.ok) return finish(new Error(r.error || 'Redis error'));
+      }
+      return finish(null, replies[replies.length - 1].value);
+    });
+    sock.once('end', () => {
+      if (!settled) finish(new Error(`Redis connection closed before reply (${cfg.host})`));
+    });
+  });
+}
+
 function requireKv(opts = {}) {
   const list = kvCandidates(opts);
-  if (!list.length) {
+  const tcpList = redisTcpCandidates();
+  if (!list.length && !tcpList.length) {
     throw new CloudStorageError(
       'kv_required',
-      'CareLink online storage is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN) in Vercel; no local fallback is used.'
+      'CareLink online storage is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL / REDIS_URL / KV_URL) in Vercel; no local fallback is used.'
     );
   }
-  return list[0];
+  return list[0] || { tcp: tcpList[0] };
 }
 
 function blankStore() {
@@ -233,8 +354,27 @@ function invalidateManifestCache() {
   _manifestReadInflight = null;
 }
 
-function classifyKvFailure(op, status, errText) {
-  const msg = String(errText || '').trim();
+function cleanKvErrorSnippet(rawText) {
+  const s = String(rawText || '').trim();
+  if (!s) return '';
+  if (/<!doctype html|<html/i.test(s)) {
+    if (/cloudflare|just a moment|attention required/i.test(s)) {
+      return 'Cloudflare WAF blocked the request with an HTML 403 challenge';
+    }
+    const titleMatch = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(s);
+    if (titleMatch && titleMatch[1]) return titleMatch[1].replace(/\s+/g, ' ').trim().slice(0, 120);
+    return 'HTML error page returned instead of Upstash JSON (verify KV_REST_API_URL points to https://<endpoint>.upstash.io)';
+  }
+  return s.replace(/\s+/g, ' ').slice(0, 160);
+}
+
+function hostLabelOf(urlStr) {
+  try { return new URL(urlStr).host; } catch { return ''; }
+}
+
+function classifyKvFailure(op, status, errText, hostHint = '') {
+  const msg = cleanKvErrorSnippet(errText);
+  const hostNote = hostHint && !/\.test$|\.local$|^localhost$/i.test(hostHint) ? ` on ${hostHint}` : '';
   if (/WRONGTYPE/i.test(msg)) {
     return new CloudStorageError(
       'kv_invalid_state',
@@ -244,27 +384,58 @@ function classifyKvFailure(op, status, errText) {
   if (op === 'write' && (status === 413 || /max[\w\s-]*(request|value|record)[\w\s-]*size|too large|entity too large/i.test(msg))) {
     return new CloudStorageError('kv_payload_too_large', msg || 'KV command exceeded single-key size limit.');
   }
-  if (status === 401 || status === 403 || /unauthorized|invalid[\w\s-]*token|noperm|no permissions|forbidden/i.test(msg)) {
-    const readOnlyHint = /noperm|no permissions/i.test(msg)
-      ? ' — a Read-Only token appears to be configured instead of the Read/Write REST token'
-      : '';
+  if (status === 429 || /max[\w\s-]*(daily|monthly|requests?\s+limit|bandwidth|data\s*size)|quota|limit\s*exceeded|archived|paused|suspended/i.test(msg)) {
     return new CloudStorageError(
       op === 'write' ? 'kv_write_failed' : 'kv_unavailable',
-      `The mandatory CareLink KV store refused the ${op} (HTTP ${status || 401}: Upstash rejected the KV REST token${readOnlyHint}; check KV_REST_API_URL & KV_REST_API_TOKEN or UPSTASH_REDIS_REST_URL & UPSTASH_REDIS_REST_TOKEN in Vercel Environment Variables and Redeploy); no local fallback is used.`
+      `The mandatory CareLink KV store${hostNote} refused the ${op} (Upstash quota or paused/archived database${status ? ' HTTP ' + status : ''}: ${msg || 'request limit reached'} — open console.upstash.com or Vercel Storage to unpause/upgrade or connect a fresh Upstash Redis database); no local fallback is used.`
     );
   }
-  if (status === 429 || /max[\w\s-]*(daily|monthly|requests?\s+limit|bandwidth)|quota|limit\s*exceeded|archived|paused/i.test(msg)) {
+  if (status === 401 || status === 403 || /unauthorized|invalid[\w\s-]*token|wrongpass|noperm|no permissions|forbidden/i.test(msg)) {
+    const readOnlyHint = /noperm|no permissions/i.test(msg)
+      ? ' — a Read-Only token is configured instead of the Read/Write REST token'
+      : '';
+    const rawDetail = msg && !/^unauthorized$/i.test(msg) ? ` [${msg}]` : '';
     return new CloudStorageError(
       op === 'write' ? 'kv_write_failed' : 'kv_unavailable',
-      `The mandatory CareLink KV store refused the ${op} (Upstash database quota or paused state${status ? ' HTTP ' + status : ''}: ${msg.slice(0, 150) || 'request limit reached'} — unpause/upgrade your Upstash Redis database or attach a fresh Upstash KV store in Vercel Storage); no local fallback is used.`
+      `The mandatory CareLink KV store${hostNote} refused the ${op} (HTTP ${status || 401}: Upstash rejected the KV credentials${readOnlyHint}${rawDetail} — verify KV_REST_API_URL & KV_REST_API_TOKEN or UPSTASH_REDIS_REST_URL & UPSTASH_REDIS_REST_TOKEN in Vercel Environment Variables match an active Upstash database without IP allowlist restrictions, then Redeploy); no local fallback is used.`
     );
   }
   if (op === 'write') {
-    const extra = msg && msg !== 'write unavailable' ? ` (${status ? 'HTTP ' + status + ': ' : ''}${msg.slice(0, 140)})` : '';
-    return new CloudStorageError('kv_write_failed', `CareLink KV refused the write${extra}; the change was not acknowledged.`);
+    const extra = msg && msg !== 'write unavailable' ? ` (${status ? 'HTTP ' + status + ': ' : ''}${msg})` : '';
+    return new CloudStorageError('kv_write_failed', `CareLink KV${hostNote} refused the write${extra}; the change was not acknowledged.`);
   }
-  const extra = msg && msg !== 'read unavailable' ? ` (${status ? 'HTTP ' + status + ': ' : ''}${msg.slice(0, 140)})` : '';
-  return new CloudStorageError('kv_unavailable', `The mandatory CareLink KV store refused the read${extra}; no local fallback is used.`);
+  const extra = msg && msg !== 'read unavailable' ? ` (${status ? 'HTTP ' + status + ': ' : ''}${msg})` : '';
+  return new CloudStorageError('kv_unavailable', `The mandatory CareLink KV store${hostNote} refused the read${extra}; no local fallback is used.`);
+}
+
+async function parseKvHttpResponse(response) {
+  if (typeof response.text === 'function') {
+    const raw = await response.text();
+    try {
+      return { payload: JSON.parse(raw), rawText: raw };
+    } catch {
+      return { payload: undefined, rawText: raw };
+    }
+  }
+  try {
+    const payload = await response.json();
+    return { payload, rawText: '' };
+  } catch {
+    return { payload: undefined, rawText: '' };
+  }
+}
+
+function unwrapUpstashStringResult(result) {
+  let out = result;
+  if (typeof out === 'string' && out.length >= 2 && out.startsWith('"') && out.endsWith('"')) {
+    try {
+      const unwrapped = JSON.parse(out);
+      if (typeof unwrapped === 'string') out = unwrapped;
+    } catch {
+      /* keep raw result string */
+    }
+  }
+  return out;
 }
 
 async function fetchKvWithRetry(url, init = {}, timeoutMs = 8000) {
@@ -293,53 +464,57 @@ async function fetchKvWithRetry(url, init = {}, timeoutMs = 8000) {
 }
 
 async function readKvStringFromCandidate(kv, key) {
+  const isMock = isTestKvHost(kv.url);
+  const hostHint = hostLabelOf(kv.url);
+  const baseHeaders = isMock
+    ? { Authorization: `Bearer ${kv.token}` }
+    : { Authorization: `Bearer ${kv.token}`, Accept: 'application/json', 'User-Agent': 'upstash-redis-js/1.34.0' };
   let response;
   try {
-    response = await fetchKvWithRetry(`${kv.url}/get/${key}`, {
-      headers: { Authorization: `Bearer ${kv.token}` },
-    });
+    response = await fetchKvWithRetry(`${kv.url}/get/${key}`, { headers: baseHeaders });
   } catch {
     throw new CloudStorageError('kv_unavailable', 'The mandatory CareLink KV store could not be read; no local fallback is used.');
   }
-  let payload = undefined;
-  try {
-    payload = await response.json();
-  } catch {
+  let { payload, rawText } = await parseKvHttpResponse(response);
+  /* On real Upstash/WAF endpoints, if GET /get/<key> returned 403/404/405, retry
+     using Upstash's canonical POST root JSON command API (["GET", key]). */
+  if (!isMock && !response.ok && (response.status === 403 || response.status === 404 || response.status === 405)) {
+    try {
+      const postResp = await fetchKvWithRetry(kv.url, {
+        method: 'POST',
+        headers: { ...baseHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify(['GET', key]),
+      });
+      if (postResp.ok) {
+        response = postResp;
+        ({ payload, rawText } = await parseKvHttpResponse(postResp));
+      }
+    } catch { /* keep original response error */ }
+  }
+  if (payload === undefined) {
     if (!response.ok) {
-      throw classifyKvFailure('read', response.status, '');
+      throw classifyKvFailure('read', response.status, rawText, hostHint);
     }
     throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an unreadable response; no local fallback is used.');
   }
   const errMsg = payload && typeof payload === 'object' && payload.error ? String(payload.error) : '';
   if (!response.ok || errMsg) {
-    throw classifyKvFailure('read', response.status, errMsg);
+    throw classifyKvFailure('read', response.status, errMsg || rawText, hostHint);
   }
   if (!payload || !Object.prototype.hasOwnProperty.call(payload, 'result')) {
     throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an invalid response; no local fallback is used.');
   }
-  let result = payload.result;
-  /* Upstash REST POST /set/<key> stores the raw HTTP body verbatim, whereas
-     writeKvString sends JSON.stringify(String(value)). Unwrap one outer JSON
-     string literal layer when present so real Upstash KV and unit-test mocks
-     both return the exact underlying string. */
-  if (typeof result === 'string' && result.length >= 2 && result.startsWith('"') && result.endsWith('"')) {
-    try {
-      const unwrapped = JSON.parse(result);
-      if (typeof unwrapped === 'string') result = unwrapped;
-    } catch {
-      /* keep raw result string */
-    }
-  }
-  return result;
+  return unwrapUpstashStringResult(payload.result);
 }
 
 async function readKvString(key) {
   const candidates = kvCandidates({ allowReadOnlyFallback: true });
-  if (!candidates.length) requireKv();
-  const primary = candidates[0];
-  const canBurstCache = key === CLOUD_KEY && !isTestKvHost(primary.url);
+  const tcpCandidates = redisTcpCandidates();
+  if (!candidates.length && !tcpCandidates.length) requireKv();
+  const primaryUrl = candidates[0] ? candidates[0].url : `tcp://${tcpCandidates[0].host}`;
+  const canBurstCache = key === CLOUD_KEY && !isTestKvHost(primaryUrl);
   if (canBurstCache) {
-    if (_manifestReadCache && _manifestReadCache.url === primary.url && (Date.now() - _manifestReadCache.at) < 1500) {
+    if (_manifestReadCache && _manifestReadCache.url === primaryUrl && (Date.now() - _manifestReadCache.at) < 1500) {
       return _manifestReadCache.value;
     }
     if (_manifestReadInflight) return _manifestReadInflight;
@@ -352,12 +527,26 @@ async function readKvString(key) {
         const val = await readKvStringFromCandidate(cand, key);
         if (idx > 0 && !cand.readOnly) _pinnedKvIndex = idx;
         if (key === CLOUD_KEY && !isTestKvHost(cand.url)) {
-          _manifestReadCache = { url: cand.url, at: Date.now(), value: val };
+          _manifestReadCache = { url: primaryUrl, at: Date.now(), value: val };
         }
         return val;
       } catch (err) {
         lastErr = err;
         if (err && err.code === 'kv_invalid_state') throw err;
+      }
+    }
+    for (const tcpCfg of tcpCandidates) {
+      try {
+        const rawVal = await execRedisTcpCommand(tcpCfg, ['GET', key]);
+        const val = unwrapUpstashStringResult(rawVal);
+        if (key === CLOUD_KEY && !isTestKvHost(`https://${tcpCfg.host}`)) {
+          _manifestReadCache = { url: primaryUrl, at: Date.now(), value: val };
+        }
+        return val;
+      } catch (err) {
+        const msg = String((err && err.message) || '');
+        if (/WRONGTYPE/i.test(msg)) throw classifyKvFailure('read', 400, msg, tcpCfg.host);
+        if (!lastErr) lastErr = classifyKvFailure('read', 503, msg, tcpCfg.host);
       }
     }
     throw lastErr;
@@ -370,35 +559,48 @@ async function readKvString(key) {
 async function writeKvString(key, value, { exSeconds = 0 } = {}) {
   invalidateManifestCache();
   const candidates = kvCandidates({ allowReadOnlyFallback: false });
-  if (!candidates.length) requireKv();
+  const tcpCandidates = redisTcpCandidates();
+  if (!candidates.length && !tcpCandidates.length) requireKv();
+  const strVal = String(value);
   let lastErr = null;
   for (let idx = 0; idx < candidates.length; idx++) {
     const kv = candidates[idx];
+    const isMock = isTestKvHost(kv.url);
+    const hostHint = hostLabelOf(kv.url);
+    const hdrs = isMock
+      ? { Authorization: `Bearer ${kv.token}`, 'Content-Type': 'application/json' }
+      : { Authorization: `Bearer ${kv.token}`, 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'upstash-redis-js/1.34.0' };
     let response;
     try {
       response = await fetchKvWithRetry(`${kv.url}/set/${key}${exSeconds ? `?EX=${Math.max(60, Math.floor(exSeconds))}` : ''}`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${kv.token}`,
-          'Content-Type': 'application/json',
-        },
-        /* Upstash's REST SET endpoint accepts a JSON string containing the
-           serialized value. Await the write before acknowledging it. */
-        body: JSON.stringify(String(value)),
+        headers: hdrs,
+        body: JSON.stringify(strVal),
       }, 10000);
     } catch {
       lastErr = new CloudStorageError('kv_write_failed', 'CareLink could not commit to the mandatory KV store; the change was not acknowledged.');
       continue;
     }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
+    let { payload, rawText } = await parseKvHttpResponse(response);
+    if (!isMock && !response.ok && (response.status === 403 || response.status === 404 || response.status === 405)) {
+      try {
+        const cmd = exSeconds
+          ? ['SET', key, strVal, 'EX', String(Math.max(60, Math.floor(exSeconds)))]
+          : ['SET', key, strVal];
+        const postResp = await fetchKvWithRetry(kv.url, {
+          method: 'POST',
+          headers: hdrs,
+          body: JSON.stringify(cmd),
+        }, 10000);
+        if (postResp.ok) {
+          response = postResp;
+          ({ payload, rawText } = await parseKvHttpResponse(postResp));
+        }
+      } catch { /* keep original response error */ }
     }
     const errMsg = payload && payload.error ? String(payload.error) : '';
     if (!response.ok || errMsg) {
-      const classified = classifyKvFailure('write', response.status, errMsg);
+      const classified = classifyKvFailure('write', response.status, errMsg || rawText, hostHint);
       if (classified.code === 'kv_payload_too_large') throw classified;
       lastErr = classified;
       continue;
@@ -406,22 +608,44 @@ async function writeKvString(key, value, { exSeconds = 0 } = {}) {
     if (idx > 0) _pinnedKvIndex = idx;
     return;
   }
+  for (const tcpCfg of tcpCandidates) {
+    try {
+      const cmd = exSeconds
+        ? ['SET', key, strVal, 'EX', String(Math.max(60, Math.floor(exSeconds)))]
+        : ['SET', key, strVal];
+      await execRedisTcpCommand(tcpCfg, cmd, 10000);
+      return;
+    } catch (err) {
+      const msg = String((err && err.message) || '');
+      const classified = classifyKvFailure('write', 503, msg, tcpCfg.host);
+      if (classified.code === 'kv_payload_too_large') throw classified;
+      if (!lastErr) lastErr = classified;
+    }
+  }
   throw lastErr || new CloudStorageError('kv_write_failed', 'CareLink KV refused the write; the change was not acknowledged.');
 }
 
 async function deleteKvKey(key) {
   invalidateManifestCache();
-  const kv = requireKv();
-  try {
-    const response = await fetchKvWithRetry(`${kv.url}/del/${key}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${kv.token}`, 'Content-Type': 'application/json' },
-      body: '[]',
-    }, 5000);
-    return response.ok;
-  } catch {
-    return false;
+  const candidates = kvCandidates({ allowReadOnlyFallback: false });
+  const tcpCandidates = redisTcpCandidates();
+  for (const kv of candidates) {
+    try {
+      const response = await fetchKvWithRetry(`${kv.url}/del/${key}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${kv.token}`, 'Content-Type': 'application/json' },
+        body: '[]',
+      }, 5000);
+      if (response.ok) return true;
+    } catch { /* try next */ }
   }
+  for (const tcpCfg of tcpCandidates) {
+    try {
+      await execRedisTcpCommand(tcpCfg, ['DEL', key], 5000);
+      return true;
+    } catch { /* try next */ }
+  }
+  return false;
 }
 
 function serializeCloudState(state) {
@@ -1371,23 +1595,27 @@ async function handleRequest(req, res) {
   /* 0a. Safe Non-Sensitive KV Connection Diagnostics (never exposes tokens or PII) */
   if (route === 'kv-diagnostics' && method === 'GET') {
     const cands = kvCandidates({ allowReadOnlyFallback: true });
-    if (!cands.length) {
+    const tcpCands = redisTcpCandidates();
+    if (!cands.length && !tcpCands.length) {
       return sendJson(res, 503, {
         ok: false,
         configured: false,
         code: 'kv_required',
-        error: 'CareLink online storage is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN) in Vercel.',
+        error: 'CareLink online storage is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL / REDIS_URL / KV_URL) in Vercel.',
       });
     }
-    const hosts = cands.map((c) => {
-      try { return new URL(c.url).host; } catch { return 'invalid-url'; }
-    });
+    const hosts = [
+      ...cands.map((c) => { try { return new URL(c.url).host; } catch { return 'invalid-url'; } }),
+      ...tcpCands.map((t) => `${t.protocol}//${t.host}:${t.port}`),
+    ];
     try {
       const head = await loadCloudHead();
       return sendJson(res, 200, {
         ok: true,
         configured: true,
-        candidateCount: cands.length,
+        candidateCount: cands.length + tcpCands.length,
+        restCandidates: cands.length,
+        tcpCandidates: tcpCands.length,
         hosts,
         rev: head.state.rev || 0,
         setup: Boolean(head.state.setup),
@@ -1397,7 +1625,9 @@ async function handleRequest(req, res) {
       return sendJson(res, err.statusCode || 503, {
         ok: false,
         configured: true,
-        candidateCount: cands.length,
+        candidateCount: cands.length + tcpCands.length,
+        restCandidates: cands.length,
+        tcpCandidates: tcpCands.length,
         hosts,
         code: err.code || 'kv_unavailable',
         error: err.message || 'CareLink KV diagnostic check failed.',

@@ -11,6 +11,7 @@
    5. Zero-Scroll Landing Page (1366x768+) & Deduplicated Action Controls
    ============================================================================ */
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
 const { makeCtx } = require('./dom');
 
@@ -31,9 +32,13 @@ function keyFromPath(url, prefix) {
 
 let kvRefusalOverride = null;
 const secondaryKv = new Map();
+let liveUpstashMockHandler = null;
 
 global.fetch = async (input, init = {}) => {
   const url = new URL(String(input));
+  if (url.origin === 'https://live-upstash-mock.upstash.io' && typeof liveUpstashMockHandler === 'function') {
+    return liveUpstashMockHandler(url, init);
+  }
   if (url.origin === 'https://kv-backup-v665.test') {
     const rawBody = String(init.body || '');
     if (url.pathname.startsWith('/get/')) {
@@ -385,6 +390,203 @@ function ok(name, cond, detail = '') {
     uiCheck.hasRetryBtn === true && uiCheck.hidesMisleadingResetBtn === true);
   ok('toast(..., "crit") renders red err class & alert icon (never green check icon)',
     Boolean(critToast && critToast.className === 'toast err' && critToast.innerHTML.includes('var(--crit)')));
+
+  /* 8. v6.6.7 HTTP 403 Root-POST Retry, Native Redis TCP RESP2 Failover, Exact Host/Body 403 Diagnostics & Offline Device Escape Hatch */
+  const origPrimaryUrl = process.env.KV_REST_API_URL;
+  const origPrimaryTok = process.env.KV_REST_API_TOKEN;
+
+  /* 8a. Non-.test Upstash host returning HTTP 403 on GET /get/<key> retries POST / ["GET", key] with upstash-redis-js User-Agent */
+  let sawGet403 = false;
+  let sawRootPostWithUa = false;
+  const liveMap = new Map(kv);
+  liveUpstashMockHandler = async (url, init = {}) => {
+    const hdrs = init.headers || {};
+    const ua = hdrs['User-Agent'] || hdrs['user-agent'] || '';
+    if ((init.method || 'GET').toUpperCase() === 'GET' && url.pathname.startsWith('/get/')) {
+      sawGet403 = true;
+      return {
+        ok: false,
+        status: 403,
+        text: async () => '<html><title>Attention Required! | Cloudflare</title><body>403 Forbidden</body></html>',
+        json: async () => { throw new Error('HTML body'); }
+      };
+    }
+    if ((init.method || '').toUpperCase() === 'POST' && (url.pathname === '/' || url.pathname === '')) {
+      if (/upstash-redis-js/i.test(ua)) sawRootPostWithUa = true;
+      const cmd = JSON.parse(String(init.body || '[]'));
+      if (cmd[0] === 'GET') {
+        const k = cmd[1];
+        const val = liveMap.has(k) ? liveMap.get(k) : null;
+        return { ok: true, status: 200, text: async () => JSON.stringify({ result: val }), json: async () => ({ result: val }) };
+      }
+      if (cmd[0] === 'SET') {
+        liveMap.set(cmd[1], cmd[2]);
+        return { ok: true, status: 200, text: async () => JSON.stringify({ result: 'OK' }), json: async () => ({ result: 'OK' }) };
+      }
+    }
+    return { ok: false, status: 403, text: async () => '{"error":"Forbidden"}', json: async () => ({ error: 'Forbidden' }) };
+  };
+  process.env.KV_REST_API_URL = 'https://live-upstash-mock.upstash.io';
+  process.env.KV_REST_API_TOKEN = 'live-upstash-token';
+  const rootPostDiag = await rawApiFetch('api/kv-diagnostics');
+  const rootPostBody = await rootPostDiag.json();
+  ok('HTTP 403 on Upstash GET /get/<key> automatically retries canonical root POST ["GET", key] with User-Agent and succeeds',
+    rootPostDiag.ok === true && rootPostBody.ok === true && sawGet403 === true && sawRootPostWithUa === true,
+    JSON.stringify({ rootPostBody, sawGet403, sawRootPostWithUa }));
+
+  /* 8b. Exact HTTP 403 diagnostics (archived/paused/quota/Cloudflare + target hostname) when both GET and POST fail */
+  liveUpstashMockHandler = async () => ({
+    ok: false,
+    status: 403,
+    text: async () => JSON.stringify({ error: 'ERR database is archived due to inactivity' }),
+    json: async () => ({ error: 'ERR database is archived due to inactivity' })
+  });
+  /* Clear brief manifest head cache window by advancing Date or waiting >1.5s */
+  await new Promise((r) => setTimeout(r, 1600));
+  const archived403 = await rawApiFetch('api/kv-diagnostics');
+  const archivedBody = await archived403.json();
+  ok('HTTP 403 archived/paused Upstash response reports exact archived cause + hostname (not generic token rejection)',
+    archived403.status === 503 &&
+    /archived|paused|suspended/i.test(archivedBody.error) &&
+    /live-upstash-mock\.upstash\.io/i.test(archivedBody.error),
+    JSON.stringify(archivedBody));
+
+  /* 8c. Native Redis RESP2 TCP failover via REDIS_URL when REST KV returns HTTP 403 */
+  const tcpStore = new Map(kv);
+  let tcpAuthCount = 0;
+  let tcpGetCount = 0;
+  let tcpSetCount = 0;
+  function parseRespCommands(buf) {
+    const cmds = [];
+    let pos = 0;
+    while (pos < buf.length) {
+      if (buf[pos] !== 0x2a) break;
+      const lineEnd = buf.indexOf('\r\n', pos);
+      if (lineEnd === -1) break;
+      const argc = parseInt(buf.slice(pos + 1, lineEnd).toString('utf8'), 10);
+      let cur = lineEnd + 2;
+      const args = [];
+      let complete = true;
+      for (let i = 0; i < argc; i++) {
+        if (cur >= buf.length || buf[cur] !== 0x24) { complete = false; break; }
+        const bEnd = buf.indexOf('\r\n', cur);
+        if (bEnd === -1) { complete = false; break; }
+        const len = parseInt(buf.slice(cur + 1, bEnd).toString('utf8'), 10);
+        const start = bEnd + 2;
+        if (start + len + 2 > buf.length) { complete = false; break; }
+        args.push(buf.slice(start, start + len).toString('utf8'));
+        cur = start + len + 2;
+      }
+      if (!complete) break;
+      cmds.push(args);
+      pos = cur;
+    }
+    return { cmds, rest: buf.slice(pos) };
+  }
+  const redisServer = net.createServer((sock) => {
+    let rx = Buffer.alloc(0);
+    sock.on('data', (chunk) => {
+      rx = Buffer.concat([rx, chunk]);
+      const parsed = parseRespCommands(rx);
+      rx = parsed.rest;
+      for (const cmd of parsed.cmds) {
+        const op = String(cmd[0] || '').toUpperCase();
+        if (op === 'AUTH') {
+          tcpAuthCount++;
+          const pw = cmd.length >= 3 ? cmd[2] : cmd[1];
+          if (pw === 'tcp-secret') sock.write('+OK\r\n');
+          else sock.write('-WRONGPASS invalid username-password pair\r\n');
+        } else if (op === 'GET') {
+          tcpGetCount++;
+          const k = cmd[1];
+          if (!tcpStore.has(k)) sock.write('$-1\r\n');
+          else {
+            const valBuf = Buffer.from(String(tcpStore.get(k)), 'utf8');
+            sock.write(`$${valBuf.length}\r\n`);
+            sock.write(valBuf);
+            sock.write('\r\n');
+          }
+        } else if (op === 'SET') {
+          tcpSetCount++;
+          tcpStore.set(cmd[1], cmd[2]);
+          sock.write('+OK\r\n');
+        } else if (op === 'DEL') {
+          let removed = 0;
+          for (let i = 1; i < cmd.length; i++) {
+            if (tcpStore.delete(cmd[i])) removed++;
+          }
+          sock.write(`:${removed}\r\n`);
+        } else {
+          sock.write('+OK\r\n');
+        }
+      }
+    });
+  });
+  await new Promise((resolve) => redisServer.listen(0, '127.0.0.1', resolve));
+  const redisPort = redisServer.address().port;
+  process.env.REDIS_URL = `redis://default:tcp-secret@127.0.0.1:${redisPort}`;
+
+  const dirCred = actPack.rows.find(e => e.username === 'director');
+  const tcpDirLogin = await rawApiFetch('api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'director', password: dirCred.tempPassword })
+  });
+  const tcpDirBody = await tcpDirLogin.json();
+  const tcpChiefLogin = await rawApiFetch('api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'system.admin', password: chiefPrivPw })
+  });
+  const tcpChiefBody = await tcpChiefLogin.json();
+  ok('Native Redis RESP2 TCP failover (REDIS_URL) succeeds for Director & Chief Admin online login reads + writes when REST KV returns HTTP 403',
+    tcpDirLogin.ok === true && tcpDirBody.ok === true &&
+    tcpChiefLogin.ok === true && tcpChiefBody.ok === true &&
+    tcpAuthCount > 0 && tcpGetCount > 0 && tcpSetCount >= 0,
+    JSON.stringify({ dirOk: tcpDirBody.ok, chiefOk: tcpChiefBody.ok, tcpAuthCount, tcpGetCount, tcpSetCount, err: tcpChiefBody.error || tcpDirBody.error }));
+
+  delete process.env.REDIS_URL;
+  redisServer.close();
+  liveUpstashMockHandler = null;
+  process.env.KV_REST_API_URL = origPrimaryUrl;
+  process.env.KV_REST_API_TOKEN = origPrimaryTok;
+
+  /* 8d. Explicit Offline Device Console escape hatch when Cloud KV is down (!isActivated && !demoBlocked) */
+  const offlineClient = makeHostedClient();
+  const offlineBefore = JSON.parse(offlineClient.run(`JSON.stringify((()=>{
+    DB.load();
+    APPX.host = { ok: false, setup: false, globallyActivated: false };
+    LOGIN6.usernameDraft = 'director';
+    LOGIN6.error = 'The mandatory CareLink KV store refused the read on live.upstash.io (HTTP 403); no local fallback is used.';
+    const html = renderLogin6();
+    return {
+      syncAvailableBefore: SYNC.available(),
+      hasOfflineBtn: html.includes('data-act="login-offline-device-mode"'),
+      hasRetryBtn: html.includes('data-act="login-retry-kv"')
+    };
+  })())`));
+  ok('Unactivated Sign-In screen with Cloud KV HTTP 403 renders explicit Open Offline Console on This Device button',
+    offlineBefore.syncAvailableBefore === true && offlineBefore.hasOfflineBtn === true && offlineBefore.hasRetryBtn === true,
+    JSON.stringify(offlineBefore));
+
+  await offlineClient.run(`ACTIONS['login-offline-device-mode']()`);
+  const offlineAfter = JSON.parse(offlineClient.run(`JSON.stringify({
+    syncAvailableAfter: SYNC.available(),
+    syncState: SYNC.state,
+    screen: APPX.screen,
+    roleId: AUTH.user && AUTH.user.roleId,
+    patients: DB.db && DB.db.patients && DB.db.patients.length
+  })`));
+  ok('Clicking Open Offline Console on This Device explicitly enters Offline/static mode with full 3,333-patient Director console & resets on logout',
+    offlineAfter.syncAvailableAfter === false &&
+    offlineAfter.syncState === 'device' &&
+    offlineAfter.screen === 'app' &&
+    offlineAfter.roleId === 'director' &&
+    offlineAfter.patients === 3333,
+    JSON.stringify(offlineAfter));
+  offlineClient.run(`ACTIONS.logout()`);
+  ok('Signing out of Offline Device Console restores SYNC.available() === true for online Cloud KV',
+    offlineClient.run(`SYNC.available()`) === true);
 
   if (fails.length) {
     console.error('v665-ux-nav-login-e2e FAILED:\n  ✗ ' + fails.join('\n  ✗ '));

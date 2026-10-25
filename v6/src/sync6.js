@@ -31,11 +31,12 @@ const SYNC = {
   /* idle | probing | connected | device | saving | merge | error */
   state:'idle', rev:0, saved:null, message:'', latency:null,
   sessionToken:null, server:null, authError:null,
-  lastMerged:0, lastPatchAt:null, pendingRemote:false,
+  lastMerged:0, lastPatchAt:null, pendingRemote:false, deviceOnlyOverride:false,
   _timer:null, _inflight:false, _poll:null, _shadow:{}, _retry:0,
 
   available(){
     try{
+      if(this.deviceOnlyOverride) return false;
       if(typeof fetch!=='function' || typeof location==='undefined' || !/^https?:$/.test(location.protocol)) return false;
       if(/\.github\.io$/i.test(String(location.hostname||''))) return false;
       return true;
@@ -179,6 +180,7 @@ const SYNC = {
     if(this.sessionToken){
       try{ await this._json('api/auth/logout', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}', timeoutMs:6000}); }catch(e){}
     }
+    this.deviceOnlyOverride = false;
     this.storeToken(null);
     this._shadow = {};
     this.stopPolling();
