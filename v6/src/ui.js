@@ -471,11 +471,12 @@ function closeAllModals(){
   $$('.modal-back').forEach(b=>{ try{ b.remove(); }catch(e){} });
 }
 function toast(title, msg='', kind='ok'){
+  const normKind = (kind==='err' || kind==='crit' || kind==='error' || kind==='danger') ? 'err' : (kind==='warn' || kind==='warning') ? 'warn' : 'ok';
   let host = $('.toasts');
   if(!host){ host=document.createElement('div'); host.className='toasts'; document.body.appendChild(host); }
   const el = document.createElement('div');
-  el.className='toast '+kind;
-  el.innerHTML = `<div style="color:${kind==='err'?'var(--crit)':kind==='warn'?'#D28A00':'var(--ok)'}">${ic(kind==='err'?'alert':kind==='warn'?'alert':'check',18)}</div>
+  el.className='toast '+normKind;
+  el.innerHTML = `<div style="color:${normKind==='err'?'var(--crit)':normKind==='warn'?'#D28A00':'var(--ok)'}">${ic(normKind==='err'?'alert':normKind==='warn'?'alert':'check',18)}</div>
     <div><b>${esc(title)}</b>${msg?`<span>${msg}</span>`:''}</div>`;
   host.appendChild(el);
   setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(20px)'; el.style.transition='.25s'; setTimeout(()=>el.remove(),260); }, 4200);

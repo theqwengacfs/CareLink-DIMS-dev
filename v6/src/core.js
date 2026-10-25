@@ -486,7 +486,9 @@ const AUTH = {
     if(!this.mustChange){
       AUDIT.append({actor:u.id, action:'auth.login', entity:'user', entityId:u.id,
         detail:'Signed in — password verified on the shared online source', meta:{role:u.roleId, mustChange:this.mustChange}});
-      DB.save();
+      if(typeof DB.persistState === 'function') DB.persistState(); else DB.saveLocalPrefs();
+      if(typeof SYNC !== 'undefined' && typeof SYNC.rebase === 'function') SYNC.rebase();
+      if(typeof APPX !== 'undefined') APPX.dirty = false;
     } else {
       DB.saveLocalPrefs();
     }

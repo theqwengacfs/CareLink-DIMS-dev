@@ -630,7 +630,11 @@ function renderLogin6(){
           <button class="btn btn-xs btn-ghost" data-act="goto-landing" type="button">Front page</button>
         </div>
         ${hostLine}
-        ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span>${!isActivated && (commissionedEntryActive() || (host && host.setup) || /invalid online database|malformed JSON|KV/i.test(LOGIN6.error)) ? `<div style="margin-top:6px"><button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button></div>` : ''}</div></div>`:''}
+        ${LOGIN6.error?(()=>{
+          const isKvUnavailable = /refused the (read|write)|could not be read|not configured/i.test(LOGIN6.error) && !/WRONGTYPE/i.test(LOGIN6.error);
+          const showResetBtn = !isActivated && !isKvUnavailable && (commissionedEntryActive() || (host && host.setup) || /invalid online database|malformed JSON|WRONGTYPE|corrupted|KV/i.test(LOGIN6.error));
+          return `<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span><div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">${isKvUnavailable ? `<button class="btn btn-xs btn-primary" type="button" data-act="login-retry-kv">${ic('refresh',12)} Retry Cloud KV Connection</button>` : ''}${showResetBtn ? `<button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button>` : ''}</div></div></div>`;
+        })():''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
         <div class="lg-tabs" style="grid-template-columns:repeat(${demoBlocked?4:5},1fr)">
           ${tabBtn('signin','Sign in')}
@@ -952,7 +956,33 @@ Object.assign(ACTIONS, {
       ONB.busy = false; LOGIN6.busy = false;
       const msg = e.message || 'Could not reset First-Run setup.';
       ONB.error = msg; LOGIN6.error = msg;
-      toast('Reset Failed', msg, 'crit');
+      toast('Reset Failed', msg, 'err');
+      render();
+    }
+  },
+  'login-retry-kv': async () => {
+    LOGIN6.busy = true; LOGIN6.error = ''; LOGIN6.notice = ''; render();
+    try {
+      const diag = (typeof SYNC !== 'undefined' && SYNC._json)
+        ? await SYNC._json('api/kv-diagnostics', { skipAuthHeader: true, timeoutMs: 10000 })
+        : null;
+      if (diag && diag.ok && diag.body && diag.body.ok) {
+        const health = await hostProbe();
+        if (health) { APPX.host = health; ONB.host = health; if (typeof SYNC !== 'undefined') SYNC.server = health; }
+        LOGIN6.busy = false;
+        LOGIN6.notice = 'Cloud KV store is online and healthy. You can sign in now.';
+        toast('Cloud KV Connected', 'Online database read verified.', 'ok');
+        return render();
+      }
+      LOGIN6.busy = false;
+      const errMsg = (diag && diag.body && diag.body.error) || 'The mandatory CareLink KV store is still refusing reads. Check Upstash database status/quota and Vercel KV environment variables.';
+      LOGIN6.error = errMsg;
+      toast('Cloud KV Unavailable', errMsg, 'err');
+      render();
+    } catch (e) {
+      LOGIN6.busy = false;
+      LOGIN6.error = (e && e.message) || 'Could not reach Cloud KV diagnostics.';
+      toast('Cloud KV Unavailable', LOGIN6.error, 'err');
       render();
     }
   },

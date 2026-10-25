@@ -29,9 +29,32 @@ function keyFromPath(url, prefix) {
   return decodeURIComponent(url.pathname.slice(prefix.length));
 }
 
+let kvRefusalOverride = null;
+const secondaryKv = new Map();
+
 global.fetch = async (input, init = {}) => {
   const url = new URL(String(input));
+  if (url.origin === 'https://kv-backup-v665.test') {
+    const rawBody = String(init.body || '');
+    if (url.pathname.startsWith('/get/')) {
+      const key = keyFromPath(url, '/get/');
+      return kvResponse({ result: secondaryKv.has(key) ? secondaryKv.get(key) : null });
+    }
+    if (url.pathname.startsWith('/set/')) {
+      const key = keyFromPath(url, '/set/');
+      secondaryKv.set(key, rawBody);
+      return kvResponse({ result: 'OK' });
+    }
+    if (url.pathname.startsWith('/del/')) {
+      const key = keyFromPath(url, '/del/');
+      secondaryKv.delete(key);
+      return kvResponse({ result: 1 });
+    }
+  }
   if (url.origin !== 'https://kv-v665.test') throw new Error('Unexpected fetch: ' + url.href);
+  if (kvRefusalOverride) {
+    return kvResponse({ error: kvRefusalOverride.error }, kvRefusalOverride.status || 400);
+  }
   const rawBody = String(init.body || '');
   if (url.pathname.startsWith('/get/')) {
     const key = keyFromPath(url, '/get/');
@@ -295,6 +318,73 @@ function ok(name, cond, detail = '') {
     ['connected', 'merge'].includes(pagedLoginRes.syncState) &&
     pagedLoginRes.patients === 3333 && pagedLoginRes.hasConcurrentConcern === true,
     JSON.stringify(pagedLoginRes));
+
+  /* 5. Zero-Shard Polling, Exact Upstash Error Diagnostics, Multi-KV Failover & Red Error Toasts */
+  shardGets = 0;
+  const pollUnchanged = await rawApiFetch(`api/state?since=${pagedPc.run('SYNC.rev')}`, {
+    headers: { 'x-carelink-session': authBody.token }
+  });
+  const pollUnchangedBody = await pollUnchanged.json();
+  ok('GET /api/state?since=<currentRev> answers unchanged:true from manifest head with ZERO shard reads',
+    pollUnchanged.ok === true && pollUnchangedBody.unchanged === true && shardGets === 0,
+    `shardGets=${shardGets}`);
+
+  /* Push a small delta and verify GET /api/state?since=<prevRev> serves incremental patches with ZERO shard reads */
+  const prevRevBeforePatch = pcAdmin.run('SYNC.rev');
+  pcAdmin.run(`
+    DB.db.concerns.push({ id: 'conc-head-delta', patientId: DB.db.patients[2].id, status: 'open', note: 'Head delta check' });
+    DB.save();
+  `);
+  await pcAdmin.run('SYNC.push()');
+  shardGets = 0;
+  const pollDelta = await rawApiFetch(`api/state?since=${prevRevBeforePatch}`, {
+    headers: { 'x-carelink-session': authBody.token }
+  });
+  const pollDeltaBody = await pollDelta.json();
+  ok('GET /api/state?since=<prevRev> serves incremental delta patches from manifest head with ZERO shard reads',
+    pollDelta.ok === true && Array.isArray(pollDeltaBody.patches) && pollDeltaBody.patches.length > 0 && shardGets === 0,
+    `shardGets=${shardGets}`);
+
+  /* Verify exact Upstash quota diagnostic message & Retry Cloud KV Connection UI (not Reset Setup) */
+  kvRefusalOverride = { status: 400, error: 'ERR max daily request limit exceeded. Limit: 10000, Usage: 10000.' };
+  const quotaHealth = await rawApiFetch('api/health');
+  const quotaBody = await quotaHealth.json();
+  ok('Upstash daily quota refusal surfaces exact actionable quota diagnostic message',
+    quotaHealth.status === 503 && quotaBody.code === 'kv_unavailable' &&
+    /Upstash database quota|max daily request limit exceeded/i.test(quotaBody.error),
+    JSON.stringify(quotaBody));
+
+  /* Verify quoted / Bearer-prefixed secondary UPSTASH_REDIS_REST_* env vars sanitize cleanly and fail over automatically */
+  process.env.UPSTASH_REDIS_REST_URL = '  "https://kv-backup-v665.test/"  ';
+  process.env.UPSTASH_REDIS_REST_TOKEN = '  "Bearer backup-secret-token"  ';
+  const failoverDiag = await rawApiFetch('api/kv-diagnostics');
+  const failoverBody = await failoverDiag.json();
+  ok('Configured secondary UPSTASH_REDIS_REST_* store with quoted/Bearer env vars sanitizes & fails over cleanly when primary refuses reads',
+    failoverDiag.ok === true && failoverBody.ok === true && failoverBody.candidateCount === 2,
+    JSON.stringify(failoverBody));
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  kvRefusalOverride = null;
+
+  /* Verify toast('Reset Failed', ..., 'crit') renders red err icon (NOT green checkmark) and KV refusal renders Retry button */
+  const uiClient = makeCtx();
+  const uiCheck = JSON.parse(uiClient.run(`JSON.stringify((()=>{
+    DB.load();
+    LOGIN6.error = 'The mandatory CareLink KV store refused the read (Upstash database quota); no local fallback is used.';
+    const loginHtml = renderLogin6();
+    toast('Reset Failed', 'The mandatory CareLink KV store refused the read.', 'crit');
+    return {
+      hasRetryBtn: loginHtml.includes('data-act="login-retry-kv"'),
+      hidesMisleadingResetBtn: !loginHtml.includes('Reset 4-Step Setup'),
+      toastClass: ''
+    };
+  })())`));
+  const toastNodes = uiClient.nodes.filter(n => String(n.className || '').includes('toast'));
+  const critToast = toastNodes[toastNodes.length - 1];
+  ok('KV read refusal shows Retry Cloud KV Connection button and hides misleading Reset Setup button',
+    uiCheck.hasRetryBtn === true && uiCheck.hidesMisleadingResetBtn === true);
+  ok('toast(..., "crit") renders red err class & alert icon (never green check icon)',
+    Boolean(critToast && critToast.className === 'toast err' && critToast.innerHTML.includes('var(--crit)')));
 
   if (fails.length) {
     console.error('v665-ux-nav-login-e2e FAILED:\n  ✗ ' + fails.join('\n  ✗ '));
