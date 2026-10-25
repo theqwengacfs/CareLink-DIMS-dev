@@ -63,12 +63,12 @@ function renderLanding(){
           <ul class="landing-list">
             <li><span class="dot gold"></span><div><b>Every console has a purpose</b><span>Caregivers, hospital, finance, transport, media and leadership see only the work that belongs to them.</span></div></li>
             <li><span class="dot gold"></span><div><b>Confidentiality enforced in the data layer</b><span>County, ministry area and department boundaries are checked on every record, not hidden in the interface.</span></div></li>
-            <li><span class="dot gold"></span><div><b>Runs without the internet</b><span>The host computer holds the database; tablets and laptops on the office Wi-Fi work from it directly.</span></div></li>
+            <li><span class="dot gold"></span><div><b>One shared online source</b><span>Hosted PCs, tablets and other clients use the same Vercel/KV record; the standalone file remains an explicitly offline, device-local mode.</span></div></li>
           </ul>
         </div>
         <div class="landing-foot">
           <span>${esc(APP.tagline||'')}</span>
-          <span>Offline by design</span>
+          <span>Shared online source · explicit offline mode</span>
         </div>
       </div>
     </main>

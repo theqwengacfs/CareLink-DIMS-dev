@@ -241,7 +241,7 @@ function submitPdcaExtension(d){
 async function probeAI(){
   const ai = DB.db.settings.ai;
   if(typeof SYNC==='undefined' || SYNC.state!=='connected'){
-    APPX.aiProbe = { ok:false, error:'The connection test must run on the host computer. Start the server and open the application from its address.' };
+    APPX.aiProbe = { ok:false, error:'The connection test must run through the served model endpoint. Open the application from its served address.' };
     render(); return;
   }
   APPX.aiProbe = { ok:false, error:'Testing…' };

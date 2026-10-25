@@ -88,7 +88,7 @@ const CARELINK_PHOTO_META = {
     "kb": 53.2
   },
   "devices_table": {
-    "caption": "Tablets, phones and office laptops synchronised to one central database",
+    "caption": "Tablets, phones and office laptops synchronised to one shared online source",
     "w": 600,
     "h": 400,
     "kb": 59.2

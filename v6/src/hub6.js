@@ -775,15 +775,15 @@ function renderGovernanceHub(user){
         ${(DB.db.emergencyCodes||[]).length ? `<div style="margin-top:10px" class="xs"><b>Active emergency codes:</b> ${DB.db.emergencyCodes.slice(-5).map(e=>`<span class="badge ${e.used?'b-ok':'b-warn'} mono">${esc(e.username)}: ${esc(e.code)}${e.used?' (used)':''}</span>`).join(' ')}</div>` : ''}`)}
     </div>`
 
-  + card('Real-Time Office Wi-Fi Sync & Rollback Policy', `
+  + card('Real-Time Shared Online Sync & Rollback Policy', `
       <div class="grid g2" style="gap:14px">
         <div>
-          <p class="small">All authorised devices on the office network read and patch the host database in real time. Field-level merges are automatic and recorded in the <button class="linkbtn" data-act="go" data-v="mergejournal" type="button">Merge journal</button>; users never face conflict blocking dialogs.</p>
-          <div class="xs muted" style="margin-top:8px">Active policy: <b>Host-authoritative auto-reconciliation</b> · Idle lock: <b>${Math.round(SESSION.LOCK_AFTER/60)} minutes</b> · Audit chain: <b>SHA-256 append-only</b>.</div>
+          <p class="small">All authorised PCs, tablets and other clients read and patch the same online source in real time. Field-level merges are automatic and recorded in the <button class="linkbtn" data-act="go" data-v="mergejournal" type="button">Merge journal</button>; users never face conflict blocking dialogs.</p>
+          <div class="xs muted" style="margin-top:8px">Active policy: <b>Online-source-authoritative auto-reconciliation</b> · Idle lock: <b>${Math.round(SESSION.LOCK_AFTER/60)} minutes</b> · Audit chain: <b>SHA-256 append-only</b>.</div>
         </div>
         <div class="row" style="gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap">
           <button class="btn btn-sm btn-ghost" data-act="go" data-v="mergejournal">${ic('layers',14)} Open merge journal</button>
-          ${isChief ? `<button class="btn btn-sm btn-ghost" data-act="gov-rollback-modal">${ic('history',14)} Rollback host revision</button>` : ''}
+          ${isChief ? `<button class="btn btn-sm btn-ghost" data-act="gov-rollback-modal">${ic('history',14)} Rollback shared revision</button>` : ''}
         </div>
       </div>`, { style:'margin-top:16px' });
 }

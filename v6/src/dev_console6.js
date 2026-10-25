@@ -10,9 +10,13 @@ const PROD_SETUP = {
   lastWhatsappSheet: '',
 
   isGloballyActivated() {
+    /* The host flag is authoritative for the online entry point.  Keep the
+       local flags as a fail-closed backstop for offline/already-synchronised
+       sessions, but never require a demo record to be present locally. */
+    if (typeof APPX !== 'undefined' && APPX.host && (APPX.host.globallyActivated || APPX.host.demoDisabled)) return true;
+    if (typeof SYNC !== 'undefined' && SYNC.server && (SYNC.server.globallyActivated || SYNC.server.demoDisabled)) return true;
     if (DB.db && DB.db.settings && DB.db.settings.globallyActivated) return true;
-    if (DB.db && DB.db.meta && DB.db.meta.globallyActivated) return true;
-    if (typeof APPX !== 'undefined' && APPX.host && APPX.host.globallyActivated) return true;
+    if (DB.db && DB.db.meta && (DB.db.meta.globallyActivated || DB.db.meta.demoDisabled)) return true;
     return false;
   },
 
@@ -34,10 +38,11 @@ const PROD_SETUP = {
     return String(cfg || 'lomamo.example').replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
   },
 
-  /* Step 4 completion of 4-Step Live Host Setup:
+  /* Step 4 completion of 4-Step Online Setup:
      Establishes system & global organogram structures, configures Chief System Admin
      with mandatory password change on Official Sign-In, and enables "Activate System Globally". */
   async completeFourStepHostSetup({ orgNameVal, orgName, shortNameVal, shortName, emailDomain, loginUrl, portalUrl, primaryCounty, chiefName, chiefUsername, chiefPassword, chiefTempPassword, seedMode }) {
+    if(this.isGloballyActivated()) throw new Error('First-run setup is locked after global activation.');
     const domain = String(emailDomain || 'lomamo.example').replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
     const portal = String(loginUrl || portalUrl || this.defaultPortalUrl()).trim();
     const chiefUser = String(chiefUsername || 'chief.admin').trim().toLowerCase();
@@ -45,6 +50,16 @@ const PROD_SETUP = {
     const effectivePw = chiefPassword || chiefTempPassword || 'TempSetup#2026!';
     const effectiveOrg = orgNameVal || orgName || 'LOMAMO Foundation Kenya';
     const effectiveShort = shortNameVal || shortName || 'LOMAMO';
+    const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
+    const previousRaw = JSON.stringify(DB.db || DB.blank());
+    const previousHost = typeof APPX !== 'undefined' ? APPX.host : null;
+    const previousServer = typeof SYNC !== 'undefined' ? SYNC.server : null;
+    const previousDirty = typeof APPX !== 'undefined' ? APPX.dirty : false;
+    const rollback = () => {
+      try{ DB.db = JSON.parse(previousRaw); DB.migrate(); Store.set(DB.KEY, previousRaw); }catch(_e){}
+      if(typeof APPX !== 'undefined'){ APPX.host = previousHost; APPX.dirty = previousDirty; }
+      if(typeof SYNC !== 'undefined') SYNC.server = previousServer;
+    };
 
     DB.reset();
     const now = new Date();
@@ -100,27 +115,60 @@ const PROD_SETUP = {
       action: 'system.host_setup_completed',
       entity: 'system',
       entityId: 'four-step-host-setup',
-      detail: `4-Step Live Host Setup completed for ${DB.db.settings.org.name}. Returning to Official Sign-In for Chief Admin (${chiefUser}) password change & Global System Activation.`
+      detail: `4-Step Online Setup completed for ${DB.db.settings.org.name}. Returning to Official Sign-In for Chief Admin (${chiefUser}) password change & Global System Activation.`
     });
-    DB.save();
+    if(!hosted) DB.save();
 
-    /* Synchronize live host setup state to Unified Online Site Database if reachable */
-    try {
-      await fetch('api/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          admin: { name: chiefFull, username: chiefUser, email: admin.email, password: effectivePw, countyId: primaryCounty || 'kisumu', mustChange: true },
-          org: DB.db.settings.org,
-          awaitingGlobalActivation: true,
-          globallyActivated: false,
-          db: DB.db
-        })
-      });
-    } catch (_e) {}
+    /* On a hosted PC this is a transaction from the user's perspective.  A
+       refused/offline request, or a health read that cannot confirm the new
+       commissioned state, must never produce a success screen. */
+    if(hosted){
+      let response;
+      try{
+        response = await SYNC._json('api/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            admin: { name: chiefFull, username: chiefUser, email: admin.email, password: effectivePw, countyId: primaryCounty || 'kisumu', mustChange: true },
+            org: DB.db.settings.org,
+            awaitingGlobalActivation: true,
+            globallyActivated: false,
+            db: DB.db
+          })
+        });
+      }catch(e){
+        rollback();
+        throw new Error('The shared online database could not be reached. Setup was not completed locally.');
+      }
+      if(!response || !response.ok || !response.body || response.body.ok !== true){
+        const authoritative = typeof hostProbe === 'function' ? await hostProbe() : null;
+        rollback();
+        if(authoritative){ APPX.host = authoritative; SYNC.server = authoritative; }
+        throw new Error((response && response.body && response.body.error) || 'The shared online database refused setup. No completion is being claimed.');
+      }
+      const health = typeof hostProbe === 'function' ? await hostProbe() : null;
+      if(!health || health.setup !== true || health.globallyActivated === true){
+        /* The API already acknowledged a KV write.  Keep a fail-closed
+           commissioned marker while verification is pending, rather than
+           rolling back to a fresh-looking page that could offer demo/setup
+           again.  This still does not return setup success. */
+        APPX.host = Object.assign({}, previousHost || {}, health || {}, {
+          setup:true, commissioned:true, demoMode:false,
+          globallyActivated:Boolean(health && health.globallyActivated)
+        });
+        SYNC.server = APPX.host;
+        try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(_e){}
+        throw new Error('The API accepted setup, but a fresh health read did not verify it. No completion is being claimed; check the shared installation before retrying.');
+      }
+      APPX.host = health;
+      SYNC.server = health;
+      SYNC.rev = health.rev || response.body.rev || 0;
+      try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(_e){}
+      APPX.dirty = false;
+    }
 
     if (typeof AUTH !== 'undefined' && AUTH.logout) AUTH.logout();
-    return { ok: true, chiefUsername: chiefUser, chiefEmail: admin.email, loginUrl: portal };
+    return { ok: true, chiefUsername: chiefUser, chiefEmail: admin.email, loginUrl: portal, cloudVerified: hosted, rev: hosted ? SYNC.rev : 0 };
   },
 
   /* Chief System Administrator clicks "Activate System Globally":
@@ -136,6 +184,20 @@ const PROD_SETUP = {
     const domain = String(opts.emailDomain || this.defaultEmailDomain()).replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
     const portalUrl = String(opts.loginUrl || opts.portalUrl || this.defaultPortalUrl()).trim();
     const roster = (typeof OFFICIAL_ROSTER !== 'undefined' && Array.isArray(OFFICIAL_ROSTER)) ? OFFICIAL_ROSTER : [];
+    const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
+    if(hosted && !SYNC.sessionToken){
+      toast('Sign in required', 'Global activation must be confirmed by the shared online Chief Administrator session.', 'err');
+      return null;
+    }
+    const previousRaw = JSON.stringify(DB.db || DB.blank());
+    const previousHost = typeof APPX !== 'undefined' ? APPX.host : null;
+    const previousServer = typeof SYNC !== 'undefined' ? SYNC.server : null;
+    const previousDirty = typeof APPX !== 'undefined' ? APPX.dirty : false;
+    const rollback = () => {
+      try{ DB.db = JSON.parse(previousRaw); DB.migrate(); Store.set(DB.KEY, previousRaw); }catch(_e){}
+      if(typeof APPX !== 'undefined'){ APPX.host = previousHost; APPX.dirty = previousDirty; }
+      if(typeof SYNC !== 'undefined') SYNC.server = previousServer;
+    };
 
     DB.db.users = DB.db.users || [];
     const packRows = [];
@@ -236,7 +298,7 @@ const PROD_SETUP = {
       productionMode: true,
       label: 'Globally Activated Official Production System'
     });
-    if (typeof APPX !== 'undefined' && APPX.host) {
+    if (!hosted && typeof APPX !== 'undefined' && APPX.host) {
       APPX.host.globallyActivated = true;
     }
 
@@ -247,24 +309,71 @@ const PROD_SETUP = {
       entityId: 'global-activation',
       detail: `Chief System Admin (${actor.username}) activated CareLink globally across ${packRows.length + 1} organogram accounts (@${domain}); demo & host-setup screens permanently removed.`
     });
-    DB.save();
+    if(!hosted) DB.save();
 
-    /* Push global activation + salted user vault to Unified Online Site Database if online */
-    try {
-      const tok = (typeof SYNC !== 'undefined' && (SYNC.sessionToken || SYNC.token)) ? (SYNC.sessionToken || SYNC.token) : '';
-      await fetch('api/setup/activate-global', {
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { 'X-CareLink-Session': tok } : {}),
-        body: JSON.stringify({
-          emailDomain: domain,
-          loginUrl: portalUrl,
-          activatedBy: actor.username,
-          users: DB.db.users,
-          settings: DB.db.settings,
-          meta: DB.db.meta
-        })
-      });
-    } catch (_e) {}
+    /* Activation is not complete until the shared online source has both
+       committed the activation and confirmed it on a fresh health read.  The
+       same request also provisions every temporary staff password in KV. */
+    if(hosted){
+      let response;
+      try{
+        response = await SYNC._json('api/setup/activate-global', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            emailDomain: domain,
+            loginUrl: portalUrl,
+            activatedBy: actor.username,
+            users: DB.db.users,
+            settings: DB.db.settings,
+            meta: DB.db.meta,
+            accounts: packRows.map(row => {
+              const u = (DB.db.users || []).find(x => String(x.username || '').toLowerCase() === row.username);
+              return { id:u && u.id, username:row.username, name:row.name, email:row.email,
+                roleId:u && u.roleId, countyId:u && u.countyId, password:row.tempPassword };
+            })
+          })
+        });
+      }catch(e){
+        rollback();
+        toast('Global activation not confirmed', 'The shared online source could not be reached. No success is being claimed.', 'err');
+        return null;
+      }
+      if(!response || !response.ok || !response.body || response.body.ok !== true || !Array.isArray(response.body.issued)){
+        const authoritative = typeof hostProbe === 'function' ? await hostProbe() : null;
+        rollback();
+        if(authoritative){ APPX.host = authoritative; SYNC.server = authoritative; }
+        toast('Global activation not confirmed', (response && response.body && response.body.error) || 'The online source refused activation or credential provisioning.', 'err');
+        return null;
+      }
+      const health = typeof hostProbe === 'function' ? await hostProbe() : null;
+      if(!health || health.globallyActivated !== true){
+        /* The write was acknowledged, so fail closed while the confirming
+           read is unavailable.  Do not issue a sheet or report success, but
+           also do not reopen demo/setup against an installation that may
+           already be active. */
+        APPX.host = Object.assign({}, previousHost || {}, health || {}, {
+          setup:true, commissioned:true, demoMode:false, globallyActivated:true, demoDisabled:true
+        });
+        SYNC.server = APPX.host;
+        try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(_e){}
+        toast('Global activation not confirmed', 'The API accepted activation, but a fresh health read did not confirm it. No credential sheet or success is being issued; verify the shared installation before retrying.', 'err');
+        return null;
+      }
+      APPX.host = health;
+      SYNC.server = health;
+      SYNC.rev = health.rev || response.body.rev || 0;
+      const issuedNames = new Set(response.body.issued.map(x => String(x.username || '').toLowerCase()));
+      /* Do not hand out a sheet row for an account the server did not issue.
+         In particular, a preserved private password must never be accompanied
+         by a newly generated (and therefore invalid) temporary password. */
+      for(let i=packRows.length-1;i>=0;i--){
+        const uname = String(packRows[i].username || '').toLowerCase();
+        if(!issuedNames.has(uname)) packRows.splice(i,1);
+      }
+      try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(_e){}
+      APPX.dirty = false;
+    }
 
     /* Build formatted Team WhatsApp Broadcast Sheet grouped by Department */
     const byDept = {};
@@ -339,7 +448,7 @@ const PROD_SETUP = {
         <div class="spread" style="gap:12px;flex-wrap:wrap">
           <div class="row" style="gap:10px">
             ${badge('System Globally Activated', 'b-ok')}
-            <span class="small">Official mode locked — all Demo &amp; Live Host Setup options have been permanently removed from Landing &amp; Sign-In. Individual staff activate their accounts on first login.</span>
+            <span class="small">Official mode locked — all Demo &amp; first-run setup options have been permanently removed from Landing &amp; Sign-In. Individual staff activate their accounts on first login.</span>
           </div>
           <div class="row" style="gap:8px;flex-wrap:wrap">
             ${this.lastPack ? `<button class="btn btn-xs btn-primary" data-act="copy-whatsapp-pack">${ic('send',12)} Copy WhatsApp Sheet (${this.lastPack.count})</button>
@@ -385,7 +494,7 @@ const PROD_SETUP = {
           <b>What happens when you click Activate System Globally:</b>
           <div class="small" style="margin-top:4px">1. All <b>${num(rosterCount)} organogram accounts</b> (Leadership, County Admins, Area Coordinators, Caregivers, Clinicians, Hospital Desk, Finance, Procurement, Media, HR, Audit, ICT, plus applicable Secretaries, Deputies &amp; Clerks) receive official emails &amp; unique temporary passwords.<br>
           2. Each staff member activates their own account upon logging in and setting their private password.<br>
-          3. All Demo tabs, "Explore demo accounts", and "Live host setup" links are <b>permanently removed</b> from Landing &amp; Sign-In.</div>
+          3. All Demo tabs, "Explore demo accounts", and "First-run online setup" links are <b>permanently removed</b> from Landing &amp; Sign-In.</div>
         </div></div>
         ${pack && pack.whatsappText ? `<div class="field">
           <label>Ready-to-Share Team WhatsApp Credential Sheet (${num(pack.count)} staff accounts)</label>
@@ -610,6 +719,13 @@ const PROD_SETUP = {
       toast('Chief System Administrator Only', 'Only the Chief System Administrator may generate an initial SMS credential pack.', 'err');
       return null;
     }
+    const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
+    const previousRaw = JSON.stringify(DB.db || DB.blank());
+    const previousDirty = typeof APPX !== 'undefined' ? APPX.dirty : false;
+    const rollback = () => {
+      try{ DB.db = JSON.parse(previousRaw); DB.migrate(); Store.set(DB.KEY, previousRaw); }catch(_e){}
+      if(typeof APPX !== 'undefined') APPX.dirty = previousDirty;
+    };
     const targets = (DB.db.users || []).filter(u => u.id !== actor.id && (u.mustChange || u.mustChangePassword || u.demo || !u.lastLogin));
     if (!targets.length) {
       toast('All accounts already personalised', 'Every active user has already set their private password. Use per-user reset in Users & Accounts if an individual forgot theirs.', 'info');
@@ -635,38 +751,50 @@ const PROD_SETUP = {
         smsText: `CareLink C-DIMS: Hello ${cleanName}, sign in at ${location.origin} | Username: ${u.username} | One-Time Password: ${tempPassword} . You will set your own private password on first login.`
       });
     }
-    /* Sync new temporary passwords to online cloud vault if online */
-    try {
-      const tok = (typeof SYNC !== 'undefined' && (SYNC.sessionToken || SYNC.token)) ? (SYNC.sessionToken || SYNC.token) : '';
-      const resp = await fetch('api/credentials/provision', {
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { 'X-CareLink-Session': tok } : {}),
-        body: JSON.stringify({ roster: targets.map(u => ({ id: u.id, username: u.username, name: u.name.replace(/^Demo - /, ''), roleId: u.roleId, departmentId: u.departmentId, countyId: u.countyId, areaIds: u.areaIds, jobTitle: u.jobTitle })) })
-      });
-      if (resp.ok) {
-        const j = await resp.json().catch(() => ({}));
-        const srvList = j.credentialsPack || j.issued || [];
-        if (srvList.length) {
-          packRows.length = 0;
-          srvList.forEach(cp => {
-            const pw = cp.tempPassword || cp.password;
-            const match = targets.find(t => t.username === String(cp.username).toLowerCase());
-            if (match && pw) {
-              match.salt = newSalt();
-              match.hash = strongHash(pw, match.salt);
-            }
-            packRows.push({
-              name: cp.name,
-              username: cp.username,
-              tempPassword: pw,
-              role: cp.roleName || (roleObj(cp.roleId) || {}).name || cp.roleId || '',
-              county: cp.county || (cp.countyId ? countyName(cp.countyId) : 'Head Office'),
-              smsText: cp.smsText || `CareLink C-DIMS: Hello ${cp.name}, sign in at ${location.origin} | Username: ${cp.username} | One-Time Password: ${pw} . Set your own private password on first login.`
-            });
-          });
-        }
+    /* A hosted credential sheet is only valid when the online credential
+       vault issued the same passwords.  Never fall back to the browser's
+       locally generated hashes after a failed request. */
+    if(hosted){
+      let resp;
+      try{
+        resp = await SYNC._json('api/credentials/provision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accounts: targets.map(u => ({
+            id: u.id, username: u.username, name: u.name.replace(/^Demo - /, ''),
+            roleId: u.roleId, departmentId: u.departmentId, countyId: u.countyId,
+            areaIds: u.areaIds, jobTitle: u.jobTitle
+          })) })
+        });
+      }catch(_e){
+        rollback();
+        toast('Credential pack not confirmed', 'The shared online source could not be reached. No local-only credential sheet was issued.', 'err');
+        return null;
       }
-    } catch (_e) {}
+      const srvList = resp && resp.body && Array.isArray(resp.body.issued) ? resp.body.issued : [];
+      if(!resp || !resp.ok || srvList.length !== targets.length){
+        rollback();
+        toast('Credential pack not confirmed', (resp && resp.body && resp.body.error) || 'The online source did not issue every requested credential. No local-only sheet was issued.', 'err');
+        return null;
+      }
+      packRows.length = 0;
+      srvList.forEach(cp => {
+        const pw = cp.tempPassword || cp.password;
+        const match = targets.find(t => t.username === String(cp.username).toLowerCase());
+        if(match && pw){
+          match.salt = newSalt();
+          match.hash = strongHash(pw, match.salt);
+        }
+        packRows.push({
+          name: cp.name,
+          username: cp.username,
+          tempPassword: pw,
+          role: cp.roleName || (roleObj(cp.roleId) || {}).name || cp.role || cp.roleId || '',
+          county: cp.county || (cp.countyId ? countyName(cp.countyId) : 'Head Office'),
+          smsText: cp.smsText || `CareLink C-DIMS: Hello ${cp.name}, sign in at ${location.origin} | Username: ${cp.username} | One-Time Password: ${pw} . Set your own private password on first login.`
+        });
+      });
+    }
 
     AUDIT.append({
       actor: actor.id,
