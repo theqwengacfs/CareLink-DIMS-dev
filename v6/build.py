@@ -43,7 +43,7 @@ def build():
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1F3864">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.6) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.6.8) - LOMAMO Foundation Kenya Data & Information Management System">
 <title>CareLink C-DIMS</title>
 <link rel="icon" href="{logo}">
 <style>
@@ -62,7 +62,7 @@ window.BUILD_STAMP = "{stamp}";
 <script>
 {js}
 </script>
-<!-- Build {stamp} · CareLink C-DIMS v6.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build {stamp} · CareLink C-DIMS v6.6.8 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
 """

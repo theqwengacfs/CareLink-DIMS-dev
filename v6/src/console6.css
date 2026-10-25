@@ -35,9 +35,12 @@
 }
 /* Ten complete front-door palettes matching LANDING_THEMES */
 .ld[data-theme="heritage"]{
-  --accent:#1E3A8A;
-  --ld-bg:#FFFFFF; --ld-surface:#FFFFFF; --ld-surface-2:#F1F5F9;
-  --ld-ink:#0F172A; --ld-dim:#334155; --ld-border:#CBD5E1;
+  --accent:#E9C765;
+  --ld-bg:#071124; --ld-surface:#0D1C38; --ld-surface-2:#122548;
+  --ld-ink:#F8FAFC; --ld-dim:#CBD5E1; --ld-border:rgba(148,197,255,.18);
+  background:
+    radial-gradient(1100px 700px at 78% -10%, rgba(233,199,101,.16), transparent 60%),
+    linear-gradient(158deg, #0E234A 0%, #1B3668 46%, #071124 100%);
 }
 .ld[data-theme="dawn"]{
   --accent:#FDBA74;

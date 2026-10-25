@@ -196,7 +196,7 @@ async function activateFullDemoDataset(){
 
 /* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar, zero duplicate tabs) */
 function renderLanding6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'light', accent:'#1E3A8A' };
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const facts = [
     { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
@@ -205,7 +205,7 @@ function renderLanding6(){
     { n: DEPARTMENTS.length, l:'Department Consoles' }
   ];
 
-  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'light')}" style="--accent:${esc(th.accent||'#1E3A8A')}">
+  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#E9C765')}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -299,7 +299,7 @@ function renderLanding6(){
         <div class="ld-foot-brand">
           <b>Serving our Neighbours in Love</b> <span class="xs ld-dim">· Kisumu &amp; Homa Bay County Offices</span>
         </div>
-        <div class="xs ld-dim">Authorised staff &amp; partners · DPA-2019 Governed · Schema ${esc(String(APP.schema))}</div>
+        <div class="xs ld-dim">CareLink C-DIMS v${esc(APP.version)} · Schema ${esc(String(APP.schema))} · DPA-2019 Governed</div>
       </div>
     </footer>
   </div>`;
