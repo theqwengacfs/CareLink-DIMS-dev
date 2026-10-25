@@ -148,7 +148,9 @@ const PROD_SETUP = {
         response = await SYNC._json('api/setup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: setupBody
+          body: setupBody,
+          skipAuthHeader: true,
+          timeoutMs: 25000
         });
       }catch(e){
         rollback();
@@ -188,7 +190,14 @@ const PROD_SETUP = {
       APPX.dirty = false;
     }
 
+    if (typeof SYNC !== 'undefined') {
+      clearTimeout(SYNC._timer);
+      if (SYNC.stopPolling) SYNC.stopPolling();
+      if (SYNC.storeToken) SYNC.storeToken(null);
+    }
     if (typeof AUTH !== 'undefined' && AUTH.logout) AUTH.logout();
+    if (typeof SYNC !== 'undefined') clearTimeout(SYNC._timer);
+    if (typeof APPX !== 'undefined') APPX.dirty = false;
     return { ok: true, chiefUsername: chiefUser, chiefEmail: admin.email, loginUrl: portal, cloudVerified: hosted, rev: hosted ? SYNC.rev : 0 };
   },
 

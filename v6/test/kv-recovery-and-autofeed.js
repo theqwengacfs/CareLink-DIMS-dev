@@ -18,6 +18,7 @@ const staleReadsRemaining = new Map();
 let enforceOneMegabyteFreeTierCap = false;
 let simulateReadReplicaLag = false;
 let maxShardWriteBytes = 0;
+let kvSetCounter = 0;
 
 function kvResponse(body, status = 200) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -52,6 +53,7 @@ global.fetch = async (input, init = {}) => {
     if (enforceOneMegabyteFreeTierCap) {
       maxShardWriteBytes = Math.max(maxShardWriteBytes, bodyBytes);
     }
+    kvSetCounter++;
     if (kv.has(key)) kvPrev.set(key, kv.get(key));
     else kvPrev.delete(key);
     /* Store rawBody VERBATIM just like real Upstash Redis REST! */
@@ -197,7 +199,87 @@ global.fetch = async (input, init = {}) => {
   assert.equal(tabletLogin.ok, true, JSON.stringify(tabletLogin));
   assert.equal(tablet.run('DB.db.patients.length'), 3333, 'Fresh tablet pulls full 3,333-patient cloud state from sharded Upstash KV even under replica lag');
 
-  console.log('kv-recovery-and-autofeed: real Upstash verbatim KV + reset-first-run + 3,333-patient zero-file Cloud Auto-Feed + Free-Tier <1 MiB KV sharding + intact Master Import passed');
+  /* 6. Regression proof for "Verifying..." hang prevention:
+        - Buffer req.body + readableEnded=true empty stream never hang readJsonBody
+        - Login & heartbeat perform ZERO KV writes on healthy/stateless sessions
+        - Transient network drop on login retries automatically and succeeds
+        - Persistent network/timeout error resets LOGIN6.busy = false (never stuck on Verifying...)
+        - Overlapping logout + fresh sharded login never triggers 503 torn shard reads */
+  simulateReadReplicaLag = false;
+  const setsBeforeBeat = kvSetCounter;
+  const beatEmptyStream = await (async () => {
+    const token = tablet.run('SYNC.sessionToken');
+    const req = {
+      url: '/api/session/beat',
+      method: 'POST',
+      headers: { host: 'carelink.test', authorization: `Bearer ${token}` },
+      readableEnded: true,
+      on() { /* never fires 'end' on pre-drained serverless stream */ },
+    };
+    let status = 0; let raw = '';
+    const res = { set statusCode(v) { status = v; }, get statusCode() { return status; }, setHeader() {}, end(v) { raw = v || ''; } };
+    await handler(req, res);
+    return { status, body: JSON.parse(raw) };
+  })();
+  assert.equal(beatEmptyStream.status, 200, 'Pre-drained readableEnded stream must resolve immediately without hanging');
+  assert.equal(beatEmptyStream.body.ok, true);
+  assert.equal(kvSetCounter, setsBeforeBeat, 'Stateless session heartbeat must perform zero KV writes');
+
+  const setsBeforeLogin = kvSetCounter;
+  const bufferLogin = await (async () => {
+    const req = {
+      url: '/api/auth/login',
+      method: 'POST',
+      headers: { host: 'carelink.test', 'content-type': 'application/json' },
+      body: Buffer.from(JSON.stringify({ username: staff.username, password: staff.tempPassword }), 'utf8'),
+      readableEnded: true,
+      on() {},
+    };
+    let status = 0; let raw = '';
+    const res = { set statusCode(v) { status = v; }, get statusCode() { return status; }, setHeader() {}, end(v) { raw = v || ''; } };
+    await handler(req, res);
+    return { status, body: JSON.parse(raw) };
+  })();
+  assert.equal(bufferLogin.status, 200, 'Buffer req.body on /api/auth/login must parse cleanly');
+  assert.equal(bufferLogin.body.ok, true);
+  assert.equal(kvSetCounter, setsBeforeLogin, 'Healthy /api/auth/login must perform zero KV writes');
+
+  /* Transient first-attempt drop on login recovers automatically, and LOGIN6.busy resets to false */
+  let dropFirstLogin = true;
+  const flakyLaptop = makeCtx({
+    location: { hash: '', protocol: 'https:', origin: 'https://carelink.test', host: 'carelink.test' },
+    navigator: { userAgent: 'flaky-login-test' },
+    sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+    fetch: async (url, opts) => {
+      if (dropFirstLogin && String(url).includes('api/auth/login')) {
+        dropFirstLogin = false;
+        throw new Error('The shared online service timed out while responding.');
+      }
+      return apiFetch(url, opts);
+    },
+  });
+  flakyLaptop.run(`APPX.host = ${JSON.stringify(health)}; SYNC.server = APPX.host;`);
+  flakyLaptop.ctx.__form = { username: staff.username, password: staff.tempPassword };
+  await flakyLaptop.run('FORMS.login6(new FormData())');
+  assert.equal(flakyLaptop.run('LOGIN6.busy'), false, 'LOGIN6.busy must clear after recovered login');
+  assert.equal(flakyLaptop.run('APPX.screen'), 'app', 'Transient login drop must recover automatically via retry');
+  assert.equal(flakyLaptop.run('DB.db.patients.length'), 3333);
+
+  /* Persistent outage resets LOGIN6.busy = false (never stuck on "Verifying...") */
+  const offlineHosted = makeCtx({
+    location: { hash: '', protocol: 'https:', origin: 'https://carelink.test', host: 'carelink.test' },
+    navigator: { userAgent: 'offline-hosted-test' },
+    sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+    fetch: async () => { throw new Error('The shared online service timed out while responding.'); },
+  });
+  offlineHosted.run(`APPX.host = ${JSON.stringify(health)}; SYNC.server = APPX.host;`);
+  offlineHosted.ctx.__form = { username: staff.username, password: staff.tempPassword };
+  await offlineHosted.run('FORMS.login6(new FormData())');
+  assert.equal(offlineHosted.run('LOGIN6.busy'), false, 'LOGIN6.busy must never remain stuck on Verifying...');
+  assert.ok(!/Verifying\.\.\./.test(offlineHosted.run('renderLogin6()')), 'Rendered Sign-In button must not stay on Verifying...');
+  assert.ok(offlineHosted.run('LOGIN6.error.length > 0'), 'Sign-In must display a clear error message on timeout');
+
+  console.log('kv-recovery-and-autofeed: real Upstash verbatim KV + reset-first-run + 3,333-patient zero-file Cloud Auto-Feed + Free-Tier <1 MiB KV sharding + Verifying-hang prevention + intact Master Import passed');
 })().catch((err) => {
   console.error(err);
   process.exit(1);
