@@ -1002,11 +1002,13 @@ async function ensureFreshStateMinRev(currentState, minRev) {
 
 async function handleRequest(req, res) {
   const urlObj = new URL(req.url || '/api/health', `http://${req.headers.host || 'localhost'}`);
-  const rewritten = urlObj.searchParams.get('__path');
-  const route = rewritten
+  const queryPath = req.query && typeof req.query.__path === 'string' ? req.query.__path : null;
+  const rewritten = urlObj.searchParams.get('__path') || queryPath;
+  let route = rewritten
     ? rewritten.replace(/^\/+|\/+$/g, '')
     : urlObj.pathname.replace(/^\/?api\/?/, '').replace(/\/+$/, '');
   const method = (req.method || 'GET').toUpperCase();
+  if ((route === '' || route === 'index') && method === 'GET') route = 'health';
 
   /* 0. Pre-Activation Fresh First-Run Reset & Corrupted-KV Recovery:
      Handled before unconditional loadCloudState() so an unactivated or
@@ -1125,18 +1127,37 @@ async function handleRequest(req, res) {
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
     state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.6.0' }, users: [], audit: [] });
+    const chiefEmail = admin.email || `${username}@${(body.org && body.org.emailDomain) || 'lomamo.example'}`;
+    const chiefDisplayName = admin.name || 'Chief System Administrator';
+    let chiefUserId = 'u-chief-admin';
     /* Only the authenticated activation endpoint may set this flag.  Ignore a
        client-supplied true value during public first-run setup as well. */
     if (state.db && typeof state.db === 'object') {
-      state.db.settings = { ...(state.db.settings || {}), globallyActivated: false };
+      state.db.settings = {
+        ...(state.db.settings || {}),
+        onboarding: { complete: true, step: 4 },
+        hostSetupComplete: true,
+        globallyActivated: false,
+      };
       state.db.meta = { ...(state.db.meta || {}), globallyActivated: false, demoDisabled: false, productionMode: false };
+      if (Array.isArray(state.db.users)) {
+        const dbChief = state.db.users.find((u) => u && (String(u.username || '').toLowerCase() === username || u.roleId === 'chief'));
+        if (dbChief) {
+          chiefUserId = dbChief.id || 'u-chief-admin';
+          dbChief.username = username;
+          dbChief.email = chiefEmail;
+          dbChief.name = chiefDisplayName;
+          dbChief.mustChange = Boolean(admin.mustChange);
+          dbChief.mustChangePassword = Boolean(admin.mustChange);
+        }
+      }
     }
     state.creds = {
       [username]: {
-        id: 'u-chief-admin',
+        id: chiefUserId,
         username,
-        email: admin.email || `${username}@${(body.org && body.org.emailDomain) || 'lomamo.example'}`,
-        name: admin.name || 'Chief System Administrator',
+        email: chiefEmail,
+        name: chiefDisplayName,
         roleId: 'chief',
         countyId: (body.org && body.org.county) || 'kisumu',
         salt,
@@ -1146,6 +1167,9 @@ async function handleRequest(req, res) {
         updatedAt: nowISO(),
       },
     };
+    state.sessions = {};
+    state.revokedSessions = {};
+    state.loginFailures = {};
     state.setup = true;
     state.globallyActivated = false;
     state.rev = (state.rev || 0) + 1;
@@ -1304,9 +1328,19 @@ async function handleRequest(req, res) {
     const body = await readJsonBody(req);
     const rawId = String(body.username || '').trim().toLowerCase();
     const password = String(body.password || '');
-    const cred = Object.prototype.hasOwnProperty.call(state.creds || {}, rawId)
+    let cred = Object.prototype.hasOwnProperty.call(state.creds || {}, rawId)
       ? state.creds[rawId]
       : Object.values(state.creds || {}).find((c) => String(c.email || '').toLowerCase() === rawId);
+    /* Canonical Chief System Administrator alias: Step 2 historically pre-filled
+       `chief.admin` while operators often sign in as `system.admin` (or vice versa).
+       When there is a single `chief` credential provisioned under either canonical
+       handle, resolve it seamlessly while still enforcing full PBKDF2 verification. */
+    if (!cred && (rawId === 'system.admin' || rawId === 'chief.admin')) {
+      const chiefs = Object.values(state.creds || {}).filter((c) => c && c.roleId === 'chief');
+      if (chiefs.length === 1 && (chiefs[0].username === 'chief.admin' || chiefs[0].username === 'system.admin')) {
+        cred = chiefs[0];
+      }
+    }
     const username = clipString(cred ? cred.username : rawId, 120);
     const lockMs = loginLockRemainingMs(state, username);
     if (lockMs > 0) {
@@ -1314,28 +1348,39 @@ async function handleRequest(req, res) {
         ok: false,
         code: 'locked',
         retryAfterSeconds: Math.ceil(lockMs / 1000),
-        error: `Too many failed sign-in attempts. Try again in ${Math.ceil(lockMs / 60000)} minute(s) or ask your County Administrator to re-issue a temporary password.`,
+        error: `Too many failed sign-in attempts. Try again in ${Math.ceil(lockMs / 60000)} minute(s)${!isGloballyActivated(state) ? ' or click "Reset 4-Step Setup & Set Fresh Password" below' : ' or ask your County Administrator to re-issue a temporary password'}.`,
       });
     }
     if (!cred || !verifyPassword(password, cred.salt, cred.digest)) {
       recordLoginFailure(state, username || 'anonymous');
       appendServerAudit(state, username || 'anonymous', 'auth.failed', 'user', username, 'Online credential check failed');
       await saveCloudState(state);
-      return sendJson(res, 401, { ok: false, code: 'invalid_credentials', error: 'Invalid username or password.' });
+      const preActHint = state.setup && !isGloballyActivated(state)
+        ? 'Invalid username or password. Enter the Chief System Administrator password from Step 2 (both system.admin and chief.admin are accepted), or click "Reset 4-Step Setup & Set Fresh Password" below.'
+        : 'Invalid username or password.';
+      return sendJson(res, 401, { ok: false, code: 'invalid_credentials', error: preActHint });
     }
-    const hadPriorFailures = Boolean(state.loginFailures && Object.prototype.hasOwnProperty.call(state.loginFailures, username));
+    const hadPriorFailures = Boolean(
+      state.loginFailures && (
+        Object.prototype.hasOwnProperty.call(state.loginFailures, username) ||
+        (rawId && Object.prototype.hasOwnProperty.call(state.loginFailures, rawId))
+      ),
+    );
     if (hadPriorFailures) {
       delete state.loginFailures[username];
+      if (rawId) delete state.loginFailures[rawId];
       pruneSessions(state);
       appendServerAudit(state, cred.id || username, 'auth.login', 'user', cred.id || username,
         `Online sign-in verified after prior failure reset (${cred.mustChange ? 'first-login password change required' : 'personal password'})`);
       await saveCloudState(state);
     }
     const token = mintSignedSessionToken(cred, username);
-    const dbMatch = ((state.db && state.db.users) || []).find((u) => String(u.username).toLowerCase() === username);
+    const dbUsers = (state.db && Array.isArray(state.db.users)) ? state.db.users : [];
+    const dbMatch = dbUsers.find((u) => String(u.username).toLowerCase() === username)
+      || (cred.roleId === 'chief' ? dbUsers.find((u) => u && u.roleId === 'chief') : null);
     const userRec = sanitizeDbForClient({
       users: [dbMatch
-        ? { ...dbMatch, mustChange: Boolean(cred.mustChange) }
+        ? { ...dbMatch, username: cred.username, mustChange: Boolean(cred.mustChange) }
         : {
             id: cred.id,
             username: cred.username,
@@ -1350,7 +1395,14 @@ async function handleRequest(req, res) {
     /* Include non-paged initial state directly in the login response when under
        512 KB total so post-setup Chief sign-in adopts Primary state in a single
        <150 ms round-trip with zero KV write contention or Read-Replica lag. */
-    const split = splitLargeStateCollections(sanitizeDbForClient(state.db || {}));
+    const cleanClientDb = sanitizeDbForClient(state.db || {});
+    if (state.setup && cleanClientDb && typeof cleanClientDb === 'object') {
+      cleanClientDb.settings = {
+        ...(cleanClientDb.settings || {}),
+        onboarding: { complete: true, step: 4 },
+      };
+    }
+    const split = splitLargeStateCollections(cleanClientDb);
     let inlineState = null;
     if (split.pagedCollections.length === 0) {
       const dbBytes = Buffer.byteLength(JSON.stringify(split.db || {}));

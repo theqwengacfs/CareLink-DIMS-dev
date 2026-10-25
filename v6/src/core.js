@@ -297,7 +297,13 @@ const AUTH = {
   user:null, session:null, listeners:[],
   login(username, password){
     const q = String(username||'').toLowerCase().trim();
-    const u = DB.db.users.find(x=>x.username.toLowerCase()===q || String(x.email||'').toLowerCase()===q);
+    let u = DB.db.users.find(x=>x.username.toLowerCase()===q || String(x.email||'').toLowerCase()===q);
+    if(!u && (q==='system.admin' || q==='chief.admin')){
+      const chiefs = (DB.db.users||[]).filter(x=>x && x.roleId==='chief');
+      if(chiefs.length===1 && (String(chiefs[0].username||'').toLowerCase()==='chief.admin' || String(chiefs[0].username||'').toLowerCase()==='system.admin')){
+        u = chiefs[0];
+      }
+    }
     if(!u){ AUDIT.append({actor:'anonymous',action:'auth.failed',entity:'user',entityId:username,detail:'Unknown username or email'}); return {ok:false,msg:'No account matches that username or email.'}; }
     if(!['active','pending_activation'].includes(u.status)){ AUDIT.append({actor:u.id,action:'auth.blocked',entity:'user',entityId:u.id,detail:`Account status: ${u.status}`}); return {ok:false,msg:`This account is ${u.status}. Contact your County Office Administrator.`}; }
     if(u.hash !== strongHash(password, u.salt)){
@@ -380,13 +386,26 @@ const AUTH = {
     try{ r = await SYNC.login(name, password, device); }
     catch(e){ return {ok:false, code:'offline', error:'The shared online source could not be reached. Sign-in was not completed locally.'}; }
     if(!r.ok) return r;
-    let u = DB.db.users.find(x=>String(x.username).toLowerCase()===String(r.username||name).toLowerCase() || String(x.email||'').toLowerCase()===raw.toLowerCase()) || r.user;
+    const resolvedName = String(r.username||name).toLowerCase();
+    const usersList = (DB.db && Array.isArray(DB.db.users)) ? DB.db.users : (DB.db ? (DB.db.users = []) : []);
+    let u = usersList.find(x=>String(x.username||'').toLowerCase()===resolvedName || String(x.email||'').toLowerCase()===raw.toLowerCase());
+    if(!u && r.user && r.user.roleId === 'chief'){
+      u = usersList.find(x => x && x.roleId === 'chief');
+      if(u && r.user.username) u.username = r.user.username;
+    }
+    if(!u && r.user){
+      u = Object.assign({}, r.user);
+      usersList.unshift(u);
+    }
     if(!u){
       try{ await SYNC.logout(); }catch(e){}
       return {ok:false, code:'no_record', error:'The online source accepted the sign-in but returned no account record. No local session was opened.'};
     }
     u.status = 'active';
     u.lastLogin = todayISO();
+    if(DB.db && DB.db.settings){
+      DB.db.settings.onboarding = Object.assign({ complete:true, step:4 }, DB.db.settings.onboarding || {}, { complete:true });
+    }
     this._rememberVerifier(u, password);
     this.user = u; this.online = true; this.mustChange = !!r.mustChange;
     this.session = {started:todayISO(), last:Date.now(), token:'srv', mustChange:this.mustChange};
