@@ -13,7 +13,10 @@ delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
 const kv = new Map();
+const kvPrev = new Map();
+const staleReadsRemaining = new Map();
 let enforceOneMegabyteFreeTierCap = false;
+let simulateReadReplicaLag = false;
 let maxShardWriteBytes = 0;
 
 function kvResponse(body, status = 200) {
@@ -34,6 +37,11 @@ global.fetch = async (input, init = {}) => {
 
   if (url.pathname.startsWith('/get/')) {
     const key = keyFromPath(url, '/get/');
+    const lag = staleReadsRemaining.get(key) || 0;
+    if (simulateReadReplicaLag && lag > 0) {
+      staleReadsRemaining.set(key, lag - 1);
+      return kvResponse({ result: kvPrev.has(key) ? kvPrev.get(key) : null });
+    }
     return kvResponse({ result: kv.has(key) ? kv.get(key) : null });
   }
   if (url.pathname.startsWith('/set/')) {
@@ -44,8 +52,13 @@ global.fetch = async (input, init = {}) => {
     if (enforceOneMegabyteFreeTierCap) {
       maxShardWriteBytes = Math.max(maxShardWriteBytes, bodyBytes);
     }
+    if (kv.has(key)) kvPrev.set(key, kv.get(key));
+    else kvPrev.delete(key);
     /* Store rawBody VERBATIM just like real Upstash Redis REST! */
     kv.set(key, rawBody);
+    if (simulateReadReplicaLag && key === 'carelink_cloud_v66') {
+      staleReadsRemaining.set(key, 1);
+    }
     return kvResponse({ result: 'OK' });
   }
   if (url.pathname.startsWith('/del/')) {
@@ -114,24 +127,27 @@ global.fetch = async (input, init = {}) => {
   assert.equal(pc.run('ONB.step'), 1);
   assert.equal(pc.run('APPX.host.setup'), false);
 
-  /* 3. Enforce Upstash Free-Tier 1 MB single-key cap while commissioning + auto-feeding 3,333 patients! */
+  /* 3. Enforce Upstash Free-Tier 1 MB single-key cap + Upstash Global Read-Replica Lag
+        while commissioning `system.admin` + auto-feeding 3,333 patients! */
   enforceOneMegabyteFreeTierCap = true;
   const setupPw = 'Kx9!vQ2#mTz7Lp';
   const privatePw = 'Private#2027!xQ';
 
   const setup = await pc.run(`PROD_SETUP.completeFourStepHostSetup({
     orgNameVal:'LOMAMO Foundation Kenya', shortNameVal:'LOMAMO', seedMode:'empty',
-    chiefUsername:'chief.admin', chiefPassword:${JSON.stringify(setupPw)}, loginUrl:'https://carelink.test'
+    chiefUsername:'system.admin', chiefPassword:${JSON.stringify(setupPw)}, loginUrl:'https://carelink.test'
   })`);
   assert.equal(setup.cloudVerified, true, '4-Step commissioning must succeed against real verbatim-body Upstash KV');
 
-  /* Arm the Step 4 Cloud Auto-Feed flag just like finishing Step 4 in UI */
-  pc.run(`ONB._pendingCloudAutoFeed = true;`);
+  /* Enable Upstash Global Read-Replica Lag so immediate GETs after login/save see the pre-write replica! */
+  simulateReadReplicaLag = true;
 
-  const loginRes = await pc.run(`AUTH.loginOnline('chief.admin', ${JSON.stringify(setupPw)}, 'pc')`);
+  const loginRes = await pc.run(`AUTH.loginOnline('system.admin', ${JSON.stringify(setupPw)}, 'pc')`);
   assert.equal(loginRes.ok, true, JSON.stringify(loginRes));
+  const mustChangeHtml = pc.run('renderMustChange()');
+  assert.ok(/autoFeedCloudMaster/.test(mustChangeHtml), 'Chief first-login password screen must offer pre-checked 3,333-patient Cloud Auto-Feed');
 
-  pc.run(`__form = { current:${JSON.stringify(setupPw)}, password:${JSON.stringify(privatePw)}, password2:${JSON.stringify(privatePw)} }; AUTH.mustChange = true;`);
+  pc.run(`__form = { current:${JSON.stringify(setupPw)}, password:${JSON.stringify(privatePw)}, password2:${JSON.stringify(privatePw)}, autoFeedCloudMaster:'1' }; AUTH.mustChange = true;`);
   await pc.run('FORMS.mustchange6(new FormData())');
   assert.equal(pc.run('AUTH.mustChange'), false);
 
@@ -168,15 +184,18 @@ global.fetch = async (input, init = {}) => {
   });
   assert.equal(lockedReset.status, 409, 'Post-activation First-Run Reset must be permanently refused with 409');
 
+  /* Turn off replica lag before synchronous single-call health probe on fresh tablet, then re-enable for tablet login! */
+  simulateReadReplicaLag = false;
   const staff = pack.rows[0];
   const tablet = client();
   tablet.run('SYNC.queue = () => {}; DB.load();');
   const health = await tablet.run('hostProbe()');
   tablet.run(`APPX.host = ${JSON.stringify(health)}; SYNC.server = APPX.host;`);
   assert.equal(health.globallyActivated, true);
+  simulateReadReplicaLag = true;
   const tabletLogin = await tablet.run(`AUTH.loginOnline(${JSON.stringify(staff.username)}, ${JSON.stringify(staff.tempPassword)}, 'tablet')`);
   assert.equal(tabletLogin.ok, true, JSON.stringify(tabletLogin));
-  assert.equal(tablet.run('DB.db.patients.length'), 3333, 'Fresh tablet pulls full 3,333-patient cloud state from sharded Upstash KV');
+  assert.equal(tablet.run('DB.db.patients.length'), 3333, 'Fresh tablet pulls full 3,333-patient cloud state from sharded Upstash KV even under replica lag');
 
   console.log('kv-recovery-and-autofeed: real Upstash verbatim KV + reset-first-run + 3,333-patient zero-file Cloud Auto-Feed + Free-Tier <1 MiB KV sharding + intact Master Import passed');
 })().catch((err) => {

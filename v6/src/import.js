@@ -222,7 +222,7 @@ const REFERENCE_MASTER = {
       const done=await SYNC._json('api/master-import/finalize', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({uploadId:this.uploadId})});
       if(!done.ok || !done.body || done.body.ok!==true) throw new Error((done.body&&done.body.error)||'The shared online source refused reference-master final validation.');
       this.result=done.body;
-      const pulled=await SYNC.pullFull();
+      const pulled=await SYNC.pullFull({ minRev: done.body.rev || 0, requireReferenceMaster: true });
       this.phase='done';
       if(!pulled) this.error='The master was committed in the shared online source, but this browser could not finish loading it. Use Sync retry; do not upload the file again.';
       render();
@@ -262,11 +262,11 @@ const REFERENCE_MASTER = {
       const autoRes = await SYNC._json('api/master-import/auto-seed', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:'{}'
+        body:JSON.stringify({ minRev: SYNC.rev || 0 })
       });
       if(autoRes.ok && autoRes.body && autoRes.body.ok===true){
         this.result = autoRes.body;
-        const pulled = await SYNC.pullFull();
+        const pulled = await SYNC.pullFull({ minRev: autoRes.body.rev || 0, requireReferenceMaster: true });
         this.phase = 'done';
         if(!pulled){
           this.error = 'The 3,333-patient dataset was committed in Cloud KV, but paged sync did not finish; click Sync retry.';

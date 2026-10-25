@@ -131,6 +131,7 @@ function blankStore() {
     db: null,
     creds: {},       // username -> { id, username, name, roleId, salt, digest, mustChange, updatedAt }
     sessions: {},    // token -> { username, userId, roleId, createdAt, lastSeen }
+    revokedSessions: {}, // token -> epochMs (revokes stateless HMAC tokens on explicit logout)
     deltas: [],      // [{ rev, at, patches }]
     mergeJournal: [],
     audit: [],
@@ -150,7 +151,7 @@ function normalizeStore(value) {
   /* Keep forwards/backwards-compatible defaults without ever treating a local
      object as the stored state.  The object returned here came from KV. */
   const state = { ...blankStore(), ...value };
-  for (const key of ['creds', 'sessions', 'loginFailures']) {
+  for (const key of ['creds', 'sessions', 'revokedSessions', 'loginFailures']) {
     if (!state[key] || typeof state[key] !== 'object' || Array.isArray(state[key])) state[key] = {};
   }
   for (const key of ['deltas', 'mergeJournal', 'audit', 'activations', 'emergencies', 'accountRequests', 'recoveryRequests', 'masterImports']) {
@@ -415,17 +416,81 @@ function isDemoDatabase(state) {
   );
 }
 
+function sessionSigningSecret() {
+  const kv = kvConfig();
+  return crypto.createHash('sha256').update(`carelink-sess-v1:${(kv && kv.token) || 'local'}:${CLOUD_KEY}`).digest();
+}
+
+function mintSignedSessionToken(cred, username) {
+  const payload = {
+    u: String(username || '').toLowerCase(),
+    uid: cred.id || `u-${username}`,
+    r: cred.roleId || 'staff',
+    c: cred.countyId || 'kisumu',
+    iat: Math.floor(Date.now() / 1000),
+    n: crypto.randomBytes(9).toString('base64url'),
+  };
+  const bodyB64 = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const sigB64 = crypto.createHmac('sha256', sessionSigningSecret()).update(`s1.${bodyB64}`).digest('base64url');
+  return `s1.${bodyB64}.${sigB64}`;
+}
+
+function verifySignedSessionToken(tok) {
+  if (!tok || typeof tok !== 'string' || !tok.startsWith('s1.')) return null;
+  const parts = tok.split('.');
+  if (parts.length !== 3 || !parts[1] || !parts[2]) return null;
+  const expectedSig = crypto.createHmac('sha256', sessionSigningSecret()).update(`s1.${parts[1]}`).digest();
+  let actualSig;
+  try { actualSig = Buffer.from(parts[2], 'base64url'); } catch { return null; }
+  if (actualSig.length !== expectedSig.length || !crypto.timingSafeEqual(actualSig, expectedSig)) return null;
+  let payload;
+  try { payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')); } catch { return null; }
+  if (!payload || typeof payload !== 'object' || !payload.u || FORBIDDEN_KEYS.has(payload.u)) return null;
+  const age = Math.floor(Date.now() / 1000) - Number(payload.iat || 0);
+  if (!Number.isFinite(age) || age < -60 || age > IDLE_SECONDS) return null;
+  return payload;
+}
+
+function extractRequestToken(req) {
+  const hdr = req.headers['x-carelink-session'];
+  if (hdr && typeof hdr === 'string') return hdr.trim();
+  const auth = req.headers.authorization;
+  if (auth && typeof auth === 'string' && /^Bearer\s+/i.test(auth)) return auth.replace(/^Bearer\s+/i, '').trim();
+  return '';
+}
+
 function getSession(state, req) {
-  const tok = req.headers['x-carelink-session'] || '';
-  if (!tok || typeof tok !== 'string' || !state.sessions || !Object.prototype.hasOwnProperty.call(state.sessions, tok)) return null;
-  const s = state.sessions[tok];
-  const age = (Date.now() - new Date(s.lastSeen || s.createdAt).getTime()) / 1000;
-  if (age > IDLE_SECONDS) {
-    delete state.sessions[tok];
-    return null;
+  const tok = extractRequestToken(req);
+  if (!tok || FORBIDDEN_KEYS.has(tok)) return null;
+  if (state.revokedSessions && Object.prototype.hasOwnProperty.call(state.revokedSessions, tok)) return null;
+  if (state.sessions && Object.prototype.hasOwnProperty.call(state.sessions, tok)) {
+    const s = state.sessions[tok];
+    const age = (Date.now() - new Date(s.lastSeen || s.createdAt).getTime()) / 1000;
+    if (age > IDLE_SECONDS) {
+      delete state.sessions[tok];
+      return null;
+    }
+    s.lastSeen = nowISO();
+    return { token: tok, ...s };
   }
-  s.lastSeen = nowISO();
-  return { token: tok, ...s };
+  /* Upstash Global Redis routes writes to Primary and immediate reads (~5-300 ms
+     later) to Read Replicas where `state.sessions[tok]` may not have replicated
+     yet. Verify the server-signed HMAC session token so immediate post-login
+     `/api/state` and `/api/auth/change-password` calls never 401 on replica lag. */
+  const verified = verifySignedSessionToken(tok);
+  if (!verified) return null;
+  const cred = state.creds && Object.prototype.hasOwnProperty.call(state.creds, verified.u)
+    ? state.creds[verified.u]
+    : null;
+  return {
+    token: tok,
+    username: verified.u,
+    userId: (cred && cred.id) || verified.uid,
+    roleId: (cred && cred.roleId) || verified.r,
+    countyId: (cred && cred.countyId) || verified.c || 'kisumu',
+    createdAt: new Date(verified.iat * 1000).toISOString(),
+    lastSeen: nowISO(),
+  };
 }
 
 const MAX_BODY_BYTES = 24 * 1024 * 1024;
@@ -628,6 +693,9 @@ function pruneSessions(state) {
     const last = new Date(s.lastSeen || s.createdAt).getTime();
     if (!Number.isFinite(last) || (now - last) / 1000 > IDLE_SECONDS) delete state.sessions[tok];
   }
+  for (const [tok, ts] of Object.entries(state.revokedSessions || {})) {
+    if (!Number.isFinite(Number(ts)) || (now - Number(ts)) / 1000 > IDLE_SECONDS) delete state.revokedSessions[tok];
+  }
 }
 
 function loginLockRemainingMs(state, username) {
@@ -776,6 +844,20 @@ function readBundledReferenceManifest() {
   return null;
 }
 
+async function ensureFreshStateMinRev(currentState, minRev) {
+  const target = Number(minRev) || 0;
+  let s = currentState;
+  if (target <= 0 || (Number(s.rev) || 0) >= target) return s;
+  const waits = [150, 350, 700];
+  for (const ms of waits) {
+    await new Promise((r) => setTimeout(r, ms));
+    const reloaded = await loadCloudState();
+    s = reloaded.state;
+    if ((Number(s.rev) || 0) >= target) break;
+  }
+  return s;
+}
+
 async function handleRequest(req, res) {
   const urlObj = new URL(req.url || '/api/health', `http://${req.headers.host || 'localhost'}`);
   const rewritten = urlObj.searchParams.get('__path');
@@ -816,7 +898,7 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, reset: true, rev: fresh.rev });
   }
 
-  const { state, driver } = await loadCloudState();
+  let { state, driver } = await loadCloudState();
 
   /* 1. Health, bootstrap & revision probes */
   if ((route === 'health' || route === 'bootstrap') && method === 'GET') {
@@ -933,11 +1015,12 @@ async function handleRequest(req, res) {
 
   /* 2b. Global System Activation (Chief System Administrator) */
   if (route === 'setup/activate-global' && method === 'POST') {
+    const body = await readJsonBody(req);
+    state = await ensureFreshStateMinRev(state, body.minRev);
     const sess = getSession(state, req);
     if (!sess || sess.roleId !== 'chief') {
       return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may activate CareLink globally.' });
     }
-    const body = await readJsonBody(req);
     state.globallyActivated = true;
     state.db = state.db || {};
     /* Write the activation markers into every server-side location, even when
@@ -1099,7 +1182,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 401, { ok: false, code: 'invalid_credentials', error: 'Invalid username or password.' });
     }
     if (state.loginFailures) delete state.loginFailures[username];
-    const token = crypto.randomBytes(24).toString('base64url');
+    const token = mintSignedSessionToken(cred, username);
     state.sessions = state.sessions || {};
     pruneSessions(state);
     state.sessions[token] = {
@@ -1124,21 +1207,32 @@ async function handleRequest(req, res) {
     appendServerAudit(state, cred.id || username, 'auth.login', 'user', cred.id || username,
       `Online sign-in verified (${cred.mustChange ? 'first-login password change required' : 'personal password'})`);
     await saveCloudState(state);
+    /* Include non-paged initial state directly in the login response when under
+       the 512 KB collection threshold so post-setup Chief sign-in has the exact
+       Primary state immediately without waiting on Read Replica propagation. */
+    const split = splitLargeStateCollections(sanitizeDbForClient(state.db || {}));
+    const inlineState = split.pagedCollections.length === 0
+      ? { db: split.db, rev: state.rev || 0, saved: state.saved, pagedCollections: [] }
+      : null;
     return sendJson(res, 200, {
       ok: true,
       token,
       rev: state.rev || 0,
+      saved: state.saved,
       user: userRec,
       username,
       mustChange: Boolean(cred.mustChange),
       idleSeconds: IDLE_SECONDS,
+      ...(inlineState ? { inlineState } : {}),
     });
   }
 
   if (route === 'auth/logout' && method === 'POST') {
     const sess = getSession(state, req);
     if (sess) {
-      delete state.sessions[sess.token];
+      if (state.sessions) delete state.sessions[sess.token];
+      state.revokedSessions = state.revokedSessions || {};
+      state.revokedSessions[sess.token] = Date.now();
       appendServerAudit(state, sess.userId || sess.username, 'auth.logout', 'user', sess.userId || sess.username, 'Signed out from online database');
       await saveCloudState(state);
     }
@@ -1446,6 +1540,8 @@ async function handleRequest(req, res) {
   /* 5d. Zero-local-drive automatic cloud feed of the bundled 3,333-patient
      100%-complete synthetic reference master (Chief Admin, pre-activation). */
   if (route === 'master-import/auto-seed' && method === 'POST') {
+    const body = await readJsonBody(req);
+    state = await ensureFreshStateMinRev(state, body.minRev);
     const sess = getSession(state, req);
     if (!sess || sess.roleId !== 'chief') {
       return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may load the full reference dataset.' });

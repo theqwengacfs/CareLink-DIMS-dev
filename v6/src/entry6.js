@@ -668,6 +668,11 @@ function renderLogin6(){
 /* ------------------------------------------------------------ forced change */
 function renderMustChange(){
   const u = AUTH.user;
+  const isChiefPreActivation = Boolean(
+    u && u.roleId === 'chief' &&
+    typeof PROD_SETUP !== 'undefined' && !PROD_SETUP.isGloballyActivated() &&
+    ((DB.db && Array.isArray(DB.db.patients) ? DB.db.patients.length : 0) < 3333)
+  );
   return `<div class="lg6 one">
     <main class="lg6-panel">
       <div class="lg6-card">
@@ -682,6 +687,10 @@ function renderMustChange(){
           <div class="field"><label>New private password (12+ chars)</label><input class="input" type="password" name="password" minlength="12" required autocomplete="new-password">
             <div class="hint">Minimum 12 characters including uppercase (A–Z), lowercase (a–z), number (0–9) and symbol (@ # % &amp; * ! ?).</div></div>
           <div class="field"><label>Repeat your new private password</label><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"></div>
+          ${isChiefPreActivation ? `<label class="lg-check" style="margin:8px 0 12px;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:9px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06))">
+            <input type="checkbox" name="autoFeedCloudMaster" value="1" checked style="margin-top:2px">
+            <span><b>Auto-feed complete 3,333-patient CareLink Cloud Dataset</b> into Cloud KV immediately upon saving my password (zero local file upload)</span>
+          </label>` : ''}
           <button class="btn btn-primary btn-block" type="submit">Save private password &amp; open my console</button>
         </form>
         <div class="lg6-foot"><button class="linkbtn" data-act="logout" type="button">Sign out instead</button></div>
@@ -1186,7 +1195,7 @@ Object.assign(FORMS, {
     LOGIN6.error='';
     NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
     if(AUTH.user && AUTH.user.roleId==='chief' && typeof PROD_SETUP!=='undefined' && !PROD_SETUP.isGloballyActivated()){
-      let shouldAutoFeed = Boolean(ONB._pendingCloudAutoFeed);
+      let shouldAutoFeed = Boolean(ONB._pendingCloudAutoFeed || (d && d.get && d.get('autoFeedCloudMaster')));
       try {
         if (sessionStorage.getItem('carelink.pendingCloudAutoFeed') === '1') shouldAutoFeed = true;
         sessionStorage.removeItem('carelink.pendingCloudAutoFeed');
