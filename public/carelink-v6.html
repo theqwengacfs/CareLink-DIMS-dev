@@ -338,7 +338,7 @@ table.tbl.compact th,table.tbl.compact td{padding-left:8px;padding-right:8px}
 .ai-in{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line);background:#fff}
 .ai-in input{flex:1;height:42px;border-radius:10px;border:1px solid var(--line);padding:0 13px;outline:none;font-size:13.4px;background:var(--surface-2)}
 .ai-in input:focus{border-color:var(--accent);background:#fff}
-.ai-in button{width:42px;height:42px;border-radius:10px;border:0;background:var(--accent);color:#fff;display:grid;place-items:center}
+.ai-in button{width:42px;height:42px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-ink,#fff);display:grid;place-items:center}
 
 /* ---------------- Charts ---------------- */
 .bars{display:flex;flex-direction:column;gap:11px}
@@ -368,7 +368,7 @@ table.tbl.compact th,table.tbl.compact td{padding-left:8px;padding-right:8px}
 .step{display:flex;align-items:center;gap:8px;font-size:12.2px;color:var(--muted);white-space:nowrap;padding-right:8px}
 .step .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#EDF0F4;color:var(--muted);font-size:11px;font-weight:700;flex:0 0 24px}
 .step.done .n{background:var(--ok);color:#fff} .step.done{color:var(--ok);font-weight:600}
-.step.cur .n{background:var(--accent);color:#fff;box-shadow:0 0 0 4px var(--accent-soft)} .step.cur{color:var(--ink);font-weight:650}
+.step.cur .n{background:var(--accent);color:var(--accent-ink,#fff);box-shadow:0 0 0 4px var(--accent-soft)} .step.cur{color:var(--ink);font-weight:650}
 .step:not(:last-child)::after{content:"";width:26px;height:1.5px;background:var(--line);margin-left:4px}
 .patient-card{padding:15px;border-radius:12px;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow-sm)}
 .patient-card .top{display:flex;gap:11px;align-items:flex-start}
@@ -558,7 +558,7 @@ table.tbl.compact th,table.tbl.compact td{padding-left:8px;padding-right:8px}
 @media(max-width:760px){.setting-row .ctl{justify-self:stretch}}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface-2)}
 .seg button{border:0;background:none;padding:9px 14px;font-size:13px;color:var(--muted);min-height:40px}
-.seg button.on{background:var(--brand);color:#fff}
+.seg button.on{background:var(--accent);color:var(--accent-ink,#fff)}
 
 /* ---------------- Charts ---------------- */
 .chart{width:100%;height:auto;display:block}
@@ -1302,7 +1302,7 @@ a,button,[role=button],.tab,.np-i,.wt-card,.seg button,.btn,.icon-btn{touch-acti
 .panel::before{background:color-mix(in srgb,var(--accent-ink) 7%,transparent)}
 
 .settings-nav .g,.msg-list-h{color:var(--muted)}
-.seg button.on{background:var(--brand);color:var(--surface)}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
 
 /* ============================================================
    Creative studio
@@ -1313,11 +1313,13 @@ html[data-bg=dots] body{background-image:radial-gradient(color-mix(in srgb,var(-
 html[data-bg=grid] body{background-image:linear-gradient(color-mix(in srgb,var(--ink) 3.5%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--ink) 3.5%,transparent) 1px,transparent 1px);background-size:28px 28px}
 html[data-bg=waves] body{background-image:repeating-radial-gradient(circle at 0 100%,transparent 0 22px,color-mix(in srgb,var(--accent) 4.5%,transparent) 22px 24px)}
 html[data-bg=kente] body{background-image:repeating-linear-gradient(90deg,color-mix(in srgb,var(--accent) 5%,transparent) 0 14px,transparent 14px 28px,color-mix(in srgb,var(--gold) 6%,transparent) 28px 34px,transparent 34px 56px)}
-html[data-bg=dots] body,html[data-bg=grid] body,html[data-bg=waves] body,html[data-bg=kente] body{background-attachment:fixed}
+html[data-bg=linen] body{background-image:linear-gradient(45deg,color-mix(in srgb,var(--ink) 2.8%,transparent) 25%,transparent 25%,transparent 75%,color-mix(in srgb,var(--ink) 2.8%,transparent) 75%),linear-gradient(-45deg,color-mix(in srgb,var(--ink) 2.8%,transparent) 25%,transparent 25%,transparent 75%,color-mix(in srgb,var(--ink) 2.8%,transparent) 75%);background-size:20px 20px}
+html[data-bg=dots] body,html[data-bg=grid] body,html[data-bg=waves] body,html[data-bg=kente] body,html[data-bg=linen] body{background-attachment:fixed}
 html[data-hero=solid] .panel{background:var(--accent)}
 html[data-hero=pattern] .panel{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--panel-mix) 10%,transparent) 0 10px,transparent 10px 20px),linear-gradient(140deg,var(--accent) 0%,color-mix(in srgb,var(--accent) 72%,var(--panel-mix)) 100%)}
 html[data-cards=flat] .card,html[data-cards=flat] .kpi,html[data-cards=flat] .action-card,html[data-cards=flat] .patient-card{box-shadow:none}
 html[data-cards=lifted] .card,html[data-cards=lifted] .kpi,html[data-cards=lifted] .action-card,html[data-cards=lifted] .patient-card{box-shadow:var(--shadow)}
+html[data-cards=framed] .card,html[data-cards=framed] .action-card,html[data-cards=framed] .patient-card{box-shadow:0 1px 3px rgba(15,23,42,.05);border-width:1.5px;border-color:var(--border-strong,var(--line))}
 .st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
 .st-pre{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:2px solid var(--line);border-radius:var(--r-lg);background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer;min-height:48px}
 .st-pre:hover{border-color:var(--muted-2)} .st-pre b{font-size:14px} .st-pre span{font-size:12.5px;color:var(--muted);line-height:1.35}
@@ -1560,52 +1562,69 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
   display:flex; flex-direction:column;
 }
 .ld[data-mode="light"]{
-  --ld-bg:#F8F9FC; --ld-surface:#FFFFFF; --ld-surface-2:#EFF4FB;
-  --ld-ink:#0F172A; --ld-dim:#475569; --ld-border:rgba(15,23,42,.12);
+  --accent:#1E3A8A;
+  --ld-bg:#F8FAFC; --ld-surface:#FFFFFF; --ld-surface-2:#EEF3FA;
+  --ld-ink:#0F172A; --ld-dim:#334155; --ld-border:#CBD5E1;
 }
 /* Ten complete front-door palettes matching LANDING_THEMES */
 .ld[data-theme="heritage"]{
-  --ld-bg:#071124; --ld-surface:#0D1C38; --ld-surface-2:#122548;
-  --ld-ink:#F8FAFC; --ld-dim:#CBD5E1; --ld-border:rgba(148,197,255,.16);
+  --accent:#1E3A8A;
+  --ld-bg:#FFFFFF; --ld-surface:#FFFFFF; --ld-surface-2:#F1F5F9;
+  --ld-ink:#0F172A; --ld-dim:#334155; --ld-border:#CBD5E1;
 }
 .ld[data-theme="dawn"]{
+  --accent:#FDBA74;
   --ld-bg:#1D0D06; --ld-surface:#2E150A; --ld-surface-2:#401F10;
   --ld-ink:#FFF7ED; --ld-dim:#FED7AA; --ld-border:rgba(251,146,60,.24);
 }
 .ld[data-theme="clinic"]{
+  --accent:#0E7490;
   --ld-bg:#F4FAFB; --ld-surface:#FFFFFF; --ld-surface-2:#E6F4F7;
-  --ld-ink:#0F172A; --ld-dim:#334155; --ld-border:rgba(14,116,144,.18);
+  --ld-ink:#0F172A; --ld-dim:#334155; --ld-border:#B6DCE4;
 }
 .ld[data-theme="editorial"]{
-  --ld-bg:#F8F4EC; --ld-surface:#FFFDF9; --ld-surface-2:#EFE6D6;
-  --ld-ink:#1C1917; --ld-dim:#57534E; --ld-border:rgba(124,45,18,.18);
+  --accent:#7C2D12;
+  --ld-bg:#FAF7F2; --ld-surface:#FFFFFF; --ld-surface-2:#EFE8DC;
+  --ld-ink:#1C1917; --ld-dim:#44403C; --ld-border:#D6CCC0;
 }
 .ld[data-theme="editorial"] h1{ font-family:Georgia,"Cambria","Times New Roman",serif; }
 .ld[data-theme="canopy"]{
+  --accent:#6EE7B7;
   --ld-bg:#051F16; --ld-surface:#0A3324; --ld-surface-2:#0F4531;
   --ld-ink:#ECFDF5; --ld-dim:#A7F3D0; --ld-border:rgba(52,211,153,.22);
 }
 .ld[data-theme="signal"]{
+  --accent:#FDA4AF;
   --ld-bg:#08090C; --ld-surface:#12141A; --ld-surface-2:#1B1E27;
   --ld-ink:#FFFFFF; --ld-dim:#D1D5DB; --ld-border:rgba(225,29,72,.28);
 }
 .ld[data-theme="sand"]{
+  --accent:#9A3412;
   --ld-bg:#FBF6EF; --ld-surface:#FFFFFF; --ld-surface-2:#F0E3CE;
-  --ld-ink:#292018; --ld-dim:#5C4A38; --ld-border:rgba(180,83,9,.20);
+  --ld-ink:#292018; --ld-dim:#4E3E2E; --ld-border:#DFCEB8;
 }
 .ld[data-theme="violet"]{
+  --accent:#DDD6FE;
   --ld-bg:#110922; --ld-surface:#1D1038; --ld-surface-2:#2A1850;
   --ld-ink:#F5F3FF; --ld-dim:#DDD6FE; --ld-border:rgba(167,139,250,.24);
 }
 .ld[data-theme="paper"]{
-  --ld-bg:#FDFDFB; --ld-surface:#FFFFFF; --ld-surface-2:#F1F1ED;
-  --ld-ink:#111827; --ld-dim:#4B5563; --ld-border:rgba(17,24,39,.16);
+  --accent:#0F172A;
+  --ld-bg:#FFFFFF; --ld-surface:#FFFFFF; --ld-surface-2:#F3F4F6;
+  --ld-ink:#090D16; --ld-dim:#374151; --ld-border:#D1D5DB;
 }
 .ld[data-theme="spectrum"]{
+  --accent:#93C5FD;
   --ld-bg:#090D18; --ld-surface:#121A2E; --ld-surface-2:#1A2542;
   --ld-ink:#F8FAFC; --ld-dim:#CBD5E1; --ld-border:rgba(96,165,250,.24);
 }
 .ld[data-mode="light"] .ld-subhead{ color:#1E293B; }
+.ld[data-mode="light"] .ld-aurora{ opacity:.06; }
+.ld[data-mode="light"] .ld-eyebrow{
+  background:color-mix(in srgb, var(--accent) 10%, #FFFFFF);
+  border-color:color-mix(in srgb, var(--accent) 32%, #CBD5E1);
+  color:var(--accent);
+}
 
 /* Soft ambient depth only - ZERO bright white haze behind hero buttons */
 .ld-aurora{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
@@ -1633,15 +1652,15 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
 .ld-org{ font-weight:800; font-size:15.5px; letter-spacing:-.01em; }
 .ld-dim{ color:var(--ld-dim); }
 
-/* Strict zero-scroll Landing front door (100dvh, zero scrollbar) */
+/* Strict zero-scroll Landing front door (100dvh, zero scrollbar across PC, laptop & landscape tablet) */
 .ld[data-front="1"], .ld.ld-front{
   height:100dvh; max-height:100dvh; min-height:100dvh;
   overflow:hidden !important;
   justify-content:space-between;
 }
 .ld[data-front="1"] .ld-top, .ld.ld-front .ld-top{
-  padding:12px clamp(18px,3.6vw,44px);
-  margin-bottom:clamp(12px, 2vh, 24px);
+  padding:10px clamp(18px,3.2vw,40px);
+  margin-bottom:0;
   flex:0 0 auto;
 }
 .ld[data-front="1"] .ld-front-main, .ld.ld-front .ld-front-main{
@@ -1651,39 +1670,40 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
 }
 .ld[data-front="1"] .ld-hero-tight, .ld.ld-front .ld-hero-tight{
   width:100%;
-  padding:clamp(14px,2.4vh,28px) clamp(18px,3.6vw,44px);
-  gap:clamp(20px,3vw,42px);
+  padding:clamp(8px,1.6vh,18px) clamp(18px,3.2vw,40px);
+  gap:clamp(18px,2.8vw,38px);
   align-items:center;
 }
 .ld[data-front="1"] .ld-hero-tight h1, .ld.ld-front .ld-hero-tight h1{
-  font-size:clamp(30px,3.8vw,46px);
-  line-height:1.04;
-  margin:8px 0 0;
+  font-size:clamp(28px,3.4vw,42px);
+  line-height:1.05;
+  margin:7px 0 0;
 }
 .ld-subhead{
-  margin:6px 0 0;
-  font-size:clamp(14px,1.35vw,17.5px);
+  margin:5px 0 0;
+  font-size:clamp(13.5px,1.25vw,16.5px);
   font-weight:750;
   color:#E2E8F0;
   letter-spacing:-.01em;
 }
 .ld[data-mode="light"] .ld-subhead{ color:#1E293B; }
 .ld[data-front="1"] .ld-lede, .ld.ld-front .ld-lede{
-  margin:9px 0 0;
-  font-size:clamp(13px,1.12vw,14.8px);
-  line-height:1.56;
+  margin:8px 0 0;
+  font-size:clamp(12.8px,1.06vw,14.4px);
+  line-height:1.5;
 }
-.ld[data-front="1"] .ld-cta-row, .ld.ld-front .ld-cta-row{ margin-top:14px; gap:10px; }
-.ld[data-front="1"] .ld-cta, .ld.ld-front .ld-cta{ padding:10px 17px; font-size:13.2px; }
-.ld[data-front="1"] .ld-assure, .ld.ld-front .ld-assure{ margin-top:12px; gap:7px 14px; font-size:11.8px; }
-.ld[data-front="1"] .ld-canvas-tight, .ld.ld-front .ld-canvas-tight{ padding:11px 14px 12px; }
-.ld[data-front="1"] .ld-facts, .ld.ld-front .ld-facts{ margin-top:9px; gap:8px; }
-.ld[data-front="1"] .ld-fact, .ld.ld-front .ld-fact{ padding:7px 8px; }
-.ld[data-front="1"] .ld-fact b, .ld.ld-front .ld-fact b{ font-size:clamp(16px,1.65vw,20px); }
-.ld[data-front="1"] .ld-spark, .ld.ld-front .ld-spark{ margin-top:8px; padding:7px 10px 6px; }
-.ld[data-front="1"] .ld-spark svg, .ld.ld-front .ld-spark svg{ height:26px; }
+.ld[data-front="1"] .ld-cta-row, .ld.ld-front .ld-cta-row{ margin-top:12px; gap:10px; }
+.ld[data-front="1"] .ld-cta, .ld.ld-front .ld-cta{ padding:10px 18px; font-size:13.4px; }
+.ld[data-front="1"] .ld-assure, .ld.ld-front .ld-assure{ margin-top:10px; gap:6px 14px; font-size:11.6px; }
+.ld[data-front="1"] .ld-canvas-tight, .ld.ld-front .ld-canvas-tight{ padding:10px 13px 11px; }
+.ld[data-front="1"] .ld-scene-svg, .ld.ld-front .ld-scene-svg{ max-height:clamp(135px, 23vh, 210px); object-fit:contain; }
+.ld[data-front="1"] .ld-facts, .ld.ld-front .ld-facts{ margin-top:8px; gap:8px; }
+.ld[data-front="1"] .ld-fact, .ld.ld-front .ld-fact{ padding:6px 8px; }
+.ld[data-front="1"] .ld-fact b, .ld.ld-front .ld-fact b{ font-size:clamp(15px,1.5vw,19px); }
+.ld[data-front="1"] .ld-spark, .ld.ld-front .ld-spark{ margin-top:7px; padding:6px 10px 5px; }
+.ld[data-front="1"] .ld-spark svg, .ld.ld-front .ld-spark svg{ height:24px; }
 .ld[data-front="1"] .ld-foot-tight .ld-foot-inner, .ld.ld-front .ld-foot-tight .ld-foot-inner{
-  padding:8px clamp(18px,3.6vw,44px);
+  padding:7px clamp(18px,3.2vw,40px);
 }
 .ld-arch-thumb{
   width:21px; height:21px; border-radius:999px; object-fit:cover;
@@ -1855,9 +1875,8 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
   .lg6-brand{ display:none; }
 }
 
-/* Tablet & compact-height screens: restore spacious vertical flow so Landing & Sign-In are never cramped
-   and onscreen tablet keyboards never clip password or submit buttons. */
-@media (max-width:1200px), (max-height:860px), (pointer:coarse){
+/* Narrow portrait handsets or ultra-short onscreen-keyboard viewports: allow clean vertical flow only when single-column stacked */
+@media (max-width:860px), (max-height:560px){
   .ld[data-front="1"], .ld.ld-front{
     height:auto !important;
     max-height:none !important;
@@ -2069,7 +2088,7 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
 .lg-subpills{ display:flex; gap:4px; flex-wrap:wrap; }
 .lg-subpill{ font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:999px;
   background:var(--surface-2); border:1px solid var(--border); color:var(--text-2); }
-.lg-subpill.on{ background:var(--accent); color:#fff; border-color:var(--accent); }
+.lg-subpill.on{ background:var(--accent); color:var(--accent-ink,#fff); border-color:var(--accent); }
 .lg-demo-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; }
 .lg-demo-item{
   text-align:left; padding:6px 8px; border-radius:8px;
@@ -2166,7 +2185,7 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
 .msg-stream{ flex:1; overflow:auto; padding:16px 18px; display:flex; flex-direction:column; gap:10px; }
 .msg-b{ max-width:min(520px,82%); padding:9px 13px; border-radius:14px; background:var(--surface-2);
   border:1px solid var(--border); align-self:flex-start; }
-.msg-b.me{ align-self:flex-end; background:var(--accent); color:#fff; border-color:transparent; }
+.msg-b.me{ align-self:flex-end; background:var(--accent); color:var(--accent-ink,#fff); border-color:transparent; }
 .msg-b.me .msg-meta{ color:rgba(255,255,255,.78); }
 .msg-t{ font-size:13.5px; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
 .msg-meta{ font-size:10.5px; color:var(--text-3); margin-top:4px; }
@@ -2226,18 +2245,16 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
 }
 .np-i.on .np-ic, .np-i.on svg{ color:#FFFFFF !important; opacity:1; }
 
-/* Vibrant Departmental Hero Banner + Right-Side Quick Tabs */
+/* Vibrant Departmental Hero Banner + Right-Side Quick Tabs (zero white haze) */
 .panel.home-hero{
-  background:
-    radial-gradient(circle at 88% 18%, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 44%),
-    radial-gradient(circle at 12% 95%, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 40%),
-    linear-gradient(128deg, var(--dept-c1, #1A2F63) 0%, var(--dept-c2, #2563EB) 54%, var(--dept-c3, #0D9488) 100%) !important;
+  background:linear-gradient(128deg, var(--dept-c1, #1A2F63) 0%, var(--dept-c2, #1D4ED8) 56%, var(--dept-c3, #0F766E) 100%) !important;
   color:#FFFFFF !important;
-  border:1px solid rgba(255,255,255,.22) !important;
-  box-shadow:0 12px 30px rgba(15,23,42,.16) !important;
+  border:1px solid rgba(255,255,255,.24) !important;
+  box-shadow:0 10px 26px rgba(15,23,42,.15) !important;
   position:relative;
   overflow:hidden;
 }
+.panel.home-hero::before, .panel.home-hero::after{ display:none !important; }
 .panel.home-hero h2{ color:#FFFFFF !important; font-size:24px; letter-spacing:-.022em; }
 .panel.home-hero p{ color:rgba(255,255,255,.92) !important; max-width:640px; line-height:1.55; }
 .hero-dept-pill{
@@ -2280,63 +2297,82 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
 }
 
 /* Vivid Jewel-Colored KPI Stat Boxes Across ALL Consoles & Views */
-html:not([data-kpistyle="tinted"]) .kpi{
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi{
   border:none !important;
   color:#FFFFFF !important;
   position:relative;
   overflow:hidden;
   box-shadow:0 8px 20px rgba(15,23,42,.12);
   transition:transform .15s ease, box-shadow .15s ease;
-  background:linear-gradient(140deg, #1E3A8A 0%, #1D4ED8 62%, #2563EB 100%);
+  background:linear-gradient(140deg, #172554 0%, #1E3A8A 58%, #1D4ED8 100%);
 }
-html:not([data-kpistyle="tinted"]) .kpi::after{
-  content:""; position:absolute; right:-22px; top:-22px; width:96px; height:96px; border-radius:50%;
-  background:rgba(255,255,255,.11); pointer-events:none;
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi::after{
+  display:none;
 }
-html:not([data-kpistyle="tinted"]) .kpi:hover{ transform:translateY(-2px); box-shadow:0 12px 26px rgba(15,23,42,.18); }
-html:not([data-kpistyle="tinted"]) .kpi:nth-child(5n+2),
-html:not([data-kpistyle="tinted"]) .kpi.info{
-  background:linear-gradient(140deg, #134E4A 0%, #0F766E 58%, #0284C7 100%) !important;
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi:hover{ transform:translateY(-2px); box-shadow:0 12px 26px rgba(15,23,42,.18); }
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi:nth-child(5n+2),
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi.info{
+  background:linear-gradient(140deg, #083344 0%, #0F766E 58%, #0369A1 100%) !important;
 }
-html:not([data-kpistyle="tinted"]) .kpi:nth-child(5n+3),
-html:not([data-kpistyle="tinted"]) .kpi.warn{
-  background:linear-gradient(140deg, #7C2D12 0%, #B45309 60%, #CA8A04 100%) !important;
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi:nth-child(5n+3),
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi.warn{
+  background:linear-gradient(140deg, #7C2D12 0%, #9A3412 58%, #B45309 100%) !important;
 }
-html:not([data-kpistyle="tinted"]) .kpi:nth-child(5n+4),
-html:not([data-kpistyle="tinted"]) .kpi.ok{
-  background:linear-gradient(140deg, #064E3B 0%, #047857 58%, #059669 100%) !important;
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi:nth-child(5n+4),
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi.ok{
+  background:linear-gradient(140deg, #064E3B 0%, #065F46 58%, #047857 100%) !important;
 }
-html:not([data-kpistyle="tinted"]) .kpi:nth-child(5n+5){
-  background:linear-gradient(140deg, #4C1D95 0%, #6D28D9 60%, #7C3AED 100%) !important;
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi:nth-child(5n+5){
+  background:linear-gradient(140deg, #3B0764 0%, #5B21B6 58%, #6D28D9 100%) !important;
 }
-html:not([data-kpistyle="tinted"]) .kpi.crit{
-  background:linear-gradient(140deg, #7F1D1D 0%, #BE123C 60%, #E11D48 100%) !important;
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi.crit{
+  background:linear-gradient(140deg, #7F1D1D 0%, #9F1239 58%, #BE123C 100%) !important;
 }
-html:not([data-kpistyle="tinted"]) .kpi .kl{
-  color:rgba(255,255,255,.92) !important; font-weight:700 !important; letter-spacing:.035em;
+html[data-kpistyle="bold"] .kpi{ background:var(--dept-c1, #1E3A8A) !important; }
+html[data-kpistyle="bold"] .kpi.ok{ background:#065F46 !important; }
+html[data-kpistyle="bold"] .kpi.warn{ background:#9A3412 !important; }
+html[data-kpistyle="bold"] .kpi.crit{ background:#9F1239 !important; }
+html[data-kpistyle="bold"] .kpi.info{ background:#1E40AF !important; }
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .kl{
+  color:#FFFFFF !important; font-weight:750 !important; letter-spacing:.04em;
   text-transform:uppercase; font-size:11px !important;
 }
-html:not([data-kpistyle="tinted"]) .kpi .kv{
-  color:#FFFFFF !important; font-size:29px !important; font-weight:800 !important;
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .kv{
+  color:#FFFFFF !important; font-size:29px !important; font-weight:850 !important;
   letter-spacing:-.03em; line-height:1.12; margin:6px 0 4px;
 }
-html:not([data-kpistyle="tinted"]) .kpi .ks{
-  color:rgba(255,255,255,.88) !important; font-size:12px !important; font-weight:500;
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .ks{
+  color:rgba(255,255,255,.94) !important; font-size:12px !important; font-weight:550;
 }
-html:not([data-kpistyle="tinted"]) .kpi .kic{
-  background:rgba(255,255,255,.20) !important; color:#FFFFFF !important;
-  border:1px solid rgba(255,255,255,.28); border-radius:10px; padding:6px;
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .kic{
+  background:rgba(9,13,22,.32) !important; color:#FFFFFF !important;
+  border:1px solid rgba(255,255,255,.32); border-radius:10px; padding:6px;
 }
 
-/* Soft-tinted chromatic mode when user selects "Soft tint" in Studio */
+/* Crisp Top-Bar Chromatic Mode ("Crisp top-bar" in Studio) */
 html[data-kpistyle="tinted"] .kpi{
+  border:1px solid var(--border-strong, var(--line)) !important;
   border-top:4px solid var(--dept-c2, var(--accent)) !important;
-  background:linear-gradient(180deg, var(--dept-soft, var(--surface-2)) 0%, var(--surface) 100%) !important;
+  background:var(--surface) !important;
+  color:var(--ink) !important;
 }
 html[data-kpistyle="tinted"] .kpi.ok{ border-top-color:var(--ok) !important; }
 html[data-kpistyle="tinted"] .kpi.warn{ border-top-color:var(--warn) !important; }
 html[data-kpistyle="tinted"] .kpi.crit{ border-top-color:var(--crit) !important; }
 html[data-kpistyle="tinted"] .kpi.info{ border-top-color:var(--info) !important; }
+
+/* Pure Outlined Architectural Mode ("Pure outlined" in Studio) */
+html[data-kpistyle="outlined"] .kpi{
+  border:2px solid var(--border-strong, var(--line)) !important;
+  border-left:5px solid var(--dept-c2, var(--accent)) !important;
+  background:var(--surface) !important;
+  color:var(--ink) !important;
+  box-shadow:none !important;
+}
+html[data-kpistyle="outlined"] .kpi.ok{ border-left-color:var(--ok) !important; }
+html[data-kpistyle="outlined"] .kpi.warn{ border-left-color:var(--warn) !important; }
+html[data-kpistyle="outlined"] .kpi.crit{ border-left-color:var(--crit) !important; }
+html[data-kpistyle="outlined"] .kpi.info{ border-left-color:var(--info) !important; }
 
 /* Role-Context Subpage Strip (Zero Photos, Pure Crisp Departmental Context) */
 .ctx-strip{
@@ -3351,7 +3387,7 @@ html[data-calm="on"] *{animation-duration:.001ms!important;transition-duration:.
 }
 .cb-qbtn:hover{ background:var(--surface); color:var(--ink); }
 .cb-qbtn.on{
-  background:var(--accent); color:#FFFFFF;
+  background:var(--accent); color:var(--accent-ink, #FFFFFF);
 }
 .topbar.cbar .searchbox{
   flex:1 1 150px !important;
@@ -3521,161 +3557,48 @@ html[data-zoom="125"]{ font-size:112%; }
   flex:0 1 auto; max-width:100%;
 }
 
-/* ---------------- 4. Rich Role-Contextual Upper Console Bar (.ctx-strip) & Readable Tabs ---------------- */
-.ctx-strip{
-  --cs-bg1:#0F172A; --cs-bg2:#1E3A8A; --cs-acc:#38BDF8;
-  display:flex; flex-direction:column; align-items:stretch; gap:11px;
-  padding:13px 18px !important; border-radius:14px !important; margin-bottom:16px !important;
-  background:linear-gradient(100deg, var(--cs-bg1) 0%, var(--cs-bg2) 100%) !important;
-  color:#F8FAFC !important;
-  border:1px solid rgba(255,255,255,.18) !important;
-  border-left:5px solid var(--cs-acc) !important;
-  box-shadow:0 8px 22px rgba(15,23,42,.15);
-}
-.ctx-strip-top{
-  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; width:100%;
-}
-.ctx-strip[data-dept="media"]    { --cs-bg1:#2E1065; --cs-bg2:#5B21B6; --cs-acc:#FBBF24; }
-.ctx-strip[data-dept="medical"]  { --cs-bg1:#083344; --cs-bg2:#0E7490; --cs-acc:#5EEAD4; }
-.ctx-strip[data-dept="ministry"] { --cs-bg1:#064E3B; --cs-bg2:#047857; --cs-acc:#FDE047; }
-.ctx-strip[data-dept="finance"]  { --cs-bg1:#172554; --cs-bg2:#1D4ED8; --cs-acc:#93C5FD; }
-.ctx-strip[data-dept="procure"]  { --cs-bg1:#431407; --cs-bg2:#9A3412; --cs-acc:#FDBA74; }
-.ctx-strip[data-dept="exec"]     { --cs-bg1:#0F172A; --cs-bg2:#312E81; --cs-acc:#F5C451; }
-.ctx-strip[data-dept="admin"]    { --cs-bg1:#1E293B; --cs-bg2:#0F4C81; --cs-acc:#38BDF8; }
-.ctx-strip[data-dept="hr"]       { --cs-bg1:#3B0764; --cs-bg2:#7E22CE; --cs-acc:#F9A8D4; }
-.ctx-strip[data-dept="welfare"]  { --cs-bg1:#4C0519; --cs-bg2:#9F1239; --cs-acc:#FDA4AF; }
-.ctx-strip[data-dept="audit"]    { --cs-bg1:#451A03; --cs-bg2:#92400E; --cs-acc:#FDE68A; }
-.ctx-strip[data-dept="me"]       { --cs-bg1:#0C4A6E; --cs-bg2:#0369A1; --cs-acc:#7DD3FC; }
-.ctx-strip[data-dept="vehicle"]  { --cs-bg1:#1E293B; --cs-bg2:#334155; --cs-acc:#FACC15; }
-.ctx-strip[data-dept="pr"]       { --cs-bg1:#4A044E; --cs-bg2:#86198F; --cs-acc:#F0ABFC; }
-.ctx-strip[data-dept="hospital"] { --cs-bg1:#042F2E; --cs-bg2:#0F766E; --cs-acc:#99F6E4; }
-.ctx-strip[data-dept="pharmacy"] { --cs-bg1:#14532D; --cs-bg2:#15803D; --cs-acc:#86EFAC; }
-.ctx-strip[data-dept="it"]       { --cs-bg1:#090D16; --cs-bg2:#1E293B; --cs-acc:#60A5FA; }
-.ctx-strip[data-dept="intldata"] { --cs-bg1:#1E1B4B; --cs-bg2:#3730A3; --cs-acc:#A5B4FC; }
-.ctx-strip[data-dept="homestay"] { --cs-bg1:#3F2E21; --cs-bg2:#78350F; --cs-acc:#FDE68A; }
-
-.ctx-strip-left{ display:flex; align-items:center; gap:13px; flex:1 1 320px; min-width:0; }
-.ctx-strip-emblem{
-  width:38px; height:38px; border-radius:11px; flex:0 0 auto;
-  display:flex; align-items:center; justify-content:center;
-  background:rgba(255,255,255,.14); color:var(--cs-acc);
-  border:1px solid rgba(255,255,255,.24);
-}
-.ctx-strip-copy{ min-width:0; }
-.ctx-strip-kicker{
-  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
-  font-size:10.5px !important; font-weight:800 !important;
-  text-transform:uppercase; letter-spacing:.08em;
-  color:#E2E8F0 !important;
-}
-.ctx-os-pill{
-  background:var(--cs-acc); color:#0F172A;
-  padding:1px 7px; border-radius:999px; font-weight:900; letter-spacing:.07em;
-}
-.ctx-role-chip{
-  background:rgba(15,23,42,.55); color:#FFFFFF;
-  padding:1px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.32);
-}
-.ctx-strip-title{
-  font-size:16px !important; font-weight:800 !important;
-  color:#FFFFFF !important; margin-top:3px !important;
-}
-.ctx-strip-sub{
-  font-size:12px !important; color:rgba(248,250,252,.92) !important; margin-top:2px !important;
-}
-.ctx-strip-sub b{ color:#FFFFFF; }
-.ctx-strip-right{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.ctx-scope-pill{
-  display:inline-flex; align-items:center; gap:5px;
-  padding:5px 11px; border-radius:999px; font-size:11.5px; font-weight:750;
-  background:rgba(9,13,22,.56); color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.32);
-}
-.ctx-partner-pill{
-  padding:5px 10px; border-radius:999px; font-size:11px; font-weight:800;
-  background:#FDE68A; color:#78350F;
-}
-.ctx-strip .ctx-cta-btn{
-  background:var(--cs-acc) !important;
-  color:#0F172A !important;
-  border:1px solid rgba(255,255,255,.65) !important;
-  font-weight:800 !important;
-  border-radius:999px !important;
-  padding:5px 12px !important;
-}
-.ctx-strip .ctx-cta-btn:hover{
-  filter:brightness(1.06);
-}
-.ctx-role-tabs{
-  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
-  padding-top:9px; border-top:1px solid rgba(255,255,255,.16);
-}
-.ctx-rtab{
-  display:inline-flex; align-items:center; gap:6px;
-  padding:5px 11px; border-radius:999px;
-  background:rgba(9,13,22,.48);
-  color:#F8FAFC !important;
-  border:1px solid rgba(255,255,255,.24);
-  font-size:11.8px; font-weight:700; cursor:pointer;
-  transition:background .14s ease, border-color .14s ease;
-}
-.ctx-rtab:hover{
-  background:rgba(9,13,22,.74);
-  border-color:rgba(255,255,255,.55);
-  color:#FFFFFF !important;
-}
-.ctx-rtab.on{
-  background:var(--cs-acc) !important;
-  color:#0F172A !important;
-  border-color:#FFFFFF !important;
-  font-weight:850 !important;
-  box-shadow:0 2px 8px rgba(0,0,0,.22);
-}
-.ctx-rtab svg, .ctx-rtab span, .ctx-strip .ctx-cta-btn svg, .ctx-strip .ctx-cta-btn span{
-  color:inherit !important;
-}
-
-/* High-contrast, easy-to-read Console & Sheet Tabs across ALL themes */
+/* ---------------- 4. High-Contrast Console & Sheet Tabs Across ALL Themes ---------------- */
 .tabs{
   display:flex; align-items:center; gap:6px; flex-wrap:wrap;
   padding:5px; border-radius:12px;
-  background:var(--surface-2); border:1px solid var(--line);
+  background:var(--surface-2); border:1px solid var(--border-strong, var(--line));
 }
 .tabs .tab{
   border-radius:9px !important;
   padding:7px 13px !important;
   background:var(--surface) !important;
   color:var(--ink) !important;
-  border:1px solid var(--line) !important;
-  font-weight:650 !important;
+  border:1px solid var(--border-strong, var(--line)) !important;
+  font-weight:700 !important;
 }
 .tabs .tab:hover{
   border-color:var(--accent) !important;
+  background:var(--hover) !important;
   color:var(--ink) !important;
 }
 .tabs .tab.active{
   background:var(--accent) !important;
   color:var(--accent-ink, #FFFFFF) !important;
   border-color:var(--accent) !important;
-  font-weight:800 !important;
-  box-shadow:0 2px 6px rgba(15,23,42,.14);
+  font-weight:850 !important;
+  box-shadow:0 2px 6px rgba(15,23,42,.16);
 }
 .tabs .tab.active svg, .tabs .tab.active span{ color:inherit !important; }
 
 .sheet .tab{
   background:var(--surface) !important;
   color:var(--ink) !important;
-  border:1px solid var(--line) !important;
-  font-weight:650 !important;
+  border:1px solid var(--border-strong, var(--line)) !important;
+  font-weight:700 !important;
 }
 .sheet .tab.active{
   background:var(--accent) !important;
   color:var(--accent-ink, #FFFFFF) !important;
   border-color:var(--accent) !important;
-  font-weight:800 !important;
+  font-weight:850 !important;
 }
 .sheet .tab.active .tcount{
-  background:rgba(0,0,0,.26) !important;
+  background:rgba(0,0,0,.28) !important;
   color:#FFFFFF !important;
 }
 
@@ -4071,7 +3994,7 @@ details.chart-table[open] > summary.chart-table-btn{
   background:var(--surface-2); color:var(--muted);
 }
 .wp-step.done .wp-step-ic{ background:var(--ok); color:#FFFFFF; }
-.wp-step.active .wp-step-ic{ background:var(--accent); color:#FFFFFF; }
+.wp-step.active .wp-step-ic{ background:var(--accent); color:var(--accent-ink, #FFFFFF); }
 .wp-step-txt b{ display:block; font-size:12.5px; color:var(--ink); }
 .wp-step-txt span{ display:block; font-size:11px; color:var(--muted); margin-top:2px; line-height:1.35; }
 
@@ -4818,19 +4741,192 @@ details.chart-table[open] > summary.chart-table-btn{
   line-height:1.16;
 }
 
-/* 2. Dominant Departmental Workspace Top Banner (.ctx-strip) */
+/* 2. Dominant Multi-Colour Fixed Top Console Banner (.topbar.cbar) + Zero-Haze Workspace Strip (.ctx-strip) */
+.topbar.cbar{
+  --cb-c1:#0F1E4A; --cb-c2:#1E3A8A; --cb-c3:#4338CA; --cb-badge:#FBBF24;
+  min-height:66px !important;
+  padding:8px 18px !important;
+  background:linear-gradient(108deg, var(--cb-c1) 0%, var(--cb-c2) 52%, var(--cb-c3) 100%) !important;
+  color:#FFFFFF !important;
+  border-top:0 !important;
+  border-bottom:3px solid var(--cb-badge) !important;
+  box-shadow:0 6px 18px rgba(9,13,22,.18) !important;
+}
+html[data-banner="duotone"] .topbar.cbar{
+  background:linear-gradient(96deg, var(--cb-c1) 0%, var(--cb-c2) 100%) !important;
+}
+html[data-banner="solid"] .topbar.cbar{
+  background:var(--cb-c1) !important;
+}
+
+/* Distinct spectrum palettes per department AND per role so every console has its own unmistakable signature */
+.topbar.cbar[data-dept="exec"]     { --cb-c1:#0D1B44; --cb-c2:#1E3A8A; --cb-c3:#5B21B6; --cb-badge:#FBBF24; }
+.topbar.cbar[data-dept="admin"]    { --cb-c1:#0A2540; --cb-c2:#0369A1; --cb-c3:#0D9488; --cb-badge:#38BDF8; }
+.topbar.cbar[data-dept="ministry"] { --cb-c1:#064E3B; --cb-c2:#047857; --cb-c3:#0F766E; --cb-badge:#FDE047; }
+.topbar.cbar[data-dept="medical"]  { --cb-c1:#083344; --cb-c2:#0E7490; --cb-c3:#1D4ED8; --cb-badge:#5EEAD4; }
+.topbar.cbar[data-dept="hospital"] { --cb-c1:#042F2E; --cb-c2:#0F766E; --cb-c3:#0369A1; --cb-badge:#99F6E4; }
+.topbar.cbar[data-dept="finance"]  { --cb-c1:#111C44; --cb-c2:#1D4ED8; --cb-c3:#4338CA; --cb-badge:#FDE68A; }
+.topbar.cbar[data-dept="procure"]  { --cb-c1:#431407; --cb-c2:#9A3412; --cb-c3:#B45309; --cb-badge:#FDBA74; }
+.topbar.cbar[data-dept="hr"]       { --cb-c1:#3B0764; --cb-c2:#6B21A8; --cb-c3:#9333EA; --cb-badge:#F9A8D4; }
+.topbar.cbar[data-dept="welfare"]  { --cb-c1:#4C0519; --cb-c2:#9F1239; --cb-c3:#BE123C; --cb-badge:#FDA4AF; }
+.topbar.cbar[data-dept="media"]    { --cb-c1:#2E1065; --cb-c2:#6D28D9; --cb-c3:#A21CAF; --cb-badge:#FACC15; }
+.topbar.cbar[data-dept="pr"]       { --cb-c1:#4A044E; --cb-c2:#86198F; --cb-c3:#BE185D; --cb-badge:#F0ABFC; }
+.topbar.cbar[data-dept="audit"]    { --cb-c1:#451A03; --cb-c2:#78350F; --cb-c3:#92400E; --cb-badge:#FDE68A; }
+.topbar.cbar[data-dept="me"]       { --cb-c1:#0C4A6E; --cb-c2:#0284C7; --cb-c3:#3730A3; --cb-badge:#7DD3FC; }
+.topbar.cbar[data-dept="vehicle"]  { --cb-c1:#0F172A; --cb-c2:#1E3A5F; --cb-c3:#0F766E; --cb-badge:#FACC15; }
+.topbar.cbar[data-dept="it"]       { --cb-c1:#090D16; --cb-c2:#1E293B; --cb-c3:#1D4ED8; --cb-badge:#60A5FA; }
+.topbar.cbar[data-dept="homestay"] { --cb-c1:#3E2723; --cb-c2:#78350F; --cb-c3:#3F6212; --cb-badge:#FDE68A; }
+.topbar.cbar[data-dept="intldata"] { --cb-c1:#1E1B4B; --cb-c2:#312E81; --cb-c3:#0369A1; --cb-badge:#A5B4FC; }
+
+/* Fine-grained role overrides so e.g. Chief vs County Admin, Director vs President, Caregiver vs Coordinator each stand apart */
+.topbar.cbar[data-role="chief"]             { --cb-c1:#081631; --cb-c2:#0F4C81; --cb-c3:#1D4ED8; --cb-badge:#38BDF8; }
+.topbar.cbar[data-role="president"]         { --cb-c1:#18103A; --cb-c2:#312E81; --cb-c3:#9A5B00; --cb-badge:#FCD34D; }
+.topbar.cbar[data-role="director"]          { --cb-c1:#0F1E4A; --cb-c2:#1E3A8A; --cb-c3:#6D28D9; --cb-badge:#FBBF24; }
+.topbar.cbar[data-role="program.admin"]     { --cb-c1:#172554; --cb-c2:#1E40AF; --cb-c3:#0E7490; --cb-badge:#93C5FD; }
+.topbar.cbar[data-role="program.assistant"] { --cb-c1:#1E293B; --cb-c2:#1D4ED8; --cb-c3:#0F766E; --cb-badge:#7DD3FC; }
+.topbar.cbar[data-role="gov.partner"]       { --cb-c1:#14532D; --cb-c2:#0F766E; --cb-c3:#1E3A8A; --cb-badge:#FDE047; }
+.topbar.cbar[data-role="countyadmin"]       { --cb-c1:#0C3554; --cb-c2:#0369A1; --cb-c3:#0F766E; --cb-badge:#FCD34D; }
+.topbar.cbar[data-role="assistant"]         { --cb-c1:#1E293B; --cb-c2:#0E7490; --cb-c3:#2563EB; --cb-badge:#67E8F9; }
+.topbar.cbar[data-role="coordinator"]       { --cb-c1:#064E3B; --cb-c2:#059669; --cb-c3:#0284C7; --cb-badge:#A7F3D0; }
+.topbar.cbar[data-role="caregiver"]         { --cb-c1:#053D2E; --cb-c2:#047857; --cb-c3:#15803D; --cb-badge:#FDE047; }
+.topbar.cbar[data-role="chw"]               { --cb-c1:#14532D; --cb-c2:#15803D; --cb-c3:#0D9488; --cb-badge:#BEF264; }
+.topbar.cbar[data-role="mcm"]               { --cb-c1:#083344; --cb-c2:#0E7490; --cb-c3:#1D4ED8; --cb-badge:#5EEAD4; }
+.topbar.cbar[data-role="nurse"]             { --cb-c1:#0C4A6E; --cb-c2:#0284C7; --cb-c3:#0D9488; --cb-badge:#99F6E4; }
+.topbar.cbar[data-role="liaison"]           { --cb-c1:#042F2E; --cb-c2:#0F766E; --cb-c3:#0369A1; --cb-badge:#6EE7B7; }
+.topbar.cbar[data-role="depthead"]          { --cb-c1:#172554; --cb-c2:#0E7490; --cb-c3:#4338CA; --cb-badge:#FCD34D; }
+.topbar.cbar[data-role="ccc.clinician"]     { --cb-c1:#134E4A; --cb-c2:#0F766E; --cb-c3:#1E40AF; --cb-badge:#99F6E4; }
+.topbar.cbar[data-role="intl.medical"]      { --cb-c1:#1E1B4B; --cb-c2:#0369A1; --cb-c3:#0F766E; --cb-badge:#7DD3FC; }
+.topbar.cbar[data-role="finance"]           { --cb-c1:#111C44; --cb-c2:#1D4ED8; --cb-c3:#4338CA; --cb-badge:#FDE68A; }
+.topbar.cbar[data-role="procurement"]       { --cb-c1:#431407; --cb-c2:#9A3412; --cb-c3:#B45309; --cb-badge:#FDBA74; }
+.topbar.cbar[data-role="hr"]                { --cb-c1:#3B0764; --cb-c2:#6B21A8; --cb-c3:#9333EA; --cb-badge:#F9A8D4; }
+.topbar.cbar[data-role="welfare"]           { --cb-c1:#4C0519; --cb-c2:#9F1239; --cb-c3:#BE123C; --cb-badge:#FDA4AF; }
+.topbar.cbar[data-role="mediahead"]         { --cb-c1:#2E1065; --cb-c2:#6D28D9; --cb-c3:#A21CAF; --cb-badge:#FACC15; }
+.topbar.cbar[data-role="pr"]                { --cb-c1:#4A044E; --cb-c2:#86198F; --cb-c3:#BE185D; --cb-badge:#F0ABFC; }
+.topbar.cbar[data-role="auditor"]           { --cb-c1:#451A03; --cb-c2:#78350F; --cb-c3:#92400E; --cb-badge:#FDE68A; }
+.topbar.cbar[data-role="me"]                { --cb-c1:#0C4A6E; --cb-c2:#0284C7; --cb-c3:#3730A3; --cb-badge:#7DD3FC; }
+.topbar.cbar[data-role="vehicle"]           { --cb-c1:#0F172A; --cb-c2:#1E3A5F; --cb-c3:#0F766E; --cb-badge:#FACC15; }
+.topbar.cbar[data-role="it"]                { --cb-c1:#090D16; --cb-c2:#1E293B; --cb-c3:#1D4ED8; --cb-badge:#60A5FA; }
+.topbar.cbar[data-role="homestay"]          { --cb-c1:#3E2723; --cb-c2:#78350F; --cb-c3:#3F6212; --cb-badge:#FDE68A; }
+.topbar.cbar[data-role="intldata"]          { --cb-c1:#1E1B4B; --cb-c2:#312E81; --cb-c3:#0369A1; --cb-badge:#A5B4FC; }
+
+.topbar.cbar .cb-logo{
+  background:#FFFFFF !important; border-radius:10px; padding:3px;
+  border:1.5px solid rgba(255,255,255,.85); box-shadow:0 3px 10px rgba(0,0,0,.22);
+}
+.topbar.cbar .cb-k{
+  display:flex; align-items:center; gap:6px;
+  font-size:10.4px !important; font-weight:850 !important; letter-spacing:.09em;
+  text-transform:uppercase; color:rgba(255,255,255,.94) !important;
+}
+.topbar.cbar .cb-os-tag{
+  display:inline-flex; align-items:center;
+  padding:1.5px 8px; border-radius:999px;
+  background:var(--cb-badge); color:#090D16 !important;
+  font-weight:900; font-size:9.8px; letter-spacing:.11em;
+}
+.topbar.cbar .cb-county-tag{
+  display:inline-flex; align-items:center;
+  padding:1.5px 8px; border-radius:999px;
+  background:rgba(9,13,22,.42); color:#FFFFFF !important;
+  border:1px solid rgba(255,255,255,.32); font-weight:800; font-size:9.8px;
+}
+.topbar.cbar .cb-page-tag{
+  color:rgba(255,255,255,.86); font-weight:750; font-size:10px;
+}
+.topbar.cbar h1{
+  font-family:var(--font-head, var(--font));
+  font-size:clamp(18px, 1.55vw, 22px) !important;
+  font-weight:850 !important;
+  letter-spacing:-.02em;
+  line-height:1.18 !important;
+  color:#FFFFFF !important;
+  margin-top:2px !important;
+  text-shadow:0 1px 2px rgba(0,0,0,.28);
+}
+.topbar.cbar h1 .cb-title-sep{ color:var(--cb-badge); font-weight:900; }
+.topbar.cbar h1 .cb-view-name{ color:rgba(255,255,255,.94); font-weight:750; font-size:.9em; }
+
+/* High-contrast controls inside the dominant spectrum .topbar.cbar */
+.topbar.cbar .icon-btn,
+.topbar.cbar .tb-ai-label{
+  background:rgba(9,13,22,.44) !important;
+  color:#FFFFFF !important;
+  border:1px solid rgba(255,255,255,.32) !important;
+}
+.topbar.cbar .icon-btn:hover:not(:disabled),
+.topbar.cbar .tb-ai-label:hover{
+  background:rgba(9,13,22,.68) !important;
+  border-color:#FFFFFF !important;
+  color:#FFFFFF !important;
+}
+.topbar.cbar .icon-btn:disabled{
+  opacity:.42 !important;
+}
+.topbar.cbar .cb-quick{
+  background:rgba(9,13,22,.40) !important;
+  border:1px solid rgba(255,255,255,.28) !important;
+  padding:3px !important; border-radius:999px;
+}
+.topbar.cbar .cb-qbtn{
+  color:#F8FAFC !important;
+  background:transparent !important;
+  font-weight:750 !important;
+}
+.topbar.cbar .cb-qbtn:hover{
+  background:rgba(255,255,255,.16) !important;
+  color:#FFFFFF !important;
+}
+.topbar.cbar .cb-qbtn.on{
+  background:var(--cb-badge) !important;
+  color:#090D16 !important;
+  font-weight:900 !important;
+  box-shadow:0 2px 6px rgba(0,0,0,.24);
+}
+.topbar.cbar .cb-qbtn.on svg, .topbar.cbar .cb-qbtn.on span{ color:#090D16 !important; }
+.topbar.cbar .searchbox{
+  background:#FFFFFF !important;
+  border:1.5px solid rgba(255,255,255,.92) !important;
+  color:#334155 !important;
+  box-shadow:0 2px 8px rgba(0,0,0,.18);
+}
+.topbar.cbar .searchbox input{
+  color:#0F172A !important;
+  font-weight:550;
+}
+.topbar.cbar .searchbox input::placeholder{
+  color:#475569 !important;
+}
+.topbar.cbar .live-pill,
+.topbar.cbar .sync-chip{
+  background:rgba(9,13,22,.48) !important;
+  color:#FFFFFF !important;
+  border:1px solid rgba(255,255,255,.32) !important;
+}
+.topbar.cbar .live-pill span,
+.topbar.cbar .sync-chip span{ color:#FFFFFF !important; }
+.topbar.cbar .me-btn{
+  background:rgba(9,13,22,.48) !important;
+  border:1px solid rgba(255,255,255,.36) !important;
+  color:#FFFFFF !important;
+}
+.topbar.cbar .me-btn:hover{
+  background:rgba(9,13,22,.72) !important;
+  border-color:var(--cb-badge) !important;
+}
+.topbar.cbar .me-nm{ color:#FFFFFF !important; font-weight:750 !important; }
+
+/* Zero-Haze Workspace Context Card (.ctx-strip) & Quick-Jump Tabs (.ctx-rtab) */
 .ctx-strip{
-  display:flex; flex-direction:column; gap:12px;
-  padding:15px 18px !important;
+  display:flex; flex-direction:column; gap:11px;
+  padding:14px 18px !important;
   margin-bottom:16px !important;
   border-radius:14px !important;
-  background:linear-gradient(125deg,
-    color-mix(in srgb, var(--accent) 15%, var(--surface)) 0%,
-    color-mix(in srgb, var(--accent) 5%, var(--surface)) 62%,
-    var(--surface-2) 100%) !important;
-  border:1.5px solid color-mix(in srgb, var(--accent) 36%, var(--line)) !important;
-  border-left:6px solid var(--accent) !important;
-  box-shadow:0 6px 20px rgba(15,23,42,.07);
+  background:var(--surface) !important;
+  color:var(--ink) !important;
+  border:1.5px solid var(--border-strong, var(--line)) !important;
+  border-left:6px solid var(--dept-c2, var(--accent)) !important;
+  border-top:3px solid var(--accent) !important;
+  box-shadow:0 4px 14px rgba(15,23,42,.06);
 }
 .ctx-strip-top{
   display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; width:100%;
@@ -4841,87 +4937,145 @@ details.chart-table[open] > summary.chart-table-btn{
 .ctx-strip-emblem{
   width:42px; height:42px; border-radius:12px; flex:0 0 42px;
   display:inline-flex; align-items:center; justify-content:center;
-  background:var(--accent); color:#FFFFFF;
-  box-shadow:0 6px 14px color-mix(in srgb, var(--accent) 35%, transparent);
+  background:var(--accent) !important; color:var(--accent-ink, #FFFFFF) !important;
+  box-shadow:0 4px 12px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 .ctx-strip-copy{ display:flex; flex-direction:column; gap:3px; min-width:0; }
 .ctx-strip-kicker{
   display:flex; align-items:center; gap:7px; flex-wrap:wrap;
-  font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+  font-size:11px !important; font-weight:850 !important; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--accent-fg, var(--ink)) !important;
 }
 .ctx-os-pill, .ctx-os-badge{
   display:inline-flex; align-items:center; padding:2px 9px; border-radius:999px;
-  background:var(--accent); color:#FFFFFF;
-  font-size:10px; font-weight:900; letter-spacing:.12em;
+  background:var(--accent) !important; color:var(--accent-ink, #FFFFFF) !important;
+  font-size:10px; font-weight:900; letter-spacing:.11em;
 }
 .ctx-role-chip{
   display:inline-flex; align-items:center; padding:2px 9px; border-radius:999px;
-  background:var(--surface); border:1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
-  color:var(--ink); font-weight:850; font-size:10.8px;
+  background:var(--surface-2) !important; border:1px solid var(--border-strong, var(--line)) !important;
+  color:var(--ink) !important; font-weight:850; font-size:10.8px;
 }
 .ctx-county-chip{
   display:inline-flex; align-items:center; gap:4px;
   padding:2px 9px; border-radius:999px;
-  background:color-mix(in srgb, var(--accent) 16%, var(--surface));
-  border:1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
-  color:var(--accent-fg, var(--ink)); font-weight:850; font-size:10.8px;
+  background:var(--accent-soft) !important;
+  border:1px solid color-mix(in srgb, var(--accent) 42%, var(--line)) !important;
+  color:var(--accent-fg, var(--ink)) !important; font-weight:850; font-size:10.8px;
 }
 .ctx-strip-title, .ctx-title{
   margin:1px 0 0;
-  font-size:clamp(18px, 1.65vw, 22.5px) !important;
+  font-size:clamp(18px, 1.65vw, 22px) !important;
   font-weight:850 !important;
   letter-spacing:-.02em;
   color:var(--ink) !important;
-  line-height:1.16;
+  line-height:1.18;
 }
 .ctx-strip-sub{
-  font-size:12.4px; color:var(--muted); line-height:1.4;
+  font-size:12.6px !important; color:var(--ink-2, var(--ink)) !important; line-height:1.42;
 }
+.ctx-strip-sub b{ color:var(--ink) !important; font-weight:750; }
 .ctx-strip-right{
   display:flex; align-items:center; gap:8px; flex-wrap:wrap;
 }
 .ctx-scope-pill, .ctx-partner-pill{
   display:inline-flex; align-items:center; gap:5px;
-  padding:5px 10px; border-radius:999px;
-  background:var(--surface); border:1px solid var(--line);
-  font-size:11.2px; font-weight:750; color:var(--ink-2, var(--ink));
+  padding:5px 11px; border-radius:999px;
+  background:var(--surface-2) !important; border:1px solid var(--border-strong, var(--line)) !important;
+  font-size:11.4px; font-weight:750; color:var(--ink) !important;
 }
 .ctx-role-tabs{
   display:flex; align-items:center; gap:6px; flex-wrap:wrap;
-  padding-top:10px; border-top:1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+  padding-top:10px; border-top:1px solid var(--line);
 }
 .ctx-rtab{
   display:inline-flex; align-items:center; gap:6px;
   padding:6px 12px; border-radius:9px;
-  border:1px solid color-mix(in srgb, var(--accent) 26%, var(--line));
-  background:var(--surface); color:var(--ink);
+  border:1px solid var(--border-strong, var(--line)) !important;
+  background:var(--surface-2) !important;
+  color:var(--ink) !important;
   font-size:12px; font-weight:750; cursor:pointer;
   transition:all .14s ease;
 }
 .ctx-rtab:hover{
-  border-color:var(--accent);
-  background:color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border-color:var(--accent) !important;
+  background:var(--accent-soft) !important;
+  color:var(--ink) !important;
 }
 .ctx-rtab.on{
   background:var(--accent) !important;
   border-color:var(--accent) !important;
-  color:#FFFFFF !important;
-  box-shadow:0 4px 12px color-mix(in srgb, var(--accent) 32%, transparent);
+  color:var(--accent-ink, #FFFFFF) !important;
+  font-weight:850 !important;
+  box-shadow:0 3px 10px color-mix(in srgb, var(--accent) 28%, transparent);
 }
-.ctx-cta-btn{
-  background:var(--accent) !important; color:#FFFFFF !important; border-color:var(--accent) !important; font-weight:750 !important;
+.ctx-rtab svg, .ctx-rtab span{ color:inherit !important; }
+.ctx-cta-btn, .ctx-strip .ctx-cta-btn{
+  background:var(--accent) !important;
+  color:var(--accent-ink, #FFFFFF) !important;
+  border:1px solid var(--accent) !important;
+  font-weight:800 !important;
 }
+.ctx-cta-btn svg, .ctx-cta-btn span{ color:inherit !important; }
 .ctx-pack-btn{
   display:inline-flex; align-items:center; gap:6px;
   padding:7px 12px; border-radius:10px;
-  border:1.5px dashed color-mix(in srgb, var(--ctx-accent, var(--accent)) 48%, var(--line));
+  border:1.5px solid var(--border-strong, var(--line));
   background:var(--surface-2); color:var(--ink);
   font-size:11.8px; font-weight:800; cursor:pointer;
 }
 .ctx-pack-btn:hover{
-  border-style:solid; border-color:var(--ctx-accent, var(--accent));
-  background:var(--surface);
+  border-color:var(--accent);
+  background:var(--accent-soft);
 }
+
+/* Global Sharpness & Anti-Haze Rules for Cards, Boxes, Pills, Inputs & Studio Modes */
+.card, .action-card, .patient-card{
+  background:var(--surface);
+  color:var(--ink);
+  border-color:var(--line);
+}
+.seg{
+  background:var(--surface-2);
+  border:1px solid var(--border-strong, var(--line));
+}
+.seg button{
+  color:var(--ink);
+  font-weight:650;
+}
+.seg button.on{
+  background:var(--accent) !important;
+  color:var(--accent-ink, #FFFFFF) !important;
+  font-weight:800 !important;
+}
+.badge.b-ok, .pill.ok{ background:var(--ok-bg); color:var(--ok); border:1px solid var(--ok-bd, var(--line)); font-weight:750; }
+.badge.b-warn, .pill.warn{ background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-bd, var(--line)); font-weight:750; }
+.badge.b-crit, .pill.crit{ background:var(--crit-bg); color:var(--crit); border:1px solid var(--crit-bd, var(--line)); font-weight:750; }
+.badge.b-info, .pill.info{ background:var(--info-bg); color:var(--info); border:1px solid var(--info-bd, var(--line)); font-weight:750; }
+.badge.b-neutral{ background:var(--surface-2); color:var(--ink-2); border:1px solid var(--border-strong, var(--line)); font-weight:700; }
+
+/* Studio Customisation Modes: Tab Style, Border Weight & Table Shading */
+html[data-tabstyle="pill"] .tabs .tab,
+html[data-tabstyle="pill"] .ctx-rtab{ border-radius:999px !important; }
+html[data-tabstyle="boxed"] .tabs .tab,
+html[data-tabstyle="boxed"] .ctx-rtab{ border-radius:8px !important; }
+html[data-tabstyle="underline"] .tabs{ background:transparent !important; border:0 !important; border-bottom:2px solid var(--line) !important; border-radius:0 !important; padding:0 0 4px !important; }
+html[data-tabstyle="underline"] .tabs .tab{ background:transparent !important; border:0 !important; border-bottom:3px solid transparent !important; border-radius:6px 6px 0 0 !important; box-shadow:none !important; color:var(--ink-2) !important; }
+html[data-tabstyle="underline"] .tabs .tab.active{ background:var(--accent-soft) !important; color:var(--accent-fg) !important; border-bottom-color:var(--accent) !important; }
+
+html[data-borders="bold"] .card,
+html[data-borders="bold"] .input,
+html[data-borders="bold"] table.tbl,
+html[data-borders="bold"] .action-card{ border-width:1.5px !important; border-color:var(--border-strong, var(--line)) !important; }
+html[data-borders="heavy"] .card,
+html[data-borders="heavy"] .input,
+html[data-borders="heavy"] table.tbl,
+html[data-borders="heavy"] .action-card{ border-width:2px !important; border-color:var(--border-strong, var(--line)) !important; }
+
+html[data-tstripe="subtle"] table.tbl tbody tr:nth-child(even) td{ background:color-mix(in srgb, var(--surface-2) 65%, var(--surface)); }
+html[data-tstripe="clean"] table.tbl tbody tr td{ background:var(--surface); }
+html[data-tstripe="ruled"] table.tbl th,
+html[data-tstripe="ruled"] table.tbl td{ border:1px solid var(--border-strong, var(--line)) !important; }
 
 /* 3. Clean Utility Dropdown Menu (.cl-util-menu) & Report Tri-Rule */
 details.cl-util-menu{
@@ -5106,7 +5260,7 @@ details.cl-util-menu > summary::-webkit-details-marker{ display:none; }
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIkAAACdCAYAAACAY1tEAAArYUlEQVR42u2daXBc13Xnf/e913s3GjsBEARFcRFJcRMpiRQpUyIpmxpZsiVFSywnI9kpu+KkUuVU2ZNxUpOZL2OnnKmajEdW7NiKI8eSTFlT1kJZIiOJoihuIkGIBDdwBUCAWBpbN3p/y50PjffUAEGKAEgRJPpUvWp0o/u9u/zvOf9z7rn3ilgsJilIQS4hSqEJClIASUEmLFr+G6OoqNAiBckB4/BhqKsraJKCFMxNQQogKcg14SQXSF0dypIlhVa6wcXasQOi0fGBRFmyBOWllwqteKPLd76D9eKL49QkNtJ+9CNobCw05o0mixej/OAHEzQ3tjQ25lRSOFxo2BtFWlsRlzAxYwcJQDhMaWsrXq8XVVURQiCEALjgdTKKYRgT+r2UEkVRUFX1usCAlPKCVykluq6TzWbpG4qBXFmQDMm6deuYM2cOPp8Pn8+H2+3G7XajaRqqqqIoyqQDTSqVoqWlBV3Xx10mKSWVlZVUVVVhWdakGxD5YLAsC9M0MU2TbDZLNpslmUySTqdpaGhgx44dV9C7GUWKi4upqKigqKiIQCCA1+t1tIumaQ5IJlMjSilRVZWBgQEUZXxevxCCBQsW4Pf7J7X2yAeJYRhkMhnS6TSJRIJYLEbROKLqYwaJ3++nqKiI4uJiAoGAo1E0TXNAkq9NJkPD2WU5fvz4uEBiWRYlJSXU1taOG2SfN0gMw8AwDFKpFOl0Gk3LdbXH47n6IPF4PAQCAQKBAKFQCL/fPwwk+XxlMmkTr9dLT08P6XR6TOWy1fisWbMoKSm5LjiIrUUMw8DlcqFpmsNHPheQuFwuvF4vPp8Pv9/vXJqm4XK5Jp0mydeAtbW1tLa2jql8lmXh9/uZMWMGXq930pPVkSCx62kYxjCN8rmBJB8oLpcLl8t1geczmWTmzJn09/djGMZlmw3TNKmqqqKsrGyY6boeQKLruvO5ruukUilcLtfVB4mqqg5JtS9bpeWbm8lmuy3Lory8nHA4TF9f32VrE1VVqaurw+VyXTcgsdteSjmsX2zv83MByUiAjATJZPVwhBDMmDGDWCzmgPmzgFVcXEx5efm4RuC1AMhIIOf3le1YXHWQ2FrCDizZr/kaZjJqErvxqqqqaG5uJpvNXhaIq6qqJj0XGQmSfAKb3zd2v30uILFBkP862meTTYQQBAIBSkpK6OzsvGSDSSnx+XxUV1c7dZnM5kYIMcwFHtk3E9Hs2ngLNPIaCZDJGk9QFIXa2loikcglG82OjdjBp8nMRfLLbNdx5DURkCjjAchof18vDSmlpKysjEAg4DTqaN9RVZXp06dPWk/ts/rmig4sppgIIXC73c4czMVGZDAYpKSkxLHxU1mmZPqiTWC9Xu+oPEMIQUVFBV6v97rRIgWQXAUJhUKEQiEsy7pAW2iaRnV1NQWZ4iCxOYfNQUYS1mAwWEDHVAcJQGlpKT6fbxhhBaipqRnXHEcBJDeg+P1+KisrhxFYv99PeXl5ARkFkHyajlhVVYWqqk4QqrysbJh2KcgUBokQAiSUFJfkCKy0UFWVqiHCWnB9pzRIrNwlAUxcboWammqkblJcVExRcQkSCyGsAjqmLkgUQEEKkEIgUSirmIYvGKByWgUetwthKmAVVsA6IYEpyUeQgASZA0Io6KO8uoyKaRUIC0wlp2gK/s0UBgmAQCABS5gIYTBv9jy8Li+WACEsVAlIAYWA6/UPEptgCiGwLGvY7LNlWWQymWFplTZAcj+2QEoU4SXgy2kYKQ2w1BxlEdL5bn5aoMfjGZY+MIwMF0AySb0Um20oirMYKZFIEI1GiUajzJs3j3DeElVryOgIAYrQ0Lv7SDadRCvyE1g4B0tTsaRAYTgAent7aW1tpby8nGAwiM/nw+v13vCBtxuidtlsllgsxsDAAIlEgng8TiwWQ9d1VEVl7ty5wxiJAKQEIRSSTSfo+MUvSe3Yi1pSTsnTj1H1xKOYijtHTMTw57S1t9HZ2YnH4yEUChEMBgmHw4TDYYLB4HWzDPS6BsnI+ISdcZWvNaSUDA4OEovFiMVixONx4vE4yWTSMTlCCFRNxSUUFJnTCUKClAKEiRAK2ZbztP7Dj1H/4z3KLAu95Sy9kTZAUPn441gqqFbOAxIKCEVBU3N5vLqu09vbSyQSQdM0gsGgc4XDYWdN0mgmabT6TGZTNelAcjFbr+s6iUSC3t5e+vr6SKVSZDIZMpmM811FUYapfonEFOJT/inkEFkVKOk0537+C9T3PqBYqihCw62auM530/e/foZvei1Fa+/GkhKGfi9HmB87A8+yLKLRKAMDA2iahtvtxuPxEAwGKSsro6SkBL/fP6qWmewAmRQgGW2U2Z9ls1n6+/vp6ekhFouRTqfRdd3ZISC/oy7mweRiIjmX18LEEgoqgp7NW8m+9ntKTQMVN7oCQrpwKZKi9nOc/7/P4bt5DlptVY7gIriYq5P/fCmls/42Fos5miYQCFBUVERFRQXhcNhZojGa9pxsJFibTGbGMAyHT/T09NDf3082mx3WmKOlE14qhK5YFkLmyIWCigJkzjYT+ZdfUDwQRVEVJBaalGC5c+6vW6Du2Ufnb19lxl//OVJRsAmKJSXKZ4Ts88tnGIazqr+np4fm5ma8Xi/Tpk1zuIzX63WANhm1yjUFiWVZpNNpTNOkq6uLnp4e4vE4pmk637mc9TGXFCVnKywJihRIS6fjt5twnTiCS9FQpIUUuf+BgYVAswRhS9K76XckNnyBwG1LAQsFgUtzoWnqhLRmNpulra2NtrY2XC4X4XCYiooKSktLURQFt9s9qQjwNQWJruu89dZbLFu2jFAoRCAQGLb6bMKqV4IlrNysrgWokGg8TOb3b1CSESiKwFQlQmpYQmAJE1MxcVugKBBsb6Pj319i9oJbkF4vxSXFLF9+27jLNBr/yOdTx48fp6Ojg40bNxZAkt/5Bw4cIJPJ8MQTT+B2u6+SKcsFR6SVIfL7zXhaO1A0N0gLMcRcBBZCAbdUhwiuxKcIUlu3MPjYI4RXr8Lv9xDwV12VMvb39/Pee+8RDAYn3XKUa14aVVXZtm0bW7ZscfJNr+RlyiGfRIHEiVMktryPV1ExRc7MaJZAtSRSmEiRc3kVKbCEiiJUAr19dP/+DdDNnPs8pKEmWi7Lspxkp0QiwSuvvMLRo0cn5XJS5VprEvvaunUr27dvH7aV1hW57PC6hJ6t2/G3d6DZ4XapYCgWhpJ7r1gCUwFT5DSLIg3cUkPftZvk2bOfmgoBTKBM+V5ROp3mtddeo76+ftIutr/mILFf0+k0b775Jrt27brAFZ4ANWYoFIbR14/54U4C6dyeHYrMheWlEFgKWELJeUESFCRC5i5VaPjOtRH9eLfjAMsrUG9FUdB1nc2bN7Njx45hS2MnW8LTpICsEAJN04jH47z66qvs27fvCrmCCpbIzfbqra1kjzSiamKokxUsQDFAMyUSC0uRuZiKVEGq6IpAKuDN6CR37MFKZZ0gHRPoSHuycPPmzWzbtm3SB9QmlV5TVZVEIsGmTZv45JNPnJndCY0saSGByN69uOPxXP8DhtDJkkXm9AaqCaopsNAxyGLY/EE1UFUN/fAxjEivAxI5pHXGC5J33nmHrVu3YprmpN6HbdKBxLbTg4ODvPDCCzQ1NaEoyoRMjwII3SKxrwFf1kKYkEEh5S8mWVlDLFxMZih0rwtIqCqxshIS0ypIBsJkZI6naN1dxE+ccOyNGIrVy3EAZMeOHfzhD3+4LkLykyriOhIo8XicTZs28c1vfpPa2trxaxOhkOk6j9rahgtBXFNJ33EbRf/pAUpn1pFsO0fs7c1k99YDCua96yh64H68ZWHip04z8Mbb+BsbcSdTDB46ROl993xKiMcBkIMHD/Laa6/lZqivkxnjawqSi3W8zVFaWlp45ZVXeOaZZygtLR1PLA2BQO/sQI1EMAB95R3c9MO/xzt3NiAJo1L6hVUc+e5/RQv6WPA//w7X9BkAFG1YR2jVSjr+9u/R9tWjHz2KzOgIj5b/gMuW06dP89JLLzE4ODjpd06aVMG0zwJPKpWa8Jbf6Y5OZGyAZMBL5Tf/M965czHJokiBISSeObMp+/OncYWCuKbPyGWnoWEJSWjpYjJPPE5P/QHUnghGPIbLU4YlhtjMGFIcU6kUuq5Peg4y6TmJDRxd15k5cyZPPfUUlZWV4zI3th+j9w6gp1MQDuGdMzv3qdQQ0oVqqSAFNes3UL5yZY5vSA055AYD+GfPQvN6kX0xMtHBTwNq5LjM5cqtt97K1772NQKBwLD5qQJIxukeVldX89RTTzFr1qyJETwJenc3fglWRsdMJYfAI5BCoggJmGg+P263F0vk3GAhTKTINY8ejaLqBjKZxkqlPgXgGB0cRVG48847eeyxx/B4PNcNUJTJBA7I7ZsaDod58sknmTNnzgQ9AIFpSjKRbjyWhSueINbQAAgUKxcbMYWVC7kJiVRAkVYuY94SYIElTXo+3otqGFiKibBMBxhinA1411138fDDDzueWwEkYxDTNHG5XDz88MMsWrToyriIUoJpYWoKfsNg4NU3yJ5rQ6gCE4FAQ+QcZSwUkApSCqRUUBVINR7GeO8DvDKnPaSd94HATqkej/e2du1avvjFLzrzOAWQXIYWsSwLj8fDww8/zKpVq67YCBOqwFtSirQU3Ai8Bw/T9cK/I5NxVKEMwQMUC1Q5tNRGAqrA6Onh/E9/jufsORRNzTWXk8qY++54Amr2nmxf/vKXueOOO67QFMQUAInL5eL+++/nvvvuu4IBJgtFEbjrZpAWEkMBv5Uh/uJv6XntLRRDR2KBsJAKmEJiCRNFWJDNcO75lzG3vk8RCpawUDVPLsVgCBsWE5vH8Xq9/PEf/zG33377xCPLNypI8jek3bhxIxs3bhw2CzpxsAzdp6gIXK5c+B1BcSxG5Cf/TP9HuxAoWJZAOGkKICxJ1+9fJ/3iSxRn9RyILFBKS9GKw054RBmjd5Pvwdl1DAaDPPnkk9x2222YpjkpTc81D6apqsqGDRt46KGHLrn950TEN72awZIiZM8AilTwKBBsbaPjn/4FX00Vnnm3YEkT1RIIVTD48QF6/uk5Snt60FQFA4EuBdmyMFooMKx8V6KU4XCYr3/966TT6QJIRpMlS5Zwxx130NvXh6qoKIqKyJuTzyUMjZJNfhmaWSCRQkWtrMQoK8WI9KGK3MywX7Ew6/fR9pN/YdYP/weyKICqCPTubs4/+xzFra1oas7LUdCwVAXv/DloPh/JVBo9m81pksstzEg4yU8XrtsJSOvXr6ezsxPDMK5alt51BxJN01izZg2nT59m50cfsXfffrq7I8P2rweBcDphjHFwy8Ll8fDP//uf0OpmwtGTmEOpAqoQ+MnSt2UrPWvvpvLxRxACul57C3XnbtzKEASEiZQKhsdF0dKlgOB3v9vEs//8c4JeP0OzfZ8drEFgryyWlpXbJcU0QFrMmDGDlStXsm7dOlauXDnp5nSueVh+2rRphEIhbr75Zjbefz8HDx7kjTfepOGTBs63nyebzTD6mpfLAYuJy+sjbuiUL7sNa8u2HEuROXaiCklRIkrvK69StuEerHSa+P/7PSXpDKrqQgFMJRdPMYpLCc29BYCWlmb279kNQsvR10sSEznib4kQKrW1tSxevIgnnnic5cuXO8es+Hy+SUdgr7m5UVXV2VN1+vTpLFu2lCeeeIKBgQFOnz7N1q1befe9bTQ1NeXmcXQ9Z7dHSQccyWNMqeJ2uxGKpHT1SlqCPnzJ7NCYBhMFj6KiffIJA//xHma0H+/x42iqihQSg1yI3jIN1FtvRZue2ypLGxrpqtudS6CWoykxa+ggAAVV03CpCjPr6rhr9WoefvirLFmyhPLycvx+/wUZaZMtfWBSTPANHznCOY2rurqaNWvW8Ld/+3ccP97E9u3b2b59OydOnqSjo4N4fBA9q4MARVEvUNOqBMUSSCSeuTcjFswiu/8omgpSWGimikQSzujE/uH/gGnhkyZSqEglpyGk1EirEv8X7kL15zbcsxWHGGFp8r0Tj8dDcXGY2bNns/y25WzYsJ57772HUCh00VTFyZpbMinySS7WOHauq9fr5rbblnLbbUv5q7/6S3p6etj+4Ye89+67nGg6Qeu5Vnp6eonFYkPaSUMIJWf/hYk0QSkpwbt6DZkDx3BJgYKBVHLRMA0I9nRhKgoaGgiJauV2xDLNLHpNDRWr7sqzGnbkwMgdr2rk5mBCRUWUl1cw66aZLFm6hEcfeYQVK5bj9wccQIw8uKiQdHQVtI2qqkybNo0nHn+cJx5/nGg0SkNDAw0NDRw61MjRo8c4caKJaDSKlBZqVkVaOeJYsv4eun77GnR3Y6kapgBN5uZxhCLRMFFNBVPNzfAKSyEt08jlS/HlbV9hWbmyGNksgWCAmXUzuf3221m6dCkrVqzg9ttvJxAIXODuXy+guG5BcrEGD4fD3Hvvvdx7771A7uzfXbt2cfbsWQ4dauTMmbOfBq6WLKHrrjtJvP4GAamiCjBQUEUuHq/KXI6IRS57HmmRLA5R+chDCJ8ntw5YCELBIMuW3cbdd9/NwlsXsGzpMlatWjWsrCPNyPW8C9J1uYnNyAbP3wZr/vz5zJ8/H4COjg7ONrcwY+aM3LZX3gDlX/sjunbvxheJoFoqUihIkTM7wgJDDEVdgSQW2uq7KVmzJpdZn9v5hoceeoh7713H/Pnzhh29lg/eG2lrrBtip6OLZXpVV1dTXV3tLIGQCIrvvIPeDetJ//Z3BMh1ugWolsQSYKigWiAMk8HyMmr/5OuIoiCWlE68Zvbsm8fEra779uWGlqH1MZJcMhEgvH6qn/kTBmbehCGFE58TIjfDm9tWQjKgaXge+jKhu+7ExMjtSDBFd2JUbmyI2BGR3LJwRYIpDQK3Lqb8z/6UmMeFYkpchkQZSkdULdANi+zCOdT+6ddRvF5U29WVagEkN5oMLdnNXdiaQkUKqHr0EcTGdcSxhnZAshCWhmVKBsNllP/Zt/AumDvEM3I7DYiCJpkiInLbYoniYmb89ffJrFpFUkgsy8CQGfoCfrQ//SNKH/zSEA8Z3WMpgOTGRglCgoWFZ87NTP9v/4X0vevoDZTSU1uD9o2vM+sv/xzh8+XI7nUW+Cp4N1cGIkhFRZUSKSB421Jm/PcfENm5B19ZOeX3fAElGETKT+eHpjJApiRIGMphlU4k18A/dw4z584BS+R2FrAkUigohX3lpyhIyN+Tdcj/tSRZ3UBVldw6HEWb+CYkBU5yPbvFQ4uvZG57G4QCisLmzW8RHYwhhDaUv1o4FGnKgkTYW+kJnAhKOp3h5d/+lqYTpwCR25+mcGj0VPZu8tVKzqa0tray9+OP2fnRjpH/KsiUB8mQHD16lHOtzezevQddN264CboCSCZieoaA8M6WdwD45JODnD9/voCKAkiGSzweZ8+u3SAUWltbOHz48JC5KdibAkiGpKmpiXNtbSiKiqFneX/b+wVUFEDCsAXaH2zbxsDAwFAStWDXrl2k06kCJ5nqILGJaSabZc/ej7GsXCKzUFSam1s43nSqgIyCuclJV2cXDZ8cRCi5wLOqqnR1dbFv38cFZBRAkpPTp0/T3NzsrNcRQiAtk/ff34ZhmAV0FEAC77yzBdMYvhuiorr4+OOP6entLaBjqoMknUmz46OPLnB3FUWhra2N48ePF9Ax1UFy+tRpWltbcgnQIySbzbBly5YCOqY6SBo+aaCrqxNFVYdlBQghQFrs2rWLZCJRQMhUBYlpmrz33vsYQ7szX7CphdA4efIUzS0tBYRMVZAMDAywd+8+hDL6EglVU+nsPM+RowVeMmVB0nTiBM3NzaPyEVukZbF582b7XQEkU00+2LaNVCp56YMAhEp9fT3RaIwrs31eASTXjWQyGT74YHvuuNdL7IuiqiptbW0cOnSoYG6mSkXtWMi5c+doampyQvEXbRhFIRaL8uGHHxZAMlUqamuNQ4cOcf5822XtcCgtk527dpEaOpmiAJIpIm+/vQXDMC8rFUBRXRw8eJCOjo4CSKaKDA4m2PvxPhCXtzuAqqp0dHQ42WoFkEwBOXLkCOfPt4/peDNpmWx+661hvKYAkhtYdu/eTW9v7xjPwBMcqK8nFotN2Wy1KQMSXdfZuWsXSHNMnS0UldbWcxw7dqxgbm50iUR6OPjJJwh1bEetqqpKJNLN3r17CyC50eXYsWM0Nzc7W36PyXUW8P7776PregEkN6LYXHPLli0YRnZc6zcVRaP+wAF6enqnJIG94UEiBKRSafbu/fhTzTBmkKh0d0f45ODUDNFPCXNz6tRJTp8+OeTVjOMQaiHIZjO8/fYfCiC5UaW+vp6Ojg5cLtfQboxizBdSoaGhgYGBgSnnCt/wOx1JKZk7dy4//elPcblc5LaxGXsnW6YkFAqMMcZSAMl1I3fddRdr1qy5Iveyj2adStpkSgwL+9ycK3WvqWZuplyqQEGuAUjyT4O6Fsep5z/TPs4+/7MrPfKvJtjy224yxWKUK1W5azlS848su3Knk3/+dch/FUJMmoOkJwwS+0Ci+vp63n333c+9c2xgRKNRtm/fztmzZ68oB/m86zI4OMi7775LS0vLpPGklImiX1VV+vv7aWhoYNGiRZ/baLP/zmQybN26lZ/85CecOHGCf/3Xf8U0TaSUJBIJdF2/LMCMvPfnpfrte2ezWbZu3co//uM/cvbsWTZt2uSkTSYSCQzDmJApvqYgkVLy4Ycfcvvtt+dOqbqKDZqvIYQQ9Pf38/zzz6NpGt/73ve47777qKioIJPJ8Oabb/L0009z5MiRy9JuQgj6+vpIJBJD5/kKUqkUHR0dV5VvCSEYGBjghRdewDAMfvCDH7B27Vp8Ph+6rrN582Yef/xxzp07Ny7w2fVKJpPXBiT2CnxN01i2bNnnouJtInru3Dn+8Ic/8KUvfYn169fj8XjYtm0b8+bN44033uDYsWN8+ctfvmztdv78eb73ve9x6tQpVFXFNE1++ctf8uyzzw47x/dKS1dXF1u2bOELX/gCDzzwAF6vl3379jF79mzee+899u/fz4YNG5g2bdq42qq7u5sf//jHnDx5ctxlnFAwzbIsGhsbWbVq1ajezlhiFWM5Zbu1tZWdO3eyYcMGqqqqANi/fz/9/f243W6mT5+O2+3m/vvvR9O0zyTWpmny7LPPEgwGHV7wySefUF9fz5NPPsmJEyeYO3Tk68hTOvPvPVqdL0XyI5EIH374IatWrWLmzJkANDY20tzcjM/no66ujnQ6zQMPPIDf77+s++c/wzAMfvWrX1FaWkogEBh3dt2ENMm5c+fwer3U1tY6BctvuPz3tgof+bn9XV3XyWazozJ6+3v9/f10d3ezc+dO7r33Xgcgvb29bNmyxTmRPJVKsXbt2lEb1jAMx00GOHv2LL/4xS84ffo0d955Jx9++CEvv/wyzz//PDNmzCAajdLU1EQ6nR72O8uyMAxjGEBGtsHFOjCZTDoAWb58uQOQ/v5+fve731FTU8OiRYvo7u7mvvvuIxwOX+DSX+wZ9mddXV3827/9GydOnODmm2/m6NGjzuHan5sm0XWdpqYmJ9ydXwkpJQ0NDezZs4fFixdz9913A5BOp9m+fTu33HILkUiE5cuXo6oqx48fZ/fu3WSzWb797W9fMELt+7744ouoqsr69euprq52nvv8888TCoXYuHEj9fX1zJs3j/Lycud3pmmyf/9+jh8/zvz587nzzjude3/88cc0Njby7W9/m7q6OkzT5LnnnmPNmjWsWLGCmpoa2tvbee6551i5cqVTl71799Le3s5NN93EnDlzKCkpwbIs9uzZQyAQYPHixRfVmNu2bePQoUN89atfZfbs2U7b/exnPyObzfLoo49y8OBB6urqqKioGKY1Dh48yK5du5g/fz7r1q0DoK+vjwMHDrB8+XLC4TBCCA4cOMDp06f5xje+QSgUwuv1kslk2L9//+cHkubmZoqKiqisrERK6bhrjY2NnDx5kvb2dnw+H2+88QbLli2jsbGRlpYWWlpaiEajbNu2jVmzZnH48GE2bdpERUUFa9euxbIszp8/T1VV1dCE3Kdy7NgxNm7cyC233OJ8tm3bNk6cOMEPf/hDTNNkYGCAm2++2dEaTU1NHDx4kMOHD3PPPfcQj8cdslhfX09DQwN/8Rd/wa233sqhQ4fYtWsXy5cv55lnnqG7u5vdu3ezZcsWbrrpJmbMmEEsFuPAgQMcP36ctrY2mpubueWWW2hpyW0UvHfvXlavXs38+fPp7u5m2rRpjsmzO/vIkSPMmjWLhQsXOiGE7du3c/ToUX70ox/R399Pe3s7a9eudczh0aNHaWpqorm5mUAgwCuvvMKyZcs4efIkJ06c4OjRoyxcuBBFUdi9ezf79+/nmWeeoba2NpeRp2lkMpnPx9wYhsHg4CCNjY0sWbLEIbCRSITf/OY36LrO4OCgM5LnzZvHrl27CAaDVFVV0dnZyfHjx1m4cCENDQ1MmzaNWbNmkUgkaGlp4de//jV9fX0XaJHGxkaCwSBf/OIXnc87Ojp45513+O53v0tlZSUNDQ2Ohtm5cycvvvgi+tAeJCUlJezdu5fm5mZ+9atfsWPHDkpLS4nFYrz99tts2rQJVVWpqamhvr6e559/nlOnTrFw4UI8Hg+WZbFlyxbeeecdysvLeeyxx/jmN79JW1sbL7/8Mi0tLZSVlfHggw/S19fHz3/+c/r7+y+ox7Fjx+jo6ODRRx912q67u5tXX32V73//+9TW1nLs2DGCwaDDtV588UVSqRR+v5/p06fjcrlYuHAhu3fvxjRNamtr+cpXvsILL7zA+++/T2VlJclkks2bN/Pmm28SjUYnRK7HrElef/119u/fz5NPPommabS3t3Pq1CmEENxzzz3U1tZSVFTEnj17WLNmDXPnzkXXdfx+P729vUQiEVavXk15eTmGYeD3+6mrq+PIkSNomsbNN9+M3+9HUZRhfOXXv/4169evx+fzOZ9v376dDRs2OB5MTU0Nv/nNb2hoaGDx4sU8+OCDhMNhQqEQUkoWLFjAwYMHufXWW53O/9a3voUQgtmzZxMIBKipqaGkpIR58+YRDofxer38zd/8DWfPnqW0tJSamhr8fj+qqlJWVsYzzzxDKBRixowZnD59mrfffpubbrqJRx99lMrKymERYNM0eeGFF1i3bh1ut9tp048++ogHH3zQGXR1dXU8//zztLS0sGjRIr7yla8QDAaJRCK8/fbbrFq1ijlz5mBZFqqq8tZbb9HW1sbKlStZsWIFHo+Hp59+mmQySUVFBZZlEY/Hx+9RxmIxh/0YRUXD1cyDD6K89BLWU09hHTpEaWsrjzzyCHfddRdnzpxhcHCQmpoaHnvsMebNyx3Jnq9aVVV1Gimf8I3mUuYT25F8JJVKceDAAVatWjUsCplKpfB4PMOekU6nUVUVl8vlAM0mzqqqOs/J/1/+/E7+Z/lltSzLucdIkmg/37IsdF1HVVVUVb2gjtFolP3797N69WoH7DZXc7vdw+o2ODiI2+3G5XI5z5RSYhgGmqYNK69hGE5g035vGAamaZJIJEgkEgwMDNDb28vrr7/Oz372M/rq6hAzZ6K+9RbWd76D9eKLw7XH4cNQVzc+TbJo0SIWLVrE2rVrKSoqoqioyBlZdoV1XUfXdQKBAH6//4LYysWCPheLbnq9XlavXj2sAwF8Pt8FrujI59liN+BI0I5moxVFob+/n4GBAW666SYgd1BBe3s7CxYsuICk57/P1xAj3eNQKMT69esvqKfX672g3l1dXdTV1TnltoGsadoFv3e5XM5AuNik5kRiWGPmJPkNYo/G/MhhT08PmUyG/v5+jh8/fkGBx/p+ZOfZI3tYauElfmeXM/91tGeOFsNIpT7dY76np2fY7gL256OV52LPGBkxvtgVj8dpbm4eNR5ysWeMnNwc2RYTCQaOGSQjO8W+ent7GRgYoKqqitLSUqLR6LBRfTF0G4bhNP6lNpW5WhHPbDZLOp2+IOCXzWYdTWWDxI7LjPcYWGdP+0yGbDZ7QWDOllgshs/nG6aVxto/ky5VAODkyZMOF0gmk/j9/mExgItVSNd1uru7r8msrR1d7e/vH/aZZVkkk0nHw7DN6MVM2Vif2dfXRzQavWiHplIpQqHQpEl3GDMnyQ+75yf4VFZWcuDAATweD9XV1SxYsOACQpdPuPK5QllZGVJKTNMcZsIuFtK372GT0HzyK6UcFoqXFzlK3v5fMBjENM1h98pms8RiMYqLix0yLITA4/F85kSflBJd10fVAvYz7YDXyOiy/X/DMCgpKbkgx2Q0TTFytjq/b/KviUxQjhkk9gPzXy3LckjWjh07HHJrmibRaBRVVTl16hSzZs3C7/djmiaappFOp/F4PKiqSjqdRkpJJpMhGAyiqiqpVArDMHC73cPInT0HEQwGSaVSTjSxp6eHbDbLzJkzHc/KsizHnBiGQSgUwjRNBgcHCYVC6LqOx+Nx4j92R9j3VhSFRCJBKBRyzEQgECCdTpNMJikuLkbXdYcTpNNpzpw5w5w5c/D5fGQyGdLptAOMfM8vmUw6nklRUZEzUBKJBDU1NQ5YQ6EQlmXhcrmIx+O43W6EEKTTaUKh0DAyPhIUI0EzHqCMK+JqP9AegbarOHPmTEKhEPv27aO6upp0Ok1fXx/BYBBFUTh8+DBz587l/PnzzJ49m9OnT6MoCpWVlZw/fx6fz0dbWxsrVqwgmUySzWad6Ovs2bMBOHPmDEIIIpEIM2bMoLm5mSVLljj5LIcOHUJVVerq6rAsi0QiQX19PbW1tbS1tbF8+XLa29tJJpNUVlbS0dHBggUL6OjoIBAIcOTIERYtWoSmaTQ1NTlxC8uy6OrqoqWlhaVLlxKJRFBVld7eXnRdp6Kigs7OTsrKytB1ncbGRm699VZaW1vxeDwEAgE0TSMej9PY2Mi8efM4fPgwlZWVDAwMsGrVKieWEo/HMU2TxsZGSkpKnESqW265hc7OTjRNc/Jk3G73MA1nA8I0TecaqVGuOicxTdPxww3DcCbm7Nfi4mJqamro7Ozk3LlzSClxuVyEw2HC4TAul8tJovF6vUSjUbxeL+fOnSMYDBIIBEgmk5w5c4by8nIymQxer5dsNkt/fz+nTp2ioqKCRCJBW1sbXq+XZDJJIBDANE2CwaDTiPZIjMViuN1ufD4fnZ2d9Pf343K5ME0Tl8tFV1eXYw7dbrfzvrS0FI/Hw8DAAPF4nGAwyODgIIcOHSIQCCCE4PTp0/T19aGqKolEAo/Hg9vtJhAIkM1maWlpIRgMYlkW2WyWSCRCIBBw9kmx4yB2eQcHB/F4PBw/fhxVVfH7/fT19TkTnH6/n/b2duLxuOMeZ7NZpw/sa2Qf2XGT8aREjgsk+UDJZDJOsk4qlSIajVJaWoqUkvb2dioqKgiFQnR2djozsLquMzAwQFFRkaPO7QaxgeN2u4nH40SjUYqKitB1nWg0Sjqddiquqiper5fu7m4nVhCJRByQ2KS4rKwMl8vlkGpbndt1scF85swZAoEAAwMDlJeXO+VobW2loqKCnp4eB6B2Rp6tMW0Qu1wuUqmU04EzZszg1KlTTnnsend2dlJRUYGiKLjd7mHl9fl89PX1UVpaSnd3txMwtAl+MplEVVVKSkpIpVK0tbWRSqWGgWQkWPK1ylU3N4ZhkE6nSafTuFwustksbW1tlJSUUFxcDEBJSQler9cJJdudbFkWsVjMQb7H4yEWi9Hf3+9klNlT8vYoDIfDDqew52A6OjqYNm0agUCAaDTqZF3ZHoE9Z2J7T5WVlaRSKWKxmKPNIpEIhmHQ29uL1+tlcHCQgYEBamtryWazzoRYJpNxRnoqlWL69OlOTMiyLMLhMD09PXR1dWFZlrMMNBaLEY/HURSF8vJyEomEU55IJIKiKBQVFdHb20s0GnX+bxiGw3X6+/tJJBLMnDmT/v5+YrEY1dXVhEIhBgcHnfvU19ezevVqx+zYgNB1nWQySTqdJpVKOQPsqoPEjivYaPZ6vVRVVTn2zu/3YxgGiqJQV1fnFHratGmOvbSJZSqVYvbs2Qgh8Hq9pFIpSktLHfN0/vx5h6zZUl1djWmaDtELBAJOvoVpms69E0MnTBQXF6MoCqZpUlVVhaqqTgjc6/VSV1eH2+0mk8k4/GLatGlks1nHwyguLsY0TcLhMKZpUlFRgWEYlJeXY1mWA5w5c+Y4JtfmB3YY3Z59Lisrc7w42632er1Oee2pDbfbTTabpbS01Jnj8vv9JBIJKisrnekHIQQrVqxwtOtIkKRSqWHXePZYGTNIMpkMyWRyaPF1jmj5fD40TcMwDGdE5IffM5nMJTOoRkokEiGTyRCLxaisrBw1Wcb2huzg1OXcdyTYbRJ+7ty5YVFX28v5LLE13OUMrNEy2SZ675Ednu/F2GbG1iKJRMJxBq46SJLJJNFo1IkH2C6oqqpomjYsBD5eSSQSjotqm7arKZFIBJfLRVFREX19fVyPMpp3Y4Mkk8kQj8cZHBwcV1uOGST9/f1EIhHi8bgTOna73c7MZ/5cxkRyZ22C9nmIaZoOl7meZTQX2OZ/NjcZTwrjmEHywQcfsGPHjgsml67WvMHnFZ6f6EzpZATMyFdb+189kLS20jeUX1CQG0DGkK12eSBZvBgxwRS4gkxCDXqRZO1xgUT5wQ8KLTqF5ZIgsQ4dgu98p9BKN7hYO3ZcWuNcKse1IFNYe+TluCqF5ijIZ9KNQhMUpACSglxZ4qpN8ROiCpIn4fDoxLUgBSmYm4KMS/4/roKyatGV1yoAAAAASUVORK5CYII=";
-window.BUILD_STAMP = "2026-10-25 13:48";
+window.BUILD_STAMP = "2026-10-25 16:18";
 </script>
 <script>
 /* ============================================================
@@ -15219,12 +15373,12 @@ const WT_TOKENS = {
 };
 
 const WTHEMES = [
-  { id:'foundation', name:'Foundation', mode:'light', accent:'#1F3864', brand:'#1F3864', gold:'#A67C00',
-    blurb:'Foundation navy and gold on warm paper. The recommended default.',
-    t:{ bg:'#F6F3EC', surface:'#FFFFFF', surface2:'#FBF9F4', ink:'#14171C', ink2:'#2A2F38', ink3:'#5A5F69', muted:'#5E6470', line:'#E4DED0', line2:'#EFEAE0', bar:'#FFFFFF', chrome:'#132445', chrome2:'#1F3864', chromeInk:'#F3F0E6', chromeMuted:'#B5C1D8', chromeLine:'#2B4C86', action:'#1F3864', action2:'#2B4C86', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E7F6EF', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#EAF0FF' } },
-  { id:'classic', name:'Daylight', mode:'light', accent:'dept', brand:'#1F3864', gold:'#C9A227',
-    blurb:'The original console look. A cool white page with your department colour.',
-    t:{ bg:'#F4F6F9', surface:'#FFFFFF', surface2:'#FAFBFC', ink:'#15171A', ink2:'#2B3038', ink3:'#5B6573', muted:'#5F6B7A', line:'#E3E7ED', line2:'#EDF0F4', bar:'#FFFFFF', chrome:'#16294A', chrome2:'#21386A', chromeInk:'#EEF2F9', chromeMuted:'#A9B8CE', chromeLine:'#2B4472', action:'#C8102E', action2:'#E01B22', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E7F6EF', warn:'#9A5B00', warnBg:'#FFF4E0', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#EAF0FF' } },
+  { id:'foundation', name:'Foundation White', mode:'light', accent:'#1E3A8A', brand:'#1E3A8A', gold:'#9A6700',
+    blurb:'Crisp institutional pure white with royal navy and burnished gold. The default across all devices.',
+    t:{ bg:'#F8FAFC', surface:'#FFFFFF', surface2:'#F1F5F9', ink:'#0F172A', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#0F2143', chrome2:'#1B3668', chromeInk:'#FFFFFF', chromeMuted:'#C7D7F4', chromeLine:'#2C4E8A', action:'#1E3A8A', action2:'#1D4ED8', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'classic', name:'Daylight White', mode:'light', accent:'dept', brand:'#1F3864', gold:'#9A6700',
+    blurb:'The classic console look on crisp white paper with your department colour.',
+    t:{ bg:'#F4F6FA', surface:'#FFFFFF', surface2:'#F1F4F8', ink:'#0F172A', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#16294A', chrome2:'#21386A', chromeInk:'#EEF2F9', chromeMuted:'#B8C8DF', chromeLine:'#2B4472', action:'#C8102E', action2:'#B80D28', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E7F6EF', warn:'#9A5B00', warnBg:'#FFF4E0', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#EAF0FF' } },
   { id:'savanna', name:'Savanna', mode:'light', accent:'dept', brand:'#7A3A18', gold:'#B45309',
     blurb:'Warm sand and burnt umber. Easy on the eyes in bright outdoor light.',
     t:{ bg:'#FAF4E8', surface:'#FFFDF8', surface2:'#FBF6EC', ink:'#2A1E12', ink2:'#43321F', ink3:'#6B5844', muted:'#6E5B46', line:'#E8DAC3', line2:'#F1E7D4', bar:'#FFFDF8', chrome:'#5A2A12', chrome2:'#7A3A18', chromeInk:'#FBEFE0', chromeMuted:'#E7C9A8', chromeLine:'#8A4A26', action:'#B45309', action2:'#BE5A0A', actionInk:'#FFFFFF', ok:'#17703F', okBg:'#E8F5EC', warn:'#8A5200', warnBg:'#FFF1D6', crit:'#A61B1B', critBg:'#FCE9E7', info:'#1F5AA6', infoBg:'#E8F0FA' } },
@@ -15278,7 +15432,37 @@ const WTHEMES = [
     t:{ bg:'#081812', surface:'#0F261D', surface2:'#163428', ink:'#E7F8F0', ink2:'#C5E5D6', ink3:'#94BDA9', muted:'#9AC3AF', line:'#22493A', line2:'#1B3B2F', bar:'#0B2018', chrome:'#05110C', chrome2:'#0F261D', chromeInk:'#E7F8F0', chromeMuted:'#8DD3B2', chromeLine:'#1E4335', action:'#065F46', action2:'#047857', actionInk:'#FFFFFF', ok:'#6EE7B7', okBg:'#11392B', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#162C4E' } },
   { id:'amethyst', name:'Royal amethyst', mode:'dark', accent:'#A855F7', brand:'#D8B4FE', gold:'#FBBF24',
     blurb:'Deep executive violet-obsidian paired with crisp lavender and gold glow.',
-    t:{ bg:'#130D21', surface:'#1D1533', surface2:'#261C42', ink:'#F2ECFF', ink2:'#D9CEF2', ink3:'#ACA0CA', muted:'#B1A5CE', line:'#372A5C', line2:'#2D224C', bar:'#18112B', chrome:'#0D0818', chrome2:'#1D1533', chromeInk:'#F2ECFF', chromeMuted:'#C4B5FD', chromeLine:'#332656', action:'#7E22CE', action2:'#9333EA', actionInk:'#FFFFFF', ok:'#5FD3A0', okBg:'#13362C', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#1A2C52' } }
+    t:{ bg:'#130D21', surface:'#1D1533', surface2:'#261C42', ink:'#F2ECFF', ink2:'#D9CEF2', ink3:'#ACA0CA', muted:'#B1A5CE', line:'#372A5C', line2:'#2D224C', bar:'#18112B', chrome:'#0D0818', chrome2:'#1D1533', chromeInk:'#F2ECFF', chromeMuted:'#C4B5FD', chromeLine:'#332656', action:'#7E22CE', action2:'#9333EA', actionInk:'#FFFFFF', ok:'#5FD3A0', okBg:'#13362C', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#1A2C52' } },
+  { id:'alabaster', name:'Alabaster pure white', mode:'light', accent:'dept', brand:'#0F172A', gold:'#9A6700',
+    blurb:'Pure gallery-white workspace with razor-sharp slate borders and maximum text clarity.',
+    t:{ bg:'#FFFFFF', surface:'#FFFFFF', surface2:'#F4F6F9', ink:'#090D16', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#0F172A', chrome2:'#1E293B', chromeInk:'#FFFFFF', chromeMuted:'#CBD5E1', chromeLine:'#334155', action:'#1D4ED8', action2:'#1E40AF', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'vellum', name:'Linen & slate white', mode:'light', accent:'#0F766E', brand:'#0F5257', gold:'#9A6700',
+    blurb:'Soft architectural stone-white paper with crisp charcoal type and deep mineral teal.',
+    t:{ bg:'#F7F7F5', surface:'#FFFFFF', surface2:'#F0F0EC', ink:'#141413', ink2:'#292826', ink3:'#52504C', muted:'#52504C', line:'#D4D2CA', line2:'#E5E4DE', bar:'#FFFFFF', chrome:'#142826', chrome2:'#1D3B38', chromeInk:'#F7FAF9', chromeMuted:'#B8D8D4', chromeLine:'#2B5652', action:'#0F766E', action2:'#115E59', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F6EE', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'glacier', name:'Glacier ice white', mode:'light', accent:'#0369A1', brand:'#0C4A6E', gold:'#9A6700',
+    blurb:'Crisp arctic-white clinical surfaces with polar cerulean highlights and dark navy ink.',
+    t:{ bg:'#F2F8FC', surface:'#FFFFFF', surface2:'#EBF4FA', ink:'#0A1E32', ink2:'#183652', ink3:'#415E78', muted:'#415E78', line:'#C5DCEB', line2:'#DCEBF5', bar:'#FFFFFF', chrome:'#0A2942', chrome2:'#0E3D63', chromeInk:'#F0F8FF', chromeMuted:'#B3D9F5', chromeLine:'#1B5685', action:'#0369A1', action2:'#075985', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E4F6EE', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#0369A1', infoBg:'#E0F2FE' } },
+  { id:'pearl', name:'Pearl & mulberry white', mode:'light', accent:'#7E22CE', brand:'#581C87', gold:'#9A6700',
+    blurb:'Luminous pearl-white cards framed by regal mulberry chrome and crisp plum-slate text.',
+    t:{ bg:'#FAF7FC', surface:'#FFFFFF', surface2:'#F3EDF8', ink:'#1C122B', ink2:'#34234D', ink3:'#5C4975', muted:'#5C4975', line:'#DCCEEB', line2:'#EAE0F4', bar:'#FFFFFF', chrome:'#2A0F47', chrome2:'#41196B', chromeInk:'#FAF5FF', chromeMuted:'#D8B4FE', chromeLine:'#5C2891', action:'#7E22CE', action2:'#6B21A8', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'coral', name:'Mombasa coral', mode:'light', accent:'#C2410C', brand:'#9A3412', gold:'#9A6700',
+    blurb:'Warm coastal coral-terracotta with bright shell-white cards and rich espresso ink.',
+    t:{ bg:'#FFF5F2', surface:'#FFFFFF', surface2:'#FDECE7', ink:'#26110C', ink2:'#472219', ink3:'#6E4237', muted:'#6E4237', line:'#EECAC0', line2:'#F7DFD8', bar:'#FFFFFF', chrome:'#4A180D', chrome2:'#6E2414', chromeInk:'#FFF5F2', chromeMuted:'#FDBA9F', chromeLine:'#8F321E', action:'#C2410C', action2:'#9A3412', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E5F6EC', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'marigold', name:'Tsavo marigold', mode:'light', accent:'#9A5B00', brand:'#78350F', gold:'#9A5B00',
+    blurb:'Sunlit golden-ochre accents on crisp white cards with deep acacia-umber typography.',
+    t:{ bg:'#FEF9EC', surface:'#FFFFFF', surface2:'#FBF2DC', ink:'#241806', ink2:'#422D0E', ink3:'#69502A', muted:'#69502A', line:'#E8D5B0', line2:'#F3E6CC', bar:'#FFFFFF', chrome:'#3D2206', chrome2:'#5C340A', chromeInk:'#FFFBEB', chromeMuted:'#FCD38D', chromeLine:'#7D4810', action:'#9A5B00', action2:'#854D0E', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E5F6EC', warn:'#854D0E', warnBg:'#FEF3C7', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'indigo', name:'Nairobi indigo', mode:'light', accent:'#3730A3', brand:'#312E81', gold:'#9A6700',
+    blurb:'Civic indigo-blue precision with crisp white data tables and authoritative contrast.',
+    t:{ bg:'#F1F3FC', surface:'#FFFFFF', surface2:'#E8ECFA', ink:'#111533', ink2:'#242B5E', ink3:'#4C5385', muted:'#4C5385', line:'#CAD1EE', line2:'#DDE2F6', bar:'#FFFFFF', chrome:'#181B4A', chrome2:'#272C70', chromeInk:'#EEF2FF', chromeMuted:'#C7D2FE', chromeLine:'#3B4299', action:'#3730A3', action2:'#4338CA', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1E40AF', infoBg:'#E0E7FF' } },
+  { id:'sage', name:'Aberdare sage', mode:'light', accent:'#166534', brand:'#14532D', gold:'#9A6700',
+    blurb:'Calm highland sage and crisp botanical white crafted for long clinical review sessions.',
+    t:{ bg:'#F1F7F3', surface:'#FFFFFF', surface2:'#E7F1EA', ink:'#0E2417', ink2:'#1E422C', ink3:'#466853', muted:'#466853', line:'#C6DEC9', line2:'#DCECE0', bar:'#FFFFFF', chrome:'#102E1C', chrome2:'#19472C', chromeInk:'#ECFDF3', chromeMuted:'#B4E4C5', chromeLine:'#25633E', action:'#166534', action2:'#15803D', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E3F6EC', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'obsidian', name:'Obsidian pure dark', mode:'dark', accent:'#60A5FA', brand:'#93C5FD', gold:'#FBBF24',
+    blurb:'Ultra-crisp carbon slate dark mode with luminous ice-blue accents for low-light wards.',
+    t:{ bg:'#090C12', surface:'#111622', surface2:'#182030', ink:'#F1F5F9', ink2:'#D5DFEC', ink3:'#9FB0C7', muted:'#A3B4CC', line:'#28344B', line2:'#1F293D', bar:'#0D111B', chrome:'#05070B', chrome2:'#111622', chromeInk:'#F1F5F9', chromeMuted:'#A3B4CC', chromeLine:'#243047', action:'#60A5FA', action2:'#93C5FD', actionInk:'#09111E', ok:'#5FD3A0', okBg:'#103429', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#152B4D' } },
+  { id:'ruby', name:'Velvet ruby night', mode:'dark', accent:'#FB7185', brand:'#FDA4AF', gold:'#FBBF24',
+    blurb:'Deep nocturnal burgundy-slate paired with crisp rose-quartz highlights and warm ivory ink.',
+    t:{ bg:'#160A10', surface:'#22111A', surface2:'#2D1723', ink:'#FCEEF2', ink2:'#E8CFD7', ink3:'#C29EAA', muted:'#C7A4B0', line:'#472636', line2:'#381D2B', bar:'#1B0D14', chrome:'#0E060A', chrome2:'#22111A', chromeInk:'#FCEEF2', chromeMuted:'#D6B4C0', chromeLine:'#422232', action:'#FB7185', action2:'#FDA4AF', actionInk:'#1F070D', ok:'#5FD3A0', okBg:'#12362B', warn:'#F4BF4F', warnBg:'#3B2B0E', crit:'#FF8A94', critBg:'#421822', info:'#93C5FD', infoBg:'#1A2C50' } }
 ];
 const WT_DEFAULT = 'foundation';
 const WT_AUTO = 'auto';
@@ -15317,8 +15501,8 @@ function deptPaletteFor(user){
    results is passed through the same contrast correction, so no combination
    can make text unreadable. Fonts are system fonts only: the kit runs offline. */
 const STUDIO = {
-  corners:  { label:'Corners', def:'soft', opts:[ {v:'sharp',l:'Sharp'}, {v:'soft',l:'Soft'}, {v:'round',l:'Round'} ],
-              radii:{ sharp:['2px','4px','6px','8px'], soft:['8px','12px','18px','24px'], round:['14px','20px','28px','36px'] } },
+  corners:  { label:'Corners', def:'soft', opts:[ {v:'sharp',l:'Sharp'}, {v:'soft',l:'Soft'}, {v:'round',l:'Round'}, {v:'pill',l:'Architectural'} ],
+              radii:{ sharp:['2px','4px','6px','8px'], soft:['8px','12px','18px','24px'], round:['14px','20px','28px','36px'], pill:['10px','16px','22px','30px'] } },
   font:     { label:'Typeface & font pack', def:'standard',
               opts:[
                 {v:'standard', l:'Inter Institutional (Default)'},
@@ -15350,54 +15534,83 @@ const STUDIO = {
                 rounded:'"Trebuchet MS","Segoe UI",sans-serif',
                 slab:'"Rockwell","Georgia","Segoe UI",serif'
               } },
-  backdrop: { label:'Backdrop', def:'plain', opts:[ {v:'plain',l:'Plain'}, {v:'dots',l:'Dots'}, {v:'grid',l:'Grid'}, {v:'waves',l:'Waves'}, {v:'kente',l:'Woven stripes'} ] },
+  backdrop: { label:'Backdrop', def:'plain', opts:[ {v:'plain',l:'Plain'}, {v:'dots',l:'Dots'}, {v:'grid',l:'Grid'}, {v:'waves',l:'Waves'}, {v:'kente',l:'Woven stripes'}, {v:'linen',l:'Finecross'} ] },
   hero:     { label:'Hero panel', def:'gradient', opts:[ {v:'gradient',l:'Gradient'}, {v:'solid',l:'Solid'}, {v:'pattern',l:'Patterned'} ] },
-  cards:    { label:'Cards', def:'soft', opts:[ {v:'flat',l:'Flat'}, {v:'soft',l:'Soft'}, {v:'lifted',l:'Lifted'} ] },
-  kpiStyle: { label:'Metric boxes', def:'vivid', opts:[ {v:'vivid',l:'Vivid colours'}, {v:'bold',l:'Bold jewel'}, {v:'tinted',l:'Soft tint'} ] },
-  accentPick:{ label:'Accent colour', def:'', opts:[ {v:'',l:'Theme or department'}, {v:'#C8102E',l:'Crimson'}, {v:'#1F3864',l:'Navy'}, {v:'#B45309',l:'Ochre'},
-              {v:'#0E7490',l:'Teal'}, {v:'#15803D',l:'Green'}, {v:'#6D28D9',l:'Violet'}, {v:'#DB2777',l:'Rose'}, {v:'#334155',l:'Slate'} ] }
+  cards:    { label:'Cards', def:'soft', opts:[ {v:'flat',l:'Flat'}, {v:'soft',l:'Soft'}, {v:'lifted',l:'Lifted'}, {v:'framed',l:'Crisp frame'} ] },
+  kpiStyle: { label:'Metric boxes', def:'vivid', opts:[ {v:'vivid',l:'Vivid spectrum'}, {v:'bold',l:'Bold jewel'}, {v:'tinted',l:'Crisp top-bar'}, {v:'outlined',l:'Pure outlined'} ] },
+  bannerStyle:{ label:'Console top banner', def:'spectrum', opts:[ {v:'spectrum',l:'Spectrum gradient'}, {v:'duotone',l:'Deep duotone'}, {v:'solid',l:'Solid crest'} ] },
+  tabStyle: { label:'Tab & pill style', def:'pill', opts:[ {v:'pill',l:'Filled pill'}, {v:'boxed',l:'Framed card'}, {v:'underline',l:'Clean bar'} ] },
+  borderWeight:{ label:'Box & table borders', def:'crisp', opts:[ {v:'crisp',l:'Crisp standard'}, {v:'bold',l:'High-contrast 1.5px'}, {v:'heavy',l:'Ledger 2px'} ] },
+  tableStripe:{ label:'Table row shading', def:'subtle', opts:[ {v:'subtle',l:'Zebra rows'}, {v:'clean',l:'Pure white'}, {v:'ruled',l:'Ruled ledger'} ] },
+  accentPick:{ label:'Accent colour', def:'', opts:[
+    {v:'',l:'Theme or department'},
+    {v:'#C8102E',l:'Crimson'}, {v:'#1F3864',l:'Navy'}, {v:'#B45309',l:'Ochre'},
+    {v:'#0E7490',l:'Teal'}, {v:'#15803D',l:'Green'}, {v:'#6D28D9',l:'Violet'},
+    {v:'#DB2777',l:'Rose'}, {v:'#334155',l:'Slate'}, {v:'#1D4ED8',l:'Cobalt'},
+    {v:'#047857',l:'Emerald'}, {v:'#C2410C',l:'Coral'}, {v:'#9A5B00',l:'Gold'},
+    {v:'#3730A3',l:'Indigo'}, {v:'#7E22CE',l:'Plum'}, {v:'#0F766E',l:'Turquoise'}
+  ] }
 };
 const STUDIO_KEYS = Object.keys(STUDIO);
 
 const STUDIO_PRESETS = [
-  { id:'clinic',   name:'Clinic day',     blurb:'Foundation colours, soft corners, clear and calm.',
-    p:{ wtheme:'foundation', corners:'soft',  font:'standard', backdrop:'plain', hero:'gradient', cards:'soft',   accentPick:'' } },
-  { id:'night',    name:'Night shift',    blurb:'Dark, flat and easy to read for the small hours.',
-    p:{ wtheme:'night',      corners:'soft',  font:'readable', backdrop:'plain', hero:'solid',    cards:'flat',   accentPick:'' } },
-  { id:'sun',      name:'Field in sunlight', blurb:'Maximum contrast, large type, sharp edges for glare.',
-    p:{ wtheme:'contrast',   corners:'sharp', font:'readable', backdrop:'plain', hero:'solid',    cards:'flat',   accentPick:'', touch:'large' } },
-  { id:'lake',     name:'Lake calm',      blurb:'Teal, round corners and a gentle dotted backdrop.',
-    p:{ wtheme:'lake',       corners:'round', font:'rounded',  backdrop:'dots',  hero:'gradient', cards:'soft',   accentPick:'' } },
-  { id:'stage',    name:'Presentation',   blurb:'Midnight gold with waves and lifted cards, for showing the system.',
-    p:{ wtheme:'midnight',   corners:'round', font:'classic',  backdrop:'waves', hero:'pattern',  cards:'lifted', accentPick:'' } },
-  { id:'kente',    name:'Woven',          blurb:'Savanna warmth with woven stripes and an ochre accent.',
-    p:{ wtheme:'savanna',    corners:'soft',  font:'standard', backdrop:'kente', hero:'pattern',  cards:'soft',   accentPick:'#B45309' } },
-  { id:'minimal',  name:'Minimal',        blurb:'The original Daylight look with sharp, flat, plain surfaces.',
-    p:{ wtheme:'classic',    corners:'sharp', font:'standard', backdrop:'plain', hero:'solid',    cards:'flat',   accentPick:'' } }
+  { id:'clinic',    name:'Foundation White',  blurb:'Crisp pure white, royal navy accents and soft architectural cards.',
+    p:{ wtheme:'foundation', corners:'soft',  font:'standard', backdrop:'plain', hero:'gradient', cards:'soft',   kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'purewhite', name:'Gallery Alabaster', blurb:'Pure white surfaces, high-contrast 1.5px borders and outlined metric boxes.',
+    p:{ wtheme:'alabaster',  corners:'soft',  font:'clinical', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'outlined', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', accentPick:'#1D4ED8' } },
+  { id:'glacier',   name:'Glacier Clinical',  blurb:'Arctic ice-white cards, cerulean clinical clarity and crisp top-bar KPIs.',
+    p:{ wtheme:'glacier',    corners:'soft',  font:'clinical', backdrop:'plain', hero:'gradient', cards:'soft',   kpiStyle:'tinted', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#0E7490' } },
+  { id:'night',     name:'Night shift',       blurb:'Dark slate, flat cards and easy legibility for ward hours after dusk.',
+    p:{ wtheme:'night',      corners:'soft',  font:'readable', backdrop:'plain', hero:'solid',    cards:'flat',   kpiStyle:'vivid', bannerStyle:'duotone', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'obsidian',  name:'Obsidian Pro',      blurb:'Ultra-crisp carbon dark mode with ice-blue accents and framed borders.',
+    p:{ wtheme:'obsidian',   corners:'soft',  font:'executive',backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'bold', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', accentPick:'' } },
+  { id:'sun',       name:'Field in sunlight', blurb:'Maximum contrast, heavy ledger borders and large touch targets for glare.',
+    p:{ wtheme:'contrast',   corners:'sharp', font:'readable', backdrop:'plain', hero:'solid',    cards:'flat',   kpiStyle:'outlined', bannerStyle:'solid', tabStyle:'boxed', borderWeight:'heavy', accentPick:'', touch:'large' } },
+  { id:'lake',      name:'Lake calm',         blurb:'Kisumu shoreline teal, round corners and a gentle dotted backdrop.',
+    p:{ wtheme:'lake',       corners:'round', font:'rounded',  backdrop:'dots',  hero:'gradient', cards:'soft',   kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'coral',     name:'Mombasa Coral',     blurb:'Warm coastal coral-terracotta with bright shell-white cards.',
+    p:{ wtheme:'coral',      corners:'soft',  font:'editorial',backdrop:'plain', hero:'gradient', cards:'lifted', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#C2410C' } },
+  { id:'indigo',    name:'Nairobi Indigo',    blurb:'Civic indigo-blue precision with ruled ledger tables and sharp clarity.',
+    p:{ wtheme:'indigo',     corners:'soft',  font:'executive',backdrop:'grid',  hero:'gradient', cards:'framed', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', tableStripe:'ruled', accentPick:'#3730A3' } },
+  { id:'stage',     name:'Presentation',      blurb:'Midnight gold with waves and lifted cards for executive briefings.',
+    p:{ wtheme:'midnight',   corners:'round', font:'classic',  backdrop:'waves', hero:'pattern',  cards:'lifted', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'kente',     name:'Woven Savanna',     blurb:'Savanna warmth with woven stripes and a burnished ochre accent.',
+    p:{ wtheme:'savanna',    corners:'soft',  font:'standard', backdrop:'kente', hero:'pattern',  cards:'soft',   kpiStyle:'vivid', bannerStyle:'duotone', tabStyle:'pill', borderWeight:'crisp', accentPick:'#B45309' } },
+  { id:'minimal',   name:'Minimal Ledger',    blurb:'Crisp Daylight White with sharp edges, flat surfaces and pure white rows.',
+    p:{ wtheme:'classic',    corners:'sharp', font:'standard', backdrop:'plain', hero:'solid',    cards:'flat',   kpiStyle:'outlined', bannerStyle:'solid', tabStyle:'underline', borderWeight:'bold', tableStripe:'clean', accentPick:'' } }
 ];
 
 const INSTALLABLE_VISUAL_PACKS = [
-  { id:'pack-foundation-editorial', name:'CareLink Heritage Editorial Pack', version:'1.2', category:'Official Institutional',
-    blurb:'Pairs Foundation Ivory with authoritative serif workspace banners, navy-crimson accents and lifted cards.',
-    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'lifted', kpiStyle:'vivid', accentPick:'' } },
-  { id:'pack-clinical-editorial', name:'Clinical Editorial & Case Review Pack', version:'1.2', category:'Medical & PDCA Reporting',
-    blurb:'Pairs Georgia editorial headings with clean clinical surfaces for 120-Day & Discharge PDCA review.',
-    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'#1F3864' } },
+  { id:'pack-foundation-editorial', name:'CareLink Foundation White Pack', version:'1.4', category:'Official Institutional',
+    blurb:'Pairs Foundation White with authoritative serif workspace banners, royal navy accents and lifted cards.',
+    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'lifted', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'pack-alabaster-clarity', name:'Alabaster High-Definition White Pack', version:'1.0', category:'Maximum Readability',
+    blurb:'Pure gallery-white surfaces, high-contrast 1.5px borders and outlined KPI cards with zero tint haze.',
+    config:{ wtheme:'alabaster', font:'clinical', corners:'soft', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'outlined', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', accentPick:'#1D4ED8' } },
+  { id:'pack-clinical-editorial', name:'Clinical Editorial & Case Review Pack', version:'1.3', category:'Medical & PDCA Reporting',
+    blurb:'Pairs Georgia editorial headings with crisp white clinical surfaces for 120-Day & Discharge PDCA review.',
+    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#1F3864' } },
   { id:'pack-clinical-cobalt', name:'Clinical Precision & Triage Pack', version:'1.4', category:'Medical & Case Management',
     blurb:'High-clarity humanist typography, Royal Cobalt clinical surfaces and vivid status indicators.',
-    config:{ wtheme:'cobalt', font:'clinical', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'#0E7490' } },
+    config:{ wtheme:'cobalt', font:'clinical', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#0E7490' } },
+  { id:'pack-glacier-surgical', name:'Glacier Arctic Clinical Pack', version:'1.0', category:'Hospital & Pharmacy',
+    blurb:'Arctic glacier-white cards, polar cerulean accents and crisp top-bar metric boxes.',
+    config:{ wtheme:'glacier', font:'clinical', corners:'soft', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'tinted', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', accentPick:'#0E7490' } },
   { id:'pack-field-sunlight', name:'Field Caregiver Daylight Pack', version:'1.3', category:'Tablet & Outdoor Field',
-    blurb:'Atkinson high-legibility font stack, Savanna warm glare-resistant cards and comfortable touch spacing.',
-    config:{ wtheme:'savanna', font:'readable', corners:'round', backdrop:'plain', hero:'solid', cards:'soft', kpiStyle:'bold', accentPick:'#15803D' } },
-  { id:'pack-exec-diplomatic', name:'Executive Governance & Board Pack', version:'1.1', category:'Leadership & Finance',
-    blurb:'Executive geometric headings, Covenant Gold vellum surfaces and subtle architectural grid backdrop.',
-    config:{ wtheme:'covenant', font:'executive', corners:'soft', backdrop:'grid', hero:'gradient', cards:'lifted', kpiStyle:'bold', accentPick:'#1F3864' } },
+    blurb:'Atkinson high-legibility font stack, Savanna glare-resistant cards and comfortable touch spacing.',
+    config:{ wtheme:'savanna', font:'readable', corners:'round', backdrop:'plain', hero:'solid', cards:'soft', kpiStyle:'bold', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'bold', accentPick:'#15803D' } },
+  { id:'pack-exec-diplomatic', name:'Executive Governance & Board Pack', version:'1.2', category:'Leadership & Finance',
+    blurb:'Executive geometric headings, Covenant Gold white-vellum surfaces and subtle architectural grid backdrop.',
+    config:{ wtheme:'covenant', font:'executive', corners:'soft', backdrop:'grid', hero:'gradient', cards:'lifted', kpiStyle:'bold', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#1F3864' } },
+  { id:'pack-indigo-executive', name:'Nairobi Civic Indigo Pack', version:'1.0', category:'Finance, Audit & Operations',
+    blurb:'Civic indigo-white precision, ruled ledger rows and crisp framed tabs for dense financial registers.',
+    config:{ wtheme:'indigo', font:'executive', corners:'soft', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', tableStripe:'ruled', accentPick:'#3730A3' } },
   { id:'pack-lake-serenity', name:'Lake Victoria Horizon Pack', version:'1.2', category:'Kisumu & Homa Bay Regional',
     blurb:'Cool Lake Victoria shoreline teal, friendly rounded cards and crisp modern headings.',
-    config:{ wtheme:'lake', font:'rounded', corners:'round', backdrop:'dots', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'#0E7490' } },
-  { id:'pack-slab-assurance', name:'Audit & Assurance Ledger Pack', version:'1.0', category:'Audit, M&E & Data',
-    blurb:'Structured slab headings, crisp sharp card corners and clean Daylight ledger contrast.',
-    config:{ wtheme:'classic', font:'slab', corners:'sharp', backdrop:'plain', hero:'solid', cards:'flat', kpiStyle:'tinted', accentPick:'#334155' } }
+    config:{ wtheme:'lake', font:'rounded', corners:'round', backdrop:'dots', hero:'gradient', cards:'soft', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#0E7490' } },
+  { id:'pack-slab-assurance', name:'Audit & Assurance Ledger Pack', version:'1.1', category:'Audit, M&E & Data',
+    blurb:'Structured slab headings, crisp sharp card corners and clean Daylight White ledger contrast.',
+    config:{ wtheme:'classic', font:'slab', corners:'sharp', backdrop:'plain', hero:'solid', cards:'flat', kpiStyle:'tinted', bannerStyle:'duotone', tabStyle:'boxed', borderWeight:'bold', accentPick:'#334155' } }
 ];
 
 /* ---------------- colour arithmetic ---------------- */
@@ -15545,12 +15758,15 @@ const WTHEME = {
     v['--chip-ink'] = t.ink2;
     v['--field'] = dark? t.surface2 : t.surface;
     v['--field-line'] = hc? t.ink : WTC.mix(t.surface, t.ink, dark? 0.30 : 0.20);
-    v['--brand'] = theme.brand; v['--gold'] = theme.gold; v['--brand-2'] = theme.brand; v['--brand-deep'] = t.chrome;
+    v['--brand'] = theme.brand;
+    v['--brand-ink'] = WTC.contrast(theme.brand, '#FFFFFF') >= 4.5 ? '#FFFFFF' : '#0B1220';
+    v['--gold'] = theme.gold; v['--brand-2'] = theme.brand; v['--brand-deep'] = t.chrome;
     v['--red'] = t.action; v['--red-2'] = t.action2; v['--red-soft'] = t.critBg;
     v['--focus'] = dark? '#FFD54A' : (hc? '#B36B00' : a.fg);
     v['--scrim'] = dark? 'rgba(0,0,0,.66)' : 'rgba(12,16,22,.55)';
     v['--paper'] = '#FFFFFF';
-    v['--panel-mix'] = a.fillInk==='#FFFFFF'? '#101216' : '#FFFFFF';
+    /* Never mix white haze into hero panels; darken slightly so fillInk stays crisp */
+    v['--panel-mix'] = a.fillInk==='#FFFFFF'? '#0D1320' : '#B87D08';
     v['--shadow-sm'] = dark? '0 1px 2px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.4)' : '0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08)';
     v['--shadow']    = dark? '0 2px 8px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.35)' : '0 2px 8px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06)';
     v['--shadow-lg'] = dark? '0 12px 40px rgba(0,0,0,.65)' : '0 12px 40px rgba(16,24,40,.16)';
@@ -15608,6 +15824,10 @@ const WTHEME = {
     attr('data-font', (st&&st.font)||'standard'); attr('data-bg', (st&&st.backdrop)||'plain');
     attr('data-hero', (st&&st.hero)||'gradient'); attr('data-cards', (st&&st.cards)||'soft'); attr('data-corners', (st&&st.corners)||'soft');
     attr('data-kpistyle', (st&&st.kpiStyle)||'vivid');
+    attr('data-banner', (st&&st.bannerStyle)||'spectrum');
+    attr('data-tabstyle', (st&&st.tabStyle)||'pill');
+    attr('data-borders', (st&&st.borderWeight)||'crisp');
+    attr('data-tstripe', (st&&st.tableStripe)||'subtle');
     attr('data-dept', (user && roleObj(user.roleId) && roleObj(user.roleId).dept) || 'exec');
     attr('data-wt', theme.id); attr('data-wmode', theme.mode);
     if(root.style) root.style.colorScheme = theme.mode;
@@ -15977,14 +16197,85 @@ function navModel(user){
       { id:'weather', label:'Weather board', icon:'sun', show:has('weather.view') }
     ]}
   ];
+  /* Explicit per-account capability grants or active time-bound delegations
+     always unlock their corresponding view immediately, even if hidden from
+     that role's standard console scope. */
+  const explicitCaps = new Set(Array.isArray(user && user.permOverrides && user.permOverrides.grant) ? user.permOverrides.grant : []);
+  try{
+    const now = Date.now();
+    ((typeof DB!=='undefined' && DB.db && DB.db.delegations) || []).forEach(d=>{
+      if(d && user && d.delegateId===user.id && d.status==='active' && (!d.from || Date.parse(d.from)<=now) && (!d.to || Date.parse(d.to)>=now)){
+        (d.caps||[]).forEach(c=>explicitCaps.add(c));
+      }
+    });
+  }catch(e){}
+  const VIEW_EXPLICIT_CAPS = {
+    patients:['patient.list'], pipeline:['patient.digitise'], hardcopy:['hardcopy.intake'], waiting:['waiting.view'],
+    visits:['visit.view','visit.create'], bmiboard:['patient.view.clinical','visit.create'], schedule:['visit.create','pdca.create'],
+    visitplan:['visit.create','pdca.create'], forms:['form.view'], pdca:['pdca.create','pdca.review'],
+    households:['household.view'], repeat:['pmi.check'], cccdesk:['ccc.desk'], govdashboard:['gov.oversight'],
+    teams:['team.view'], clinicalmcm:['clinical.mcm'], intlmedical:['intl.medical'], pharmacy:['pharmacy.view'],
+    tbcare:['tb.view'], careplans:['careplan.view'], requests:['hosp.request.create','hosp.request.review'],
+    liaison:['hosp.visit.record'], recon:['hosp.receipt.review'], urgent:['urgent.view'], care:['care.view'],
+    'care-incidents':['care.incident'], reports:['report.patient_days','report.patient_figures','report.expenditure','report.executive','report.departmental'],
+    referral:['report.referral'], archive:['report.executive','report.patient_figures'], targets:['report.targets.view','report.targets.manage'],
+    conditions:['condition.aggregate','condition.sensitive'], donor:['report.executive','media.publish'], analytics:['report.patient_figures','report.executive'],
+    adminops:['admin.ops','finance.view'], finance:['finance.view'], costing:['cost.view'], budget:['finance.budget.manage'],
+    procurement:['procurement.view'], foodbudget:['procurement.view','finance.view'], media:['media.view'], studio:['media.view'],
+    consent:['media.consent.manage'], publish:['media.publish'], policy:['media.view'], pr:['pr.view'],
+    staff:['hr.view'], welfare:['welfare.view'], delegation:['delegation.manage'], vehicles:['vehicle.view'], trips:['vehicle.view'],
+    audit:['audit.view'], history:['system.audit'], security:['audit.view','system.audit'], accessaudit:['audit.view','role.manage'],
+    mergejournal:['system.audit','audit.view'], quality:['dq.manage','audit.view'], indicators:['indicator.manage'], interop:['system.config','indicator.manage'],
+    devconsole:['dev.console'], users:['user.view'], roles:['role.manage','user.approve'], governance:['user.approve','system.config'],
+    org:['org.manage'], registry:['org.manage','user.view'], workflows:['system.config'], import:['system.import'],
+    mastermap:['system.import'], masteranalysis:['system.import'], health:['system.health'], visualaudit:['system.config','system.health'],
+    backup:['system.backup'], executive:['report.executive'], compare:['report.executive'], execconsole:['exec.agenda']
+  };
+  const ROLE_NAV_EXCLUDE = {
+    director:   new Set(['attention','hardcopy','waiting','visits','schedule','visitplan','forms','households','repeat','cccdesk','teams','clinicalmcm','pharmacy','tbcare','careplans','care','security','mergejournal','masteranalysis']),
+    president:  new Set(['attention','hardcopy','waiting','visits','schedule','visitplan','forms','households','repeat','cccdesk','teams','clinicalmcm','pharmacy','tbcare','careplans','care','security','mergejournal','masteranalysis']),
+    'program.admin': new Set(['hardcopy','waiting','schedule','visitplan','forms','households','repeat','cccdesk','pharmacy','tbcare','careplans','security','mergejournal']),
+    'program.assistant': new Set(['pharmacy','tbcare','clinicalmcm','cccdesk','security','mergejournal']),
+    chief:      new Set(['hardcopy','waiting','forms','households','repeat','programdays','cccdesk','govdashboard','teams','intlmedical','pharmacy','tbcare','careplans','costing','donor','targets','executive','compare','evaluation']),
+    caregiver:  new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting']),
+    chw:        new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting','pharmacy']),
+    coordinator:new Set(['cccdesk','tbcare','costing','pharmacy']),
+    mcm:        new Set(['hardcopy','users','registry','costing']),
+    depthead:   new Set(['hardcopy','users','registry','costing','cccdesk']),
+    nurse:      new Set(['hardcopy','cccdesk','costing','analytics']),
+    liaison:    new Set(['tbcare','costing','analytics','cccdesk','hardcopy','forms']),
+    assistant:  new Set(['tbcare','pharmacy','clinicalmcm','teams','costing','cccdesk']),
+    countyadmin:new Set(['pharmacy','tbcare','careplans','cccdesk','mergejournal','security']),
+    finance:    new Set(['tbcare','teams']),
+    procurement:new Set(['tbcare','teams','costing']),
+    hr:         new Set(['teams','care']),
+    welfare:    new Set(['teams','care','registry']),
+    mediahead:  new Set(['govdashboard','teams','history','security','mergejournal','health','backup']),
+    pr:         new Set(['govdashboard','teams','history','security','mergejournal','health','backup']),
+    auditor:    new Set(['teams']),
+    me:         new Set(['hardcopy','forms','schedule','visitplan','tbcare','pharmacy','cccdesk']),
+    intldata:   new Set(['hardcopy','forms','schedule','visitplan','tbcare','pharmacy','cccdesk']),
+    'intl.medical': new Set(['hardcopy','forms','schedule','visitplan','costing','cccdesk']),
+    vehicle:    new Set(['teams']),
+    it:         new Set(['teams','costing','donor']),
+    homestay:   new Set(['cccdesk','tbcare','costing','analytics','teams'])
+  };
+  const roleExcl = user && ROLE_NAV_EXCLUDE[user.roleId] ? ROLE_NAV_EXCLUDE[user.roleId] : null;
+  const isAllowedForRoleScope = (itemId) => {
+    if(!roleExcl || !roleExcl.has(itemId)) return true;
+    const unlockCaps = VIEW_EXPLICIT_CAPS[itemId] || [];
+    return unlockCaps.some(c => explicitCaps.has(c));
+  };
   return groups
     .map(g=>({
       ...g,
       displayLabel: (typeof ROLE_CTX!=='undefined' && ROLE_CTX.groupLabel) ? ROLE_CTX.groupLabel(user, g.label) : g.label,
-      items:g.items.filter(i=> (i.show!==undefined? i.show : g.show)!==false ).map(i=>({
-        ...i,
-        label: (typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel)? ROLE_CTX.navLabel(user, i.id, i.label) : i.label
-      }))
+      items:g.items
+        .filter(i=> (i.show!==undefined? i.show : g.show)!==false && isAllowedForRoleScope(i.id))
+        .map(i=>({
+          ...i,
+          label: (typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel)? ROLE_CTX.navLabel(user, i.id, i.label) : i.label
+        }))
     }))
     .filter(g=>g.items.length);
 }
@@ -16199,24 +16490,37 @@ function confirmDialog(title, msg, onYes, yesLabel='Confirm', danger=false){
    ============================================================ */
 
 const CONSOLE_FOCUS = {
-  exec:     ['Overview','Partner & referral','Leadership','Reporting','Patients & field','Ministry & teams','People','Assurance'],
-  admin:    ['Overview','Patients & field','Partner & referral','Ministry & teams','Hospital operations','Care centre','People','Reporting','System'],
-  medical:  ['Overview','Patients & field','Clinical & pharmacy','Partner & referral','Hospital operations','Care centre','Reporting','Ministry & teams'],
-  ministry: ['Overview','Patients & field','Ministry & teams','Partner & referral','Care centre','Clinical & pharmacy','Reporting','People'],
-  media:    ['Overview','Media & governance','Partner & referral','Reporting','Department life','People'],
-  finance:  ['Overview','Finance & procurement','Reporting','Ministry & teams','People'],
-  procure:  ['Overview','Finance & procurement','Reporting','Ministry & teams','People'],
-  me:       ['Overview','Reporting','Partner & referral','Patients & field','Assurance','Ministry & teams'],
-  audit:    ['Overview','Assurance','Reporting','Finance & procurement','Ministry & teams','People'],
-  hr:       ['Overview','People','Reporting'],
-  welfare:  ['Overview','People','Reporting'],
-  vehicle:  ['Overview','Fleet & transport','Ministry & teams','People'],
-  pr:       ['Overview','Media & governance','Partner & referral','Reporting','Ministry & teams','People'],
-  hospital: ['Overview','Partner & referral','Hospital operations','Patients & field','Clinical & pharmacy','Ministry & teams','Reporting'],
-  pharmacy: ['Overview','Clinical & pharmacy','Patients & field','Ministry & teams','Reporting'],
-  it:       ['Overview','System','Assurance','Ministry & teams'],
-  intldata: ['Overview','Clinical & pharmacy','Partner & referral','Reporting','Assurance','Ministry & teams'],
-  homestay: ['Overview','Care centre','Patients & field','Ministry & teams']
+  exec:     ['Overview','Leadership','Reporting','Finance & procurement','Partner & referral','Patients & field','People','Assurance','Department life'],
+  admin:    ['Overview','Patients & field','Finance & procurement','Hospital operations','People','Reporting','System','Fleet & transport','Assurance','Department life'],
+  medical:  ['Overview','Patients & field','Clinical & pharmacy','Hospital operations','Care centre','Reporting','Media & governance','Ministry & teams','Partner & referral','Department life'],
+  ministry: ['Overview','Patients & field','Ministry & teams','Hospital operations','Care centre','Clinical & pharmacy','Reporting','People','Department life'],
+  media:    ['Overview','Media & governance','Reporting','Department life','People'],
+  finance:  ['Overview','Finance & procurement','Reporting','Hospital operations','Department life','People'],
+  procure:  ['Overview','Finance & procurement','Reporting','Department life','People'],
+  me:       ['Overview','Reporting','Assurance','Patients & field','Partner & referral','Ministry & teams','Department life'],
+  audit:    ['Overview','Assurance','Reporting','Finance & procurement','People','Department life'],
+  hr:       ['Overview','People','Reporting','System','Department life'],
+  welfare:  ['Overview','People','Reporting','Department life'],
+  vehicle:  ['Overview','Fleet & transport','Department life','People'],
+  pr:       ['Overview','Media & governance','Reporting','Department life','People'],
+  hospital: ['Overview','Partner & referral','Hospital operations','Patients & field','Clinical & pharmacy','Reporting','Department life'],
+  pharmacy: ['Overview','Clinical & pharmacy','Patients & field','Reporting','Department life'],
+  it:       ['Overview','System','Assurance','Reporting','Department life'],
+  intldata: ['Overview','Assurance','Reporting','Clinical & pharmacy','Patients & field','Department life'],
+  homestay: ['Overview','Care centre','Patients & field','Hospital operations','Reporting','Department life']
+};
+
+const ROLE_FOCUS = {
+  chief:      ['Overview','System','Assurance','Reporting','Finance & procurement','Patients & field','People','Department life'],
+  director:   ['Overview','Leadership','Reporting','Finance & procurement','Partner & referral','Patients & field','People','Assurance','Hospital operations','Clinical & pharmacy','Department life'],
+  president:  ['Overview','Leadership','Reporting','Partner & referral','Finance & procurement','People','Assurance','Department life'],
+  'program.admin': ['Overview','Leadership','Reporting','Patients & field','Finance & procurement','People','Assurance','Department life'],
+  'program.assistant': ['Overview','Reporting','Finance & procurement','Patients & field','People','Department life'],
+  assistant:  ['Overview','Patients & field','Finance & procurement','Hospital operations','Reporting','Department life'],
+  liaison:    ['Overview','Hospital operations','Patients & field','Care centre','Reporting','Department life'],
+  'ccc.clinician': ['Overview','Partner & referral','Hospital operations','Reporting'],
+  'gov.partner':   ['Overview','Partner & referral','Reporting'],
+  'intl.medical':  ['Overview','Clinical & pharmacy','Patients & field','Reporting','Department life']
 };
 
 const NAV_GROUP_ICON = {
@@ -16231,14 +16535,15 @@ const NAV_PANE_MIN = 1000;
 
 const NAVP = {
   /* Reorders groups for a department. Pure: same pages in, same pages out. */
-  ordered(groups, deptId){
-    const focus = CONSOLE_FOCUS[deptId] || [];
+  ordered(groups, deptId, roleId){
+    const focus = (roleId && ROLE_FOCUS[roleId]) || CONSOLE_FOCUS[deptId] || [];
     const rank = g => { const i = focus.indexOf(g.label); return i<0? 1000 : i; };
     return groups.map((g,i)=>({g,i})).sort((a,b)=> (rank(a.g)-rank(b.g)) || (a.i-b.i)).map(x=>x.g);
   },
   groups(user){
+    if(!user) return [];
     const role = roleObj(user.roleId) || {};
-    return NAVP.ordered(navModel(user), role.dept || user.departmentId);
+    return NAVP.ordered(navModel(user), role.dept || user.departmentId, user.roleId);
   },
 
   prefs(user){
@@ -18096,40 +18401,300 @@ const DEMO_SWITCH = {
 const ROLE_CTX = {
   groupLabel(user, groupLabel){
     if(!user) return groupLabel;
-    const role = roleObj(user.roleId) || {};
-    const cLabel = user.countyId ? countyName(user.countyId) : 'Global';
-    if(groupLabel === 'Overview'){
-      const m = {
-        caregiver: 'My Field Care Desk',
-        chw: 'My Community Desk',
-        coordinator: `${cLabel} Area Coordination`,
-        nurse: 'Nursing Triage Desk',
-        mcm: 'Case Management Desk',
-        depthead: 'Clinical Department Desk',
-        liaison: 'Hospital Focal Desk',
-        assistant: `${cLabel} Admin & Secretary Desk`,
-        'program.assistant': 'Programme Secretary Desk',
-        countyadmin: `${cLabel} County Office Desk`,
-        finance: `${cLabel} Finance Control Desk`,
-        procurement: 'Supply Chain & Procurement',
-        mediahead: 'Media & Ethics Studio',
-        pr: 'Public Relations Desk',
-        hr: 'Human Capital Desk',
-        welfare: 'Staff Welfare Desk',
-        vehicle: 'Fleet & Escort Dispatch',
-        auditor: 'Independent Audit Desk',
-        me: `${cLabel} M&E Verification Desk`,
-        intldata: 'International Data Desk',
-        'intl.medical': 'International Medical Desk',
-        director: 'Country Director Command',
-        president: 'Presidential Governance',
-        'program.admin': 'Chief Programme Command',
-        chief: 'CareLink OS Control'
-      };
-      if(m[user.roleId]) return m[user.roleId];
-      return `${(role.name||'Role').split(' ')[0]} Workspace`;
-    }
-    return groupLabel;
+    const r = user.roleId;
+    const role = roleObj(r) || {};
+    const cLabel = user.countyId ? countyName(user.countyId).replace(/\s+County Office$/i,'') : 'National';
+    const byRole = {
+      director: {
+        'Overview':'Country Director Command',
+        'Leadership':'National Executive Governance',
+        'Reporting':'Board & Strategic Reporting',
+        'Finance & procurement':'National Budget & Statutory',
+        'Partner & referral':'Government & MoH Partnerships',
+        'Patients & field':'Programme Caseload Oversight',
+        'People':'Executive HR & Delegation',
+        'Assurance':'Institutional Risk & Assurance',
+        'Hospital operations':'Emergency Referral Escalations',
+        'Clinical & pharmacy':'Specialist 120d PDCA Oversight',
+        'Department life':'Executive Recognition & Culture'
+      },
+      president: {
+        'Overview':'Presidential Governance',
+        'Leadership':'Foundation Strategy & Board',
+        'Reporting':'Global Impact & Donor Briefs',
+        'Partner & referral':'Government & Strategic Partners',
+        'Finance & procurement':'Stewardship & Budget Summary',
+        'Hospital operations':'Executive Referral Oversight',
+        'People':'Leadership Authority',
+        'Assurance':'Institutional Governance Audit',
+        'System':'Presidential Preferences & Governance',
+        'Department life':'Foundation Culture & Honours'
+      },
+      'program.admin': {
+        'Overview':'Chief Programme Command',
+        'Leadership':'Cross-County Programme Direction',
+        'Reporting':'Programme Performance Reports',
+        'Patients & field':'Cross-County Caseload Watch',
+        'Ministry & teams':'County Ministry Area Teams',
+        'Hospital operations':'Programme Hospital Escalations',
+        'Care centre':'Programme Respite Oversight',
+        'Partner & referral':'MoH & Facility Partnerships',
+        'Finance & procurement':'Programme Budget & Statutory',
+        'People':'Programme Staffing & Coverage',
+        'Assurance':'Programme Quality & Indicators',
+        'System':'Account Approvals & Governance',
+        'Department life':'Programme Culture & Evaluation'
+      },
+      'program.assistant': {
+        'Overview':'Programme Secretary Desk',
+        'Leadership':'Executive Sitting & Briefs',
+        'Reporting':'Monday Packs & Programme Reports',
+        'Finance & procurement':'Programme Office Operations',
+        'Patients & field':'Programme Beneficiary Overview',
+        'Ministry & teams':'Area Team Coordination',
+        'People':'Leave & Coverage Coordination',
+        'System':'Programme Desk Preferences',
+        'Department life':'Programme Office Directory'
+      },
+      chief: {
+        'Overview':'CareLink OS Control',
+        'System':'Platform Engineering & Security',
+        'Assurance':'Audit Chain, Security & KHIS',
+        'Reporting':'Platform & Statutory Reports',
+        'Finance & procurement':'Statutory Compliance Ledger',
+        'Patients & field':'Master Registry Index',
+        'People':'Platform Delegation & Authority',
+        'Department life':'Online Presence & Custody'
+      },
+      it: {
+        'Overview':'ICT & Technical Desk',
+        'System':'Infrastructure, Cloud & Backups',
+        'Assurance':'Security Self-Test & APIs',
+        'Reporting':'Technical Operations Reports',
+        'Department life':'ICT Asset & Online Status'
+      },
+      caregiver: {
+        'Overview':'My Field Care Desk',
+        'Patients & field':'My Assigned Households',
+        'Ministry & teams':'My Ministry Area Team',
+        'Hospital operations':'Hospital Escorts & Clinics',
+        'Care centre':'Homestay & Respite Handover',
+        'Clinical & pharmacy':'Household Care Plans',
+        'Reporting':'My Field Visit Summary',
+        'Department life':'My Coins & Field Weather'
+      },
+      chw: {
+        'Overview':'My CHV Community Desk',
+        'Patients & field':'My Community Households',
+        'Ministry & teams':'Area Outreach Team',
+        'Hospital operations':'Clinic Escort Requests',
+        'Care centre':'Respite & Care Handover',
+        'Clinical & pharmacy':'Community Care Plans',
+        'Reporting':'Community Activity Summary',
+        'Department life':'CHV Coins & Field Weather'
+      },
+      coordinator: {
+        'Overview':`${cLabel} Area Coordination`,
+        'Patients & field':'Area Households & Visits',
+        'Ministry & teams':'Area Caregivers & Visit Days',
+        'Hospital operations':'Area Hospital Referrals',
+        'Care centre':'Care Centre Placements',
+        'Clinical & pharmacy':'Area Care Plans',
+        'Reporting':'Area Performance & Targets',
+        'System':'Area Desk Preferences',
+        'Department life':'Area Team Recognition'
+      },
+      mcm: {
+        'Overview':'Case Management Desk',
+        'Patients & field':`${cLabel} Clinical Caseload`,
+        'Clinical & pharmacy':'Acuity, SOAP, Rx & 120d PDCA',
+        'Hospital operations':'Hospital Approvals & Recon',
+        'Care centre':'Clinical Respite & Safeguarding',
+        'Reporting':'Clinical & Referral Reports',
+        'Media & governance':'Beneficiary Story Consent',
+        'Ministry & teams':'Field-Clinical Team Sync',
+        'Partner & referral':'Hospital CCC Referrals',
+        'Assurance':'Clinical Data Completeness',
+        'System':'Clinical Preferences',
+        'Department life':'Clinical Library & Interns'
+      },
+      depthead: {
+        'Overview':'Clinical Department Desk',
+        'Patients & field':'Department Clinical Caseload',
+        'Clinical & pharmacy':'Clinical Oversight & Pharmacy',
+        'Hospital operations':'Hospital Referral Approvals',
+        'Care centre':'Care Centre & Safeguarding',
+        'Reporting':'Department Clinical Reports',
+        'Ministry & teams':'Clinical & Field Teams',
+        'People':'Clinical Staffing & Coverage',
+        'Assurance':'Clinical Quality Assurance',
+        'System':'Department Settings',
+        'Department life':'Clinical Library & Evaluation'
+      },
+      nurse: {
+        'Overview':'Nursing & Triage Desk',
+        'Patients & field':'Triage & Ward Caseload',
+        'Clinical & pharmacy':'Dispensing, TB & Care Plans',
+        'Hospital operations':'Hospital Referrals & Escorts',
+        'Care centre':'Ward Occupancy & Safeguarding',
+        'Reporting':'Nursing & Ward Summary',
+        'Ministry & teams':'Caregiver Triage Sync',
+        'Department life':'Clinical Library & Safety'
+      },
+      liaison: {
+        'Overview':'Hospital Focal Desk',
+        'Hospital operations':'Facility Queue, Visits & Recon',
+        'Patients & field':'Hospitalised Beneficiaries',
+        'Clinical & pharmacy':'Inpatient Clinical & Rx Notes',
+        'Ministry & teams':'Field Escort Coordination',
+        'Care centre':'Post-Discharge Respite',
+        'Reporting':'Hospital Referral Reports',
+        'Department life':'Hospital Desk Tools'
+      },
+      countyadmin: {
+        'Overview':`${cLabel} County Office Desk`,
+        'Patients & field':`${cLabel} Intake & Beneficiary Ops`,
+        'Ministry & teams':`${cLabel} Ministry Area Teams`,
+        'Finance & procurement':`${cLabel} County Finance & OpEx`,
+        'Hospital operations':`${cLabel} Hospital Reconciliations`,
+        'People':`${cLabel} County Staff & Coverage`,
+        'Reporting':`${cLabel} County Management Reports`,
+        'System':`${cLabel} Staff Accounts & Urgent Desk`,
+        'Fleet & transport':`${cLabel} County Vehicles & Trips`,
+        'Assurance':`${cLabel} County Audit & Quality`,
+        'Partner & referral':`${cLabel} MoH County Partnership`,
+        'Care centre':`${cLabel} Care Centre Oversight`,
+        'Department life':`${cLabel} Office Assets & Presence`
+      },
+      assistant: {
+        'Overview':`${cLabel} Admin & Secretary Desk`,
+        'Patients & field':'Hard-Copy Intake & Pipeline',
+        'Clinical & pharmacy':'Scanned Clinical Paper Filing',
+        'Finance & procurement':'Office Petty Cash & PAYG',
+        'Hospital operations':'Clinic Receipt Filing',
+        'Care centre':'Care Centre Intake Filing',
+        'Assurance':'Document Completeness Check',
+        'System':'County Desk Preferences',
+        'Reporting':'Monday Minutes & Office Reports',
+        'Department life':'Office Equipment & Directory'
+      },
+      finance: {
+        'Overview':`${cLabel} Finance Control Desk`,
+        'Finance & procurement':'Ledger, Budgets & Statutory',
+        'Reporting':'Financial & Variance Reports',
+        'Hospital operations':'Hospital Bills & Receipt Recon',
+        'Department life':'Finance Office Tools'
+      },
+      procurement: {
+        'Overview':'Supply Chain & Procurement',
+        'Finance & procurement':'Purchase Orders & Foodbags',
+        'Reporting':'Supply & Expenditure Reports',
+        'Hospital operations':'Urgent Medical Procurement',
+        'Department life':'122-Item Asset Custody'
+      },
+      hr: {
+        'Overview':'Human Capital Desk',
+        'People':'Staff Roster, Leave & Handovers',
+        'Reporting':'HR & Workforce Reports',
+        'System':'Staff Account Provisioning',
+        'Department life':'Evaluations, Interns & OHS'
+      },
+      welfare: {
+        'Overview':'Staff Welfare Desk',
+        'People':'Wellbeing, Leave & Support',
+        'Reporting':'Staff Welfare Summary',
+        'Department life':'OHS Safety & Recognition'
+      },
+      mediahead: {
+        'Overview':'Media & Ethics Studio',
+        'Media & governance':'Storytelling, Consent & Policy',
+        'Reporting':'Donor & Impact Publications',
+        'Department life':'Media Library & Gear Custody'
+      },
+      pr: {
+        'Overview':'Public Relations Desk',
+        'Media & governance':'Partner Comms & Consent',
+        'Reporting':'Partner & Donor Briefings',
+        'Department life':'Communications Library'
+      },
+      auditor: {
+        'Overview':'Independent Audit Desk',
+        'Assurance':'Audit Trail, Controls & Findings',
+        'Reporting':'Assurance & Variance Reports',
+        'Finance & procurement':'Audited Ledger & Vouchers',
+        'Hospital operations':'Hospital Receipt Audit',
+        'Clinical & pharmacy':'Clinical Record Compliance',
+        'People':'HR & Delegation Compliance',
+        'System':'Audit Governance Settings',
+        'Department life':'Assurance Reference'
+      },
+      me: {
+        'Overview':`${cLabel} M&E Verification Desk`,
+        'Reporting':'Indicator Reports & Pivot Maps',
+        'Assurance':'Data Quality & KHIS Staging',
+        'Patients & field':`${cLabel} Cohort & PDCA Metrics`,
+        'Clinical & pharmacy':'Clinical & Growth Indicators',
+        'Hospital operations':'Referral Outcome Metrics',
+        'Finance & procurement':'Cost-Effectiveness Metrics',
+        'Partner & referral':'MoH & Partner Indicators',
+        'Ministry & teams':'Area Coverage Metrics',
+        'System':'M&E Indicator Settings',
+        'Department life':'M&E Reference Library'
+      },
+      intldata: {
+        'Overview':'International Data Desk',
+        'Leadership':'Executive Analytics Briefs',
+        'Assurance':'Global QA, Co-Work & KHIS',
+        'Reporting':'Cross-County Analytics & Reports',
+        'Clinical & pharmacy':'120d PDCA Outcome Metrics',
+        'Patients & field':'3,333-Beneficiary Cohort Index',
+        'Ministry & teams':'Cross-County Area Metrics',
+        'Partner & referral':'Global Partner Indicators',
+        'Finance & procurement':'Unit-Cost & Steward Metrics',
+        'System':'Master Sync & Data Governance',
+        'Department life':'Data Governance Reference'
+      },
+      'intl.medical': {
+        'Overview':'International Medical Desk',
+        'Clinical & pharmacy':'120+ Day Specialist Reviews',
+        'Patients & field':'Extended-Stay Clinical Cohort',
+        'Ministry & teams':'Clinical-Field Case Sync',
+        'Reporting':'Clinical Outcome Reports',
+        'Department life':'Clinical Reference Library'
+      },
+      vehicle: {
+        'Overview':'Fleet & Escort Dispatch',
+        'Fleet & transport':'Vehicles, Escorts & Fuel Logs',
+        'Finance & procurement':'Fuel & Maintenance Imprest',
+        'Reporting':'Fleet Mileage & Trip Reports',
+        'Department life':'Fleet Safety & Weather'
+      },
+      homestay: {
+        'Overview':'Homestay & Care Centre Desk',
+        'Care centre':'Beds, Meals & Safeguarding',
+        'Patients & field':'Resident Beneficiaries',
+        'Hospital operations':'Resident Clinic Escorts',
+        'Reporting':'Occupancy & Care Summary',
+        'Department life':'Care Centre Safety & Weather'
+      },
+      'ccc.clinician': {
+        'Overview':'CCC / PSC Partner Desk',
+        'Partner & referral':'Facility Referrals & PMI Check',
+        'Hospital operations':'Shared Referral Follow-Up',
+        'Ministry & teams':'LOMAMO Liaison Contacts',
+        'Reporting':'Master Referral Feedback'
+      },
+      'gov.partner': {
+        'Overview':'MoH County Partnership',
+        'Partner & referral':'Aggregate Health Partnership',
+        'Ministry & teams':'County Sub-Area Coverage',
+        'Reporting':'DPA-Redacted County Briefs'
+      }
+    };
+    if(byRole[r] && byRole[r][groupLabel]) return byRole[r][groupLabel];
+    const rolePrefix = (role.name||'Role').replace(/\s*[\/&]+\s*/g, ' ').replace(/\s+Console$/i, '').trim().split(/\s+/).slice(0,2).join(' ');
+    if(groupLabel === 'Overview') return `${rolePrefix} Workspace`;
+    return `${rolePrefix} · ${groupLabel}`;
   },
 
   navLabel(user, id, fallback){
@@ -18143,7 +18708,10 @@ const ROLE_CTX = {
         attention:'Household Red Flags', drafts:'My Field Visit Drafts', patients:'My Assigned Households',
         visits:'Home Visits & Follow-Ups', bmiboard:'Household BMI & Child MUAC', schedule:'My Weekly Visit Route',
         visitplan:'Smart Visit Route Learner', requests:'Hospital Escorts & Clinics', forms:'Field Care Forms (LMMK)',
-        pdca:'30-Day & 120-Day PDCA', repeat:'Returning Beneficiary Check', calendar:'My Visit & Clinic Calendar',
+        pdca:'30-Day & 120-Day PDCA', households:'Households & Care Chains', programdays:'Household Programme Days',
+        teams:'My Area Team & Visit Days', care:'Homestay Bed & Handover', careplans:'Beneficiary Care Plans',
+        reports:'My Area Visit Summary', recognition:'My C-DIMS Coins', weather:'Field Weather Board',
+        repeat:'Returning Beneficiary Check', calendar:'My Visit & Clinic Calendar',
         messages:'Area Team & Nurse Inbox', settings:'My Tablet & Field Preferences', leave:'My Leave & Reliever Plan',
         handover:'Household Reliever Handover', workplans:'My Monthly Field Plan'
       },
@@ -18269,6 +18837,16 @@ const ROLE_CTX = {
         home:'Country Director Command Home', smartflow:'Executive Approvals & National QA',
         monday:'National & County Monday Synthesis', executive:'National Executive Summary', compare:'Kisumu vs Homa Bay Comparison',
         execconsole:'Executive Sitting Console', adminops:'Statutory, OpEx & Societies Compliance',
+        reports:'Executive Report Centre', archive:'Official Report Archive', targets:'National Targets & Baselines',
+        conditions:'National Morbidity Summary', donor:'Strategic Donor & Partner Brief', analytics:'National Analytics & Maps',
+        finance:'National Expenditure Oversight', costing:'Cost per Beneficiary Analysis', foodbudget:'National Food & Hygiene Budget',
+        govdashboard:'MoH & County Gov Partnership', patients:'National Beneficiary Register', bmiboard:'National Nutrition & SAM Overview',
+        pdca:'120-Day & Discharge PDCA Oversight', programdays:'Programme Duration Watch', intlmedical:'120+ Day Specialist Escalations',
+        urgent:'Emergency Cases vs Budget', staff:'Senior Staff Roster', leave:'Executive Leave Approvals',
+        handover:'Executive Authority Handover', workplans:'Departmental Work Plans', delegation:'Time-Bound Authority Delegation',
+        audit:'Audit Findings & Risk', accessaudit:'Role & Authority Matrix Audit', quality:'National Data Completeness',
+        indicators:'Strategic Programme Indicators', dualcheck:'Executive Co-Work Oversight', messages:'Executive & County Leadership Inbox',
+        calendar:'National Governance Calendar', recognition:'Foundation C-DIMS Coins', evaluation:'Executive Staff Evaluation',
         drafts:'Executive Decision Drafts', settings:'Country Director Settings'
       },
       president: {
@@ -18287,11 +18865,30 @@ const ROLE_CTX = {
         users:'Accounts, Provisioning & Urgent Desk', roles:'Custom Roles & Capabilities',
         governance:'DPA Credentials & Recovery', settings:'Host, Security & Theme Defaults',
         patients:'Beneficiary Metadata Index'
+      },
+      'ccc.clinician': {
+        home:'CCC Partner Desk Home', smartflow:'CCC Referral & Linkage QA',
+        cccdesk:'CCC / PSC Referral Desk', pmi:'Patient Master Index (PMI)',
+        drafts:'Referral Feedback Drafts', settings:'Facility Desk Preferences'
+      },
+      'gov.partner': {
+        home:'MoH County Partnership Home', smartflow:'County Partnership Overview',
+        govdesk:'Aggregate County Health Desk', reports:'DPA-Redacted County Reports',
+        settings:'Partner Display Preferences'
+      },
+      me: {
+        home:`${cShort} M&E Verification Home`, smartflow:'Indicator & KHIS Verification QA',
+        drafts:'M&E Verification Drafts', settings:'M&E Desk Preferences'
+      },
+      vehicle: {
+        home:'Fleet & Dispatch Home', smartflow:'Escort & Trip Log QA',
+        fleet:'Vehicles, Trips & Fuel Register', drafts:'Dispatch Log Drafts',
+        settings:'Fleet Desk Preferences'
       }
     };
     if(map[r] && map[r][id]) return map[r][id];
     /* Dynamic customization for any custom user-defined role! */
-    const customPrefix = (role.name || r || 'Role').replace(/\s+Console$/i,'').split(' ').slice(0,2).join(' ');
+    const customPrefix = (role.name || r || 'Role').replace(/\s*[\/&]+\s*/g, ' ').replace(/\s+Console$/i,'').trim().split(/\s+/).slice(0,2).join(' ');
     if(id === 'home') return `${customPrefix} Home`;
     if(id === 'smartflow') return `${customPrefix} Smart Workflow`;
     if(id === 'monday') return `${cShort} Monday Meeting`;
@@ -18650,7 +19247,7 @@ const ROLE_CTX = {
    recolour of one page. The workspace accent is deliberately separate: a theme
    changes only the public front door. */
 const LANDING_THEMES = [
-  { id:'heritage', name:'Heritage navy', blurb:'Navy and gold, split layout, serif-free and institutional. The default.', accent:'#C9A227', mode:'dark' },
+  { id:'heritage', name:'Heritage White', blurb:'Crisp institutional pure white with royal navy and burnished gold accents. The default across all devices.', accent:'#1E3A8A', mode:'light' },
   { id:'dawn',     name:'Dawn',          blurb:'Warm sunrise gradient, centred hero, soft cards. Optimistic and open.', accent:'#F97316', mode:'dark' },
   { id:'clinic',   name:'Clinic white',  blurb:'Light, calm, generous white space with a single teal accent. Quietly clinical.', accent:'#0E7490', mode:'light' },
   { id:'editorial',name:'Editorial',     blurb:'Magazine layout: oversized serif headline, rule lines, one column of text.', accent:'#7C2D12', mode:'light' },
@@ -22873,13 +23470,15 @@ function visualPacksHtml(user){
 
 function openThemePicker(tab='themes'){
   const user = AUTH.user; if(!user) return;
+  APPX._themePickerTab = tab;
   if(typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
   const st = WTHEME.studio(user);
   const scale = Number((DB.db.personalPrefs[user.id]||{}).textScale)||100;
   const tabsBar = `<div class="tabs" style="margin-bottom:14px">
     <button class="tab ${tab==='themes'?'active':''}" data-act="wtheme-tab" data-tab="themes">${ic('palette',14)} Colour Themes (${WTHEMES.length})</button>
+    <button class="tab ${tab==='studio'?'active':''}" data-act="wtheme-tab" data-tab="studio">${ic('sparkle',14)} UI Customiser (${STUDIO_PRESETS.length} Presets)</button>
     <button class="tab ${tab==='fonts'?'active':''}" data-act="wtheme-tab" data-tab="fonts">${ic('file',14)} Font Styles & Scale (${STUDIO.font.opts.length})</button>
-    <button class="tab ${tab==='packs'?'active':''}" data-act="wtheme-tab" data-tab="packs">${ic('package',14)} Installable Visual Packs (${WTHEME.packs().length})</button>
+    <button class="tab ${tab==='packs'?'active':''}" data-act="wtheme-tab" data-tab="packs">${ic('package',14)} Visual Packs (${WTHEME.packs().length})</button>
   </div>`;
   const fontsPane = `<div class="col" style="gap:12px">
     <p class="small muted" style="margin:0">Choose an offline-ready institutional font family for your console headings, banners and tables. Changes apply immediately to your workspace.</p>
@@ -22898,8 +23497,8 @@ function openThemePicker(tab='themes'){
     ${settingRow('Text size scale','Scales console typography cleanly inside your fixed workspace.',
       `<div class="seg">${[100,110,125].map(n=>`<button class="${scale===n?'on':''}" data-act="pref-scale" data-scale="${n}">${n}%</button>`).join('')}</div>`)}
   </div>`;
-  const content = tab==='fonts' ? fontsPane : (tab==='packs' ? visualPacksHtml(user) : wtGridHtml(user,'set-wtheme'));
-  openModal({ title:'Workspace Theme, Font Styles & Visual Packs', sub:'Personalise your console typography, colour palette and visual pack without affecting permissions or records.', wide:true,
+  const content = tab==='fonts' ? fontsPane : (tab==='packs' ? visualPacksHtml(user) : (tab==='studio' ? studioHtml(user) : wtGridHtml(user,'set-wtheme')));
+  openModal({ title:'Workspace Themes, UI Customiser, Fonts & Visual Packs', sub:'Personalise your console palette, top banner style, borders, tabs, KPI cards and typography without affecting permissions or records.', wide:true,
     body: tabsBar + content,
     footer:`<button class="btn btn-ghost" data-act="wtheme-more">Full appearance settings</button><button class="btn btn-ghost" data-act="close-modal">Close</button>`});
 }
@@ -22910,17 +23509,21 @@ function studioHtml(user){
     `<button class="${st[key]===o.v?'on':''}" data-act="studio-set" data-key="${key}" data-value="${esc(o.v)}" aria-pressed="${st[key]===o.v}">${esc(o.l)}</button>`).join('')}</div>`;
   const dots = `<div class="st-sw" role="group" aria-label="Accent colour">${STUDIO.accentPick.opts.map(o=>
     `<button class="st-dot ${o.v===''?'none':''} ${st.accentPick===o.v?'on':''}" ${o.v?`style="background:${o.v}"`:''} data-act="studio-set" data-key="accentPick" data-value="${esc(o.v)}" aria-pressed="${st.accentPick===o.v}" aria-label="${esc(o.l)}" title="${esc(o.l)}">${st.accentPick===o.v?'\u2713':''}</button>`).join('')}</div>`;
-  return `<p class="small muted" style="margin:0 0 12px">Mix your own look. Presets set several choices at once. Every colour is checked for readability, so no combination can make text hard to read.</p>
+  return `<p class="small muted" style="margin:0 0 12px">Mix your own workspace look. Presets apply complete combinations in one click, and every colour pair is automatically checked for WCAG high-contrast legibility.</p>
     <div class="st-grid">${STUDIO_PRESETS.map(p=>`<button class="st-pre" data-act="studio-preset" data-id="${p.id}"><b>${esc(p.name)}</b><span>${esc(p.blurb)}</span></button>`).join('')}
       <button class="st-pre" data-act="studio-preset" data-id="random"><b>${ic('sparkle',14)} Surprise me</b><span>A random theme and combination. Try it, then reset if you do not like it.</span></button></div>
     <div style="margin-top:14px">
-    ${settingRow('Accent colour','Overrides the theme and department colour. It is adjusted automatically if it would be hard to read.', dots)}
-    ${settingRow('Corners','', seg('corners'))}
-    ${settingRow('Typeface','Easy to read uses wider spacing. All fonts are already on the device, so nothing is downloaded.', seg('font'))}
-    ${settingRow('Backdrop','A very faint pattern behind the page. Cards stay plain, and the pattern is kept light enough that text on it stays readable.', seg('backdrop'))}
-    ${settingRow('Hero panel','', seg('hero'))}
-    ${settingRow('Cards','', seg('cards'))}
-    ${STUDIO.kpiStyle ? settingRow('KPI stat cards','Vivid fills stat boxes with rich jewel gradients; Tinted uses soft washes with crisp coloured numbers.', seg('kpiStyle')) : ''}
+    ${settingRow('Accent colour','Overrides the theme and department colour while preserving automatic 5:1 text contrast.', dots)}
+    ${STUDIO.bannerStyle ? settingRow('Console top banner','Choose a full-spectrum multi-colour banner, deep duotone gradient or solid crest.', seg('bannerStyle')) : ''}
+    ${STUDIO.tabStyle ? settingRow('Tab & pill style','Switch tabs between filled pills, framed cards or clean underline bars.', seg('tabStyle')) : ''}
+    ${STUDIO.kpiStyle ? settingRow('KPI stat cards','Vivid spectrum jewel cards, bold fills, crisp top-bar cards or pure white outlined cards.', seg('kpiStyle')) : ''}
+    ${STUDIO.borderWeight ? settingRow('Box & table borders','Sharpen card and table borders from crisp standard to 1.5px or 2px ledger lines.', seg('borderWeight')) : ''}
+    ${STUDIO.tableStripe ? settingRow('Table row shading','Choose alternating zebra rows, pure unstriped white rows or ruled ledger cells.', seg('tableStripe')) : ''}
+    ${settingRow('Corners','Adjust corner rounding across cards, buttons, modals and inputs.', seg('corners'))}
+    ${settingRow('Typeface','Offline system font stacks with zero external downloads.', seg('font'))}
+    ${settingRow('Backdrop','Optional subtle page texture behind crisp solid cards.', seg('backdrop'))}
+    ${settingRow('Hero panel','Overview hero banner fill style.', seg('hero'))}
+    ${settingRow('Cards','Flat, soft-shadowed, lifted or crisp-framed workspace cards.', seg('cards'))}
     </div>
     <div class="row" style="margin-top:12px"><button class="btn btn-ghost" data-act="studio-reset">Reset the studio</button></div>
     <div class="divider"></div>
@@ -24073,6 +24676,199 @@ const SYNC = {
     await new Promise(resolve => setTimeout(resolve, ms));
   },
 
+  _idbCacheKey(){
+    try{
+      const loc = typeof location !== 'undefined' ? `${location.origin || ''}${location.pathname || ''}` : 'default';
+      return `carelink_cloud_snap_v6:${loc}`;
+    }catch(e){ return 'carelink_cloud_snap_v6:default'; }
+  },
+
+  async _idbOpen(){
+    if(typeof indexedDB === 'undefined' || !indexedDB || typeof indexedDB.open !== 'function') return null;
+    return await new Promise((resolve) => {
+      try{
+        const req = indexedDB.open('carelink_sync_idb_v6', 1);
+        req.onupgradeneeded = () => {
+          try{
+            const db = req.result;
+            if(!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots');
+          }catch(e){}
+        };
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      }catch(e){ resolve(null); }
+    });
+  },
+
+  async _idbReadSnapshot(){
+    const idb = await this._idbOpen();
+    if(!idb) return null;
+    return await new Promise((resolve) => {
+      try{
+        const tx = idb.transaction('snapshots', 'readonly');
+        const st = tx.objectStore('snapshots');
+        const req = st.get(this._idbCacheKey());
+        req.onsuccess = () => { try{ idb.close(); }catch(e){} resolve(req.result || null); };
+        req.onerror = () => { try{ idb.close(); }catch(e){} resolve(null); };
+      }catch(e){ try{ idb.close(); }catch(_){} resolve(null); }
+    });
+  },
+
+  _idbWriteSnapshot(dbObj, rev, saved){
+    this._idbOpen().then((idb) => {
+      if(!idb) return;
+      try{
+        const tx = idb.transaction('snapshots', 'readwrite');
+        tx.objectStore('snapshots').put({ rev: Number(rev)||0, saved: saved||null, at: Date.now(), db: dbObj }, this._idbCacheKey());
+        tx.oncomplete = () => { try{ idb.close(); }catch(e){} };
+        tx.onerror = () => { try{ idb.close(); }catch(e){} };
+      }catch(e){ try{ idb.close(); }catch(_){} }
+    }).catch(() => {});
+  },
+
+  _canDecompressGzip(){
+    return typeof DecompressionStream === 'function'
+      && typeof Response === 'function'
+      && typeof Blob === 'function'
+      && Boolean(Blob.prototype && typeof Blob.prototype.stream === 'function')
+      && typeof atob === 'function'
+      && typeof Uint8Array === 'function';
+  },
+
+  async _gunzipBase64Json(b64){
+    const bin = atob(b64);
+    const len = bin.length;
+    const bytes = new Uint8Array(len);
+    for(let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    const jsonText = await new Response(stream).text();
+    return JSON.parse(jsonText);
+  },
+
+  async _catchUpDeltasSince(fromRev){
+    if(!fromRev || fromRev <= 0) return;
+    try{
+      const d = await this._json(`api/state?since=${fromRev}`, { timeoutMs: 12000, preserveTokenOn401: true });
+      if(d && d.ok && d.body){
+        if(Array.isArray(d.body.patches) && d.body.patches.length){
+          this.applyPatchList(d.body.patches);
+          this.rev = Number(d.body.rev) || this.rev;
+          this.saved = d.body.saved || this.saved;
+          DB.db.meta = Object.assign({}, DB.db.meta, { serverRev: this.rev, serverSaved: this.saved });
+          this.rebase();
+          if(typeof DB !== 'undefined' && DB.persistState) DB.persistState();
+        } else if(d.body.unchanged && d.body.rev){
+          this.rev = Math.max(this.rev || 0, Number(d.body.rev) || 0);
+        }
+      }
+    }catch(e){}
+  },
+
+  async _tryCachedDeltaPull(minRev, requireReferenceMaster){
+    const snap = await this._idbReadSnapshot();
+    if(!snap || !snap.db || !snap.rev) return false;
+    if(requireReferenceMaster && !(snap.db.meta && snap.db.meta.referenceMaster)) return false;
+    try{
+      const d = await this._json(`api/state?since=${snap.rev}&deltaOnly=1`, { timeoutMs: 10000, preserveTokenOn401: true });
+      if(!d || !d.ok || !d.body || d.body.deltaMiss) return false;
+      const gotRev = Number(d.body.rev) || 0;
+      if(minRev > 0 && gotRev < minRev) return false;
+      if(d.body.unchanged){
+        if(gotRev !== Number(snap.rev)) return false;
+        if(d.body.saved && snap.saved && d.body.saved !== snap.saved) return false;
+        this.adoptRemote(Object.assign({}, snap.db), gotRev || snap.rev, d.body.saved || snap.saved);
+        this.state = 'connected';
+        this.message = 'Reading the shared online source';
+        this.bump();
+        return true;
+      }
+      if(Array.isArray(d.body.patches)){
+        this.adoptRemote(Object.assign({}, snap.db), snap.rev, snap.saved);
+        if(d.body.patches.length) this.applyPatchList(d.body.patches);
+        this.rev = gotRev || snap.rev;
+        this.saved = d.body.saved || snap.saved;
+        DB.db.meta = Object.assign({}, DB.db.meta, { serverRev: this.rev, serverSaved: this.saved });
+        this.rebase();
+        this._idbWriteSnapshot(DB.db, this.rev, this.saved);
+        this.state = 'connected';
+        this.message = 'Reading the shared online source';
+        this.bump();
+        return true;
+      }
+    }catch(e){}
+    return false;
+  },
+
+  async _tryFastPackPull(minRev, requireReferenceMaster){
+    const isCloudHost = Boolean(
+      (this.server && this.server.cloud) ||
+      (typeof APPX !== 'undefined' && APPX.host && APPX.host.cloud)
+    );
+    if(!isCloudHost || !this._canDecompressGzip()) return null;
+    const delays = [0, 250, 600];
+    let first = null;
+    for(let attempt = 0; attempt < delays.length; attempt++){
+      if(delays[attempt] > 0) await this._sleep(delays[attempt]);
+      try{
+        first = await this._json('api/state?fast=1', {
+          preserveTokenOn401: attempt < delays.length - 1,
+          timeoutMs: 35000
+        });
+      }catch(e){ first = null; }
+      const gotRev = first && first.body ? (Number(first.body.rev) || 0) : 0;
+      if(first && first.ok && first.body && first.body.fastPack && typeof first.body.part0 === 'string' && (minRev <= 0 || gotRev >= minRev)){
+        break;
+      }
+    }
+    if(!first || !first.ok || !first.body || !first.body.fastPack || typeof first.body.part0 !== 'string'){
+      return null;
+    }
+    const totalParts = Number(first.body.totalParts) || 1;
+    const packRev = Number(first.body.rev) || 0;
+    const chunks = new Array(totalParts);
+    chunks[0] = first.body.part0;
+
+    const fetchPart = async (partIdx) => {
+      for(let pTry = 0; pTry < 4; pTry++){
+        if(pTry > 0) await this._sleep(250 * pTry);
+        try{
+          const pr = await this._json(`api/state?fast=1&part=${partIdx}&targetRev=${packRev}`, {
+            preserveTokenOn401: pTry < 3,
+            timeoutMs: 35000
+          });
+          if(pr && pr.ok && pr.body && typeof pr.body.data === 'string'){
+            chunks[partIdx] = pr.body.data;
+            return true;
+          }
+        }catch(e){}
+      }
+      return false;
+    };
+
+    for(let p = 1; p < totalParts; p += 2){
+      const batch = [p];
+      if(p + 1 < totalParts) batch.push(p + 1);
+      this.message = `Loading compressed workspace (${Math.min(p + batch.length, totalParts)} / ${totalParts})...`;
+      const results = await Promise.all(batch.map(idx => fetchPart(idx)));
+      if(results.some(ok => !ok)) return null;
+    }
+
+    try{
+      const unpacked = await this._gunzipBase64Json(chunks.join(''));
+      if(!unpacked || !unpacked.db || typeof unpacked.db !== 'object') return null;
+      if(requireReferenceMaster && !(unpacked.db.meta && unpacked.db.meta.referenceMaster)) return null;
+      this.adoptRemote(unpacked.db, unpacked.rev || packRev, unpacked.saved || first.body.saved);
+      await this._catchUpDeltasSince(unpacked.rev || packRev);
+      this._idbWriteSnapshot(DB.db, this.rev, this.saved);
+      this.state = 'connected';
+      this.message = 'Reading the shared online source';
+      this.bump();
+      return true;
+    }catch(e){
+      return null;
+    }
+  },
+
   async pullFull(opts={}){
     const minRev = Number(opts && opts.minRev) || 0;
     const requireReferenceMaster = Boolean(opts && opts.requireReferenceMaster);
@@ -24081,6 +24877,7 @@ const SYNC = {
        state snapshot, adopt it directly with zero extra round-trip or replica lag. */
     if(!requireReferenceMaster && inlineState && inlineState.db && (!Array.isArray(inlineState.pagedCollections) || inlineState.pagedCollections.length === 0)){
       this.adoptRemote(Object.assign({}, inlineState.db), inlineState.rev || minRev, inlineState.saved);
+      this._idbWriteSnapshot(DB.db, this.rev, this.saved);
       this.state='connected'; this.message='Reading the shared online source'; this.bump();
       return true;
     }
@@ -24088,14 +24885,25 @@ const SYNC = {
     clearTimeout(this._timer);
     this._pulling = true;
     try{
-      const delays = [0, 200, 450, 900];
+      /* 1. Instant IndexedDB snapshot + delta check (<150 ms on repeat sign-ins) */
+      if(await this._tryCachedDeltaPull(minRev, requireReferenceMaster)){
+        return true;
+      }
+
+      /* 2. Fast compressed 2-part stream (~4 MB gzip instead of ~73 MB raw JSON) */
+      const fastOk = await this._tryFastPackPull(minRev, requireReferenceMaster);
+      if(fastOk === true) return true;
+
+      /* 3. Controlled-concurrency, revision-tolerant paged collection loader */
+      const delays = [0, 250, 600, 1200];
+      const pageDelays = [0, 300, 750, 1500];
       let lastPullErr = null;
-      for(let fullAttempt = 0; fullAttempt < 2; fullAttempt++){
+      for(let fullAttempt = 0; fullAttempt < 4; fullAttempt++){
         let r = null;
         for(let attempt=0; attempt<delays.length; attempt++){
           if(delays[attempt] > 0) await this._sleep(delays[attempt]);
           try{
-            r = await this._json('api/state', { preserveTokenOn401: attempt < delays.length - 1 });
+            r = await this._json('api/state', { preserveTokenOn401: attempt < delays.length - 1, timeoutMs: 30000 });
           }catch(e){
             r = null;
           }
@@ -24110,26 +24918,39 @@ const SYNC = {
           if(r.status === 401){ this.state='idle'; this.message='Session ended — sign in again'; this.bump(); return false; }
           this.state='error'; this.message = r.body.error || `The shared online state could not be read (HTTP ${r.status})`; this.bump(); return false;
         }
+        const baseRev = Number(r.body.rev) || 0;
+        let maxSeenRev = baseRev;
         const remoteDb = Object.assign({}, r.body.db);
         const paged = Array.isArray(r.body.pagedCollections) ? r.body.pagedCollections : [];
-        let revMoved = false;
-        const fetchPage = async (name, offset, limit) => {
+        let revMovedIncompatible = false;
+
+        const fetchPage = async (name, offset, limit, minCount) => {
           const qs = `api/state/collection?name=${encodeURIComponent(name)}&offset=${offset}${limit ? `&limit=${limit}` : ''}`;
           let page = null;
-          for(let pTry=0; pTry<delays.length; pTry++){
-            if(delays[pTry] > 0) await this._sleep(delays[pTry]);
+          for(let pTry=0; pTry<pageDelays.length; pTry++){
+            if(pageDelays[pTry] > 0) await this._sleep(pageDelays[pTry]);
             try{
               page = await this._json(qs, {
-                preserveTokenOn401: pTry < delays.length - 1,
-                timeoutMs: 20000
+                preserveTokenOn401: pTry < pageDelays.length - 1,
+                timeoutMs: 35000
               });
             }catch(e){
               page = null;
             }
             if(page && page.ok && page.body && page.body.name === name && Array.isArray(page.body.records)){
-              if(page.body.rev === r.body.rev) break;
-              if((Number(page.body.rev) || 0) > (Number(r.body.rev) || 0)){
-                revMoved = true;
+              const pgRev = Number(page.body.rev) || 0;
+              const pgTotal = Number(page.body.total);
+              if(pgRev === baseRev) break;
+              /* Revision-tolerant read: if another client saved an audit entry,
+                 preference or record update (pgRev > baseRev) without shrinking
+                 the collection below minCount, accept the page and catch up via
+                 delta patches at the end instead of aborting sign-in. */
+              if(pgRev > baseRev && Number.isFinite(pgTotal) && pgTotal >= minCount){
+                maxSeenRev = Math.max(maxSeenRev, pgRev);
+                break;
+              }
+              if(pgRev > baseRev){
+                revMovedIncompatible = true;
                 break;
               }
             }
@@ -24141,11 +24962,15 @@ const SYNC = {
           if(!meta || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(String(meta.name||''))){
             throw new Error('The shared online state returned an invalid collection manifest');
           }
-          const first = await fetchPage(meta.name, 0, 0);
+          let targetCount = Number(meta.count) || 0;
+          const first = await fetchPage(meta.name, 0, 0, targetCount);
           if(!first) throw new Error(`The shared online collection ${meta.name} could not be read`);
-          if(!first.ok || !first.body || first.body.name !== meta.name || !Array.isArray(first.body.records) || first.body.rev !== r.body.rev){
+          const firstRev = first.body ? (Number(first.body.rev) || 0) : -1;
+          const firstTotal = first.body ? Number(first.body.total) : -1;
+          if(!first.ok || !first.body || first.body.name !== meta.name || !Array.isArray(first.body.records) || firstRev < baseRev || (firstRev > baseRev && firstTotal < targetCount)){
             throw new Error((first.body && first.body.error) || 'The shared online state changed or a collection page failed during the read; retry the sync');
           }
+          if(firstTotal > targetCount) targetCount = firstTotal;
           const records = [...first.body.records];
           if(!first.body.done){
             let offset = Number(first.body.nextOffset);
@@ -24153,21 +24978,26 @@ const SYNC = {
               throw new Error(`The shared online collection ${meta.name} did not advance safely`);
             }
             const safeStep = Math.max(200, Math.floor(records.length * 0.75));
-            while(offset < meta.count){
+            while(offset < targetCount){
+              /* Max 2 concurrent collection page requests so cold serverless
+                 instances and KV shards are never overwhelmed simultaneously. */
               const waveOffsets = [];
-              for(let w=0; w<4 && (offset + w * safeStep) < meta.count; w++){
+              for(let w=0; w<2 && (offset + w * safeStep) < targetCount; w++){
                 waveOffsets.push(offset + w * safeStep);
               }
-              const wavePages = await Promise.all(waveOffsets.map(off => fetchPage(meta.name, off, safeStep)));
+              const wavePages = await Promise.all(waveOffsets.map(off => fetchPage(meta.name, off, safeStep, targetCount)));
               for(let w=0; w<wavePages.length; w++){
                 const pg = wavePages[w];
                 const expectedStart = waveOffsets[w];
                 if(!pg){
                   throw new Error(`The shared online collection ${meta.name} could not be read`);
                 }
-                if(!pg.ok || !pg.body || pg.body.name !== meta.name || !Array.isArray(pg.body.records) || pg.body.rev !== r.body.rev){
+                const pgRev = pg.body ? (Number(pg.body.rev) || 0) : -1;
+                const pgTotal = pg.body ? Number(pg.body.total) : -1;
+                if(!pg.ok || !pg.body || pg.body.name !== meta.name || !Array.isArray(pg.body.records) || pgRev < baseRev || (pgRev > baseRev && pgTotal < targetCount)){
                   throw new Error((pg.body && pg.body.error) || 'The shared online state changed or a collection page failed during the read; retry the sync');
                 }
+                if(pgTotal > targetCount) targetCount = pgTotal;
                 if(offset !== expectedStart) break;
                 records.push(...pg.body.records);
                 if(pg.body.done){
@@ -24180,25 +25010,32 @@ const SYNC = {
                 }
                 offset = next;
               }
-              this.message = `Reading shared ${meta.name}: ${Math.min(offset, meta.count)} / ${meta.count}`;
+              this.message = `Reading shared ${meta.name}: ${Math.min(offset, targetCount)} / ${targetCount}`;
             }
           }
-          if(records.length !== meta.count){
+          if(records.length < meta.count){
             throw new Error(`The shared online collection ${meta.name} was incomplete (${records.length} of ${meta.count})`);
           }
           remoteDb[meta.name] = records;
         };
 
         try{
-          for(let i=0; i<paged.length; i+=3){
-            await Promise.all(paged.slice(i, i+3).map(meta => pullCollection(meta)));
+          for(let i=0; i<paged.length; i++){
+            await pullCollection(paged[i]);
           }
-          this.adoptRemote(remoteDb, r.body.rev, r.body.saved);
+          this.adoptRemote(remoteDb, baseRev, r.body.saved);
+          if(maxSeenRev > baseRev){
+            await this._catchUpDeltasSince(baseRev);
+          }
+          this._idbWriteSnapshot(DB.db, this.rev, this.saved);
           this.state='connected'; this.message='Reading the shared online source'; this.bump();
           return true;
         }catch(err){
           lastPullErr = err;
-          if(revMoved && fullAttempt === 0) continue;
+          if((revMovedIncompatible || fullAttempt < 2) && fullAttempt < 3){
+            await this._sleep(350 * (fullAttempt + 1));
+            continue;
+          }
           break;
         }
       }
@@ -26071,7 +26908,7 @@ function renderShell(){
   const countyDisp = user.countyId ? countyName(user.countyId) : 'Global / Head Office';
   return `<div class="app shell ${paneOn?'has-pane':''} ${railOn?'np-rail':''} ${APPX.navOpen?'np-open':''}">
     ${paneOn? NAVP.html(user, here) : ''}${paneOn? '<div class="np-scrim" data-act="nav-close"></div>' : ''}
-    <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}">
+    <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}" data-role="${esc(user.roleId)}" data-dept="${esc(role.dept||'exec')}">
       <img class="cb-logo" src="${window.LOGO||''}" alt="CareLink · LOMAMO Foundation">
       <div class="cb-nav" role="group" aria-label="Navigation & history">
         ${paneOn?`<button class="icon-btn cb-fold-btn" data-act="nav-rail" aria-label="${railOn?'Expand navigation pane':'Fold navigation pane'}" title="${railOn?'Expand navigation pane':'Fold navigation pane'}">${ic('panel',17)}</button>`:''}
@@ -26079,8 +26916,8 @@ function renderShell(){
         <button class="icon-btn" data-act="nav-forward" aria-label="Forward" title="Forward (Alt+Right)" ${NAVH.canForward()?'':'disabled aria-disabled="true"'}>${ic('forward',18)}</button>
       </div>
       <div class="cb-id">
-        <div class="cb-k"><span class="dot" style="background:${dept.accent}"></span><span class="cb-os-tag">CareLink OS</span> · <span class="cb-role-tag">${esc(role.consoleTitle||role.name||'Console')}</span> · <span class="cb-county-tag">${esc(countyDisp)}</span></div>
-        <h1>${esc(crumb.title)}</h1>
+        <div class="cb-k"><span class="cb-os-tag">CARELINK OS</span><span class="cb-county-tag">${esc(countyDisp)}</span><span class="cb-page-tag">${esc(crumb.title)}</span></div>
+        <h1><span class="cb-console-name">${esc(role.consoleTitle||((role.name||'Staff')+' Console'))}</span><span class="cb-title-sep"> · </span><span class="cb-view-name">${esc(crumb.title)}</span></h1>
       </div>
       <div class="cb-quick no-print" role="navigation" aria-label="Quick console shortcuts">
         ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
@@ -26102,7 +26939,7 @@ function renderShell(){
 
     <nav class="sheet" aria-label="Pages in this console">
       <button class="sheet-all" data-act="${paneOn?'nav-open':'open-console-map'}" aria-label="All pages in this console">${ic('menu',16)}<span>All</span></button>
-      ${groups.map(g=>`<span class="sheet-g" aria-hidden="true">${esc(g.label)}</span>
+      ${groups.map(g=>`<span class="sheet-g" aria-hidden="true">${esc(g.displayLabel||g.label)}</span>
         ${g.items.map(i=>`<button class="tab ${here(i.id)?'active':''}" data-act="go" data-v="${i.id}">
           ${ic(i.icon,15)}<span>${esc(i.label)}</span>
           ${i.count?`<span class="tcount ${i.tone==='crit'?'crit':''}">${i.count}</span>`:''}
@@ -26788,7 +27625,12 @@ const ACTIONS = {
   'wtheme-open-packs':()=>{ openThemePicker('packs'); },
   'wtheme-tab':(d={})=>{ closeModal(true); openThemePicker(d.tab||'themes'); },
   'wtheme-more':()=>{ closeAllModals(); go('settings',{section:'appearance'}); },
-  'studio-set':(d)=>{ const r=WTHEME.setStudio(AUTH.user, d.key, d.value); if(!r.ok) return toast('Not changed', r.msg, 'err'); render(); },
+  'studio-set':(d)=>{
+    const r=WTHEME.setStudio(AUTH.user, d.key, d.value);
+    if(!r.ok) return toast('Not changed', r.msg, 'err');
+    if(document.querySelector('#modalRoot .modal') && APPX._themePickerTab==='studio'){ closeModal(true); openThemePicker('studio'); }
+    render();
+  },
   'studio-font-pick':(d={})=>{
     const r = WTHEME.setStudio(AUTH.user, 'font', d.value);
     if(!r.ok) return toast('Font not changed', r.msg, 'err');
@@ -26829,8 +27671,19 @@ const ACTIONS = {
     setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
     toast('Visual Pack Exported', 'Downloaded your active theme & font configuration (.json).', 'ok');
   },
-  'studio-preset':(d)=>{ const r=WTHEME.applyPreset(AUTH.user, d.id); if(!r.ok) return toast('Not applied', r.msg, 'err'); render(); toast('Look applied', r.preset.name+'. Only you see this. Reset it any time in Preferences.','ok'); },
-  'studio-reset':()=>{ WTHEME.resetStudio(AUTH.user); render(); toast('Studio reset','Your colours and shapes are back to the theme.','ok'); },
+  'studio-preset':(d)=>{
+    const r=WTHEME.applyPreset(AUTH.user, d.id);
+    if(!r.ok) return toast('Not applied', r.msg, 'err');
+    if(document.querySelector('#modalRoot .modal') && APPX._themePickerTab==='studio'){ closeModal(true); openThemePicker('studio'); }
+    render();
+    toast('Look applied', r.preset.name+'. Only you see this. Reset it any time in Preferences.','ok');
+  },
+  'studio-reset':()=>{
+    WTHEME.resetStudio(AUTH.user);
+    if(document.querySelector('#modalRoot .modal') && APPX._themePickerTab==='studio'){ closeModal(true); openThemePicker('studio'); }
+    render();
+    toast('Studio reset','Your colours and shapes are back to the theme.','ok');
+  },
   'set-wtheme':(d)=>{
     const r = WTHEME.choose(AUTH.user, d.id);
     if(!r.ok){ toast('Theme not changed', r.msg, 'err'); return; }
@@ -32103,9 +32956,9 @@ async function activateFullDemoDataset(){
   }
 }
 
-/* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar) */
+/* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar, zero duplicate tabs) */
 function renderLanding6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'light', accent:'#1E3A8A' };
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const facts = [
     { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
@@ -32114,7 +32967,7 @@ function renderLanding6(){
     { n: DEPARTMENTS.length, l:'Department Consoles' }
   ];
 
-  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#E9C765')}">
+  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'light')}" style="--accent:${esc(th.accent||'#1E3A8A')}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -32123,14 +32976,13 @@ function renderLanding6(){
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation Kenya" class="ld-logo">
         <div>
           <div class="ld-org">CareLink · ${esc(orgName())}</div>
-          <div class="xs ld-dim">CareLink C-DIMS · Unified Operating System for All Foundation Departments &amp; Partners · v${esc(APP.version)}</div>
+          <div class="xs ld-dim">CareLink C-DIMS · Unified Operating System · v${esc(APP.version)}</div>
         </div>
       </div>
-      <nav class="row ld-nav" style="gap:8px;flex-wrap:wrap">
-        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture">${ic('flow',14)} Platform Architecture &amp; Departments</button>
+      <nav class="row ld-nav" aria-label="Public and institutional navigation" style="gap:8px;flex-wrap:wrap">
+        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> Platform Architecture &amp; Departments Working Together</button>
         <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Public Impact Portal</button>
-        <button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request an Account</button>
-        <button class="btn btn-primary ld-btn-primary btn-sm" data-act="open-signin">${ic('lock',14)} Sign In to CareLink</button>
+        ${!isActivated ? `<button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request Access</button>` : ''}
       </nav>
     </header>
 
@@ -32140,23 +32992,21 @@ function renderLanding6(){
           <div class="ld-eyebrow">${ic('heart',14)} LOMAMO Foundation Kenya · Loving Hands Management &amp; Medical Organization</div>
           <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
           <div class="ld-subhead">One Foundation. One Operating System.</div>
-          <p class="ld-lede">CareLink unites every LOMAMO department, hospital referral desk, government oversight partner and international medical reviewer in one role-pure operating system — enforcing least-privilege access at the data layer so vulnerable parents recover and children remain safely in family care.</p>
-          <div class="row ld-cta-row">
-            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login">${ic('lock',17)} Proceed to My CareLink Console ${ic('chevron',16)}</button>
-            <button class="btn ld-cta ld-btn-arch" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> Platform Architecture &amp; Departments Working Together</button>
-            ${!isActivated ? `<button class="btn ld-cta ld-btn-secondary" data-act="login-request">${ic('userplus',16)} Request Access</button>` : ''}
+          <p class="ld-lede">CareLink unites clinical care, field ministry, hospital referrals, finance, human resources, media governance and partner oversight in one least-privilege operating system across Kisumu and Homa Bay.</p>
+          <div class="row ld-cta-row" style="align-items:center">
+            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login">${ic('lock',17)} Staff Sign In · My CareLink Console ${ic('chevron',16)}</button>
           </div>
           <div class="ld-assure">
-            <span>${ic('database',14)} One shared live online source for every client</span>
-            <span>${ic('wifi',14)} Zero-scroll PC &amp; tablet workspace</span>
+            <span>${ic('database',14)} Shared live online database</span>
+            <span>${ic('wifi',14)} Zero-scroll PC &amp; tablet consoles</span>
             <span>${ic('shieldcheck',14)} SHA-256 tamper-evident audit</span>
-            <span>${ic('sparkles',14)} CareLink AI workflow guidance</span>
+            <span>${ic('sparkles',14)} Role-scoped workflows &amp; QA</span>
           </div>
         </div>
 
         <div class="ld-hero-art" aria-hidden="true">
           <div class="ld-canvas-card ld-canvas-tight">
-            <svg viewBox="0 0 460 236" class="ld-scene-svg">
+            <svg viewBox="0 0 460 224" class="ld-scene-svg">
               <defs>
                 <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
                   <stop offset="0%" stop-color="#F5C451" stop-opacity="0.34"/>
@@ -32168,50 +33018,38 @@ function renderLanding6(){
                   <stop offset="50%" stop-color="#F5C451" stop-opacity="0.85"/>
                   <stop offset="100%" stop-color="#34D399" stop-opacity="0.75"/>
                 </linearGradient>
-                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.38"/>
-                  <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.0"/>
-                </linearGradient>
               </defs>
-              <path d="M-10,192 C75,164 120,214 205,186 C290,158 355,196 470,160" fill="none" stroke="rgba(56,189,248,0.16)" stroke-width="1.4"/>
-              <circle cx="230" cy="116" r="92" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="116" r="86" fill="none" stroke="rgba(148,197,255,0.22)" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="116" r="58" fill="none" stroke="rgba(245,196,81,0.34)" stroke-width="1.4"/>
-              <g stroke="url(#beamGrad)" stroke-width="1.4" opacity="0.74">
-                <line x1="230" y1="116" x2="230" y2="26"/>
-                <line x1="230" y1="116" x2="324" y2="54"/>
-                <line x1="230" y1="116" x2="354" y2="116"/>
-                <line x1="230" y1="116" x2="322" y2="180"/>
-                <line x1="230" y1="116" x2="230" y2="206"/>
-                <line x1="230" y1="116" x2="138" y2="180"/>
-                <line x1="230" y1="116" x2="106" y2="116"/>
-                <line x1="230" y1="116" x2="136" y2="54"/>
+              <path d="M-10,184 C75,156 120,206 205,178 C290,150 355,188 470,152" fill="none" stroke="rgba(56,189,248,0.16)" stroke-width="1.4"/>
+              <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
+              <circle cx="230" cy="112" r="82" fill="none" stroke="rgba(148,197,255,0.22)" stroke-width="1.2" stroke-dasharray="5 5"/>
+              <circle cx="230" cy="112" r="55" fill="none" stroke="rgba(245,196,81,0.34)" stroke-width="1.4"/>
+              <g stroke="url(#beamGrad)" stroke-width="1.4" opacity="0.76">
+                <line x1="230" y1="112" x2="230" y2="24"/>
+                <line x1="230" y1="112" x2="324" y2="52"/>
+                <line x1="230" y1="112" x2="354" y2="112"/>
+                <line x1="230" y1="112" x2="322" y2="174"/>
+                <line x1="230" y1="112" x2="230" y2="200"/>
+                <line x1="230" y1="112" x2="138" y2="174"/>
+                <line x1="230" y1="112" x2="106" y2="112"/>
+                <line x1="230" y1="112" x2="136" y2="52"/>
               </g>
               ${[
-                [230,26,'Field Care','#38BDF8'], [324,54,'Hospital','#2DD4BF'],
-                [354,116,'M&E / DHIS','#A78BFA'], [322,180,'Finance','#FBBF24'],
-                [230,206,'Homestay','#F472B6'], [138,180,'Media & IT','#FB923C'],
-                [106,116,'HR & Leave','#34D399'], [136,54,'Transport','#60A5FA']
+                [230,24,'Field Care','#38BDF8'], [324,52,'Hospital','#2DD4BF'],
+                [354,112,'M&E / DHIS','#A78BFA'], [322,174,'Finance','#FBBF24'],
+                [230,200,'Homestay','#F472B6'], [138,174,'Media & IT','#FB923C'],
+                [106,112,'HR & Leave','#34D399'], [136,52,'Transport','#60A5FA']
               ].map(([x,y,lbl,col])=>`<g>
                 <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#0B1933" stroke="${col}" stroke-width="1.3"/>
                 <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
                 <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#F1F5F9">${lbl}</text>
               </g>`).join('')}
-              <circle cx="230" cy="116" r="35" fill="#0E2248" stroke="#F5C451" stroke-width="2"/>
-              <text x="230" y="113" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="126" text-anchor="middle" font-size="8" font-weight="600" fill="#F5C451" letter-spacing="0.5">OS · C-DIMS</text>
+              <circle cx="230" cy="112" r="34" fill="#0E2248" stroke="#F5C451" stroke-width="2"/>
+              <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
+              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#F5C451" letter-spacing="0.5">OS · C-DIMS</text>
             </svg>
 
             <div class="ld-facts">
               ${facts.map(f=>`<div class="ld-fact"><b>${num(f.n)}</b><span>${esc(f.l)}</span></div>`).join('')}
-            </div>
-            <div class="ld-spark">
-              <svg viewBox="0 0 260 32" preserveAspectRatio="none">
-                <path d="M0,30 L0,24 L36,19 L72,21 L108,13 L144,15 L180,8 L216,10 L260,5 L260,30 Z" fill="url(#areaGrad)"/>
-                <path d="M0,24 L36,19 L72,21 L108,13 L144,15 L180,8 L216,10 L260,5" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round"/>
-                <path d="M0,28 L36,25 L72,24 L108,19 L144,18 L180,14 L216,15 L260,11" fill="none" stroke="#F5C451" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>
-              </svg>
-              <span class="xs ld-dim">Unified CareLink workflow graphic across Kisumu &amp; Homa Bay. Explore full Platform Architecture &amp; Departments Working Together via the button above.</span>
             </div>
           </div>
         </div>
@@ -32221,10 +33059,9 @@ function renderLanding6(){
     <footer class="ld-foot ld-foot-tight">
       <div class="ld-foot-inner">
         <div class="ld-foot-brand">
-          <img src="${window.LOGO||''}" alt="" class="ld-logo-sm">
-          <div><b>${esc(orgName())}</b> · ${esc(APP.full)}</div>
+          <b>Serving our Neighbours in Love</b> <span class="xs ld-dim">· Kisumu &amp; Homa Bay County Offices</span>
         </div>
-        <div class="xs ld-dim">Love Matters Most · Serving our Neighbours in Love · Version ${esc(APP.version)} · Schema ${esc(String(APP.schema))}</div>
+        <div class="xs ld-dim">Authorised staff &amp; partners · DPA-2019 Governed · Schema ${esc(String(APP.schema))}</div>
       </div>
     </footer>
   </div>`;
@@ -45477,6 +46314,6 @@ Object.assign(ACTIONS, {
 });
 
 </script>
-<!-- Build 2026-10-25 13:48 · CareLink C-DIMS v6.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-10-25 16:18 · CareLink C-DIMS v6.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

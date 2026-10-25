@@ -252,6 +252,199 @@ const SYNC = {
     await new Promise(resolve => setTimeout(resolve, ms));
   },
 
+  _idbCacheKey(){
+    try{
+      const loc = typeof location !== 'undefined' ? `${location.origin || ''}${location.pathname || ''}` : 'default';
+      return `carelink_cloud_snap_v6:${loc}`;
+    }catch(e){ return 'carelink_cloud_snap_v6:default'; }
+  },
+
+  async _idbOpen(){
+    if(typeof indexedDB === 'undefined' || !indexedDB || typeof indexedDB.open !== 'function') return null;
+    return await new Promise((resolve) => {
+      try{
+        const req = indexedDB.open('carelink_sync_idb_v6', 1);
+        req.onupgradeneeded = () => {
+          try{
+            const db = req.result;
+            if(!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots');
+          }catch(e){}
+        };
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      }catch(e){ resolve(null); }
+    });
+  },
+
+  async _idbReadSnapshot(){
+    const idb = await this._idbOpen();
+    if(!idb) return null;
+    return await new Promise((resolve) => {
+      try{
+        const tx = idb.transaction('snapshots', 'readonly');
+        const st = tx.objectStore('snapshots');
+        const req = st.get(this._idbCacheKey());
+        req.onsuccess = () => { try{ idb.close(); }catch(e){} resolve(req.result || null); };
+        req.onerror = () => { try{ idb.close(); }catch(e){} resolve(null); };
+      }catch(e){ try{ idb.close(); }catch(_){} resolve(null); }
+    });
+  },
+
+  _idbWriteSnapshot(dbObj, rev, saved){
+    this._idbOpen().then((idb) => {
+      if(!idb) return;
+      try{
+        const tx = idb.transaction('snapshots', 'readwrite');
+        tx.objectStore('snapshots').put({ rev: Number(rev)||0, saved: saved||null, at: Date.now(), db: dbObj }, this._idbCacheKey());
+        tx.oncomplete = () => { try{ idb.close(); }catch(e){} };
+        tx.onerror = () => { try{ idb.close(); }catch(e){} };
+      }catch(e){ try{ idb.close(); }catch(_){} }
+    }).catch(() => {});
+  },
+
+  _canDecompressGzip(){
+    return typeof DecompressionStream === 'function'
+      && typeof Response === 'function'
+      && typeof Blob === 'function'
+      && Boolean(Blob.prototype && typeof Blob.prototype.stream === 'function')
+      && typeof atob === 'function'
+      && typeof Uint8Array === 'function';
+  },
+
+  async _gunzipBase64Json(b64){
+    const bin = atob(b64);
+    const len = bin.length;
+    const bytes = new Uint8Array(len);
+    for(let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    const jsonText = await new Response(stream).text();
+    return JSON.parse(jsonText);
+  },
+
+  async _catchUpDeltasSince(fromRev){
+    if(!fromRev || fromRev <= 0) return;
+    try{
+      const d = await this._json(`api/state?since=${fromRev}`, { timeoutMs: 12000, preserveTokenOn401: true });
+      if(d && d.ok && d.body){
+        if(Array.isArray(d.body.patches) && d.body.patches.length){
+          this.applyPatchList(d.body.patches);
+          this.rev = Number(d.body.rev) || this.rev;
+          this.saved = d.body.saved || this.saved;
+          DB.db.meta = Object.assign({}, DB.db.meta, { serverRev: this.rev, serverSaved: this.saved });
+          this.rebase();
+          if(typeof DB !== 'undefined' && DB.persistState) DB.persistState();
+        } else if(d.body.unchanged && d.body.rev){
+          this.rev = Math.max(this.rev || 0, Number(d.body.rev) || 0);
+        }
+      }
+    }catch(e){}
+  },
+
+  async _tryCachedDeltaPull(minRev, requireReferenceMaster){
+    const snap = await this._idbReadSnapshot();
+    if(!snap || !snap.db || !snap.rev) return false;
+    if(requireReferenceMaster && !(snap.db.meta && snap.db.meta.referenceMaster)) return false;
+    try{
+      const d = await this._json(`api/state?since=${snap.rev}&deltaOnly=1`, { timeoutMs: 10000, preserveTokenOn401: true });
+      if(!d || !d.ok || !d.body || d.body.deltaMiss) return false;
+      const gotRev = Number(d.body.rev) || 0;
+      if(minRev > 0 && gotRev < minRev) return false;
+      if(d.body.unchanged){
+        if(gotRev !== Number(snap.rev)) return false;
+        if(d.body.saved && snap.saved && d.body.saved !== snap.saved) return false;
+        this.adoptRemote(Object.assign({}, snap.db), gotRev || snap.rev, d.body.saved || snap.saved);
+        this.state = 'connected';
+        this.message = 'Reading the shared online source';
+        this.bump();
+        return true;
+      }
+      if(Array.isArray(d.body.patches)){
+        this.adoptRemote(Object.assign({}, snap.db), snap.rev, snap.saved);
+        if(d.body.patches.length) this.applyPatchList(d.body.patches);
+        this.rev = gotRev || snap.rev;
+        this.saved = d.body.saved || snap.saved;
+        DB.db.meta = Object.assign({}, DB.db.meta, { serverRev: this.rev, serverSaved: this.saved });
+        this.rebase();
+        this._idbWriteSnapshot(DB.db, this.rev, this.saved);
+        this.state = 'connected';
+        this.message = 'Reading the shared online source';
+        this.bump();
+        return true;
+      }
+    }catch(e){}
+    return false;
+  },
+
+  async _tryFastPackPull(minRev, requireReferenceMaster){
+    const isCloudHost = Boolean(
+      (this.server && this.server.cloud) ||
+      (typeof APPX !== 'undefined' && APPX.host && APPX.host.cloud)
+    );
+    if(!isCloudHost || !this._canDecompressGzip()) return null;
+    const delays = [0, 250, 600];
+    let first = null;
+    for(let attempt = 0; attempt < delays.length; attempt++){
+      if(delays[attempt] > 0) await this._sleep(delays[attempt]);
+      try{
+        first = await this._json('api/state?fast=1', {
+          preserveTokenOn401: attempt < delays.length - 1,
+          timeoutMs: 35000
+        });
+      }catch(e){ first = null; }
+      const gotRev = first && first.body ? (Number(first.body.rev) || 0) : 0;
+      if(first && first.ok && first.body && first.body.fastPack && typeof first.body.part0 === 'string' && (minRev <= 0 || gotRev >= minRev)){
+        break;
+      }
+    }
+    if(!first || !first.ok || !first.body || !first.body.fastPack || typeof first.body.part0 !== 'string'){
+      return null;
+    }
+    const totalParts = Number(first.body.totalParts) || 1;
+    const packRev = Number(first.body.rev) || 0;
+    const chunks = new Array(totalParts);
+    chunks[0] = first.body.part0;
+
+    const fetchPart = async (partIdx) => {
+      for(let pTry = 0; pTry < 4; pTry++){
+        if(pTry > 0) await this._sleep(250 * pTry);
+        try{
+          const pr = await this._json(`api/state?fast=1&part=${partIdx}&targetRev=${packRev}`, {
+            preserveTokenOn401: pTry < 3,
+            timeoutMs: 35000
+          });
+          if(pr && pr.ok && pr.body && typeof pr.body.data === 'string'){
+            chunks[partIdx] = pr.body.data;
+            return true;
+          }
+        }catch(e){}
+      }
+      return false;
+    };
+
+    for(let p = 1; p < totalParts; p += 2){
+      const batch = [p];
+      if(p + 1 < totalParts) batch.push(p + 1);
+      this.message = `Loading compressed workspace (${Math.min(p + batch.length, totalParts)} / ${totalParts})...`;
+      const results = await Promise.all(batch.map(idx => fetchPart(idx)));
+      if(results.some(ok => !ok)) return null;
+    }
+
+    try{
+      const unpacked = await this._gunzipBase64Json(chunks.join(''));
+      if(!unpacked || !unpacked.db || typeof unpacked.db !== 'object') return null;
+      if(requireReferenceMaster && !(unpacked.db.meta && unpacked.db.meta.referenceMaster)) return null;
+      this.adoptRemote(unpacked.db, unpacked.rev || packRev, unpacked.saved || first.body.saved);
+      await this._catchUpDeltasSince(unpacked.rev || packRev);
+      this._idbWriteSnapshot(DB.db, this.rev, this.saved);
+      this.state = 'connected';
+      this.message = 'Reading the shared online source';
+      this.bump();
+      return true;
+    }catch(e){
+      return null;
+    }
+  },
+
   async pullFull(opts={}){
     const minRev = Number(opts && opts.minRev) || 0;
     const requireReferenceMaster = Boolean(opts && opts.requireReferenceMaster);
@@ -260,6 +453,7 @@ const SYNC = {
        state snapshot, adopt it directly with zero extra round-trip or replica lag. */
     if(!requireReferenceMaster && inlineState && inlineState.db && (!Array.isArray(inlineState.pagedCollections) || inlineState.pagedCollections.length === 0)){
       this.adoptRemote(Object.assign({}, inlineState.db), inlineState.rev || minRev, inlineState.saved);
+      this._idbWriteSnapshot(DB.db, this.rev, this.saved);
       this.state='connected'; this.message='Reading the shared online source'; this.bump();
       return true;
     }
@@ -267,14 +461,25 @@ const SYNC = {
     clearTimeout(this._timer);
     this._pulling = true;
     try{
-      const delays = [0, 200, 450, 900];
+      /* 1. Instant IndexedDB snapshot + delta check (<150 ms on repeat sign-ins) */
+      if(await this._tryCachedDeltaPull(minRev, requireReferenceMaster)){
+        return true;
+      }
+
+      /* 2. Fast compressed 2-part stream (~4 MB gzip instead of ~73 MB raw JSON) */
+      const fastOk = await this._tryFastPackPull(minRev, requireReferenceMaster);
+      if(fastOk === true) return true;
+
+      /* 3. Controlled-concurrency, revision-tolerant paged collection loader */
+      const delays = [0, 250, 600, 1200];
+      const pageDelays = [0, 300, 750, 1500];
       let lastPullErr = null;
-      for(let fullAttempt = 0; fullAttempt < 2; fullAttempt++){
+      for(let fullAttempt = 0; fullAttempt < 4; fullAttempt++){
         let r = null;
         for(let attempt=0; attempt<delays.length; attempt++){
           if(delays[attempt] > 0) await this._sleep(delays[attempt]);
           try{
-            r = await this._json('api/state', { preserveTokenOn401: attempt < delays.length - 1 });
+            r = await this._json('api/state', { preserveTokenOn401: attempt < delays.length - 1, timeoutMs: 30000 });
           }catch(e){
             r = null;
           }
@@ -289,26 +494,39 @@ const SYNC = {
           if(r.status === 401){ this.state='idle'; this.message='Session ended — sign in again'; this.bump(); return false; }
           this.state='error'; this.message = r.body.error || `The shared online state could not be read (HTTP ${r.status})`; this.bump(); return false;
         }
+        const baseRev = Number(r.body.rev) || 0;
+        let maxSeenRev = baseRev;
         const remoteDb = Object.assign({}, r.body.db);
         const paged = Array.isArray(r.body.pagedCollections) ? r.body.pagedCollections : [];
-        let revMoved = false;
-        const fetchPage = async (name, offset, limit) => {
+        let revMovedIncompatible = false;
+
+        const fetchPage = async (name, offset, limit, minCount) => {
           const qs = `api/state/collection?name=${encodeURIComponent(name)}&offset=${offset}${limit ? `&limit=${limit}` : ''}`;
           let page = null;
-          for(let pTry=0; pTry<delays.length; pTry++){
-            if(delays[pTry] > 0) await this._sleep(delays[pTry]);
+          for(let pTry=0; pTry<pageDelays.length; pTry++){
+            if(pageDelays[pTry] > 0) await this._sleep(pageDelays[pTry]);
             try{
               page = await this._json(qs, {
-                preserveTokenOn401: pTry < delays.length - 1,
-                timeoutMs: 20000
+                preserveTokenOn401: pTry < pageDelays.length - 1,
+                timeoutMs: 35000
               });
             }catch(e){
               page = null;
             }
             if(page && page.ok && page.body && page.body.name === name && Array.isArray(page.body.records)){
-              if(page.body.rev === r.body.rev) break;
-              if((Number(page.body.rev) || 0) > (Number(r.body.rev) || 0)){
-                revMoved = true;
+              const pgRev = Number(page.body.rev) || 0;
+              const pgTotal = Number(page.body.total);
+              if(pgRev === baseRev) break;
+              /* Revision-tolerant read: if another client saved an audit entry,
+                 preference or record update (pgRev > baseRev) without shrinking
+                 the collection below minCount, accept the page and catch up via
+                 delta patches at the end instead of aborting sign-in. */
+              if(pgRev > baseRev && Number.isFinite(pgTotal) && pgTotal >= minCount){
+                maxSeenRev = Math.max(maxSeenRev, pgRev);
+                break;
+              }
+              if(pgRev > baseRev){
+                revMovedIncompatible = true;
                 break;
               }
             }
@@ -320,11 +538,15 @@ const SYNC = {
           if(!meta || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(String(meta.name||''))){
             throw new Error('The shared online state returned an invalid collection manifest');
           }
-          const first = await fetchPage(meta.name, 0, 0);
+          let targetCount = Number(meta.count) || 0;
+          const first = await fetchPage(meta.name, 0, 0, targetCount);
           if(!first) throw new Error(`The shared online collection ${meta.name} could not be read`);
-          if(!first.ok || !first.body || first.body.name !== meta.name || !Array.isArray(first.body.records) || first.body.rev !== r.body.rev){
+          const firstRev = first.body ? (Number(first.body.rev) || 0) : -1;
+          const firstTotal = first.body ? Number(first.body.total) : -1;
+          if(!first.ok || !first.body || first.body.name !== meta.name || !Array.isArray(first.body.records) || firstRev < baseRev || (firstRev > baseRev && firstTotal < targetCount)){
             throw new Error((first.body && first.body.error) || 'The shared online state changed or a collection page failed during the read; retry the sync');
           }
+          if(firstTotal > targetCount) targetCount = firstTotal;
           const records = [...first.body.records];
           if(!first.body.done){
             let offset = Number(first.body.nextOffset);
@@ -332,21 +554,26 @@ const SYNC = {
               throw new Error(`The shared online collection ${meta.name} did not advance safely`);
             }
             const safeStep = Math.max(200, Math.floor(records.length * 0.75));
-            while(offset < meta.count){
+            while(offset < targetCount){
+              /* Max 2 concurrent collection page requests so cold serverless
+                 instances and KV shards are never overwhelmed simultaneously. */
               const waveOffsets = [];
-              for(let w=0; w<4 && (offset + w * safeStep) < meta.count; w++){
+              for(let w=0; w<2 && (offset + w * safeStep) < targetCount; w++){
                 waveOffsets.push(offset + w * safeStep);
               }
-              const wavePages = await Promise.all(waveOffsets.map(off => fetchPage(meta.name, off, safeStep)));
+              const wavePages = await Promise.all(waveOffsets.map(off => fetchPage(meta.name, off, safeStep, targetCount)));
               for(let w=0; w<wavePages.length; w++){
                 const pg = wavePages[w];
                 const expectedStart = waveOffsets[w];
                 if(!pg){
                   throw new Error(`The shared online collection ${meta.name} could not be read`);
                 }
-                if(!pg.ok || !pg.body || pg.body.name !== meta.name || !Array.isArray(pg.body.records) || pg.body.rev !== r.body.rev){
+                const pgRev = pg.body ? (Number(pg.body.rev) || 0) : -1;
+                const pgTotal = pg.body ? Number(pg.body.total) : -1;
+                if(!pg.ok || !pg.body || pg.body.name !== meta.name || !Array.isArray(pg.body.records) || pgRev < baseRev || (pgRev > baseRev && pgTotal < targetCount)){
                   throw new Error((pg.body && pg.body.error) || 'The shared online state changed or a collection page failed during the read; retry the sync');
                 }
+                if(pgTotal > targetCount) targetCount = pgTotal;
                 if(offset !== expectedStart) break;
                 records.push(...pg.body.records);
                 if(pg.body.done){
@@ -359,25 +586,32 @@ const SYNC = {
                 }
                 offset = next;
               }
-              this.message = `Reading shared ${meta.name}: ${Math.min(offset, meta.count)} / ${meta.count}`;
+              this.message = `Reading shared ${meta.name}: ${Math.min(offset, targetCount)} / ${targetCount}`;
             }
           }
-          if(records.length !== meta.count){
+          if(records.length < meta.count){
             throw new Error(`The shared online collection ${meta.name} was incomplete (${records.length} of ${meta.count})`);
           }
           remoteDb[meta.name] = records;
         };
 
         try{
-          for(let i=0; i<paged.length; i+=3){
-            await Promise.all(paged.slice(i, i+3).map(meta => pullCollection(meta)));
+          for(let i=0; i<paged.length; i++){
+            await pullCollection(paged[i]);
           }
-          this.adoptRemote(remoteDb, r.body.rev, r.body.saved);
+          this.adoptRemote(remoteDb, baseRev, r.body.saved);
+          if(maxSeenRev > baseRev){
+            await this._catchUpDeltasSince(baseRev);
+          }
+          this._idbWriteSnapshot(DB.db, this.rev, this.saved);
           this.state='connected'; this.message='Reading the shared online source'; this.bump();
           return true;
         }catch(err){
           lastPullErr = err;
-          if(revMoved && fullAttempt === 0) continue;
+          if((revMovedIncompatible || fullAttempt < 2) && fullAttempt < 3){
+            await this._sleep(350 * (fullAttempt + 1));
+            continue;
+          }
           break;
         }
       }

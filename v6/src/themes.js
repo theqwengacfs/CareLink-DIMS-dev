@@ -23,12 +23,12 @@ const WT_TOKENS = {
 };
 
 const WTHEMES = [
-  { id:'foundation', name:'Foundation', mode:'light', accent:'#1F3864', brand:'#1F3864', gold:'#A67C00',
-    blurb:'Foundation navy and gold on warm paper. The recommended default.',
-    t:{ bg:'#F6F3EC', surface:'#FFFFFF', surface2:'#FBF9F4', ink:'#14171C', ink2:'#2A2F38', ink3:'#5A5F69', muted:'#5E6470', line:'#E4DED0', line2:'#EFEAE0', bar:'#FFFFFF', chrome:'#132445', chrome2:'#1F3864', chromeInk:'#F3F0E6', chromeMuted:'#B5C1D8', chromeLine:'#2B4C86', action:'#1F3864', action2:'#2B4C86', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E7F6EF', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#EAF0FF' } },
-  { id:'classic', name:'Daylight', mode:'light', accent:'dept', brand:'#1F3864', gold:'#C9A227',
-    blurb:'The original console look. A cool white page with your department colour.',
-    t:{ bg:'#F4F6F9', surface:'#FFFFFF', surface2:'#FAFBFC', ink:'#15171A', ink2:'#2B3038', ink3:'#5B6573', muted:'#5F6B7A', line:'#E3E7ED', line2:'#EDF0F4', bar:'#FFFFFF', chrome:'#16294A', chrome2:'#21386A', chromeInk:'#EEF2F9', chromeMuted:'#A9B8CE', chromeLine:'#2B4472', action:'#C8102E', action2:'#E01B22', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E7F6EF', warn:'#9A5B00', warnBg:'#FFF4E0', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#EAF0FF' } },
+  { id:'foundation', name:'Foundation White', mode:'light', accent:'#1E3A8A', brand:'#1E3A8A', gold:'#9A6700',
+    blurb:'Crisp institutional pure white with royal navy and burnished gold. The default across all devices.',
+    t:{ bg:'#F8FAFC', surface:'#FFFFFF', surface2:'#F1F5F9', ink:'#0F172A', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#0F2143', chrome2:'#1B3668', chromeInk:'#FFFFFF', chromeMuted:'#C7D7F4', chromeLine:'#2C4E8A', action:'#1E3A8A', action2:'#1D4ED8', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'classic', name:'Daylight White', mode:'light', accent:'dept', brand:'#1F3864', gold:'#9A6700',
+    blurb:'The classic console look on crisp white paper with your department colour.',
+    t:{ bg:'#F4F6FA', surface:'#FFFFFF', surface2:'#F1F4F8', ink:'#0F172A', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#16294A', chrome2:'#21386A', chromeInk:'#EEF2F9', chromeMuted:'#B8C8DF', chromeLine:'#2B4472', action:'#C8102E', action2:'#B80D28', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E7F6EF', warn:'#9A5B00', warnBg:'#FFF4E0', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#EAF0FF' } },
   { id:'savanna', name:'Savanna', mode:'light', accent:'dept', brand:'#7A3A18', gold:'#B45309',
     blurb:'Warm sand and burnt umber. Easy on the eyes in bright outdoor light.',
     t:{ bg:'#FAF4E8', surface:'#FFFDF8', surface2:'#FBF6EC', ink:'#2A1E12', ink2:'#43321F', ink3:'#6B5844', muted:'#6E5B46', line:'#E8DAC3', line2:'#F1E7D4', bar:'#FFFDF8', chrome:'#5A2A12', chrome2:'#7A3A18', chromeInk:'#FBEFE0', chromeMuted:'#E7C9A8', chromeLine:'#8A4A26', action:'#B45309', action2:'#BE5A0A', actionInk:'#FFFFFF', ok:'#17703F', okBg:'#E8F5EC', warn:'#8A5200', warnBg:'#FFF1D6', crit:'#A61B1B', critBg:'#FCE9E7', info:'#1F5AA6', infoBg:'#E8F0FA' } },
@@ -82,7 +82,37 @@ const WTHEMES = [
     t:{ bg:'#081812', surface:'#0F261D', surface2:'#163428', ink:'#E7F8F0', ink2:'#C5E5D6', ink3:'#94BDA9', muted:'#9AC3AF', line:'#22493A', line2:'#1B3B2F', bar:'#0B2018', chrome:'#05110C', chrome2:'#0F261D', chromeInk:'#E7F8F0', chromeMuted:'#8DD3B2', chromeLine:'#1E4335', action:'#065F46', action2:'#047857', actionInk:'#FFFFFF', ok:'#6EE7B7', okBg:'#11392B', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#162C4E' } },
   { id:'amethyst', name:'Royal amethyst', mode:'dark', accent:'#A855F7', brand:'#D8B4FE', gold:'#FBBF24',
     blurb:'Deep executive violet-obsidian paired with crisp lavender and gold glow.',
-    t:{ bg:'#130D21', surface:'#1D1533', surface2:'#261C42', ink:'#F2ECFF', ink2:'#D9CEF2', ink3:'#ACA0CA', muted:'#B1A5CE', line:'#372A5C', line2:'#2D224C', bar:'#18112B', chrome:'#0D0818', chrome2:'#1D1533', chromeInk:'#F2ECFF', chromeMuted:'#C4B5FD', chromeLine:'#332656', action:'#7E22CE', action2:'#9333EA', actionInk:'#FFFFFF', ok:'#5FD3A0', okBg:'#13362C', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#1A2C52' } }
+    t:{ bg:'#130D21', surface:'#1D1533', surface2:'#261C42', ink:'#F2ECFF', ink2:'#D9CEF2', ink3:'#ACA0CA', muted:'#B1A5CE', line:'#372A5C', line2:'#2D224C', bar:'#18112B', chrome:'#0D0818', chrome2:'#1D1533', chromeInk:'#F2ECFF', chromeMuted:'#C4B5FD', chromeLine:'#332656', action:'#7E22CE', action2:'#9333EA', actionInk:'#FFFFFF', ok:'#5FD3A0', okBg:'#13362C', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#1A2C52' } },
+  { id:'alabaster', name:'Alabaster pure white', mode:'light', accent:'dept', brand:'#0F172A', gold:'#9A6700',
+    blurb:'Pure gallery-white workspace with razor-sharp slate borders and maximum text clarity.',
+    t:{ bg:'#FFFFFF', surface:'#FFFFFF', surface2:'#F4F6F9', ink:'#090D16', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#0F172A', chrome2:'#1E293B', chromeInk:'#FFFFFF', chromeMuted:'#CBD5E1', chromeLine:'#334155', action:'#1D4ED8', action2:'#1E40AF', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'vellum', name:'Linen & slate white', mode:'light', accent:'#0F766E', brand:'#0F5257', gold:'#9A6700',
+    blurb:'Soft architectural stone-white paper with crisp charcoal type and deep mineral teal.',
+    t:{ bg:'#F7F7F5', surface:'#FFFFFF', surface2:'#F0F0EC', ink:'#141413', ink2:'#292826', ink3:'#52504C', muted:'#52504C', line:'#D4D2CA', line2:'#E5E4DE', bar:'#FFFFFF', chrome:'#142826', chrome2:'#1D3B38', chromeInk:'#F7FAF9', chromeMuted:'#B8D8D4', chromeLine:'#2B5652', action:'#0F766E', action2:'#115E59', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F6EE', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'glacier', name:'Glacier ice white', mode:'light', accent:'#0369A1', brand:'#0C4A6E', gold:'#9A6700',
+    blurb:'Crisp arctic-white clinical surfaces with polar cerulean highlights and dark navy ink.',
+    t:{ bg:'#F2F8FC', surface:'#FFFFFF', surface2:'#EBF4FA', ink:'#0A1E32', ink2:'#183652', ink3:'#415E78', muted:'#415E78', line:'#C5DCEB', line2:'#DCEBF5', bar:'#FFFFFF', chrome:'#0A2942', chrome2:'#0E3D63', chromeInk:'#F0F8FF', chromeMuted:'#B3D9F5', chromeLine:'#1B5685', action:'#0369A1', action2:'#075985', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E4F6EE', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#0369A1', infoBg:'#E0F2FE' } },
+  { id:'pearl', name:'Pearl & mulberry white', mode:'light', accent:'#7E22CE', brand:'#581C87', gold:'#9A6700',
+    blurb:'Luminous pearl-white cards framed by regal mulberry chrome and crisp plum-slate text.',
+    t:{ bg:'#FAF7FC', surface:'#FFFFFF', surface2:'#F3EDF8', ink:'#1C122B', ink2:'#34234D', ink3:'#5C4975', muted:'#5C4975', line:'#DCCEEB', line2:'#EAE0F4', bar:'#FFFFFF', chrome:'#2A0F47', chrome2:'#41196B', chromeInk:'#FAF5FF', chromeMuted:'#D8B4FE', chromeLine:'#5C2891', action:'#7E22CE', action2:'#6B21A8', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'coral', name:'Mombasa coral', mode:'light', accent:'#C2410C', brand:'#9A3412', gold:'#9A6700',
+    blurb:'Warm coastal coral-terracotta with bright shell-white cards and rich espresso ink.',
+    t:{ bg:'#FFF5F2', surface:'#FFFFFF', surface2:'#FDECE7', ink:'#26110C', ink2:'#472219', ink3:'#6E4237', muted:'#6E4237', line:'#EECAC0', line2:'#F7DFD8', bar:'#FFFFFF', chrome:'#4A180D', chrome2:'#6E2414', chromeInk:'#FFF5F2', chromeMuted:'#FDBA9F', chromeLine:'#8F321E', action:'#C2410C', action2:'#9A3412', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E5F6EC', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'marigold', name:'Tsavo marigold', mode:'light', accent:'#9A5B00', brand:'#78350F', gold:'#9A5B00',
+    blurb:'Sunlit golden-ochre accents on crisp white cards with deep acacia-umber typography.',
+    t:{ bg:'#FEF9EC', surface:'#FFFFFF', surface2:'#FBF2DC', ink:'#241806', ink2:'#422D0E', ink3:'#69502A', muted:'#69502A', line:'#E8D5B0', line2:'#F3E6CC', bar:'#FFFFFF', chrome:'#3D2206', chrome2:'#5C340A', chromeInk:'#FFFBEB', chromeMuted:'#FCD38D', chromeLine:'#7D4810', action:'#9A5B00', action2:'#854D0E', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E5F6EC', warn:'#854D0E', warnBg:'#FEF3C7', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'indigo', name:'Nairobi indigo', mode:'light', accent:'#3730A3', brand:'#312E81', gold:'#9A6700',
+    blurb:'Civic indigo-blue precision with crisp white data tables and authoritative contrast.',
+    t:{ bg:'#F1F3FC', surface:'#FFFFFF', surface2:'#E8ECFA', ink:'#111533', ink2:'#242B5E', ink3:'#4C5385', muted:'#4C5385', line:'#CAD1EE', line2:'#DDE2F6', bar:'#FFFFFF', chrome:'#181B4A', chrome2:'#272C70', chromeInk:'#EEF2FF', chromeMuted:'#C7D2FE', chromeLine:'#3B4299', action:'#3730A3', action2:'#4338CA', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1E40AF', infoBg:'#E0E7FF' } },
+  { id:'sage', name:'Aberdare sage', mode:'light', accent:'#166534', brand:'#14532D', gold:'#9A6700',
+    blurb:'Calm highland sage and crisp botanical white crafted for long clinical review sessions.',
+    t:{ bg:'#F1F7F3', surface:'#FFFFFF', surface2:'#E7F1EA', ink:'#0E2417', ink2:'#1E422C', ink3:'#466853', muted:'#466853', line:'#C6DEC9', line2:'#DCECE0', bar:'#FFFFFF', chrome:'#102E1C', chrome2:'#19472C', chromeInk:'#ECFDF3', chromeMuted:'#B4E4C5', chromeLine:'#25633E', action:'#166534', action2:'#15803D', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E3F6EC', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'obsidian', name:'Obsidian pure dark', mode:'dark', accent:'#60A5FA', brand:'#93C5FD', gold:'#FBBF24',
+    blurb:'Ultra-crisp carbon slate dark mode with luminous ice-blue accents for low-light wards.',
+    t:{ bg:'#090C12', surface:'#111622', surface2:'#182030', ink:'#F1F5F9', ink2:'#D5DFEC', ink3:'#9FB0C7', muted:'#A3B4CC', line:'#28344B', line2:'#1F293D', bar:'#0D111B', chrome:'#05070B', chrome2:'#111622', chromeInk:'#F1F5F9', chromeMuted:'#A3B4CC', chromeLine:'#243047', action:'#60A5FA', action2:'#93C5FD', actionInk:'#09111E', ok:'#5FD3A0', okBg:'#103429', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#152B4D' } },
+  { id:'ruby', name:'Velvet ruby night', mode:'dark', accent:'#FB7185', brand:'#FDA4AF', gold:'#FBBF24',
+    blurb:'Deep nocturnal burgundy-slate paired with crisp rose-quartz highlights and warm ivory ink.',
+    t:{ bg:'#160A10', surface:'#22111A', surface2:'#2D1723', ink:'#FCEEF2', ink2:'#E8CFD7', ink3:'#C29EAA', muted:'#C7A4B0', line:'#472636', line2:'#381D2B', bar:'#1B0D14', chrome:'#0E060A', chrome2:'#22111A', chromeInk:'#FCEEF2', chromeMuted:'#D6B4C0', chromeLine:'#422232', action:'#FB7185', action2:'#FDA4AF', actionInk:'#1F070D', ok:'#5FD3A0', okBg:'#12362B', warn:'#F4BF4F', warnBg:'#3B2B0E', crit:'#FF8A94', critBg:'#421822', info:'#93C5FD', infoBg:'#1A2C50' } }
 ];
 const WT_DEFAULT = 'foundation';
 const WT_AUTO = 'auto';
@@ -121,8 +151,8 @@ function deptPaletteFor(user){
    results is passed through the same contrast correction, so no combination
    can make text unreadable. Fonts are system fonts only: the kit runs offline. */
 const STUDIO = {
-  corners:  { label:'Corners', def:'soft', opts:[ {v:'sharp',l:'Sharp'}, {v:'soft',l:'Soft'}, {v:'round',l:'Round'} ],
-              radii:{ sharp:['2px','4px','6px','8px'], soft:['8px','12px','18px','24px'], round:['14px','20px','28px','36px'] } },
+  corners:  { label:'Corners', def:'soft', opts:[ {v:'sharp',l:'Sharp'}, {v:'soft',l:'Soft'}, {v:'round',l:'Round'}, {v:'pill',l:'Architectural'} ],
+              radii:{ sharp:['2px','4px','6px','8px'], soft:['8px','12px','18px','24px'], round:['14px','20px','28px','36px'], pill:['10px','16px','22px','30px'] } },
   font:     { label:'Typeface & font pack', def:'standard',
               opts:[
                 {v:'standard', l:'Inter Institutional (Default)'},
@@ -154,54 +184,83 @@ const STUDIO = {
                 rounded:'"Trebuchet MS","Segoe UI",sans-serif',
                 slab:'"Rockwell","Georgia","Segoe UI",serif'
               } },
-  backdrop: { label:'Backdrop', def:'plain', opts:[ {v:'plain',l:'Plain'}, {v:'dots',l:'Dots'}, {v:'grid',l:'Grid'}, {v:'waves',l:'Waves'}, {v:'kente',l:'Woven stripes'} ] },
+  backdrop: { label:'Backdrop', def:'plain', opts:[ {v:'plain',l:'Plain'}, {v:'dots',l:'Dots'}, {v:'grid',l:'Grid'}, {v:'waves',l:'Waves'}, {v:'kente',l:'Woven stripes'}, {v:'linen',l:'Finecross'} ] },
   hero:     { label:'Hero panel', def:'gradient', opts:[ {v:'gradient',l:'Gradient'}, {v:'solid',l:'Solid'}, {v:'pattern',l:'Patterned'} ] },
-  cards:    { label:'Cards', def:'soft', opts:[ {v:'flat',l:'Flat'}, {v:'soft',l:'Soft'}, {v:'lifted',l:'Lifted'} ] },
-  kpiStyle: { label:'Metric boxes', def:'vivid', opts:[ {v:'vivid',l:'Vivid colours'}, {v:'bold',l:'Bold jewel'}, {v:'tinted',l:'Soft tint'} ] },
-  accentPick:{ label:'Accent colour', def:'', opts:[ {v:'',l:'Theme or department'}, {v:'#C8102E',l:'Crimson'}, {v:'#1F3864',l:'Navy'}, {v:'#B45309',l:'Ochre'},
-              {v:'#0E7490',l:'Teal'}, {v:'#15803D',l:'Green'}, {v:'#6D28D9',l:'Violet'}, {v:'#DB2777',l:'Rose'}, {v:'#334155',l:'Slate'} ] }
+  cards:    { label:'Cards', def:'soft', opts:[ {v:'flat',l:'Flat'}, {v:'soft',l:'Soft'}, {v:'lifted',l:'Lifted'}, {v:'framed',l:'Crisp frame'} ] },
+  kpiStyle: { label:'Metric boxes', def:'vivid', opts:[ {v:'vivid',l:'Vivid spectrum'}, {v:'bold',l:'Bold jewel'}, {v:'tinted',l:'Crisp top-bar'}, {v:'outlined',l:'Pure outlined'} ] },
+  bannerStyle:{ label:'Console top banner', def:'spectrum', opts:[ {v:'spectrum',l:'Spectrum gradient'}, {v:'duotone',l:'Deep duotone'}, {v:'solid',l:'Solid crest'} ] },
+  tabStyle: { label:'Tab & pill style', def:'pill', opts:[ {v:'pill',l:'Filled pill'}, {v:'boxed',l:'Framed card'}, {v:'underline',l:'Clean bar'} ] },
+  borderWeight:{ label:'Box & table borders', def:'crisp', opts:[ {v:'crisp',l:'Crisp standard'}, {v:'bold',l:'High-contrast 1.5px'}, {v:'heavy',l:'Ledger 2px'} ] },
+  tableStripe:{ label:'Table row shading', def:'subtle', opts:[ {v:'subtle',l:'Zebra rows'}, {v:'clean',l:'Pure white'}, {v:'ruled',l:'Ruled ledger'} ] },
+  accentPick:{ label:'Accent colour', def:'', opts:[
+    {v:'',l:'Theme or department'},
+    {v:'#C8102E',l:'Crimson'}, {v:'#1F3864',l:'Navy'}, {v:'#B45309',l:'Ochre'},
+    {v:'#0E7490',l:'Teal'}, {v:'#15803D',l:'Green'}, {v:'#6D28D9',l:'Violet'},
+    {v:'#DB2777',l:'Rose'}, {v:'#334155',l:'Slate'}, {v:'#1D4ED8',l:'Cobalt'},
+    {v:'#047857',l:'Emerald'}, {v:'#C2410C',l:'Coral'}, {v:'#9A5B00',l:'Gold'},
+    {v:'#3730A3',l:'Indigo'}, {v:'#7E22CE',l:'Plum'}, {v:'#0F766E',l:'Turquoise'}
+  ] }
 };
 const STUDIO_KEYS = Object.keys(STUDIO);
 
 const STUDIO_PRESETS = [
-  { id:'clinic',   name:'Clinic day',     blurb:'Foundation colours, soft corners, clear and calm.',
-    p:{ wtheme:'foundation', corners:'soft',  font:'standard', backdrop:'plain', hero:'gradient', cards:'soft',   accentPick:'' } },
-  { id:'night',    name:'Night shift',    blurb:'Dark, flat and easy to read for the small hours.',
-    p:{ wtheme:'night',      corners:'soft',  font:'readable', backdrop:'plain', hero:'solid',    cards:'flat',   accentPick:'' } },
-  { id:'sun',      name:'Field in sunlight', blurb:'Maximum contrast, large type, sharp edges for glare.',
-    p:{ wtheme:'contrast',   corners:'sharp', font:'readable', backdrop:'plain', hero:'solid',    cards:'flat',   accentPick:'', touch:'large' } },
-  { id:'lake',     name:'Lake calm',      blurb:'Teal, round corners and a gentle dotted backdrop.',
-    p:{ wtheme:'lake',       corners:'round', font:'rounded',  backdrop:'dots',  hero:'gradient', cards:'soft',   accentPick:'' } },
-  { id:'stage',    name:'Presentation',   blurb:'Midnight gold with waves and lifted cards, for showing the system.',
-    p:{ wtheme:'midnight',   corners:'round', font:'classic',  backdrop:'waves', hero:'pattern',  cards:'lifted', accentPick:'' } },
-  { id:'kente',    name:'Woven',          blurb:'Savanna warmth with woven stripes and an ochre accent.',
-    p:{ wtheme:'savanna',    corners:'soft',  font:'standard', backdrop:'kente', hero:'pattern',  cards:'soft',   accentPick:'#B45309' } },
-  { id:'minimal',  name:'Minimal',        blurb:'The original Daylight look with sharp, flat, plain surfaces.',
-    p:{ wtheme:'classic',    corners:'sharp', font:'standard', backdrop:'plain', hero:'solid',    cards:'flat',   accentPick:'' } }
+  { id:'clinic',    name:'Foundation White',  blurb:'Crisp pure white, royal navy accents and soft architectural cards.',
+    p:{ wtheme:'foundation', corners:'soft',  font:'standard', backdrop:'plain', hero:'gradient', cards:'soft',   kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'purewhite', name:'Gallery Alabaster', blurb:'Pure white surfaces, high-contrast 1.5px borders and outlined metric boxes.',
+    p:{ wtheme:'alabaster',  corners:'soft',  font:'clinical', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'outlined', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', accentPick:'#1D4ED8' } },
+  { id:'glacier',   name:'Glacier Clinical',  blurb:'Arctic ice-white cards, cerulean clinical clarity and crisp top-bar KPIs.',
+    p:{ wtheme:'glacier',    corners:'soft',  font:'clinical', backdrop:'plain', hero:'gradient', cards:'soft',   kpiStyle:'tinted', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#0E7490' } },
+  { id:'night',     name:'Night shift',       blurb:'Dark slate, flat cards and easy legibility for ward hours after dusk.',
+    p:{ wtheme:'night',      corners:'soft',  font:'readable', backdrop:'plain', hero:'solid',    cards:'flat',   kpiStyle:'vivid', bannerStyle:'duotone', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'obsidian',  name:'Obsidian Pro',      blurb:'Ultra-crisp carbon dark mode with ice-blue accents and framed borders.',
+    p:{ wtheme:'obsidian',   corners:'soft',  font:'executive',backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'bold', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', accentPick:'' } },
+  { id:'sun',       name:'Field in sunlight', blurb:'Maximum contrast, heavy ledger borders and large touch targets for glare.',
+    p:{ wtheme:'contrast',   corners:'sharp', font:'readable', backdrop:'plain', hero:'solid',    cards:'flat',   kpiStyle:'outlined', bannerStyle:'solid', tabStyle:'boxed', borderWeight:'heavy', accentPick:'', touch:'large' } },
+  { id:'lake',      name:'Lake calm',         blurb:'Kisumu shoreline teal, round corners and a gentle dotted backdrop.',
+    p:{ wtheme:'lake',       corners:'round', font:'rounded',  backdrop:'dots',  hero:'gradient', cards:'soft',   kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'coral',     name:'Mombasa Coral',     blurb:'Warm coastal coral-terracotta with bright shell-white cards.',
+    p:{ wtheme:'coral',      corners:'soft',  font:'editorial',backdrop:'plain', hero:'gradient', cards:'lifted', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#C2410C' } },
+  { id:'indigo',    name:'Nairobi Indigo',    blurb:'Civic indigo-blue precision with ruled ledger tables and sharp clarity.',
+    p:{ wtheme:'indigo',     corners:'soft',  font:'executive',backdrop:'grid',  hero:'gradient', cards:'framed', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', tableStripe:'ruled', accentPick:'#3730A3' } },
+  { id:'stage',     name:'Presentation',      blurb:'Midnight gold with waves and lifted cards for executive briefings.',
+    p:{ wtheme:'midnight',   corners:'round', font:'classic',  backdrop:'waves', hero:'pattern',  cards:'lifted', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'kente',     name:'Woven Savanna',     blurb:'Savanna warmth with woven stripes and a burnished ochre accent.',
+    p:{ wtheme:'savanna',    corners:'soft',  font:'standard', backdrop:'kente', hero:'pattern',  cards:'soft',   kpiStyle:'vivid', bannerStyle:'duotone', tabStyle:'pill', borderWeight:'crisp', accentPick:'#B45309' } },
+  { id:'minimal',   name:'Minimal Ledger',    blurb:'Crisp Daylight White with sharp edges, flat surfaces and pure white rows.',
+    p:{ wtheme:'classic',    corners:'sharp', font:'standard', backdrop:'plain', hero:'solid',    cards:'flat',   kpiStyle:'outlined', bannerStyle:'solid', tabStyle:'underline', borderWeight:'bold', tableStripe:'clean', accentPick:'' } }
 ];
 
 const INSTALLABLE_VISUAL_PACKS = [
-  { id:'pack-foundation-editorial', name:'CareLink Heritage Editorial Pack', version:'1.2', category:'Official Institutional',
-    blurb:'Pairs Foundation Ivory with authoritative serif workspace banners, navy-crimson accents and lifted cards.',
-    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'lifted', kpiStyle:'vivid', accentPick:'' } },
-  { id:'pack-clinical-editorial', name:'Clinical Editorial & Case Review Pack', version:'1.2', category:'Medical & PDCA Reporting',
-    blurb:'Pairs Georgia editorial headings with clean clinical surfaces for 120-Day & Discharge PDCA review.',
-    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'#1F3864' } },
+  { id:'pack-foundation-editorial', name:'CareLink Foundation White Pack', version:'1.4', category:'Official Institutional',
+    blurb:'Pairs Foundation White with authoritative serif workspace banners, royal navy accents and lifted cards.',
+    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'lifted', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'pack-alabaster-clarity', name:'Alabaster High-Definition White Pack', version:'1.0', category:'Maximum Readability',
+    blurb:'Pure gallery-white surfaces, high-contrast 1.5px borders and outlined KPI cards with zero tint haze.',
+    config:{ wtheme:'alabaster', font:'clinical', corners:'soft', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'outlined', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', accentPick:'#1D4ED8' } },
+  { id:'pack-clinical-editorial', name:'Clinical Editorial & Case Review Pack', version:'1.3', category:'Medical & PDCA Reporting',
+    blurb:'Pairs Georgia editorial headings with crisp white clinical surfaces for 120-Day & Discharge PDCA review.',
+    config:{ wtheme:'foundation', font:'editorial', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#1F3864' } },
   { id:'pack-clinical-cobalt', name:'Clinical Precision & Triage Pack', version:'1.4', category:'Medical & Case Management',
     blurb:'High-clarity humanist typography, Royal Cobalt clinical surfaces and vivid status indicators.',
-    config:{ wtheme:'cobalt', font:'clinical', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'#0E7490' } },
+    config:{ wtheme:'cobalt', font:'clinical', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#0E7490' } },
+  { id:'pack-glacier-surgical', name:'Glacier Arctic Clinical Pack', version:'1.0', category:'Hospital & Pharmacy',
+    blurb:'Arctic glacier-white cards, polar cerulean accents and crisp top-bar metric boxes.',
+    config:{ wtheme:'glacier', font:'clinical', corners:'soft', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'tinted', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', accentPick:'#0E7490' } },
   { id:'pack-field-sunlight', name:'Field Caregiver Daylight Pack', version:'1.3', category:'Tablet & Outdoor Field',
-    blurb:'Atkinson high-legibility font stack, Savanna warm glare-resistant cards and comfortable touch spacing.',
-    config:{ wtheme:'savanna', font:'readable', corners:'round', backdrop:'plain', hero:'solid', cards:'soft', kpiStyle:'bold', accentPick:'#15803D' } },
-  { id:'pack-exec-diplomatic', name:'Executive Governance & Board Pack', version:'1.1', category:'Leadership & Finance',
-    blurb:'Executive geometric headings, Covenant Gold vellum surfaces and subtle architectural grid backdrop.',
-    config:{ wtheme:'covenant', font:'executive', corners:'soft', backdrop:'grid', hero:'gradient', cards:'lifted', kpiStyle:'bold', accentPick:'#1F3864' } },
+    blurb:'Atkinson high-legibility font stack, Savanna glare-resistant cards and comfortable touch spacing.',
+    config:{ wtheme:'savanna', font:'readable', corners:'round', backdrop:'plain', hero:'solid', cards:'soft', kpiStyle:'bold', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'bold', accentPick:'#15803D' } },
+  { id:'pack-exec-diplomatic', name:'Executive Governance & Board Pack', version:'1.2', category:'Leadership & Finance',
+    blurb:'Executive geometric headings, Covenant Gold white-vellum surfaces and subtle architectural grid backdrop.',
+    config:{ wtheme:'covenant', font:'executive', corners:'soft', backdrop:'grid', hero:'gradient', cards:'lifted', kpiStyle:'bold', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#1F3864' } },
+  { id:'pack-indigo-executive', name:'Nairobi Civic Indigo Pack', version:'1.0', category:'Finance, Audit & Operations',
+    blurb:'Civic indigo-white precision, ruled ledger rows and crisp framed tabs for dense financial registers.',
+    config:{ wtheme:'indigo', font:'executive', corners:'soft', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', tableStripe:'ruled', accentPick:'#3730A3' } },
   { id:'pack-lake-serenity', name:'Lake Victoria Horizon Pack', version:'1.2', category:'Kisumu & Homa Bay Regional',
     blurb:'Cool Lake Victoria shoreline teal, friendly rounded cards and crisp modern headings.',
-    config:{ wtheme:'lake', font:'rounded', corners:'round', backdrop:'dots', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'#0E7490' } },
-  { id:'pack-slab-assurance', name:'Audit & Assurance Ledger Pack', version:'1.0', category:'Audit, M&E & Data',
-    blurb:'Structured slab headings, crisp sharp card corners and clean Daylight ledger contrast.',
-    config:{ wtheme:'classic', font:'slab', corners:'sharp', backdrop:'plain', hero:'solid', cards:'flat', kpiStyle:'tinted', accentPick:'#334155' } }
+    config:{ wtheme:'lake', font:'rounded', corners:'round', backdrop:'dots', hero:'gradient', cards:'soft', kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#0E7490' } },
+  { id:'pack-slab-assurance', name:'Audit & Assurance Ledger Pack', version:'1.1', category:'Audit, M&E & Data',
+    blurb:'Structured slab headings, crisp sharp card corners and clean Daylight White ledger contrast.',
+    config:{ wtheme:'classic', font:'slab', corners:'sharp', backdrop:'plain', hero:'solid', cards:'flat', kpiStyle:'tinted', bannerStyle:'duotone', tabStyle:'boxed', borderWeight:'bold', accentPick:'#334155' } }
 ];
 
 /* ---------------- colour arithmetic ---------------- */
@@ -349,12 +408,15 @@ const WTHEME = {
     v['--chip-ink'] = t.ink2;
     v['--field'] = dark? t.surface2 : t.surface;
     v['--field-line'] = hc? t.ink : WTC.mix(t.surface, t.ink, dark? 0.30 : 0.20);
-    v['--brand'] = theme.brand; v['--gold'] = theme.gold; v['--brand-2'] = theme.brand; v['--brand-deep'] = t.chrome;
+    v['--brand'] = theme.brand;
+    v['--brand-ink'] = WTC.contrast(theme.brand, '#FFFFFF') >= 4.5 ? '#FFFFFF' : '#0B1220';
+    v['--gold'] = theme.gold; v['--brand-2'] = theme.brand; v['--brand-deep'] = t.chrome;
     v['--red'] = t.action; v['--red-2'] = t.action2; v['--red-soft'] = t.critBg;
     v['--focus'] = dark? '#FFD54A' : (hc? '#B36B00' : a.fg);
     v['--scrim'] = dark? 'rgba(0,0,0,.66)' : 'rgba(12,16,22,.55)';
     v['--paper'] = '#FFFFFF';
-    v['--panel-mix'] = a.fillInk==='#FFFFFF'? '#101216' : '#FFFFFF';
+    /* Never mix white haze into hero panels; darken slightly so fillInk stays crisp */
+    v['--panel-mix'] = a.fillInk==='#FFFFFF'? '#0D1320' : '#B87D08';
     v['--shadow-sm'] = dark? '0 1px 2px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.4)' : '0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08)';
     v['--shadow']    = dark? '0 2px 8px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.35)' : '0 2px 8px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06)';
     v['--shadow-lg'] = dark? '0 12px 40px rgba(0,0,0,.65)' : '0 12px 40px rgba(16,24,40,.16)';
@@ -412,6 +474,10 @@ const WTHEME = {
     attr('data-font', (st&&st.font)||'standard'); attr('data-bg', (st&&st.backdrop)||'plain');
     attr('data-hero', (st&&st.hero)||'gradient'); attr('data-cards', (st&&st.cards)||'soft'); attr('data-corners', (st&&st.corners)||'soft');
     attr('data-kpistyle', (st&&st.kpiStyle)||'vivid');
+    attr('data-banner', (st&&st.bannerStyle)||'spectrum');
+    attr('data-tabstyle', (st&&st.tabStyle)||'pill');
+    attr('data-borders', (st&&st.borderWeight)||'crisp');
+    attr('data-tstripe', (st&&st.tableStripe)||'subtle');
     attr('data-dept', (user && roleObj(user.roleId) && roleObj(user.roleId).dept) || 'exec');
     attr('data-wt', theme.id); attr('data-wmode', theme.mode);
     if(root.style) root.style.colorScheme = theme.mode;

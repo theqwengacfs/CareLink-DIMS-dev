@@ -450,7 +450,7 @@ function renderShell(){
   const countyDisp = user.countyId ? countyName(user.countyId) : 'Global / Head Office';
   return `<div class="app shell ${paneOn?'has-pane':''} ${railOn?'np-rail':''} ${APPX.navOpen?'np-open':''}">
     ${paneOn? NAVP.html(user, here) : ''}${paneOn? '<div class="np-scrim" data-act="nav-close"></div>' : ''}
-    <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}">
+    <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}" data-role="${esc(user.roleId)}" data-dept="${esc(role.dept||'exec')}">
       <img class="cb-logo" src="${window.LOGO||''}" alt="CareLink · LOMAMO Foundation">
       <div class="cb-nav" role="group" aria-label="Navigation & history">
         ${paneOn?`<button class="icon-btn cb-fold-btn" data-act="nav-rail" aria-label="${railOn?'Expand navigation pane':'Fold navigation pane'}" title="${railOn?'Expand navigation pane':'Fold navigation pane'}">${ic('panel',17)}</button>`:''}
@@ -458,8 +458,8 @@ function renderShell(){
         <button class="icon-btn" data-act="nav-forward" aria-label="Forward" title="Forward (Alt+Right)" ${NAVH.canForward()?'':'disabled aria-disabled="true"'}>${ic('forward',18)}</button>
       </div>
       <div class="cb-id">
-        <div class="cb-k"><span class="dot" style="background:${dept.accent}"></span><span class="cb-os-tag">CareLink OS</span> · <span class="cb-role-tag">${esc(role.consoleTitle||role.name||'Console')}</span> · <span class="cb-county-tag">${esc(countyDisp)}</span></div>
-        <h1>${esc(crumb.title)}</h1>
+        <div class="cb-k"><span class="cb-os-tag">CARELINK OS</span><span class="cb-county-tag">${esc(countyDisp)}</span><span class="cb-page-tag">${esc(crumb.title)}</span></div>
+        <h1><span class="cb-console-name">${esc(role.consoleTitle||((role.name||'Staff')+' Console'))}</span><span class="cb-title-sep"> · </span><span class="cb-view-name">${esc(crumb.title)}</span></h1>
       </div>
       <div class="cb-quick no-print" role="navigation" aria-label="Quick console shortcuts">
         ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
@@ -481,7 +481,7 @@ function renderShell(){
 
     <nav class="sheet" aria-label="Pages in this console">
       <button class="sheet-all" data-act="${paneOn?'nav-open':'open-console-map'}" aria-label="All pages in this console">${ic('menu',16)}<span>All</span></button>
-      ${groups.map(g=>`<span class="sheet-g" aria-hidden="true">${esc(g.label)}</span>
+      ${groups.map(g=>`<span class="sheet-g" aria-hidden="true">${esc(g.displayLabel||g.label)}</span>
         ${g.items.map(i=>`<button class="tab ${here(i.id)?'active':''}" data-act="go" data-v="${i.id}">
           ${ic(i.icon,15)}<span>${esc(i.label)}</span>
           ${i.count?`<span class="tcount ${i.tone==='crit'?'crit':''}">${i.count}</span>`:''}
@@ -1167,7 +1167,12 @@ const ACTIONS = {
   'wtheme-open-packs':()=>{ openThemePicker('packs'); },
   'wtheme-tab':(d={})=>{ closeModal(true); openThemePicker(d.tab||'themes'); },
   'wtheme-more':()=>{ closeAllModals(); go('settings',{section:'appearance'}); },
-  'studio-set':(d)=>{ const r=WTHEME.setStudio(AUTH.user, d.key, d.value); if(!r.ok) return toast('Not changed', r.msg, 'err'); render(); },
+  'studio-set':(d)=>{
+    const r=WTHEME.setStudio(AUTH.user, d.key, d.value);
+    if(!r.ok) return toast('Not changed', r.msg, 'err');
+    if(document.querySelector('#modalRoot .modal') && APPX._themePickerTab==='studio'){ closeModal(true); openThemePicker('studio'); }
+    render();
+  },
   'studio-font-pick':(d={})=>{
     const r = WTHEME.setStudio(AUTH.user, 'font', d.value);
     if(!r.ok) return toast('Font not changed', r.msg, 'err');
@@ -1208,8 +1213,19 @@ const ACTIONS = {
     setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
     toast('Visual Pack Exported', 'Downloaded your active theme & font configuration (.json).', 'ok');
   },
-  'studio-preset':(d)=>{ const r=WTHEME.applyPreset(AUTH.user, d.id); if(!r.ok) return toast('Not applied', r.msg, 'err'); render(); toast('Look applied', r.preset.name+'. Only you see this. Reset it any time in Preferences.','ok'); },
-  'studio-reset':()=>{ WTHEME.resetStudio(AUTH.user); render(); toast('Studio reset','Your colours and shapes are back to the theme.','ok'); },
+  'studio-preset':(d)=>{
+    const r=WTHEME.applyPreset(AUTH.user, d.id);
+    if(!r.ok) return toast('Not applied', r.msg, 'err');
+    if(document.querySelector('#modalRoot .modal') && APPX._themePickerTab==='studio'){ closeModal(true); openThemePicker('studio'); }
+    render();
+    toast('Look applied', r.preset.name+'. Only you see this. Reset it any time in Preferences.','ok');
+  },
+  'studio-reset':()=>{
+    WTHEME.resetStudio(AUTH.user);
+    if(document.querySelector('#modalRoot .modal') && APPX._themePickerTab==='studio'){ closeModal(true); openThemePicker('studio'); }
+    render();
+    toast('Studio reset','Your colours and shapes are back to the theme.','ok');
+  },
   'set-wtheme':(d)=>{
     const r = WTHEME.choose(AUTH.user, d.id);
     if(!r.ok){ toast('Theme not changed', r.msg, 'err'); return; }

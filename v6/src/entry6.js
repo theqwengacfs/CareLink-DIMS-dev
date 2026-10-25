@@ -194,9 +194,9 @@ async function activateFullDemoDataset(){
   }
 }
 
-/* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar) */
+/* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar, zero duplicate tabs) */
 function renderLanding6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'light', accent:'#1E3A8A' };
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const facts = [
     { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
@@ -205,7 +205,7 @@ function renderLanding6(){
     { n: DEPARTMENTS.length, l:'Department Consoles' }
   ];
 
-  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#E9C765')}">
+  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'light')}" style="--accent:${esc(th.accent||'#1E3A8A')}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -214,14 +214,13 @@ function renderLanding6(){
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation Kenya" class="ld-logo">
         <div>
           <div class="ld-org">CareLink · ${esc(orgName())}</div>
-          <div class="xs ld-dim">CareLink C-DIMS · Unified Operating System for All Foundation Departments &amp; Partners · v${esc(APP.version)}</div>
+          <div class="xs ld-dim">CareLink C-DIMS · Unified Operating System · v${esc(APP.version)}</div>
         </div>
       </div>
-      <nav class="row ld-nav" style="gap:8px;flex-wrap:wrap">
-        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture">${ic('flow',14)} Platform Architecture &amp; Departments</button>
+      <nav class="row ld-nav" aria-label="Public and institutional navigation" style="gap:8px;flex-wrap:wrap">
+        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> Platform Architecture &amp; Departments Working Together</button>
         <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Public Impact Portal</button>
-        <button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request an Account</button>
-        <button class="btn btn-primary ld-btn-primary btn-sm" data-act="open-signin">${ic('lock',14)} Sign In to CareLink</button>
+        ${!isActivated ? `<button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request Access</button>` : ''}
       </nav>
     </header>
 
@@ -231,23 +230,21 @@ function renderLanding6(){
           <div class="ld-eyebrow">${ic('heart',14)} LOMAMO Foundation Kenya · Loving Hands Management &amp; Medical Organization</div>
           <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
           <div class="ld-subhead">One Foundation. One Operating System.</div>
-          <p class="ld-lede">CareLink unites every LOMAMO department, hospital referral desk, government oversight partner and international medical reviewer in one role-pure operating system — enforcing least-privilege access at the data layer so vulnerable parents recover and children remain safely in family care.</p>
-          <div class="row ld-cta-row">
-            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login">${ic('lock',17)} Proceed to My CareLink Console ${ic('chevron',16)}</button>
-            <button class="btn ld-cta ld-btn-arch" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> Platform Architecture &amp; Departments Working Together</button>
-            ${!isActivated ? `<button class="btn ld-cta ld-btn-secondary" data-act="login-request">${ic('userplus',16)} Request Access</button>` : ''}
+          <p class="ld-lede">CareLink unites clinical care, field ministry, hospital referrals, finance, human resources, media governance and partner oversight in one least-privilege operating system across Kisumu and Homa Bay.</p>
+          <div class="row ld-cta-row" style="align-items:center">
+            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login">${ic('lock',17)} Staff Sign In · My CareLink Console ${ic('chevron',16)}</button>
           </div>
           <div class="ld-assure">
-            <span>${ic('database',14)} One shared live online source for every client</span>
-            <span>${ic('wifi',14)} Zero-scroll PC &amp; tablet workspace</span>
+            <span>${ic('database',14)} Shared live online database</span>
+            <span>${ic('wifi',14)} Zero-scroll PC &amp; tablet consoles</span>
             <span>${ic('shieldcheck',14)} SHA-256 tamper-evident audit</span>
-            <span>${ic('sparkles',14)} CareLink AI workflow guidance</span>
+            <span>${ic('sparkles',14)} Role-scoped workflows &amp; QA</span>
           </div>
         </div>
 
         <div class="ld-hero-art" aria-hidden="true">
           <div class="ld-canvas-card ld-canvas-tight">
-            <svg viewBox="0 0 460 236" class="ld-scene-svg">
+            <svg viewBox="0 0 460 224" class="ld-scene-svg">
               <defs>
                 <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
                   <stop offset="0%" stop-color="#F5C451" stop-opacity="0.34"/>
@@ -259,50 +256,38 @@ function renderLanding6(){
                   <stop offset="50%" stop-color="#F5C451" stop-opacity="0.85"/>
                   <stop offset="100%" stop-color="#34D399" stop-opacity="0.75"/>
                 </linearGradient>
-                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.38"/>
-                  <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.0"/>
-                </linearGradient>
               </defs>
-              <path d="M-10,192 C75,164 120,214 205,186 C290,158 355,196 470,160" fill="none" stroke="rgba(56,189,248,0.16)" stroke-width="1.4"/>
-              <circle cx="230" cy="116" r="92" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="116" r="86" fill="none" stroke="rgba(148,197,255,0.22)" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="116" r="58" fill="none" stroke="rgba(245,196,81,0.34)" stroke-width="1.4"/>
-              <g stroke="url(#beamGrad)" stroke-width="1.4" opacity="0.74">
-                <line x1="230" y1="116" x2="230" y2="26"/>
-                <line x1="230" y1="116" x2="324" y2="54"/>
-                <line x1="230" y1="116" x2="354" y2="116"/>
-                <line x1="230" y1="116" x2="322" y2="180"/>
-                <line x1="230" y1="116" x2="230" y2="206"/>
-                <line x1="230" y1="116" x2="138" y2="180"/>
-                <line x1="230" y1="116" x2="106" y2="116"/>
-                <line x1="230" y1="116" x2="136" y2="54"/>
+              <path d="M-10,184 C75,156 120,206 205,178 C290,150 355,188 470,152" fill="none" stroke="rgba(56,189,248,0.16)" stroke-width="1.4"/>
+              <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
+              <circle cx="230" cy="112" r="82" fill="none" stroke="rgba(148,197,255,0.22)" stroke-width="1.2" stroke-dasharray="5 5"/>
+              <circle cx="230" cy="112" r="55" fill="none" stroke="rgba(245,196,81,0.34)" stroke-width="1.4"/>
+              <g stroke="url(#beamGrad)" stroke-width="1.4" opacity="0.76">
+                <line x1="230" y1="112" x2="230" y2="24"/>
+                <line x1="230" y1="112" x2="324" y2="52"/>
+                <line x1="230" y1="112" x2="354" y2="112"/>
+                <line x1="230" y1="112" x2="322" y2="174"/>
+                <line x1="230" y1="112" x2="230" y2="200"/>
+                <line x1="230" y1="112" x2="138" y2="174"/>
+                <line x1="230" y1="112" x2="106" y2="112"/>
+                <line x1="230" y1="112" x2="136" y2="52"/>
               </g>
               ${[
-                [230,26,'Field Care','#38BDF8'], [324,54,'Hospital','#2DD4BF'],
-                [354,116,'M&E / DHIS','#A78BFA'], [322,180,'Finance','#FBBF24'],
-                [230,206,'Homestay','#F472B6'], [138,180,'Media & IT','#FB923C'],
-                [106,116,'HR & Leave','#34D399'], [136,54,'Transport','#60A5FA']
+                [230,24,'Field Care','#38BDF8'], [324,52,'Hospital','#2DD4BF'],
+                [354,112,'M&E / DHIS','#A78BFA'], [322,174,'Finance','#FBBF24'],
+                [230,200,'Homestay','#F472B6'], [138,174,'Media & IT','#FB923C'],
+                [106,112,'HR & Leave','#34D399'], [136,52,'Transport','#60A5FA']
               ].map(([x,y,lbl,col])=>`<g>
                 <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#0B1933" stroke="${col}" stroke-width="1.3"/>
                 <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
                 <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#F1F5F9">${lbl}</text>
               </g>`).join('')}
-              <circle cx="230" cy="116" r="35" fill="#0E2248" stroke="#F5C451" stroke-width="2"/>
-              <text x="230" y="113" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="126" text-anchor="middle" font-size="8" font-weight="600" fill="#F5C451" letter-spacing="0.5">OS · C-DIMS</text>
+              <circle cx="230" cy="112" r="34" fill="#0E2248" stroke="#F5C451" stroke-width="2"/>
+              <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
+              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#F5C451" letter-spacing="0.5">OS · C-DIMS</text>
             </svg>
 
             <div class="ld-facts">
               ${facts.map(f=>`<div class="ld-fact"><b>${num(f.n)}</b><span>${esc(f.l)}</span></div>`).join('')}
-            </div>
-            <div class="ld-spark">
-              <svg viewBox="0 0 260 32" preserveAspectRatio="none">
-                <path d="M0,30 L0,24 L36,19 L72,21 L108,13 L144,15 L180,8 L216,10 L260,5 L260,30 Z" fill="url(#areaGrad)"/>
-                <path d="M0,24 L36,19 L72,21 L108,13 L144,15 L180,8 L216,10 L260,5" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round"/>
-                <path d="M0,28 L36,25 L72,24 L108,19 L144,18 L180,14 L216,15 L260,11" fill="none" stroke="#F5C451" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>
-              </svg>
-              <span class="xs ld-dim">Unified CareLink workflow graphic across Kisumu &amp; Homa Bay. Explore full Platform Architecture &amp; Departments Working Together via the button above.</span>
             </div>
           </div>
         </div>
@@ -312,10 +297,9 @@ function renderLanding6(){
     <footer class="ld-foot ld-foot-tight">
       <div class="ld-foot-inner">
         <div class="ld-foot-brand">
-          <img src="${window.LOGO||''}" alt="" class="ld-logo-sm">
-          <div><b>${esc(orgName())}</b> · ${esc(APP.full)}</div>
+          <b>Serving our Neighbours in Love</b> <span class="xs ld-dim">· Kisumu &amp; Homa Bay County Offices</span>
         </div>
-        <div class="xs ld-dim">Love Matters Most · Serving our Neighbours in Love · Version ${esc(APP.version)} · Schema ${esc(String(APP.schema))}</div>
+        <div class="xs ld-dim">Authorised staff &amp; partners · DPA-2019 Governed · Schema ${esc(String(APP.schema))}</div>
       </div>
     </footer>
   </div>`;

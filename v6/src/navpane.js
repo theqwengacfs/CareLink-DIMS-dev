@@ -17,24 +17,37 @@
    ============================================================ */
 
 const CONSOLE_FOCUS = {
-  exec:     ['Overview','Partner & referral','Leadership','Reporting','Patients & field','Ministry & teams','People','Assurance'],
-  admin:    ['Overview','Patients & field','Partner & referral','Ministry & teams','Hospital operations','Care centre','People','Reporting','System'],
-  medical:  ['Overview','Patients & field','Clinical & pharmacy','Partner & referral','Hospital operations','Care centre','Reporting','Ministry & teams'],
-  ministry: ['Overview','Patients & field','Ministry & teams','Partner & referral','Care centre','Clinical & pharmacy','Reporting','People'],
-  media:    ['Overview','Media & governance','Partner & referral','Reporting','Department life','People'],
-  finance:  ['Overview','Finance & procurement','Reporting','Ministry & teams','People'],
-  procure:  ['Overview','Finance & procurement','Reporting','Ministry & teams','People'],
-  me:       ['Overview','Reporting','Partner & referral','Patients & field','Assurance','Ministry & teams'],
-  audit:    ['Overview','Assurance','Reporting','Finance & procurement','Ministry & teams','People'],
-  hr:       ['Overview','People','Reporting'],
-  welfare:  ['Overview','People','Reporting'],
-  vehicle:  ['Overview','Fleet & transport','Ministry & teams','People'],
-  pr:       ['Overview','Media & governance','Partner & referral','Reporting','Ministry & teams','People'],
-  hospital: ['Overview','Partner & referral','Hospital operations','Patients & field','Clinical & pharmacy','Ministry & teams','Reporting'],
-  pharmacy: ['Overview','Clinical & pharmacy','Patients & field','Ministry & teams','Reporting'],
-  it:       ['Overview','System','Assurance','Ministry & teams'],
-  intldata: ['Overview','Clinical & pharmacy','Partner & referral','Reporting','Assurance','Ministry & teams'],
-  homestay: ['Overview','Care centre','Patients & field','Ministry & teams']
+  exec:     ['Overview','Leadership','Reporting','Finance & procurement','Partner & referral','Patients & field','People','Assurance','Department life'],
+  admin:    ['Overview','Patients & field','Finance & procurement','Hospital operations','People','Reporting','System','Fleet & transport','Assurance','Department life'],
+  medical:  ['Overview','Patients & field','Clinical & pharmacy','Hospital operations','Care centre','Reporting','Media & governance','Ministry & teams','Partner & referral','Department life'],
+  ministry: ['Overview','Patients & field','Ministry & teams','Hospital operations','Care centre','Clinical & pharmacy','Reporting','People','Department life'],
+  media:    ['Overview','Media & governance','Reporting','Department life','People'],
+  finance:  ['Overview','Finance & procurement','Reporting','Hospital operations','Department life','People'],
+  procure:  ['Overview','Finance & procurement','Reporting','Department life','People'],
+  me:       ['Overview','Reporting','Assurance','Patients & field','Partner & referral','Ministry & teams','Department life'],
+  audit:    ['Overview','Assurance','Reporting','Finance & procurement','People','Department life'],
+  hr:       ['Overview','People','Reporting','System','Department life'],
+  welfare:  ['Overview','People','Reporting','Department life'],
+  vehicle:  ['Overview','Fleet & transport','Department life','People'],
+  pr:       ['Overview','Media & governance','Reporting','Department life','People'],
+  hospital: ['Overview','Partner & referral','Hospital operations','Patients & field','Clinical & pharmacy','Reporting','Department life'],
+  pharmacy: ['Overview','Clinical & pharmacy','Patients & field','Reporting','Department life'],
+  it:       ['Overview','System','Assurance','Reporting','Department life'],
+  intldata: ['Overview','Assurance','Reporting','Clinical & pharmacy','Patients & field','Department life'],
+  homestay: ['Overview','Care centre','Patients & field','Hospital operations','Reporting','Department life']
+};
+
+const ROLE_FOCUS = {
+  chief:      ['Overview','System','Assurance','Reporting','Finance & procurement','Patients & field','People','Department life'],
+  director:   ['Overview','Leadership','Reporting','Finance & procurement','Partner & referral','Patients & field','People','Assurance','Hospital operations','Clinical & pharmacy','Department life'],
+  president:  ['Overview','Leadership','Reporting','Partner & referral','Finance & procurement','People','Assurance','Department life'],
+  'program.admin': ['Overview','Leadership','Reporting','Patients & field','Finance & procurement','People','Assurance','Department life'],
+  'program.assistant': ['Overview','Reporting','Finance & procurement','Patients & field','People','Department life'],
+  assistant:  ['Overview','Patients & field','Finance & procurement','Hospital operations','Reporting','Department life'],
+  liaison:    ['Overview','Hospital operations','Patients & field','Care centre','Reporting','Department life'],
+  'ccc.clinician': ['Overview','Partner & referral','Hospital operations','Reporting'],
+  'gov.partner':   ['Overview','Partner & referral','Reporting'],
+  'intl.medical':  ['Overview','Clinical & pharmacy','Patients & field','Reporting','Department life']
 };
 
 const NAV_GROUP_ICON = {
@@ -49,14 +62,15 @@ const NAV_PANE_MIN = 1000;
 
 const NAVP = {
   /* Reorders groups for a department. Pure: same pages in, same pages out. */
-  ordered(groups, deptId){
-    const focus = CONSOLE_FOCUS[deptId] || [];
+  ordered(groups, deptId, roleId){
+    const focus = (roleId && ROLE_FOCUS[roleId]) || CONSOLE_FOCUS[deptId] || [];
     const rank = g => { const i = focus.indexOf(g.label); return i<0? 1000 : i; };
     return groups.map((g,i)=>({g,i})).sort((a,b)=> (rank(a.g)-rank(b.g)) || (a.i-b.i)).map(x=>x.g);
   },
   groups(user){
+    if(!user) return [];
     const role = roleObj(user.roleId) || {};
-    return NAVP.ordered(navModel(user), role.dept || user.departmentId);
+    return NAVP.ordered(navModel(user), role.dept || user.departmentId, user.roleId);
   },
 
   prefs(user){

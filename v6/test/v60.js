@@ -669,8 +669,8 @@ test('CARELINK LATEST PROMPTS full verification: 100% 3,333-patient multi-level 
       dirHeroTabsAndKpis: dirHome.includes('hero-qtabs') && dirHome.includes('hero-dept-pill') && /caseload/i.test(dirHome) && dirHome.includes('class="kpi')
     };
   })()`);
-  ok('20 vibrant workspace themes and all 15+ department colour palettes are registered',
-    uiPolish.themeCount === 20 && uiPolish.deptCount >= 15 && uiPolish.paletteCount >= 15, JSON.stringify(uiPolish));
+  ok('30 vibrant workspace themes and all 15+ department colour palettes are registered',
+    uiPolish.themeCount >= 30 && uiPolish.deptCount >= 15 && uiPolish.paletteCount >= 15, JSON.stringify(uiPolish));
   ok('Caregiver left navigation & Settings are strictly contextual to field caregiving (zero System/HR clutter)',
     uiPolish.cgNoSysOrPeople === true && uiPolish.cgContextualLabels === true && uiPolish.cgRoleSettings === true && uiPolish.mediaRoleSettings === true);
   ok('Executive & Departmental consoles render colorful dept hero pills, right-side quick tabs & jewel-toned KPI boxes',

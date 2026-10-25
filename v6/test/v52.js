@@ -213,7 +213,7 @@ test('studio: options are validated and personal', ()=>{
   return true;
 });
 test('studio: every preset produces a valid look and readable colours', ()=>{
-  const ids=J('STUDIO_PRESETS.map(p=>p.id)'); ok('seven presets', ids.length===7);
+  const ids=J('STUDIO_PRESETS.map(p=>p.id)'); ok('twelve presets', ids.length===12);
   as('caregiver.nyalenda');
   ids.concat(['random','random','random']).forEach(id=>{
     ok(`${id} applies`, run(`WTHEME.applyPreset(AUTH.user,'${id}').ok`));
@@ -245,8 +245,9 @@ test('studio: corners and typeface are applied, fonts are offline system fonts',
 });
 test('studio: the preferences page, actions and stylesheet carry it', ()=>{
   as('caregiver.nyalenda'); const h=run('settingsAppearance(AUTH.user)');
-  ok('studio card', h.includes('Creative studio')); ok('seven presets plus Surprise me', (h.match(/data-act="studio-preset"/g)||[]).length===8);
-  ['Corners','Typeface','Backdrop','Hero panel','Cards','Accent colour'].forEach(l=>ok(`row ${l}`, h.includes(l)));
+  const presetCount = J('STUDIO_PRESETS.length');
+  ok('studio card', h.includes('Creative studio')); ok('twelve presets plus Surprise me', (h.match(/data-act="studio-preset"/g)||[]).length===presetCount+1);
+  ['Corners','Typeface','Backdrop','Hero panel','Cards','Accent colour','Console top banner','Tab &amp; pill style','Box &amp; table borders'].forEach(l=>ok(`row ${l}`, h.includes(l)));
   ok('accent swatches are labelled', (h.match(/aria-label="(Crimson|Navy|Ochre|Teal|Green|Violet|Rose|Slate)"/g)||[]).length===8);
   ok('no em or en dashes', !/[\u2013\u2014]/.test(h));
   ['studio-set','studio-preset','studio-reset'].forEach(a=>ok(`ACTIONS has ${a}`, run(`typeof ACTIONS['${a}']==='function'`)));

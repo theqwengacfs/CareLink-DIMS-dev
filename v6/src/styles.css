@@ -328,7 +328,7 @@ table.tbl.compact th,table.tbl.compact td{padding-left:8px;padding-right:8px}
 .ai-in{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line);background:#fff}
 .ai-in input{flex:1;height:42px;border-radius:10px;border:1px solid var(--line);padding:0 13px;outline:none;font-size:13.4px;background:var(--surface-2)}
 .ai-in input:focus{border-color:var(--accent);background:#fff}
-.ai-in button{width:42px;height:42px;border-radius:10px;border:0;background:var(--accent);color:#fff;display:grid;place-items:center}
+.ai-in button{width:42px;height:42px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-ink,#fff);display:grid;place-items:center}
 
 /* ---------------- Charts ---------------- */
 .bars{display:flex;flex-direction:column;gap:11px}
@@ -358,7 +358,7 @@ table.tbl.compact th,table.tbl.compact td{padding-left:8px;padding-right:8px}
 .step{display:flex;align-items:center;gap:8px;font-size:12.2px;color:var(--muted);white-space:nowrap;padding-right:8px}
 .step .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#EDF0F4;color:var(--muted);font-size:11px;font-weight:700;flex:0 0 24px}
 .step.done .n{background:var(--ok);color:#fff} .step.done{color:var(--ok);font-weight:600}
-.step.cur .n{background:var(--accent);color:#fff;box-shadow:0 0 0 4px var(--accent-soft)} .step.cur{color:var(--ink);font-weight:650}
+.step.cur .n{background:var(--accent);color:var(--accent-ink,#fff);box-shadow:0 0 0 4px var(--accent-soft)} .step.cur{color:var(--ink);font-weight:650}
 .step:not(:last-child)::after{content:"";width:26px;height:1.5px;background:var(--line);margin-left:4px}
 .patient-card{padding:15px;border-radius:12px;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow-sm)}
 .patient-card .top{display:flex;gap:11px;align-items:flex-start}
@@ -548,7 +548,7 @@ table.tbl.compact th,table.tbl.compact td{padding-left:8px;padding-right:8px}
 @media(max-width:760px){.setting-row .ctl{justify-self:stretch}}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface-2)}
 .seg button{border:0;background:none;padding:9px 14px;font-size:13px;color:var(--muted);min-height:40px}
-.seg button.on{background:var(--brand);color:#fff}
+.seg button.on{background:var(--accent);color:var(--accent-ink,#fff)}
 
 /* ---------------- Charts ---------------- */
 .chart{width:100%;height:auto;display:block}

@@ -213,14 +213,85 @@ function navModel(user){
       { id:'weather', label:'Weather board', icon:'sun', show:has('weather.view') }
     ]}
   ];
+  /* Explicit per-account capability grants or active time-bound delegations
+     always unlock their corresponding view immediately, even if hidden from
+     that role's standard console scope. */
+  const explicitCaps = new Set(Array.isArray(user && user.permOverrides && user.permOverrides.grant) ? user.permOverrides.grant : []);
+  try{
+    const now = Date.now();
+    ((typeof DB!=='undefined' && DB.db && DB.db.delegations) || []).forEach(d=>{
+      if(d && user && d.delegateId===user.id && d.status==='active' && (!d.from || Date.parse(d.from)<=now) && (!d.to || Date.parse(d.to)>=now)){
+        (d.caps||[]).forEach(c=>explicitCaps.add(c));
+      }
+    });
+  }catch(e){}
+  const VIEW_EXPLICIT_CAPS = {
+    patients:['patient.list'], pipeline:['patient.digitise'], hardcopy:['hardcopy.intake'], waiting:['waiting.view'],
+    visits:['visit.view','visit.create'], bmiboard:['patient.view.clinical','visit.create'], schedule:['visit.create','pdca.create'],
+    visitplan:['visit.create','pdca.create'], forms:['form.view'], pdca:['pdca.create','pdca.review'],
+    households:['household.view'], repeat:['pmi.check'], cccdesk:['ccc.desk'], govdashboard:['gov.oversight'],
+    teams:['team.view'], clinicalmcm:['clinical.mcm'], intlmedical:['intl.medical'], pharmacy:['pharmacy.view'],
+    tbcare:['tb.view'], careplans:['careplan.view'], requests:['hosp.request.create','hosp.request.review'],
+    liaison:['hosp.visit.record'], recon:['hosp.receipt.review'], urgent:['urgent.view'], care:['care.view'],
+    'care-incidents':['care.incident'], reports:['report.patient_days','report.patient_figures','report.expenditure','report.executive','report.departmental'],
+    referral:['report.referral'], archive:['report.executive','report.patient_figures'], targets:['report.targets.view','report.targets.manage'],
+    conditions:['condition.aggregate','condition.sensitive'], donor:['report.executive','media.publish'], analytics:['report.patient_figures','report.executive'],
+    adminops:['admin.ops','finance.view'], finance:['finance.view'], costing:['cost.view'], budget:['finance.budget.manage'],
+    procurement:['procurement.view'], foodbudget:['procurement.view','finance.view'], media:['media.view'], studio:['media.view'],
+    consent:['media.consent.manage'], publish:['media.publish'], policy:['media.view'], pr:['pr.view'],
+    staff:['hr.view'], welfare:['welfare.view'], delegation:['delegation.manage'], vehicles:['vehicle.view'], trips:['vehicle.view'],
+    audit:['audit.view'], history:['system.audit'], security:['audit.view','system.audit'], accessaudit:['audit.view','role.manage'],
+    mergejournal:['system.audit','audit.view'], quality:['dq.manage','audit.view'], indicators:['indicator.manage'], interop:['system.config','indicator.manage'],
+    devconsole:['dev.console'], users:['user.view'], roles:['role.manage','user.approve'], governance:['user.approve','system.config'],
+    org:['org.manage'], registry:['org.manage','user.view'], workflows:['system.config'], import:['system.import'],
+    mastermap:['system.import'], masteranalysis:['system.import'], health:['system.health'], visualaudit:['system.config','system.health'],
+    backup:['system.backup'], executive:['report.executive'], compare:['report.executive'], execconsole:['exec.agenda']
+  };
+  const ROLE_NAV_EXCLUDE = {
+    director:   new Set(['attention','hardcopy','waiting','visits','schedule','visitplan','forms','households','repeat','cccdesk','teams','clinicalmcm','pharmacy','tbcare','careplans','care','security','mergejournal','masteranalysis']),
+    president:  new Set(['attention','hardcopy','waiting','visits','schedule','visitplan','forms','households','repeat','cccdesk','teams','clinicalmcm','pharmacy','tbcare','careplans','care','security','mergejournal','masteranalysis']),
+    'program.admin': new Set(['hardcopy','waiting','schedule','visitplan','forms','households','repeat','cccdesk','pharmacy','tbcare','careplans','security','mergejournal']),
+    'program.assistant': new Set(['pharmacy','tbcare','clinicalmcm','cccdesk','security','mergejournal']),
+    chief:      new Set(['hardcopy','waiting','forms','households','repeat','programdays','cccdesk','govdashboard','teams','intlmedical','pharmacy','tbcare','careplans','costing','donor','targets','executive','compare','evaluation']),
+    caregiver:  new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting']),
+    chw:        new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting','pharmacy']),
+    coordinator:new Set(['cccdesk','tbcare','costing','pharmacy']),
+    mcm:        new Set(['hardcopy','users','registry','costing']),
+    depthead:   new Set(['hardcopy','users','registry','costing','cccdesk']),
+    nurse:      new Set(['hardcopy','cccdesk','costing','analytics']),
+    liaison:    new Set(['tbcare','costing','analytics','cccdesk','hardcopy','forms']),
+    assistant:  new Set(['tbcare','pharmacy','clinicalmcm','teams','costing','cccdesk']),
+    countyadmin:new Set(['pharmacy','tbcare','careplans','cccdesk','mergejournal','security']),
+    finance:    new Set(['tbcare','teams']),
+    procurement:new Set(['tbcare','teams','costing']),
+    hr:         new Set(['teams','care']),
+    welfare:    new Set(['teams','care','registry']),
+    mediahead:  new Set(['govdashboard','teams','history','security','mergejournal','health','backup']),
+    pr:         new Set(['govdashboard','teams','history','security','mergejournal','health','backup']),
+    auditor:    new Set(['teams']),
+    me:         new Set(['hardcopy','forms','schedule','visitplan','tbcare','pharmacy','cccdesk']),
+    intldata:   new Set(['hardcopy','forms','schedule','visitplan','tbcare','pharmacy','cccdesk']),
+    'intl.medical': new Set(['hardcopy','forms','schedule','visitplan','costing','cccdesk']),
+    vehicle:    new Set(['teams']),
+    it:         new Set(['teams','costing','donor']),
+    homestay:   new Set(['cccdesk','tbcare','costing','analytics','teams'])
+  };
+  const roleExcl = user && ROLE_NAV_EXCLUDE[user.roleId] ? ROLE_NAV_EXCLUDE[user.roleId] : null;
+  const isAllowedForRoleScope = (itemId) => {
+    if(!roleExcl || !roleExcl.has(itemId)) return true;
+    const unlockCaps = VIEW_EXPLICIT_CAPS[itemId] || [];
+    return unlockCaps.some(c => explicitCaps.has(c));
+  };
   return groups
     .map(g=>({
       ...g,
       displayLabel: (typeof ROLE_CTX!=='undefined' && ROLE_CTX.groupLabel) ? ROLE_CTX.groupLabel(user, g.label) : g.label,
-      items:g.items.filter(i=> (i.show!==undefined? i.show : g.show)!==false ).map(i=>({
-        ...i,
-        label: (typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel)? ROLE_CTX.navLabel(user, i.id, i.label) : i.label
-      }))
+      items:g.items
+        .filter(i=> (i.show!==undefined? i.show : g.show)!==false && isAllowedForRoleScope(i.id))
+        .map(i=>({
+          ...i,
+          label: (typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel)? ROLE_CTX.navLabel(user, i.id, i.label) : i.label
+        }))
     }))
     .filter(g=>g.items.length);
 }
