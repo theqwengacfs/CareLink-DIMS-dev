@@ -114,7 +114,7 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   assert.equal(pc.run('REPORTS.dataQuality(AUTH.user).length'), 0);
   assert.equal(pc.run('DB.db.meta.referenceMaster.quality.passed'), true);
   assert.ok(![...kv.keys()].some((key) => key.startsWith('carelink_reference_master_v1_')), 'temporary chunks must be removed after commit');
-  const storedEnvelope = JSON.parse(kv.get('carelink_cloud_v64'));
+  const storedEnvelope = JSON.parse(kv.get('carelink_cloud_v66'));
   assert.equal(storedEnvelope.format, 'carelink-cloud-gzip-v1', 'large shared state must use compressed KV storage');
 
   const pack = await pc.run('PROD_SETUP.activateSystemGlobally({})');

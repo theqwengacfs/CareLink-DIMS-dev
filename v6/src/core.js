@@ -68,7 +68,7 @@ const Store = (()=>{
 
 /* ---------------- 2. Database ---------------- */
 const DB = {
-  KEY:'lomamo_carelink_dims_v4',
+  KEY:'lomamo_carelink_dims_v66',
   db:null,
 
   blank(){

@@ -8,13 +8,13 @@ globalThis.fetch = async (input, init = {}) => {
   const url = new URL(String(input));
   assert.equal(url.origin, 'https://kv.test');
   assert.equal(init.headers?.Authorization, 'Bearer e2e-token');
-  if (url.pathname === '/get/carelink_cloud_v64') {
-    return kvResponse({ result: kv.has('carelink_cloud_v64') ? kv.get('carelink_cloud_v64') : null });
+  if (url.pathname === '/get/carelink_cloud_v66') {
+    return kvResponse({ result: kv.has('carelink_cloud_v66') ? kv.get('carelink_cloud_v66') : null });
   }
-  if (url.pathname === '/set/carelink_cloud_v64') {
+  if (url.pathname === '/set/carelink_cloud_v66') {
     const serialized = JSON.parse(init.body);
     assert.equal(typeof serialized, 'string');
-    kv.set('carelink_cloud_v64', serialized);
+    kv.set('carelink_cloud_v66', serialized);
     return kvResponse({ result: 'OK' });
   }
   throw new Error(`Unexpected KV request: ${url.pathname}`);

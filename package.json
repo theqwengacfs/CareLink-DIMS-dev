@@ -11,7 +11,7 @@
     "build": "tsc && vite build",
     "build:reference-master": "node v6/tools/build_reference_master.js",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "test:all": "node v6/test/lint.js && node v6/test/smoke.js && node v6/test/wiring.js && node v6/test/views.js && node v6/test/v60.js && node v6/test/v61.js && node v6/test/v62.js && node v6/test/v63.js && node v6/test/v64.js && node v6/test/v65.js && node v6/test/v66.js && node v6/test/api-security.mjs && node v6/test/one-live-source.js && node v6/test/hosted-clients.js && node v6/test/hosted-e2e.js && node v6/test/reference-master-e2e.js"
+    "test:all": "node v6/test/lint.js && node v6/test/smoke.js && node v6/test/wiring.js && node v6/test/views.js && node v6/test/v60.js && node v6/test/v61.js && node v6/test/v62.js && node v6/test/v63.js && node v6/test/v64.js && node v6/test/v65.js && node v6/test/v66.js && node v6/test/api-security.mjs && node v6/test/one-live-source.js && node v6/test/hosted-clients.js && node v6/test/hosted-e2e.js && node v6/test/reference-master-e2e.js && node v6/test/kv-recovery-and-autofeed.js"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -13,9 +13,12 @@
    ============================================================ */
 
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 
-const CLOUD_KEY = 'carelink_cloud_v64';
+const CLOUD_KEY = 'carelink_cloud_v66';
 const PBKDF2_ROUNDS = 160000;
 const IDLE_SECONDS = 1800;
 
@@ -179,7 +182,20 @@ async function readKvString(key) {
   if (!payload || !Object.prototype.hasOwnProperty.call(payload, 'result')) {
     throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an invalid response; no local fallback is used.');
   }
-  return payload.result;
+  let result = payload.result;
+  /* Upstash REST POST /set/<key> stores the raw HTTP body verbatim, whereas
+     writeKvString sends JSON.stringify(String(value)). Unwrap one outer JSON
+     string literal layer when present so real Upstash KV and unit-test mocks
+     both return the exact underlying string. */
+  if (typeof result === 'string' && result.length >= 2 && result.startsWith('"') && result.endsWith('"')) {
+    try {
+      const unwrapped = JSON.parse(result);
+      if (typeof unwrapped === 'string') result = unwrapped;
+    } catch {
+      /* keep raw result string */
+    }
+  }
+  return result;
 }
 
 async function writeKvString(key, value, { exSeconds = 0 } = {}) {
@@ -199,7 +215,17 @@ async function writeKvString(key, value, { exSeconds = 0 } = {}) {
   } catch {
     throw new CloudStorageError('kv_write_failed', 'CareLink could not commit to the mandatory KV store; the change was not acknowledged.');
   }
-  if (!response.ok) {
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  const errMsg = payload && payload.error ? String(payload.error) : '';
+  if (!response.ok || errMsg) {
+    if (response.status === 413 || /max.*(request|value|record).*size|too large|entity too large/i.test(errMsg)) {
+      throw new CloudStorageError('kv_payload_too_large', errMsg || 'KV command exceeded single-key size limit.');
+    }
     throw new CloudStorageError('kv_write_failed', 'CareLink KV refused the write; the change was not acknowledged.');
   }
 }
@@ -230,9 +256,14 @@ function serializeCloudState(state) {
 }
 
 function decodeCloudState(stored) {
-  let parsed;
-  try { parsed = typeof stored === 'string' ? JSON.parse(stored) : stored; }
-  catch { throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.'); }
+  let parsed = stored;
+  try {
+    for (let depth = 0; depth < 3 && typeof parsed === 'string'; depth++) {
+      parsed = JSON.parse(parsed);
+    }
+  } catch {
+    throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.');
+  }
   if (parsed && parsed.format === CLOUD_GZIP_FORMAT) {
     if (typeof parsed.data !== 'string' || parsed.data.length > 16 * 1024 * 1024) {
       throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an invalid compressed online document; it was not replaced.');
@@ -250,6 +281,13 @@ function decodeCloudState(stored) {
   return normalizeStore(parsed);
 }
 
+const CLOUD_SHARDED_FORMAT = 'carelink-cloud-gzip-sharded-v1';
+const CLOUD_SHARD_SIZE = 700 * 1024; /* safely under Upstash Free Tier 1 MB command limit */
+
+function cloudShardKey(index) {
+  return `${CLOUD_KEY}_shard_${index}`;
+}
+
 async function loadCloudState() {
   const stored = await readKvString(CLOUD_KEY);
   /* Upstash returns null for a missing key. Only that explicit result means a
@@ -257,12 +295,69 @@ async function loadCloudState() {
   if (stored === null || stored === undefined) {
     return { state: blankStore(), driver: 'cloud-kv-redis' };
   }
-  return { state: decodeCloudState(stored), driver: 'cloud-kv-redis' };
+  let unwrapped = stored;
+  try {
+    for (let depth = 0; depth < 3 && typeof unwrapped === 'string'; depth++) {
+      unwrapped = JSON.parse(unwrapped);
+    }
+  } catch {
+    throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.');
+  }
+  if (unwrapped && unwrapped.format === CLOUD_SHARDED_FORMAT) {
+    const count = Number(unwrapped.shardCount) || 0;
+    const digests = Array.isArray(unwrapped.shardDigests) ? unwrapped.shardDigests : [];
+    if (count < 1 || count > 64 || digests.length !== count) {
+      throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an invalid sharded online manifest; it was not replaced.');
+    }
+    const parts = await Promise.all(
+      Array.from({ length: count }, (_, idx) => readKvString(cloudShardKey(idx))),
+    );
+    for (let i = 0; i < count; i++) {
+      if (typeof parts[i] !== 'string' || sha256Hex(parts[i]) !== digests[i]) {
+        throw new CloudStorageError('kv_invalid_state', `CareLink KV shard ${i + 1} failed integrity verification; the online database was not replaced.`);
+      }
+    }
+    return {
+      state: decodeCloudState({ format: CLOUD_GZIP_FORMAT, data: parts.join('') }),
+      driver: 'cloud-kv-redis',
+    };
+  }
+  return { state: decodeCloudState(unwrapped), driver: 'cloud-kv-redis' };
 }
 
 async function saveCloudState(state) {
   state.saved = nowISO();
-  await writeKvString(CLOUD_KEY, serializeCloudState(state));
+  const serialized = serializeCloudState(state);
+  try {
+    await writeKvString(CLOUD_KEY, serialized);
+  } catch (err) {
+    if (!err || err.code !== 'kv_payload_too_large') throw err;
+    /* Automatic Upstash Free-Tier fallback: if a single-key write exceeds the
+       1 MB Free-Tier command limit, shard the gzip base64 payload into 700 KB
+       keys with SHA-256 verification before committing the manifest key. */
+    let envelope;
+    try { envelope = JSON.parse(serialized); } catch { throw err; }
+    const b64 = envelope && envelope.format === CLOUD_GZIP_FORMAT && typeof envelope.data === 'string'
+      ? envelope.data
+      : zlib.gzipSync(Buffer.from(serialized), { level: 6 }).toString('base64');
+    const shards = [];
+    const shardDigests = [];
+    for (let offset = 0; offset < b64.length; offset += CLOUD_SHARD_SIZE) {
+      const part = b64.slice(offset, offset + CLOUD_SHARD_SIZE);
+      shards.push(part);
+      shardDigests.push(sha256Hex(part));
+    }
+    for (let i = 0; i < shards.length; i++) {
+      await writeKvString(cloudShardKey(i), shards[i]);
+    }
+    await writeKvString(CLOUD_KEY, JSON.stringify({
+      format: CLOUD_SHARDED_FORMAT,
+      shardCount: shards.length,
+      shardDigests,
+      saved: state.saved,
+      rev: state.rev || 1,
+    }));
+  }
 }
 
 function appendServerAudit(state, actor, action, entity, entityId, detail, meta = {}) {
@@ -662,6 +757,25 @@ Never diagnose or prescribe. Keep responses concise, structured, and grounded in
   return { ok: true, engine: 'CareLink Shared Online Intelligence', reply: lines.join('\n') };
 }
 
+function readBundledReferenceManifest() {
+  const candidates = [];
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    candidates.push(path.resolve(here, '..', 'public', 'master', 'CareLink-Reference-Master-v6.6.json'));
+  } catch { /* ignore */ }
+  try {
+    candidates.push(path.resolve(process.cwd(), 'public', 'master', 'CareLink-Reference-Master-v6.6.json'));
+  } catch { /* ignore */ }
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        return JSON.parse(fs.readFileSync(p, 'utf8'));
+      }
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
 async function handleRequest(req, res) {
   const urlObj = new URL(req.url || '/api/health', `http://${req.headers.host || 'localhost'}`);
   const rewritten = urlObj.searchParams.get('__path');
@@ -669,6 +783,38 @@ async function handleRequest(req, res) {
     ? rewritten.replace(/^\/+|\/+$/g, '')
     : urlObj.pathname.replace(/^\/?api\/?/, '').replace(/\/+$/, '');
   const method = (req.method || 'GET').toUpperCase();
+
+  /* 0. Pre-Activation Fresh First-Run Reset & Corrupted-KV Recovery:
+     Handled before unconditional loadCloudState() so an unactivated or
+     malformed KV document can be cleanly reset to Step 1 of First-Run Setup,
+     while any globally activated installation remains permanently locked. */
+  if (route === 'setup/reset-first-run' && method === 'POST') {
+    const body = await readJsonBody(req);
+    if (!body || body.confirm !== 'RESET-FIRST-RUN') {
+      return sendJson(res, 400, { ok: false, code: 'confirm_required', error: 'Pass confirm="RESET-FIRST-RUN" to reset an unactivated First-Run installation.' });
+    }
+    let existing = null;
+    try {
+      const loaded = await loadCloudState();
+      existing = loaded.state;
+    } catch (err) {
+      /* If KV itself is unreachable or unconfigured, fail closed; only recover from kv_invalid_state. */
+      if (!err || err.code !== 'kv_invalid_state') throw err;
+    }
+    if (existing && isGloballyActivated(existing)) {
+      return sendJson(res, 409, {
+        ok: false,
+        code: 'globally_activated',
+        error: 'This installation is globally activated; First-Run setup reset is permanently locked.',
+      });
+    }
+    const fresh = blankStore();
+    fresh.rev = existing && Number.isFinite(existing.rev) ? existing.rev + 1 : 1;
+    appendServerAudit(fresh, 'setup-reset', 'setup.reset_first_run', 'installation', 'online-cloud',
+      existing ? 'Unactivated First-Run installation reset for fresh commissioning' : 'Malformed KV state reset for fresh First-Run commissioning');
+    await saveCloudState(fresh);
+    return sendJson(res, 200, { ok: true, reset: true, rev: fresh.rev });
+  }
 
   const { state, driver } = await loadCloudState();
 
@@ -1294,6 +1440,83 @@ async function handleRequest(req, res) {
     job.quality = verified.quality;
     await saveCloudState(state);
     for (let i = 0; i < job.chunkCount; i++) await deleteKvKey(masterChunkKey(job.id, i));
+    return sendJson(res, 200, { ok: true, rev: state.rev, saved: state.saved, counts: verified.counts, quality: verified.quality, importId });
+  }
+
+  /* 5d. Zero-local-drive automatic cloud feed of the bundled 3,333-patient
+     100%-complete synthetic reference master (Chief Admin, pre-activation). */
+  if (route === 'master-import/auto-seed' && method === 'POST') {
+    const sess = getSession(state, req);
+    if (!sess || sess.roleId !== 'chief') {
+      return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may load the full reference dataset.' });
+    }
+    if (!state.setup || isGloballyActivated(state)) {
+      return sendJson(res, 409, { ok: false, code: 'master_import_locked', error: 'Load the full reference dataset after First-Run setup and before Global System Activation.' });
+    }
+    const live = state.db || {};
+    if (live.meta && live.meta.referenceMaster) {
+      return sendJson(res, 200, {
+        ok: true,
+        alreadyCompleted: true,
+        rev: state.rev,
+        saved: state.saved,
+        counts: live.meta.referenceMaster.counts,
+        quality: live.meta.referenceMaster.quality,
+        importId: live.meta.referenceMaster.id,
+      });
+    }
+    const manifest = readBundledReferenceManifest();
+    if (!manifest || manifest.format !== MASTER_PACKAGE_FORMAT || !Array.isArray(manifest.chunks)) {
+      return sendJson(res, 404, {
+        ok: false,
+        code: 'master_bundle_unavailable',
+        error: 'Bundled reference master not found on server filesystem; falling back to same-origin chunk stream.',
+      });
+    }
+    const base64 = manifest.chunks.join('');
+    if (base64.length !== manifest.base64Length) throw new MasterPackageError('Bundled reference master has invalid encoded length.', 'master_size_mismatch');
+    const compressed = Buffer.from(base64, 'base64');
+    if (compressed.length !== manifest.compressedBytes || crypto.createHash('sha256').update(compressed).digest('hex') !== manifest.compressedDigest) {
+      throw new MasterPackageError('Bundled reference master failed compressed SHA-256 verification.', 'master_digest_mismatch');
+    }
+    let raw;
+    try {
+      raw = zlib.brotliDecompressSync(compressed, { maxOutputLength: manifest.rawBytes + 1 }).toString('utf8');
+    } catch {
+      throw new MasterPackageError('Bundled reference master could not be decompressed.', 'master_decompression_failed');
+    }
+    if (Buffer.byteLength(raw) !== manifest.rawBytes || crypto.createHash('sha256').update(raw).digest('hex') !== manifest.digest) {
+      throw new MasterPackageError('Bundled reference master failed decompressed SHA-256 verification.', 'master_digest_mismatch');
+    }
+    const payload = JSON.parse(raw);
+    const verified = validateReferencePayload(payload);
+
+    const liveImports = Array.isArray(live.imports) ? live.imports : [];
+    for (const [key, value] of Object.entries(payload.db)) {
+      if (!SAFE_COLLECTION.test(key) || MASTER_PROTECTED_KEYS.has(key) || key === 'imports') continue;
+      live[key] = value;
+    }
+    live.imports = liveImports;
+    const importId = `REF-AUTO-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    live.imports.unshift({
+      id: importId, at: nowISO(), by: sess.userId || sess.username,
+      file: 'CareLink-Reference-Master-v6.6.json (Cloud Built-In)',
+      total: 3333, created: 3333, skipped: 0, review: 0,
+      checksum: manifest.digest, referenceMaster: true, quality: verified.quality,
+    });
+    live.meta = {
+      ...(live.meta || {}),
+      referenceMaster: {
+        id: importId, importedAt: nowISO(), importedBy: sess.username,
+        digest: manifest.digest, counts: verified.counts, quality: verified.quality,
+      },
+    };
+    state.db = live;
+    state.rev = (state.rev || 0) + 1;
+    state.deltas = [];
+    appendServerAudit(state, sess.userId || sess.username, 'data.reference_master_autoseeded', 'import', importId,
+      `Cloud built-in 100%-complete synthetic reference master auto-fed into KV: 3,333 patients, ${verified.counts.visits} visits, ${verified.counts.pdcas} PDCAs; accounts/settings preserved.`);
+    await saveCloudState(state);
     return sendJson(res, 200, { ok: true, rev: state.rev, saved: state.saved, counts: verified.counts, quality: verified.quality, importId });
   }
 
