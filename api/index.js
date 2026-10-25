@@ -104,21 +104,74 @@ function validatePrivacyPassword(pw, username = '', previousPw = '') {
   return null;
 }
 
-function kvConfig() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
-  return url && token ? { url: url.replace(/\/+$/, ''), token } : null;
+function cleanKvUrl(raw) {
+  let s = String(raw || '').trim().replace(/^["']+|["']+$/g, '').trim();
+  if (!s) return '';
+  if (/^[a-z0-9.-]+\.upstash\.io(?::\d+)?(\/.*)?$/i.test(s)) s = `https://${s}`;
+  return s.replace(/\/+$/, '');
 }
 
-function requireKv() {
-  const kv = kvConfig();
-  if (!kv) {
+function cleanKvToken(raw) {
+  return String(raw || '')
+    .trim()
+    .replace(/^["']+|["']+$/g, '')
+    .trim()
+    .replace(/^Bearer\s+/i, '')
+    .trim();
+}
+
+let _pinnedKvIndex = 0;
+
+function kvCandidates({ allowReadOnlyFallback = false } = {}) {
+  const pairs = [
+    [process.env.CARELINK_KV_REST_API_URL, process.env.CARELINK_KV_REST_API_TOKEN],
+    [process.env.KV_REST_API_URL, process.env.KV_REST_API_TOKEN],
+    [process.env.UPSTASH_REDIS_REST_URL, process.env.UPSTASH_REDIS_REST_TOKEN],
+    [process.env.STORAGE_REST_API_URL, process.env.STORAGE_REST_API_TOKEN],
+  ];
+  const out = [];
+  const seen = new Set();
+  const add = (u, t, readOnly = false) => {
+    const url = cleanKvUrl(u);
+    const token = cleanKvToken(t);
+    if (!url || !token) return;
+    const id = `${url}|${token}`;
+    if (seen.has(id)) return;
+    seen.add(id);
+    out.push({ url, token, readOnly });
+  };
+  for (const [u, t] of pairs) add(u, t, false);
+  /* Fallback cross-pairing only when env vars used mixed prefixes (e.g. KV_REST_API_URL + UPSTASH_REDIS_REST_TOKEN) */
+  if (!out.length) {
+    const anyUrl = process.env.CARELINK_KV_REST_API_URL || process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.STORAGE_REST_API_URL || '';
+    const anyTok = process.env.CARELINK_KV_REST_API_TOKEN || process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.STORAGE_REST_API_TOKEN || '';
+    add(anyUrl, anyTok, false);
+  }
+  if (allowReadOnlyFallback) {
+    add(process.env.KV_REST_API_URL, process.env.KV_REST_API_READ_ONLY_TOKEN, true);
+    add(process.env.UPSTASH_REDIS_REST_URL, process.env.UPSTASH_REDIS_REST_READ_ONLY_TOKEN, true);
+  }
+  if (out.length > 1 && _pinnedKvIndex > 0 && _pinnedKvIndex < out.length) {
+    const pinned = out[_pinnedKvIndex];
+    return [pinned, ...out.filter((_, idx) => idx !== _pinnedKvIndex)];
+  }
+  return out;
+}
+
+function kvConfig() {
+  const list = kvCandidates();
+  return list.length ? list[0] : null;
+}
+
+function requireKv(opts = {}) {
+  const list = kvCandidates(opts);
+  if (!list.length) {
     throw new CloudStorageError(
       'kv_required',
-      'CareLink online storage is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (or the Upstash equivalents) in Vercel; no local fallback is used.'
+      'CareLink online storage is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN) in Vercel; no local fallback is used.'
     );
   }
-  return kv;
+  return list[0];
 }
 
 function blankStore() {
@@ -161,8 +214,58 @@ function normalizeStore(value) {
 }
 
 const CLOUD_GZIP_FORMAT = 'carelink-cloud-gzip-v1';
-const CLOUD_COMPRESS_THRESHOLD = 6 * 1024 * 1024;
+const CLOUD_COMPRESS_THRESHOLD = 128 * 1024;
 const MAX_CLOUD_STATE_BYTES = 128 * 1024 * 1024;
+
+let _manifestReadCache = null; /* { url, at, value } — short burst coalescer on production Upstash hosts */
+let _manifestReadInflight = null;
+
+function isTestKvHost(urlStr) {
+  try {
+    return /\.test$|\.local$|^localhost$/i.test(new URL(urlStr).hostname);
+  } catch {
+    return true;
+  }
+}
+
+function invalidateManifestCache() {
+  _manifestReadCache = null;
+  _manifestReadInflight = null;
+}
+
+function classifyKvFailure(op, status, errText) {
+  const msg = String(errText || '').trim();
+  if (/WRONGTYPE/i.test(msg)) {
+    return new CloudStorageError(
+      'kv_invalid_state',
+      'CareLink KV holds a wrong-type or corrupted database key (WRONGTYPE); click Reset 4-Step Setup to clear and re-initialise it.'
+    );
+  }
+  if (op === 'write' && (status === 413 || /max[\w\s-]*(request|value|record)[\w\s-]*size|too large|entity too large/i.test(msg))) {
+    return new CloudStorageError('kv_payload_too_large', msg || 'KV command exceeded single-key size limit.');
+  }
+  if (status === 401 || status === 403 || /unauthorized|invalid[\w\s-]*token|noperm|no permissions|forbidden/i.test(msg)) {
+    const readOnlyHint = /noperm|no permissions/i.test(msg)
+      ? ' — a Read-Only token appears to be configured instead of the Read/Write REST token'
+      : '';
+    return new CloudStorageError(
+      op === 'write' ? 'kv_write_failed' : 'kv_unavailable',
+      `The mandatory CareLink KV store refused the ${op} (HTTP ${status || 401}: Upstash rejected the KV REST token${readOnlyHint}; check KV_REST_API_URL & KV_REST_API_TOKEN or UPSTASH_REDIS_REST_URL & UPSTASH_REDIS_REST_TOKEN in Vercel Environment Variables and Redeploy); no local fallback is used.`
+    );
+  }
+  if (status === 429 || /max[\w\s-]*(daily|monthly|requests?\s+limit|bandwidth)|quota|limit\s*exceeded|archived|paused/i.test(msg)) {
+    return new CloudStorageError(
+      op === 'write' ? 'kv_write_failed' : 'kv_unavailable',
+      `The mandatory CareLink KV store refused the ${op} (Upstash database quota or paused state${status ? ' HTTP ' + status : ''}: ${msg.slice(0, 150) || 'request limit reached'} — unpause/upgrade your Upstash Redis database or attach a fresh Upstash KV store in Vercel Storage); no local fallback is used.`
+    );
+  }
+  if (op === 'write') {
+    const extra = msg && msg !== 'write unavailable' ? ` (${status ? 'HTTP ' + status + ': ' : ''}${msg.slice(0, 140)})` : '';
+    return new CloudStorageError('kv_write_failed', `CareLink KV refused the write${extra}; the change was not acknowledged.`);
+  }
+  const extra = msg && msg !== 'read unavailable' ? ` (${status ? 'HTTP ' + status + ': ' : ''}${msg.slice(0, 140)})` : '';
+  return new CloudStorageError('kv_unavailable', `The mandatory CareLink KV store refused the read${extra}; no local fallback is used.`);
+}
 
 async function fetchKvWithRetry(url, init = {}, timeoutMs = 8000) {
   let lastErr = null;
@@ -189,8 +292,7 @@ async function fetchKvWithRetry(url, init = {}, timeoutMs = 8000) {
   throw lastErr || new Error('KV request failed');
 }
 
-async function readKvString(key) {
-  const kv = requireKv();
+async function readKvStringFromCandidate(kv, key) {
   let response;
   try {
     response = await fetchKvWithRetry(`${kv.url}/get/${key}`, {
@@ -199,12 +301,19 @@ async function readKvString(key) {
   } catch {
     throw new CloudStorageError('kv_unavailable', 'The mandatory CareLink KV store could not be read; no local fallback is used.');
   }
-  if (!response.ok) {
-    throw new CloudStorageError('kv_unavailable', 'The mandatory CareLink KV store refused the read; no local fallback is used.');
+  let payload = undefined;
+  try {
+    payload = await response.json();
+  } catch {
+    if (!response.ok) {
+      throw classifyKvFailure('read', response.status, '');
+    }
+    throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an unreadable response; no local fallback is used.');
   }
-  let payload;
-  try { payload = await response.json(); }
-  catch { throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an unreadable response; no local fallback is used.'); }
+  const errMsg = payload && typeof payload === 'object' && payload.error ? String(payload.error) : '';
+  if (!response.ok || errMsg) {
+    throw classifyKvFailure('read', response.status, errMsg);
+  }
   if (!payload || !Object.prototype.hasOwnProperty.call(payload, 'result')) {
     throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an invalid response; no local fallback is used.');
   }
@@ -224,39 +333,84 @@ async function readKvString(key) {
   return result;
 }
 
-async function writeKvString(key, value, { exSeconds = 0 } = {}) {
-  const kv = requireKv();
-  let response;
-  try {
-    response = await fetchKvWithRetry(`${kv.url}/set/${key}${exSeconds ? `?EX=${Math.max(60, Math.floor(exSeconds))}` : ''}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${kv.token}`,
-        'Content-Type': 'application/json',
-      },
-      /* Upstash's REST SET endpoint accepts a JSON string containing the
-         serialized value. Await the write before acknowledging it. */
-      body: JSON.stringify(String(value)),
-    }, 10000);
-  } catch {
-    throw new CloudStorageError('kv_write_failed', 'CareLink could not commit to the mandatory KV store; the change was not acknowledged.');
-  }
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-  const errMsg = payload && payload.error ? String(payload.error) : '';
-  if (!response.ok || errMsg) {
-    if (response.status === 413 || /max.*(request|value|record).*size|too large|entity too large/i.test(errMsg)) {
-      throw new CloudStorageError('kv_payload_too_large', errMsg || 'KV command exceeded single-key size limit.');
+async function readKvString(key) {
+  const candidates = kvCandidates({ allowReadOnlyFallback: true });
+  if (!candidates.length) requireKv();
+  const primary = candidates[0];
+  const canBurstCache = key === CLOUD_KEY && !isTestKvHost(primary.url);
+  if (canBurstCache) {
+    if (_manifestReadCache && _manifestReadCache.url === primary.url && (Date.now() - _manifestReadCache.at) < 1500) {
+      return _manifestReadCache.value;
     }
-    throw new CloudStorageError('kv_write_failed', 'CareLink KV refused the write; the change was not acknowledged.');
+    if (_manifestReadInflight) return _manifestReadInflight;
   }
+  const runRead = async () => {
+    let lastErr = null;
+    for (let idx = 0; idx < candidates.length; idx++) {
+      const cand = candidates[idx];
+      try {
+        const val = await readKvStringFromCandidate(cand, key);
+        if (idx > 0 && !cand.readOnly) _pinnedKvIndex = idx;
+        if (key === CLOUD_KEY && !isTestKvHost(cand.url)) {
+          _manifestReadCache = { url: cand.url, at: Date.now(), value: val };
+        }
+        return val;
+      } catch (err) {
+        lastErr = err;
+        if (err && err.code === 'kv_invalid_state') throw err;
+      }
+    }
+    throw lastErr;
+  };
+  if (!canBurstCache) return runRead();
+  _manifestReadInflight = runRead().finally(() => { _manifestReadInflight = null; });
+  return _manifestReadInflight;
+}
+
+async function writeKvString(key, value, { exSeconds = 0 } = {}) {
+  invalidateManifestCache();
+  const candidates = kvCandidates({ allowReadOnlyFallback: false });
+  if (!candidates.length) requireKv();
+  let lastErr = null;
+  for (let idx = 0; idx < candidates.length; idx++) {
+    const kv = candidates[idx];
+    let response;
+    try {
+      response = await fetchKvWithRetry(`${kv.url}/set/${key}${exSeconds ? `?EX=${Math.max(60, Math.floor(exSeconds))}` : ''}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${kv.token}`,
+          'Content-Type': 'application/json',
+        },
+        /* Upstash's REST SET endpoint accepts a JSON string containing the
+           serialized value. Await the write before acknowledging it. */
+        body: JSON.stringify(String(value)),
+      }, 10000);
+    } catch {
+      lastErr = new CloudStorageError('kv_write_failed', 'CareLink could not commit to the mandatory KV store; the change was not acknowledged.');
+      continue;
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    const errMsg = payload && payload.error ? String(payload.error) : '';
+    if (!response.ok || errMsg) {
+      const classified = classifyKvFailure('write', response.status, errMsg);
+      if (classified.code === 'kv_payload_too_large') throw classified;
+      lastErr = classified;
+      continue;
+    }
+    if (idx > 0) _pinnedKvIndex = idx;
+    return;
+  }
+  throw lastErr || new CloudStorageError('kv_write_failed', 'CareLink KV refused the write; the change was not acknowledged.');
 }
 
 async function deleteKvKey(key) {
+  invalidateManifestCache();
   const kv = requireKv();
   try {
     const response = await fetchKvWithRetry(`${kv.url}/del/${key}`, {
@@ -376,6 +530,15 @@ function buildStateHead(state) {
     sessions: state.sessions || {},
     revokedSessions: state.revokedSessions || {},
     users: compactUsers,
+    ...(() => {
+      const allDeltas = Array.isArray(state.deltas) ? state.deltas : [];
+      const recent = allDeltas.slice(-16);
+      const rawLen = Buffer.byteLength(JSON.stringify(recent));
+      if (rawLen <= 48 * 1024) {
+        return { deltas: recent, deltasComplete: recent.length === allDeltas.length };
+      }
+      return { deltas: [], deltasComplete: allDeltas.length === 0 };
+    })(),
   };
 }
 
@@ -462,9 +625,45 @@ async function loadCloudHead() {
           },
           _headOnly: true,
           _hasLargeCollections: Boolean(h.hasLargeCollections),
+          deltas: Array.isArray(h.deltas) ? h.deltas : [],
+          _headDeltasTruncated: h.deltasComplete === false,
         },
       };
     }
+  }
+  if (unwrapped && unwrapped.format === CLOUD_GZIP_FORMAT && unwrapped.head && typeof unwrapped.head === 'object') {
+    const h = unwrapped.head;
+    return {
+      driver: 'cloud-kv-redis',
+      state: {
+        setup: Boolean(h.setup),
+        globallyActivated: Boolean(h.globallyActivated),
+        rev: Number(unwrapped.rev || h.rev) || 0,
+        saved: unwrapped.saved || h.saved || null,
+        org: h.org || null,
+        creds: h.creds || {},
+        loginFailures: h.loginFailures || {},
+        sessions: h.sessions || {},
+        revokedSessions: h.revokedSessions || {},
+        db: {
+          users: Array.isArray(h.users) ? h.users : [],
+          settings: {
+            landingTheme: h.landingTheme || 'heritage',
+            consoleTheme: h.consoleTheme || 'foundation',
+            globallyActivated: Boolean(h.globallyActivated),
+            onboarding: { complete: Boolean(h.setup), step: 4 },
+          },
+          meta: {
+            demoMode: Boolean(h.demoMode),
+            globallyActivated: Boolean(h.globallyActivated),
+          },
+        },
+        _headOnly: true,
+        _hasLargeCollections: Boolean(h.hasLargeCollections),
+        deltas: Array.isArray(h.deltas) ? h.deltas : [],
+        _headDeltasTruncated: h.deltasComplete === false,
+      },
+    };
   }
   return loadCloudState({ readOnly: true });
 }
@@ -549,12 +748,20 @@ async function saveCloudState(state) {
   state.saved = nowISO();
   const rawJson = JSON.stringify(state);
   const rawBytes = Buffer.byteLength(rawJson);
+  const headSnapshot = rawBytes > CLOUD_COMPRESS_THRESHOLD ? buildStateHead(state) : null;
   const serialized = rawBytes <= CLOUD_COMPRESS_THRESHOLD
     ? rawJson
-    : JSON.stringify({ format: CLOUD_GZIP_FORMAT, data: zlib.gzipSync(Buffer.from(rawJson), { level: 6 }).toString('base64') });
+    : JSON.stringify({
+        format: CLOUD_GZIP_FORMAT,
+        rev: state.rev || 0,
+        saved: state.saved,
+        head: headSnapshot,
+        data: zlib.gzipSync(Buffer.from(rawJson), { level: 6 }).toString('base64'),
+      });
 
   const currentKvUrl = (kvConfig() && kvConfig().url) || '';
-  const shouldShardDirectly = Boolean(_shardedCapUrl && _shardedCapUrl === currentKvUrl && Buffer.byteLength(serialized) > 900 * 1024);
+  const shouldShardDirectly = Buffer.byteLength(serialized) > 900 * 1024
+    && (Boolean(_shardedCapUrl && _shardedCapUrl === currentKvUrl) || (currentKvUrl && !isTestKvHost(currentKvUrl)));
 
   if (!shouldShardDirectly) {
     try {
@@ -598,7 +805,7 @@ async function saveCloudState(state) {
   await Promise.all(
     shards.map((part, idx) => writeKvString(shardKeys[idx], part, { exSeconds: 7 * 86400 })),
   );
-  const headObj = buildStateHead(state);
+  const headObj = headSnapshot || buildStateHead(state);
   let manifestPayload = JSON.stringify({
     format: CLOUD_SHARDED_FORMAT,
     shardCount: shards.length,
@@ -1161,22 +1368,62 @@ async function handleRequest(req, res) {
   const method = (req.method || 'GET').toUpperCase();
   if ((route === '' || route === 'index') && method === 'GET') route = 'health';
 
-  /* 0. Pre-Activation Fresh First-Run Reset & Corrupted-KV Recovery:
+  /* 0a. Safe Non-Sensitive KV Connection Diagnostics (never exposes tokens or PII) */
+  if (route === 'kv-diagnostics' && method === 'GET') {
+    const cands = kvCandidates({ allowReadOnlyFallback: true });
+    if (!cands.length) {
+      return sendJson(res, 503, {
+        ok: false,
+        configured: false,
+        code: 'kv_required',
+        error: 'CareLink online storage is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN) in Vercel.',
+      });
+    }
+    const hosts = cands.map((c) => {
+      try { return new URL(c.url).host; } catch { return 'invalid-url'; }
+    });
+    try {
+      const head = await loadCloudHead();
+      return sendJson(res, 200, {
+        ok: true,
+        configured: true,
+        candidateCount: cands.length,
+        hosts,
+        rev: head.state.rev || 0,
+        setup: Boolean(head.state.setup),
+        globallyActivated: Boolean(head.state.globallyActivated),
+      });
+    } catch (err) {
+      return sendJson(res, err.statusCode || 503, {
+        ok: false,
+        configured: true,
+        candidateCount: cands.length,
+        hosts,
+        code: err.code || 'kv_unavailable',
+        error: err.message || 'CareLink KV diagnostic check failed.',
+      });
+    }
+  }
+
+  /* 0b. Pre-Activation Fresh First-Run Reset & Corrupted-KV Recovery:
      Handled before unconditional loadCloudState() so an unactivated or
-     malformed KV document can be cleanly reset to Step 1 of First-Run Setup,
-     while any globally activated installation remains permanently locked. */
+     malformed/WRONGTYPE KV document can be cleanly reset to Step 1 of First-Run
+     Setup without reading multi-megabyte shards, while any globally activated
+     installation remains permanently locked. */
   if (route === 'setup/reset-first-run' && method === 'POST') {
     const body = await readJsonBody(req);
     if (!body || body.confirm !== 'RESET-FIRST-RUN') {
       return sendJson(res, 400, { ok: false, code: 'confirm_required', error: 'Pass confirm="RESET-FIRST-RUN" to reset an unactivated First-Run installation.' });
     }
     let existing = null;
+    let hadCorruptedKey = false;
     try {
-      const loaded = await loadCloudState();
+      const loaded = await loadCloudHead();
       existing = loaded.state;
     } catch (err) {
-      /* If KV itself is unreachable or unconfigured, fail closed; only recover from kv_invalid_state. */
+      /* If KV itself is unreachable or unconfigured, fail closed; only recover from kv_invalid_state / WRONGTYPE. */
       if (!err || err.code !== 'kv_invalid_state') throw err;
+      hadCorruptedKey = true;
     }
     if (existing && isGloballyActivated(existing)) {
       return sendJson(res, 409, {
@@ -1184,6 +1431,9 @@ async function handleRequest(req, res) {
         code: 'globally_activated',
         error: 'This installation is globally activated; First-Run setup reset is permanently locked.',
       });
+    }
+    if (hadCorruptedKey) {
+      await deleteKvKey(CLOUD_KEY);
     }
     const fresh = blankStore();
     fresh.rev = existing && Number.isFinite(existing.rev) ? existing.rev + 1 : 1;
@@ -1193,8 +1443,10 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, reset: true, rev: fresh.rev });
   }
 
+  const sinceParam = route === 'state' && method === 'GET' ? Number(urlObj.searchParams.get('since') || '0') : 0;
   const isHeadRoute = (
     ((route === 'health' || route === 'bootstrap' || route === 'rev' || route === 'session/whoami') && method === 'GET') ||
+    (route === 'state' && method === 'GET' && sinceParam > 0) ||
     ((route === 'auth/login' || route === 'session/beat') && method === 'POST')
   );
   let { state, driver } = isHeadRoute
@@ -2087,6 +2339,12 @@ async function handleRequest(req, res) {
       });
     }
     if (since > 0 && since < (state.rev || 0)) {
+      if (state._headOnly && state._headDeltasTruncated) {
+        const currentDeltas = (state.deltas || []).filter((d) => d.rev > since).sort((a, b) => a.rev - b.rev);
+        if (!(currentDeltas.length > 0 && currentDeltas[0].rev <= since + 1)) {
+          state = (await loadCloudState({ readOnly: true })).state;
+        }
+      }
       const deltas = (state.deltas || []).filter((d) => d.rev > since).sort((a, b) => a.rev - b.rev);
       if (deltas.length > 0 && deltas[0].rev <= since + 1) {
         return sendJson(res, 200, {
@@ -2103,6 +2361,9 @@ async function handleRequest(req, res) {
           rev: state.rev || 0,
           saved: state.saved,
         });
+      }
+      if (state._headOnly) {
+        state = (await loadCloudState({ readOnly: true })).state;
       }
     }
     if (urlObj.searchParams.get('fast') === '1') {

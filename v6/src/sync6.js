@@ -845,8 +845,9 @@ const SYNC = {
   /* ---- live reads ------------------------------------------------------ */
   startPolling(){
     this.stopPolling();
-    const period = this.pendingRemote ? 1500 : 4000;
-    this._poll = setInterval(()=>this.tick(), period);
+    const base = this.pendingRemote ? 2000 : 10000;
+    const backoff = Math.min(60000, base * Math.pow(2, Math.min(3, this._pollErrStreak || 0)));
+    this._poll = setInterval(()=>this.tick(), backoff);
   },
   stopPolling(){ if(this._poll) clearInterval(this._poll); this._poll=null; },
 
@@ -856,7 +857,16 @@ const SYNC = {
     if(this._inflight || this._pulling || !this.sessionToken) return;
     try{
       const r = await this._json(`api/state?since=${this.rev}`);
-      if(!r || !r.ok || !r.body) return;
+      if(!r || !r.ok || !r.body){
+        const prevStreak = this._pollErrStreak || 0;
+        this._pollErrStreak = Math.min(4, prevStreak + 1);
+        if(this._poll && this._pollErrStreak !== prevStreak) this.startPolling();
+        return;
+      }
+      if(this._pollErrStreak){
+        this._pollErrStreak = 0;
+        if(this._poll) this.startPolling();
+      }
       if(r.body.unchanged){
         if(this.state !== 'connected' && this.state !== 'merge'){
           this.state = 'connected';
