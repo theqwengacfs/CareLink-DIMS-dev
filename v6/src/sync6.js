@@ -52,9 +52,13 @@ const SYNC = {
 
   async _json(url, opts={}){
     const t0 = performance.now();
-    const headers = Object.assign({}, opts.headers||{});
-    if(this.sessionToken) headers['X-CareLink-Session'] = this.sessionToken;
-    const r = await fetch(url, Object.assign({cache:'no-store'}, opts, {headers}));
+    const { preserveTokenOn401, ...fetchOpts } = opts || {};
+    const headers = Object.assign({}, fetchOpts.headers||{});
+    if(this.sessionToken){
+      headers['X-CareLink-Session'] = this.sessionToken;
+      if(!headers.Authorization && !headers.authorization) headers.Authorization = `Bearer ${this.sessionToken}`;
+    }
+    const r = await fetch(url, Object.assign({cache:'no-store'}, fetchOpts, {headers}));
     this.latency = Math.round(performance.now()-t0);
     let body = await r.json().catch(()=>({}));
     /* Vercel rejects oversized Function requests before our API can return
@@ -71,7 +75,7 @@ const SYNC = {
           : `The shared online service refused the request (HTTP ${r.status}). No success is being claimed.`
       });
     }
-    if(r.status === 401 && this.sessionToken){
+    if(r.status === 401 && this.sessionToken && !preserveTokenOn401){
       /* The host ended the session (idle window, revocation or restart). */
       this.storeToken(null);
       if(typeof SESSION !== 'undefined' && AUTH.user) SESSION.serverExpired();
@@ -97,11 +101,12 @@ const SYNC = {
       this.bump();
       /* Authentication alone is not enough: a fresh tablet must not render
          its old/empty browser document while it waits for the next poll. */
-      const pulled = await this.pullFull();
+      const pulled = await this.pullFull({ minRev: r.body.rev || 0, inlineState: r.body.inlineState || null });
       if(!pulled){
+        const detail = this.message && !/Sign-in succeeded/i.test(this.message) ? ` (${this.message})` : '';
         await this.logout();
         this.state = 'error';
-        this.message = 'Sign-in succeeded, but the shared online state could not be loaded';
+        this.message = `Sign-in succeeded, but the shared online state could not be loaded${detail}`;
         this.bump();
         return {ok:false, code:'state_unavailable', error:this.message, status:503};
       }
@@ -131,7 +136,8 @@ const SYNC = {
   async changePassword(current, next){
     const r = await this._json('api/auth/change-password', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({current, password: next})});
-    return {ok: Boolean(r.ok && r.body && r.body.ok === true), error: r.body && r.body.error};
+    if(r.ok && r.body && r.body.rev) this.rev = Math.max(this.rev || 0, Number(r.body.rev) || 0);
+    return {ok: Boolean(r.ok && r.body && r.body.ok === true), rev: r.body && r.body.rev, error: r.body && r.body.error};
   },
 
   /* ---- boot ----------------------------------------------------------- */
@@ -169,15 +175,41 @@ const SYNC = {
     this.startPolling();
   },
 
-  async pullFull(){
-    let r;
-    try{ r = await this._json('api/state'); }
-    catch(e){
+  async _sleep(ms){
+    await new Promise(resolve => setTimeout(resolve, ms));
+  },
+
+  async pullFull(opts={}){
+    const minRev = Number(opts && opts.minRev) || 0;
+    const requireReferenceMaster = Boolean(opts && opts.requireReferenceMaster);
+    const inlineState = opts && opts.inlineState && typeof opts.inlineState === 'object' ? opts.inlineState : null;
+    /* If POST /api/auth/login already included the complete non-paged Primary
+       state snapshot, adopt it directly with zero extra round-trip or replica lag. */
+    if(!requireReferenceMaster && inlineState && inlineState.db && (!Array.isArray(inlineState.pagedCollections) || inlineState.pagedCollections.length === 0)){
+      this.adoptRemote(Object.assign({}, inlineState.db), inlineState.rev || minRev, inlineState.saved);
+      this.state='connected'; this.message='Reading the shared online source'; this.bump();
+      return true;
+    }
+
+    const delays = [0, 200, 450, 900];
+    let r = null;
+    for(let attempt=0; attempt<delays.length; attempt++){
+      if(delays[attempt] > 0) await this._sleep(delays[attempt]);
+      try{
+        r = await this._json('api/state', { preserveTokenOn401: attempt < delays.length - 1 });
+      }catch(e){
+        r = null;
+      }
+      const gotRev = r && r.body ? (Number(r.body.rev) || 0) : 0;
+      const hasMaster = !requireReferenceMaster || Boolean(r && r.body && r.body.db && r.body.db.meta && r.body.db.meta.referenceMaster);
+      if(r && r.ok && r.body && r.body.db && (minRev <= 0 || gotRev >= minRev) && hasMaster) break;
+    }
+    if(!r){
       this.state='error'; this.message='The shared online state could not be read'; this.bump(); return false;
     }
     if(!r.ok || !r.body.db){
       if(r.status === 401){ this.state='idle'; this.message='Session ended — sign in again'; this.bump(); return false; }
-      this.state='error'; this.message = r.body.error || 'The shared online state could not be read'; this.bump(); return false;
+      this.state='error'; this.message = r.body.error || `The shared online state could not be read (HTTP ${r.status})`; this.bump(); return false;
     }
     const remoteDb = Object.assign({}, r.body.db);
     const paged = Array.isArray(r.body.pagedCollections) ? r.body.pagedCollections : [];
@@ -188,9 +220,21 @@ const SYNC = {
       const records = [];
       let offset = 0;
       while(true){
-        let page;
-        try{ page = await this._json(`api/state/collection?name=${encodeURIComponent(meta.name)}&offset=${offset}`); }
-        catch(e){
+        let page = null;
+        for(let pTry=0; pTry<delays.length; pTry++){
+          if(delays[pTry] > 0) await this._sleep(delays[pTry]);
+          try{
+            page = await this._json(`api/state/collection?name=${encodeURIComponent(meta.name)}&offset=${offset}`, {
+              preserveTokenOn401: pTry < delays.length - 1
+            });
+          }catch(e){
+            page = null;
+          }
+          if(page && page.ok && page.body && page.body.name === meta.name && Array.isArray(page.body.records) && page.body.rev === r.body.rev){
+            break;
+          }
+        }
+        if(!page){
           this.state='error'; this.message=`The shared online collection ${meta.name} could not be read`; this.bump(); return false;
         }
         if(!page.ok || !page.body || page.body.name !== meta.name || !Array.isArray(page.body.records) || page.body.rev !== r.body.rev){

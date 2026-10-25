@@ -160,7 +160,14 @@ const PROD_SETUP = {
         if(authoritative){ APPX.host = authoritative; SYNC.server = authoritative; }
         throw new Error((response && response.body && response.body.error) || 'The shared online database refused setup. No completion is being claimed.');
       }
-      const health = typeof hostProbe === 'function' ? await hostProbe() : null;
+      let health = null;
+      if (typeof hostProbe === 'function') {
+        for (const ms of [0, 200, 450, 900]) {
+          if (ms > 0) await new Promise(r => setTimeout(r, ms));
+          health = await hostProbe();
+          if (health && health.setup === true && health.globallyActivated !== true) break;
+        }
+      }
       if(!health || health.setup !== true || health.globallyActivated === true){
         /* The API already acknowledged a KV write.  Keep a fail-closed
            commissioned marker while verification is pending, rather than
@@ -335,6 +342,7 @@ const PROD_SETUP = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            minRev: SYNC.rev || 0,
             emailDomain: domain,
             loginUrl: portalUrl,
             activatedBy: actor.username,
@@ -360,7 +368,14 @@ const PROD_SETUP = {
         toast('Global activation not confirmed', (response && response.body && response.body.error) || 'The online source refused activation or credential provisioning.', 'err');
         return null;
       }
-      const health = typeof hostProbe === 'function' ? await hostProbe() : null;
+      let health = null;
+      if (typeof hostProbe === 'function') {
+        for (const ms of [0, 200, 450, 900]) {
+          if (ms > 0) await new Promise(r => setTimeout(r, ms));
+          health = await hostProbe();
+          if (health && health.globallyActivated === true) break;
+        }
+      }
       if(!health || health.globallyActivated !== true){
         /* The write was acknowledged, so fail closed while the confirming
            read is unavailable.  Do not issue a sheet or report success, but
