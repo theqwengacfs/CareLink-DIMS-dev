@@ -164,11 +164,36 @@ const CLOUD_GZIP_FORMAT = 'carelink-cloud-gzip-v1';
 const CLOUD_COMPRESS_THRESHOLD = 6 * 1024 * 1024;
 const MAX_CLOUD_STATE_BYTES = 128 * 1024 * 1024;
 
+async function fetchKvWithRetry(url, init = {}, timeoutMs = 8000) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let timer = null;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    let inSetup = true;
+    if (controller && timeoutMs > 0) {
+      timer = setTimeout(() => {
+        if (inSetup) return;
+        try { controller.abort(); } catch { /* ignore */ }
+      }, timeoutMs);
+    }
+    inSetup = false;
+    try {
+      const reqInit = controller ? { ...init, signal: controller.signal } : init;
+      return await fetch(url, reqInit);
+    } catch (err) {
+      lastErr = err;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+  throw lastErr || new Error('KV request failed');
+}
+
 async function readKvString(key) {
   const kv = requireKv();
   let response;
   try {
-    response = await fetch(`${kv.url}/get/${key}`, {
+    response = await fetchKvWithRetry(`${kv.url}/get/${key}`, {
       headers: { Authorization: `Bearer ${kv.token}` },
     });
   } catch {
@@ -203,7 +228,7 @@ async function writeKvString(key, value, { exSeconds = 0 } = {}) {
   const kv = requireKv();
   let response;
   try {
-    response = await fetch(`${kv.url}/set/${key}${exSeconds ? `?EX=${Math.max(60, Math.floor(exSeconds))}` : ''}`, {
+    response = await fetchKvWithRetry(`${kv.url}/set/${key}${exSeconds ? `?EX=${Math.max(60, Math.floor(exSeconds))}` : ''}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${kv.token}`,
@@ -212,7 +237,7 @@ async function writeKvString(key, value, { exSeconds = 0 } = {}) {
       /* Upstash's REST SET endpoint accepts a JSON string containing the
          serialized value. Await the write before acknowledging it. */
       body: JSON.stringify(String(value)),
-    });
+    }, 10000);
   } catch {
     throw new CloudStorageError('kv_write_failed', 'CareLink could not commit to the mandatory KV store; the change was not acknowledged.');
   }
@@ -234,11 +259,11 @@ async function writeKvString(key, value, { exSeconds = 0 } = {}) {
 async function deleteKvKey(key) {
   const kv = requireKv();
   try {
-    const response = await fetch(`${kv.url}/del/${key}`, {
+    const response = await fetchKvWithRetry(`${kv.url}/del/${key}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${kv.token}`, 'Content-Type': 'application/json' },
       body: '[]',
-    });
+    }, 5000);
     return response.ok;
   } catch {
     return false;
@@ -285,11 +310,29 @@ function decodeCloudState(stored) {
 const CLOUD_SHARDED_FORMAT = 'carelink-cloud-gzip-sharded-v1';
 const CLOUD_SHARD_SIZE = 700 * 1024; /* safely under Upstash Free Tier 1 MB command limit */
 
-function cloudShardKey(index) {
-  return `${CLOUD_KEY}_shard_${index}`;
+let _decodedCache = null; /* { cacheKey, rawJson, state } — verified against live KV manifest/envelope on every request */
+let _shardedCapUrl = '';  /* KV URL confirmed to enforce <1 MB single-key command limit */
+
+function cloudShardKey(index, rev = 0) {
+  return rev > 0 ? `${CLOUD_KEY}_r${rev}_s${index}` : `${CLOUD_KEY}_shard_${index}`;
 }
 
-async function loadCloudState() {
+function decodeCompressedEnvelopeToRaw(dataB64) {
+  if (typeof dataB64 !== 'string' || dataB64.length > 16 * 1024 * 1024) {
+    throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an invalid compressed online document; it was not replaced.');
+  }
+  try {
+    const raw = zlib.gunzipSync(Buffer.from(dataB64, 'base64'), {
+      maxOutputLength: MAX_CLOUD_STATE_BYTES + 1,
+    }).toString('utf8');
+    if (Buffer.byteLength(raw) > MAX_CLOUD_STATE_BYTES) throw new Error('state too large');
+    return raw;
+  } catch {
+    throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an unreadable compressed online document; it was not replaced.');
+  }
+}
+
+async function loadCloudState({ readOnly = false } = {}) {
   const stored = await readKvString(CLOUD_KEY);
   /* Upstash returns null for a missing key. Only that explicit result means a
      new installation; a network error or malformed value never looks empty. */
@@ -310,54 +353,134 @@ async function loadCloudState() {
     if (count < 1 || count > 64 || digests.length !== count) {
       throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an invalid sharded online manifest; it was not replaced.');
     }
-    const parts = await Promise.all(
-      Array.from({ length: count }, (_, idx) => readKvString(cloudShardKey(idx))),
-    );
+    const cacheKey = `sharded:${unwrapped.rev || 0}:${unwrapped.saved || ''}:${digests.join(',')}`;
+    if (_decodedCache && _decodedCache.cacheKey === cacheKey) {
+      if (readOnly && _decodedCache.state) {
+        return { state: _decodedCache.state, driver: 'cloud-kv-redis' };
+      }
+      if (_decodedCache.rawJson) {
+        return { state: normalizeStore(JSON.parse(_decodedCache.rawJson)), driver: 'cloud-kv-redis' };
+      }
+    }
+    const shardKeys = Array.isArray(unwrapped.shardKeys) && unwrapped.shardKeys.length === count
+      ? unwrapped.shardKeys
+      : Array.from({ length: count }, (_, idx) => cloudShardKey(idx));
+    const parts = await Promise.all(shardKeys.map((k) => readKvString(k)));
     for (let i = 0; i < count; i++) {
       if (typeof parts[i] !== 'string' || sha256Hex(parts[i]) !== digests[i]) {
         throw new CloudStorageError('kv_invalid_state', `CareLink KV shard ${i + 1} failed integrity verification; the online database was not replaced.`);
       }
     }
-    return {
-      state: decodeCloudState({ format: CLOUD_GZIP_FORMAT, data: parts.join('') }),
-      driver: 'cloud-kv-redis',
+    const rawJson = decodeCompressedEnvelopeToRaw(parts.join(''));
+    let parsedObj;
+    try { parsedObj = JSON.parse(rawJson); }
+    catch { throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.'); }
+    const normalized = normalizeStore(parsedObj);
+    _decodedCache = {
+      cacheKey,
+      rawJson,
+      state: readOnly ? normalized : normalizeStore(JSON.parse(rawJson)),
     };
+    return { state: normalized, driver: 'cloud-kv-redis' };
+  }
+  if (unwrapped && unwrapped.format === CLOUD_GZIP_FORMAT && typeof unwrapped.data === 'string') {
+    const cacheKey = `gzip:${sha256Hex(unwrapped.data)}`;
+    if (_decodedCache && _decodedCache.cacheKey === cacheKey) {
+      if (readOnly && _decodedCache.state) {
+        return { state: _decodedCache.state, driver: 'cloud-kv-redis' };
+      }
+      if (_decodedCache.rawJson) {
+        return { state: normalizeStore(JSON.parse(_decodedCache.rawJson)), driver: 'cloud-kv-redis' };
+      }
+    }
+    const rawJson = decodeCompressedEnvelopeToRaw(unwrapped.data);
+    let parsedObj;
+    try { parsedObj = JSON.parse(rawJson); }
+    catch { throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.'); }
+    const normalized = normalizeStore(parsedObj);
+    _decodedCache = {
+      cacheKey,
+      rawJson,
+      state: readOnly ? normalized : normalizeStore(JSON.parse(rawJson)),
+    };
+    return { state: normalized, driver: 'cloud-kv-redis' };
   }
   return { state: decodeCloudState(unwrapped), driver: 'cloud-kv-redis' };
 }
 
 async function saveCloudState(state) {
   state.saved = nowISO();
-  const serialized = serializeCloudState(state);
-  try {
-    await writeKvString(CLOUD_KEY, serialized);
-  } catch (err) {
-    if (!err || err.code !== 'kv_payload_too_large') throw err;
-    /* Automatic Upstash Free-Tier fallback: if a single-key write exceeds the
-       1 MB Free-Tier command limit, shard the gzip base64 payload into 700 KB
-       keys with SHA-256 verification before committing the manifest key. */
-    let envelope;
-    try { envelope = JSON.parse(serialized); } catch { throw err; }
-    const b64 = envelope && envelope.format === CLOUD_GZIP_FORMAT && typeof envelope.data === 'string'
-      ? envelope.data
-      : zlib.gzipSync(Buffer.from(serialized), { level: 6 }).toString('base64');
-    const shards = [];
-    const shardDigests = [];
-    for (let offset = 0; offset < b64.length; offset += CLOUD_SHARD_SIZE) {
-      const part = b64.slice(offset, offset + CLOUD_SHARD_SIZE);
-      shards.push(part);
-      shardDigests.push(sha256Hex(part));
+  const rawJson = JSON.stringify(state);
+  const rawBytes = Buffer.byteLength(rawJson);
+  const serialized = rawBytes <= CLOUD_COMPRESS_THRESHOLD
+    ? rawJson
+    : JSON.stringify({ format: CLOUD_GZIP_FORMAT, data: zlib.gzipSync(Buffer.from(rawJson), { level: 6 }).toString('base64') });
+
+  const currentKvUrl = (kvConfig() && kvConfig().url) || '';
+  const shouldShardDirectly = Boolean(_shardedCapUrl && _shardedCapUrl === currentKvUrl && Buffer.byteLength(serialized) > 900 * 1024);
+
+  if (!shouldShardDirectly) {
+    try {
+      await writeKvString(CLOUD_KEY, serialized);
+      if (rawBytes > CLOUD_COMPRESS_THRESHOLD) {
+        const env = JSON.parse(serialized);
+        _decodedCache = {
+          cacheKey: `gzip:${sha256Hex(env.data)}`,
+          rawJson,
+          state: normalizeStore(JSON.parse(rawJson)),
+        };
+      }
+      return;
+    } catch (err) {
+      const canFallbackToShards = Buffer.byteLength(serialized) > 900 * 1024
+        && err && (err.code === 'kv_payload_too_large' || err.code === 'kv_write_failed' || err.code === 'kv_unavailable');
+      if (!canFallbackToShards) throw err;
+      _shardedCapUrl = currentKvUrl;
     }
-    for (let i = 0; i < shards.length; i++) {
-      await writeKvString(cloudShardKey(i), shards[i]);
-    }
-    await writeKvString(CLOUD_KEY, JSON.stringify({
-      format: CLOUD_SHARDED_FORMAT,
-      shardCount: shards.length,
-      shardDigests,
-      saved: state.saved,
-      rev: state.rev || 1,
-    }));
+  }
+
+  /* Automatic Upstash Free-Tier fallback: shard the gzip base64 payload into
+     revision-keyed 700 KB chunks written in parallel with SHA-256 verification
+     before committing the manifest key. Revision-keyed shards prevent torn reads
+     when a concurrent request reads the previous manifest revision. */
+  let envelope = null;
+  try { envelope = JSON.parse(serialized); } catch { envelope = null; }
+  const b64 = envelope && envelope.format === CLOUD_GZIP_FORMAT && typeof envelope.data === 'string'
+    ? envelope.data
+    : zlib.gzipSync(Buffer.from(rawJson), { level: 6 }).toString('base64');
+  const revTag = Number(state.rev) || 1;
+  const shards = [];
+  const shardKeys = [];
+  const shardDigests = [];
+  for (let offset = 0, idx = 0; offset < b64.length; offset += CLOUD_SHARD_SIZE, idx++) {
+    const part = b64.slice(offset, offset + CLOUD_SHARD_SIZE);
+    shards.push(part);
+    shardKeys.push(cloudShardKey(idx, revTag));
+    shardDigests.push(sha256Hex(part));
+  }
+  await Promise.all(
+    shards.map((part, idx) => writeKvString(shardKeys[idx], part, { exSeconds: 7 * 86400 })),
+  );
+  await writeKvString(CLOUD_KEY, JSON.stringify({
+    format: CLOUD_SHARDED_FORMAT,
+    shardCount: shards.length,
+    shardKeys,
+    shardDigests,
+    saved: state.saved,
+    rev: revTag,
+  }));
+  _decodedCache = {
+    cacheKey: `sharded:${revTag}:${state.saved}:${shardDigests.join(',')}`,
+    rawJson,
+    state: normalizeStore(JSON.parse(rawJson)),
+  };
+  /* Best-effort cleanup of superseded shards two revisions back (keep revTag - 1
+     intact so in-flight readers and lagging Read Replicas never see missing shards). */
+  if (revTag > 2) {
+    const oldRev = revTag - 2;
+    Promise.all(
+      Array.from({ length: shards.length + 2 }, (_, idx) => deleteKvKey(cloudShardKey(idx, oldRev))),
+    ).catch(() => {});
   }
 }
 
@@ -466,12 +589,8 @@ function getSession(state, req) {
   if (state.sessions && Object.prototype.hasOwnProperty.call(state.sessions, tok)) {
     const s = state.sessions[tok];
     const age = (Date.now() - new Date(s.lastSeen || s.createdAt).getTime()) / 1000;
-    if (age > IDLE_SECONDS) {
-      delete state.sessions[tok];
-      return null;
-    }
-    s.lastSeen = nowISO();
-    return { token: tok, ...s };
+    if (age > IDLE_SECONDS) return null;
+    return { token: tok, ...s, lastSeen: nowISO() };
   }
   /* Upstash Global Redis routes writes to Primary and immediate reads (~5-300 ms
      later) to Read Replicas where `state.sessions[tok]` may not have replicated
@@ -479,6 +598,7 @@ function getSession(state, req) {
      `/api/state` and `/api/auth/change-password` calls never 401 on replica lag. */
   const verified = verifySignedSessionToken(tok);
   if (!verified) return null;
+  if (!state.setup && Object.keys(state.creds || {}).length === 0) return null;
   const cred = state.creds && Object.prototype.hasOwnProperty.call(state.creds, verified.u)
     ? state.creds[verified.u]
     : null;
@@ -730,16 +850,38 @@ function sanitizePublicSubmission(body) {
 }
 
 async function readJsonBody(req) {
-  if (req.body && typeof req.body === 'object') return req.body;
-  if (typeof req.body === 'string' && req.body.trim()) {
-    if (req.body.length > MAX_BODY_BYTES) return {};
-    try { return JSON.parse(req.body); } catch { return {}; }
+  if (Buffer.isBuffer(req.body)) {
+    if (req.body.length === 0 || req.body.length > MAX_BODY_BYTES) return {};
+    try { return JSON.parse(req.body.toString('utf8')); } catch { return {}; }
   }
+  if (req.body && typeof req.body === 'object') return req.body;
+  if (typeof req.body === 'string') {
+    const trimmed = req.body.trim();
+    if (!trimmed || trimmed.length > MAX_BODY_BYTES) return {};
+    try { return JSON.parse(trimmed); } catch { return {}; }
+  }
+  /* If Vercel's runtime already consumed/ended the incoming stream (e.g. empty
+     POST body where req.body === undefined), never wait on 'end' — it has
+     already fired and would otherwise hang until Function maxDuration. */
+  if (req.readableEnded || req.complete || typeof req.on !== 'function') return {};
   return new Promise((resolve) => {
     const chunks = [];
     let size = 0;
     let done = false;
-    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    let streamTimer = null;
+    const finish = (v) => {
+      if (!done) {
+        done = true;
+        if (streamTimer) clearTimeout(streamTimer);
+        resolve(v);
+      }
+    };
+    let inSetup = true;
+    streamTimer = setTimeout(() => {
+      if (inSetup) return;
+      finish({});
+    }, 10000);
+    inSetup = false;
     req.on('data', (c) => {
       const buf = Buffer.isBuffer(c) ? c : Buffer.from(c);
       size += buf.length;
@@ -898,7 +1040,7 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, reset: true, rev: fresh.rev });
   }
 
-  let { state, driver } = await loadCloudState();
+  let { state, driver } = await loadCloudState({ readOnly: method === 'GET' });
 
   /* 1. Health, bootstrap & revision probes */
   if ((route === 'health' || route === 'bootstrap') && method === 'GET') {
@@ -1181,39 +1323,41 @@ async function handleRequest(req, res) {
       await saveCloudState(state);
       return sendJson(res, 401, { ok: false, code: 'invalid_credentials', error: 'Invalid username or password.' });
     }
-    if (state.loginFailures) delete state.loginFailures[username];
+    const hadPriorFailures = Boolean(state.loginFailures && Object.prototype.hasOwnProperty.call(state.loginFailures, username));
+    if (hadPriorFailures) {
+      delete state.loginFailures[username];
+      pruneSessions(state);
+      appendServerAudit(state, cred.id || username, 'auth.login', 'user', cred.id || username,
+        `Online sign-in verified after prior failure reset (${cred.mustChange ? 'first-login password change required' : 'personal password'})`);
+      await saveCloudState(state);
+    }
     const token = mintSignedSessionToken(cred, username);
-    state.sessions = state.sessions || {};
-    pruneSessions(state);
-    state.sessions[token] = {
-      username,
-      userId: cred.id,
-      roleId: cred.roleId,
-      createdAt: nowISO(),
-      lastSeen: nowISO(),
-      device: String(body.device || '').slice(0, 120),
-    };
-    const userRec = ((state.db && state.db.users) || []).find((u) => String(u.username).toLowerCase() === username) || {
-      id: cred.id,
-      username: cred.username,
-      name: cred.name,
-      roleId: cred.roleId,
-      countyId: cred.countyId || 'kisumu',
-      status: 'active',
-      active: true,
-      mustChange: Boolean(cred.mustChange),
-    };
-    userRec.mustChange = Boolean(cred.mustChange);
-    appendServerAudit(state, cred.id || username, 'auth.login', 'user', cred.id || username,
-      `Online sign-in verified (${cred.mustChange ? 'first-login password change required' : 'personal password'})`);
-    await saveCloudState(state);
+    const dbMatch = ((state.db && state.db.users) || []).find((u) => String(u.username).toLowerCase() === username);
+    const userRec = sanitizeDbForClient({
+      users: [dbMatch
+        ? { ...dbMatch, mustChange: Boolean(cred.mustChange) }
+        : {
+            id: cred.id,
+            username: cred.username,
+            name: cred.name,
+            roleId: cred.roleId,
+            countyId: cred.countyId || 'kisumu',
+            status: 'active',
+            active: true,
+            mustChange: Boolean(cred.mustChange),
+          }],
+    }).users[0];
     /* Include non-paged initial state directly in the login response when under
-       the 512 KB collection threshold so post-setup Chief sign-in has the exact
-       Primary state immediately without waiting on Read Replica propagation. */
+       512 KB total so post-setup Chief sign-in adopts Primary state in a single
+       <150 ms round-trip with zero KV write contention or Read-Replica lag. */
     const split = splitLargeStateCollections(sanitizeDbForClient(state.db || {}));
-    const inlineState = split.pagedCollections.length === 0
-      ? { db: split.db, rev: state.rev || 0, saved: state.saved, pagedCollections: [] }
-      : null;
+    let inlineState = null;
+    if (split.pagedCollections.length === 0) {
+      const dbBytes = Buffer.byteLength(JSON.stringify(split.db || {}));
+      if (dbBytes <= 512 * 1024) {
+        inlineState = { db: split.db, rev: state.rev || 0, saved: state.saved, pagedCollections: [] };
+      }
+    }
     return sendJson(res, 200, {
       ok: true,
       token,
@@ -1232,6 +1376,7 @@ async function handleRequest(req, res) {
     if (sess) {
       if (state.sessions) delete state.sessions[sess.token];
       state.revokedSessions = state.revokedSessions || {};
+      pruneSessions(state);
       state.revokedSessions[sess.token] = Date.now();
       appendServerAudit(state, sess.userId || sess.username, 'auth.logout', 'user', sess.userId || sess.username, 'Signed out from online database');
       await saveCloudState(state);
@@ -1242,8 +1387,21 @@ async function handleRequest(req, res) {
   if (route === 'session/beat' && method === 'POST') {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Session expired' });
-    await saveCloudState(state);
-    return sendJson(res, 200, { ok: true, expiresIn: IDLE_SECONDS });
+    /* Stateless HMAC tokens slide their idle window by returning a refreshed
+       signed token without rewriting the multi-megabyte database every 10s. */
+    if (state.sessions && Object.prototype.hasOwnProperty.call(state.sessions, sess.token)) {
+      state.sessions[sess.token].lastSeen = nowISO();
+      await saveCloudState(state);
+      return sendJson(res, 200, { ok: true, expiresIn: IDLE_SECONDS });
+    }
+    const cred = (state.creds && state.creds[sess.username]) || {
+      id: sess.userId,
+      username: sess.username,
+      roleId: sess.roleId,
+      countyId: sess.countyId || 'kisumu',
+    };
+    const refreshedToken = mintSignedSessionToken(cred, sess.username);
+    return sendJson(res, 200, { ok: true, expiresIn: IDLE_SECONDS, token: refreshedToken });
   }
 
   if (route === 'session/whoami' && method === 'GET') {
@@ -1625,10 +1783,12 @@ async function handleRequest(req, res) {
     if (!SAFE_COLLECTION.test(name) || !source) return sendJson(res, 404, { ok: false, error: 'The requested online collection does not exist.' });
     const offset = Number(urlObj.searchParams.get('offset') || '0');
     if (!Number.isSafeInteger(offset) || offset < 0 || offset > source.length) return sendJson(res, 400, { ok: false, error: 'The collection-page offset is invalid.' });
+    const rawLimit = Number(urlObj.searchParams.get('limit') || '0');
+    const maxRecords = Number.isSafeInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 10000) : Infinity;
     const records = [];
     let bytes = 0;
     let nextOffset = offset;
-    while (nextOffset < source.length) {
+    while (nextOffset < source.length && records.length < maxRecords) {
       let record = source[nextOffset];
       if (name === 'users') record = sanitizeDbForClient({ users: [record] }).users[0];
       const size = Buffer.byteLength(JSON.stringify(record));

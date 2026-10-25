@@ -15,21 +15,21 @@
     -->
     <script>
       (function () {
-        var paths = ['public/carelink-v6.html?v=6.6.0', 'carelink-v6.html?v=6.6.0'];
+        var paths = ['carelink-v6.html?v=6.6.2', 'public/carelink-v6.html?v=6.6.2'];
         var i = 0;
         function go(p) { window.location.replace(p); }
         function tryNext() {
           if (i >= paths.length) { go(paths[0]); return; }
           var p = paths[i++];
           try {
-            fetch(p, { method: 'HEAD' })
+            fetch(p, { method: 'HEAD', cache: 'no-store' })
               .then(function (r) { if (r && r.ok) { go(p); } else { tryNext(); } })
               .catch(function () { tryNext(); });
           } catch (e) { tryNext(); }
         }
         /* A file opened straight from disk cannot be probed; the repository
            layout is the one that applies there. */
-        if (window.location.protocol === 'file:') { go(paths[0]); } else { tryNext(); }
+        if (window.location.protocol === 'file:') { go(paths[1]); } else { tryNext(); }
       })();
     </script>
     <noscript><meta http-equiv="refresh" content="0; url=public/carelink-v6.html" /></noscript>

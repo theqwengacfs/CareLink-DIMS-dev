@@ -21,7 +21,7 @@ const ONB = {
 };
 
 const LOGIN6 = {
-  tab:'signin', error:'', notice:'', busy:false, results:null,
+  tab:'signin', error:'', notice:'', busy:false, mustChangeBusy:false, results:null,
   slide:0, demoFilter:'all'
 };
 
@@ -56,7 +56,7 @@ const LOGIN_TEAM_SLIDES = [
 async function hostProbe(){
   if(typeof SYNC==='undefined' || !SYNC.available()) return null;
   try{
-    const r = await SYNC._json('api/health');
+    const r = await SYNC._json('api/health', { skipAuthHeader:true, timeoutMs:8000 });
     return r.ok ? r.body : null;
   }catch(e){ return null; }
 }
@@ -691,7 +691,7 @@ function renderMustChange(){
             <input type="checkbox" name="autoFeedCloudMaster" value="1" checked style="margin-top:2px">
             <span><b>Auto-feed complete 3,333-patient CareLink Cloud Dataset</b> into Cloud KV immediately upon saving my password (zero local file upload)</span>
           </label>` : ''}
-          <button class="btn btn-primary btn-block" type="submit">Save private password &amp; open my console</button>
+          <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.mustChangeBusy?'disabled':''}>${LOGIN6.mustChangeBusy?'Saving password &amp; loading Cloud Dataset...':'Save private password &amp; open my console'}</button>
         </form>
         <div class="lg6-foot"><button class="linkbtn" data-act="logout" type="button">Sign out instead</button></div>
       </div>
@@ -920,10 +920,15 @@ Object.assign(ACTIONS, {
     ONB.busy = true; LOGIN6.busy = true; ONB.error = ''; LOGIN6.error = ''; render();
     try {
       if (typeof SYNC !== 'undefined' && SYNC.available && SYNC.available()) {
+        clearTimeout(SYNC._timer);
+        if (SYNC.stopPolling) SYNC.stopPolling();
+        if (SYNC.storeToken) SYNC.storeToken(null);
         const res = await SYNC._json('api/setup/reset-first-run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ confirm: 'RESET-FIRST-RUN' })
+          body: JSON.stringify({ confirm: 'RESET-FIRST-RUN' }),
+          skipAuthHeader: true,
+          timeoutMs: 15000
         });
         if (!res.ok || !res.body || !res.body.ok) {
           throw new Error((res.body && res.body.error) || 'Could not reset pre-activation Cloud KV setup.');
@@ -936,14 +941,21 @@ Object.assign(ACTIONS, {
         sessionStorage.removeItem('carelink.pendingCloudAutoFeed');
       } catch (_e) {}
       if (typeof AUTH !== 'undefined' && AUTH.logout) AUTH.logout();
+      if (typeof SYNC !== 'undefined') clearTimeout(SYNC._timer);
       DB.db = DB.blank();
+      APPX.dirty = false;
       ONB.hostSetup = null;
       ONB.advice = '';
       ONB.step = 1;
       ONB.seed = 'empty';
       ONB.autoFeedCloudMaster = true;
       ONB._pendingCloudAutoFeed = false;
-      const freshHealth = await hostProbe();
+      let freshHealth = null;
+      for (const ms of [0, 200, 450, 900]) {
+        if (ms > 0) await new Promise(r => setTimeout(r, ms));
+        freshHealth = await hostProbe();
+        if (freshHealth && !freshHealth.setup) break;
+      }
       APPX.host = freshHealth;
       ONB.host = freshHealth;
       if (typeof SYNC !== 'undefined') SYNC.server = freshHealth;
@@ -1099,6 +1111,11 @@ Object.assign(FORMS, {
     LOGIN6.error=''; LOGIN6.notice=''; LOGIN6.busy=true; render();
     try{
       const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
+      if(!AUTH.user && typeof SYNC !== 'undefined'){
+        clearTimeout(SYNC._timer);
+        if(SYNC.stopPolling) SYNC.stopPolling();
+        if(SYNC.storeToken) SYNC.storeToken(null);
+      }
       let res = await AUTH.loginOnline(username, password, 'this device');
       if(!res.ok && !hosted){
         /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
@@ -1137,7 +1154,16 @@ Object.assign(FORMS, {
         render();
       }
     }catch(e){
-      LOGIN6.busy=false; LOGIN6.error='Sign-in could not complete: '+e.message; render();
+      AUTH.user = null;
+      AUTH.mustChange = false;
+      LOGIN6.busy = false;
+      LOGIN6.error = 'Sign-in could not complete: ' + (e && e.message ? e.message : String(e));
+      render();
+    }finally{
+      if(LOGIN6.busy){
+        LOGIN6.busy = false;
+        try{ render(); }catch(_e){}
+      }
     }
   },
 
@@ -1151,72 +1177,91 @@ Object.assign(FORMS, {
     if(policyErr){ LOGIN6.error = policyErr; toast('Privacy password requirement', policyErr, 'err'); return render(); }
     const strength = passwordStrength(next);
     if(strength.n < 2){ LOGIN6.error = 'Use at least 12 characters with uppercase, lowercase, digits and a symbol.'; return render(); }
-    let r = {ok:false};
-    const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
-    if(hosted){
-      if(!SYNC.sessionToken){
-        LOGIN6.error = 'The shared online session is not available. Sign in again; the password was not changed locally.';
-        return render();
+    LOGIN6.mustChangeBusy = true;
+    render();
+    try{
+      let r = {ok:false};
+      const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
+      if(hosted){
+        if(!SYNC.sessionToken){
+          LOGIN6.mustChangeBusy = false;
+          LOGIN6.error = 'The shared online session is not available. Sign in again; the password was not changed locally.';
+          return render();
+        }
+        try { r = await AUTH.changeOnServer(current, next); }
+        catch(_e) { r = {ok:false, error:'The shared online source could not be reached.'}; }
+        if(!r.ok){
+          LOGIN6.mustChangeBusy = false;
+          LOGIN6.error = r.error || 'The shared online source refused the password change. No local password change was made.';
+          return render();
+        }
+      } else if(!r.ok){
+        const currentValid = (AUTH._pw && current === AUTH._pw) || (uRec && uRec.salt && uRec.hash && strongHash(current, uRec.salt) === uRec.hash);
+        if(!currentValid){
+          LOGIN6.mustChangeBusy = false;
+          LOGIN6.error = 'Current temporary password is incorrect.';
+          toast('Incorrect current password','Enter the one-time setup or WhatsApp password you signed in with.','err');
+          return render();
+        }
+        const local = AUTH.setPassword(next);
+        if(local && local.ok === false){ LOGIN6.mustChangeBusy = false; LOGIN6.error = local.msg; return render(); }
       }
-      try { r = await AUTH.changeOnServer(current, next); }
-      catch(_e) { r = {ok:false, error:'The shared online source could not be reached.'}; }
-      if(!r.ok){
-        LOGIN6.error = r.error || 'The shared online source refused the password change. No local password change was made.';
-        return render();
+      if(AUTH.user){
+        const markActive = target => {
+          if(!target) return;
+          target.status = 'active';
+          target.active = true;
+          target.activatedAt = todayISO();
+          target.mustChange = false;
+          target.mustChangePassword = false;
+          target.dpaFirstLoginRequired = false;
+          target.passwordSetAt = todayISO();
+          target.failedLogins = 0;
+        };
+        markActive(AUTH.user);
+        if(uRec && uRec !== AUTH.user) markActive(uRec);
+        AUDIT.append({ actor:AUTH.user.id, action:'account.self_activated', entity:'user', entityId:AUTH.user.id, detail:`${AUTH.user.username} completed first-login password change & self-activated account.` });
+        DB.save();
       }
-    } else if(!r.ok){
-      const currentValid = (AUTH._pw && current === AUTH._pw) || (uRec && uRec.salt && uRec.hash && strongHash(current, uRec.salt) === uRec.hash);
-      if(!currentValid){
-        LOGIN6.error = 'Current temporary password is incorrect.';
-        toast('Incorrect current password','Enter the one-time setup or WhatsApp password you signed in with.','err');
-        return render();
-      }
-      const local = AUTH.setPassword(next);
-      if(local && local.ok === false){ LOGIN6.error = local.msg; return render(); }
-    }
-    if(AUTH.user){
-      const markActive = target => {
-        if(!target) return;
-        target.status = 'active';
-        target.active = true;
-        target.activatedAt = todayISO();
-        target.mustChange = false;
-        target.mustChangePassword = false;
-        target.dpaFirstLoginRequired = false;
-        target.passwordSetAt = todayISO();
-        target.failedLogins = 0;
-      };
-      markActive(AUTH.user);
-      if(uRec && uRec !== AUTH.user) markActive(uRec);
-      AUDIT.append({ actor:AUTH.user.id, action:'account.self_activated', entity:'user', entityId:AUTH.user.id, detail:`${AUTH.user.username} completed first-login password change & self-activated account.` });
-      DB.save();
-    }
-    AUTH.mustChange = false;
-    LOGIN6.error='';
-    NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
-    if(AUTH.user && AUTH.user.roleId==='chief' && typeof PROD_SETUP!=='undefined' && !PROD_SETUP.isGloballyActivated()){
-      let shouldAutoFeed = Boolean(ONB._pendingCloudAutoFeed || (d && d.get && d.get('autoFeedCloudMaster')));
-      try {
-        if (sessionStorage.getItem('carelink.pendingCloudAutoFeed') === '1') shouldAutoFeed = true;
-        sessionStorage.removeItem('carelink.pendingCloudAutoFeed');
-      } catch (_e) {}
-      ONB._pendingCloudAutoFeed = false;
-      const currentPatients = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
-      if (shouldAutoFeed && currentPatients < 3333 && typeof REFERENCE_MASTER !== 'undefined' && typeof REFERENCE_MASTER.autoFeedFromCloud === 'function') {
-        render();
-        const fed = await REFERENCE_MASTER.autoFeedFromCloud({ silent: true });
-        if (fed && fed.ok) {
-          toast('Password Saved & 3,333-Patient Dataset Loaded', 'All 3,333 complete patients, 44,995 visits & 18,060 PDCAs are now live in Cloud KV. Click "Activate System Globally" at the top of your console.', 'ok');
+      AUTH.mustChange = false;
+      LOGIN6.error='';
+      NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
+      if(AUTH.user && AUTH.user.roleId==='chief' && typeof PROD_SETUP!=='undefined' && !PROD_SETUP.isGloballyActivated()){
+        let shouldAutoFeed = Boolean(ONB._pendingCloudAutoFeed || (d && d.get && d.get('autoFeedCloudMaster')));
+        try {
+          if (sessionStorage.getItem('carelink.pendingCloudAutoFeed') === '1') shouldAutoFeed = true;
+          sessionStorage.removeItem('carelink.pendingCloudAutoFeed');
+        } catch (_e) {}
+        ONB._pendingCloudAutoFeed = false;
+        const currentPatients = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
+        if (shouldAutoFeed && currentPatients < 3333 && typeof REFERENCE_MASTER !== 'undefined' && typeof REFERENCE_MASTER.autoFeedFromCloud === 'function') {
+          /* Flush any queued account/audit patch first so PUT /api/state never
+             races concurrently against POST /api/master-import/auto-seed. */
+          if (hosted && typeof SYNC !== 'undefined') {
+            clearTimeout(SYNC._timer);
+            if (APPX.dirty && SYNC.push) await SYNC.push();
+          }
+          render();
+          const fed = await REFERENCE_MASTER.autoFeedFromCloud({ silent: true });
+          if (fed && fed.ok) {
+            toast('Password Saved & 3,333-Patient Dataset Loaded', 'All 3,333 complete patients, 44,995 visits & 18,060 PDCAs are now live in Cloud KV. Click "Activate System Globally" at the top of your console.', 'ok');
+          } else {
+            toast('Password Updated - Ready for Global Activation', 'Click "Auto-Feed 3,333-Patient Dataset" or "Activate System Globally" at the top of your console.', 'warn');
+          }
         } else {
-          toast('Password Updated - Ready for Global Activation', 'Click "Auto-Feed 3,333-Patient Dataset" or "Activate System Globally" at the top of your console.', 'warn');
+          toast('Password Updated - Ready for Global Activation','Click "Activate System Globally" at the top of your console to generate the Team WhatsApp Credential Sheet.','ok');
         }
       } else {
-        toast('Password Updated - Ready for Global Activation','Click "Activate System Globally" at the top of your console to generate the Team WhatsApp Credential Sheet.','ok');
+        toast('Account Activated & Private Password Saved','Your console is now open with your personal encrypted password known only to you.','ok');
       }
-    } else {
-      toast('Account Activated & Private Password Saved','Your console is now open with your personal encrypted password known only to you.','ok');
+      LOGIN6.mustChangeBusy = false;
+      render();
+    }finally{
+      if(LOGIN6.mustChangeBusy){
+        LOGIN6.mustChangeBusy = false;
+        try{ render(); }catch(_e){}
+      }
     }
-    render();
   },
 
   activate6: async (d) => {

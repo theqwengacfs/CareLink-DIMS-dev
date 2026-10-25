@@ -197,7 +197,9 @@ const REFERENCE_MASTER = {
       this.error='Only the Chief System Administrator can import the full reference master.';
       this.phase='ready'; render(); return;
     }
-    this.phase='uploading'; this.error=''; render();
+    this.phase='uploading'; this.error='';
+    if(typeof SYNC !== 'undefined') clearTimeout(SYNC._timer);
+    render();
     try{
       if(!this.uploadId){
         const start=await SYNC._json('api/master-import/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
@@ -219,7 +221,7 @@ const REFERENCE_MASTER = {
         render();
       }
       this.phase='loading'; render();
-      const done=await SYNC._json('api/master-import/finalize', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({uploadId:this.uploadId})});
+      const done=await SYNC._json('api/master-import/finalize', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({uploadId:this.uploadId}), timeoutMs:55000});
       if(!done.ok || !done.body || done.body.ok!==true) throw new Error((done.body&&done.body.error)||'The shared online source refused reference-master final validation.');
       this.result=done.body;
       const pulled=await SYNC.pullFull({ minRev: done.body.rev || 0, requireReferenceMaster: true });
@@ -256,13 +258,15 @@ const REFERENCE_MASTER = {
       return {ok:false, error:msg};
     }
     this.phase='loading'; this.error='';
+    if(typeof SYNC !== 'undefined') clearTimeout(SYNC._timer);
     if(!silent) render();
     try{
       /* Fast path: server-side zero-upload feed directly from bundled CareLink-Reference-Master-v6.6.json into KV */
       const autoRes = await SYNC._json('api/master-import/auto-seed', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ minRev: SYNC.rev || 0 })
+        body:JSON.stringify({ minRev: SYNC.rev || 0 }),
+        timeoutMs:55000
       });
       if(autoRes.ok && autoRes.body && autoRes.body.ok===true){
         this.result = autoRes.body;

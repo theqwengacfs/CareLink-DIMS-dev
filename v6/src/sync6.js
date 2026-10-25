@@ -51,15 +51,38 @@ const SYNC = {
   },
 
   async _json(url, opts={}){
-    const t0 = performance.now();
-    const { preserveTokenOn401, ...fetchOpts } = opts || {};
+    const nowMs = () => (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') ? performance.now() : Date.now();
+    const t0 = nowMs();
+    const { preserveTokenOn401, skipAuthHeader, timeoutMs = 20000, ...fetchOpts } = opts || {};
     const headers = Object.assign({}, fetchOpts.headers||{});
-    if(this.sessionToken){
+    if(this.sessionToken && !skipAuthHeader){
       headers['X-CareLink-Session'] = this.sessionToken;
       if(!headers.Authorization && !headers.authorization) headers.Authorization = `Bearer ${this.sessionToken}`;
     }
-    const r = await fetch(url, Object.assign({cache:'no-store'}, fetchOpts, {headers}));
-    this.latency = Math.round(performance.now()-t0);
+    const controller = (typeof AbortController === 'function' && timeoutMs > 0) ? new AbortController() : null;
+    let timedOut = false;
+    let timer = null;
+    let inSetup = true;
+    if(controller){
+      timer = setTimeout(() => {
+        if(inSetup) return;
+        timedOut = true;
+        try{ controller.abort(); }catch(_e){}
+      }, timeoutMs);
+    }
+    inSetup = false;
+    let r;
+    try{
+      const reqInit = Object.assign({cache:'no-store'}, fetchOpts, {headers});
+      if(controller && !reqInit.signal) reqInit.signal = controller.signal;
+      r = await fetch(url, reqInit);
+    }catch(err){
+      if(timedOut) throw new Error('The shared online service timed out while responding. Check your connection and try again.');
+      throw err;
+    }finally{
+      if(timer) clearTimeout(timer);
+    }
+    this.latency = Math.round(nowMs()-t0);
     let body = await r.json().catch(()=>({}));
     /* Vercel rejects oversized Function requests before our API can return
        JSON. Preserve that actionable failure instead of showing a generic
@@ -75,7 +98,7 @@ const SYNC = {
           : `The shared online service refused the request (HTTP ${r.status}). No success is being claimed.`
       });
     }
-    if(r.status === 401 && this.sessionToken && !preserveTokenOn401){
+    if(r.status === 401 && this.sessionToken && !preserveTokenOn401 && !skipAuthHeader){
       /* The host ended the session (idle window, revocation or restart). */
       this.storeToken(null);
       if(typeof SESSION !== 'undefined' && AUTH.user) SESSION.serverExpired();
@@ -84,12 +107,33 @@ const SYNC = {
   },
 
   async login(username, password, device){
-    let r;
-    try{
-      r = await this._json('api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({username, password, device: device || String(navigator.userAgent||'').slice(0,120)})});
-    }catch(e){
-      this.state = 'error'; this.message = 'The shared online source could not be reached'; this.bump();
+    clearTimeout(this._timer);
+    this.stopPolling();
+    const loginPayload = JSON.stringify({username, password, device: device || String(navigator.userAgent||'').slice(0,120)});
+    let r = null;
+    let netErr = null;
+    for(let attempt=0; attempt<2; attempt++){
+      try{
+        r = await this._json('api/auth/login', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: loginPayload,
+          skipAuthHeader: true,
+          timeoutMs: 15000
+        });
+        netErr = null;
+        break;
+      }catch(e){
+        netErr = e;
+        if(attempt === 0) await this._sleep(250);
+      }
+    }
+    if(!r){
+      this.state = 'error';
+      this.message = (netErr && netErr.message && /timed out/i.test(netErr.message))
+        ? netErr.message
+        : 'The shared online source could not be reached';
+      this.bump();
       return {ok:false, code:'offline', error:this.message, status:0};
     }
     if(r.ok && r.body.token){
@@ -117,8 +161,9 @@ const SYNC = {
   },
 
   async logout(){
+    clearTimeout(this._timer);
     if(this.sessionToken){
-      try{ await this._json('api/auth/logout', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}); }catch(e){}
+      try{ await this._json('api/auth/logout', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}', timeoutMs:6000}); }catch(e){}
     }
     this.storeToken(null);
     this._shadow = {};
@@ -129,8 +174,11 @@ const SYNC = {
 
   async beat(){
     if(!this.sessionToken) return null;
-    try{ const r = await this._json('api/session/beat', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
-      return r.ok ? r.body.expiresIn : null; }catch(e){ return null; }
+    try{
+      const r = await this._json('api/session/beat', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}', timeoutMs:8000});
+      if(r.ok && r.body && r.body.token) this.storeToken(r.body.token);
+      return r.ok ? r.body.expiresIn : null;
+    }catch(e){ return null; }
   },
 
   async changePassword(current, next){
@@ -191,74 +239,130 @@ const SYNC = {
       return true;
     }
 
-    const delays = [0, 200, 450, 900];
-    let r = null;
-    for(let attempt=0; attempt<delays.length; attempt++){
-      if(delays[attempt] > 0) await this._sleep(delays[attempt]);
-      try{
-        r = await this._json('api/state', { preserveTokenOn401: attempt < delays.length - 1 });
-      }catch(e){
-        r = null;
-      }
-      const gotRev = r && r.body ? (Number(r.body.rev) || 0) : 0;
-      const hasMaster = !requireReferenceMaster || Boolean(r && r.body && r.body.db && r.body.db.meta && r.body.db.meta.referenceMaster);
-      if(r && r.ok && r.body && r.body.db && (minRev <= 0 || gotRev >= minRev) && hasMaster) break;
-    }
-    if(!r){
-      this.state='error'; this.message='The shared online state could not be read'; this.bump(); return false;
-    }
-    if(!r.ok || !r.body.db){
-      if(r.status === 401){ this.state='idle'; this.message='Session ended — sign in again'; this.bump(); return false; }
-      this.state='error'; this.message = r.body.error || `The shared online state could not be read (HTTP ${r.status})`; this.bump(); return false;
-    }
-    const remoteDb = Object.assign({}, r.body.db);
-    const paged = Array.isArray(r.body.pagedCollections) ? r.body.pagedCollections : [];
-    for(const meta of paged){
-      if(!meta || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(String(meta.name||''))){
-        this.state='error'; this.message='The shared online state returned an invalid collection manifest'; this.bump(); return false;
-      }
-      const records = [];
-      let offset = 0;
-      while(true){
-        let page = null;
-        for(let pTry=0; pTry<delays.length; pTry++){
-          if(delays[pTry] > 0) await this._sleep(delays[pTry]);
+    clearTimeout(this._timer);
+    this._pulling = true;
+    try{
+      const delays = [0, 200, 450, 900];
+      let lastPullErr = null;
+      for(let fullAttempt = 0; fullAttempt < 2; fullAttempt++){
+        let r = null;
+        for(let attempt=0; attempt<delays.length; attempt++){
+          if(delays[attempt] > 0) await this._sleep(delays[attempt]);
           try{
-            page = await this._json(`api/state/collection?name=${encodeURIComponent(meta.name)}&offset=${offset}`, {
-              preserveTokenOn401: pTry < delays.length - 1
-            });
+            r = await this._json('api/state', { preserveTokenOn401: attempt < delays.length - 1 });
           }catch(e){
-            page = null;
+            r = null;
           }
-          if(page && page.ok && page.body && page.body.name === meta.name && Array.isArray(page.body.records) && page.body.rev === r.body.rev){
-            break;
+          const gotRev = r && r.body ? (Number(r.body.rev) || 0) : 0;
+          const hasMaster = !requireReferenceMaster || Boolean(r && r.body && r.body.db && r.body.db.meta && r.body.db.meta.referenceMaster);
+          if(r && r.ok && r.body && r.body.db && (minRev <= 0 || gotRev >= minRev) && hasMaster) break;
+        }
+        if(!r){
+          this.state='error'; this.message='The shared online state could not be read'; this.bump(); return false;
+        }
+        if(!r.ok || !r.body.db){
+          if(r.status === 401){ this.state='idle'; this.message='Session ended — sign in again'; this.bump(); return false; }
+          this.state='error'; this.message = r.body.error || `The shared online state could not be read (HTTP ${r.status})`; this.bump(); return false;
+        }
+        const remoteDb = Object.assign({}, r.body.db);
+        const paged = Array.isArray(r.body.pagedCollections) ? r.body.pagedCollections : [];
+        let revMoved = false;
+        const fetchPage = async (name, offset, limit) => {
+          const qs = `api/state/collection?name=${encodeURIComponent(name)}&offset=${offset}${limit ? `&limit=${limit}` : ''}`;
+          let page = null;
+          for(let pTry=0; pTry<delays.length; pTry++){
+            if(delays[pTry] > 0) await this._sleep(delays[pTry]);
+            try{
+              page = await this._json(qs, {
+                preserveTokenOn401: pTry < delays.length - 1,
+                timeoutMs: 20000
+              });
+            }catch(e){
+              page = null;
+            }
+            if(page && page.ok && page.body && page.body.name === name && Array.isArray(page.body.records)){
+              if(page.body.rev === r.body.rev) break;
+              if((Number(page.body.rev) || 0) > (Number(r.body.rev) || 0)){
+                revMoved = true;
+                break;
+              }
+            }
           }
+          return page;
+        };
+
+        const pullCollection = async (meta) => {
+          if(!meta || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(String(meta.name||''))){
+            throw new Error('The shared online state returned an invalid collection manifest');
+          }
+          const first = await fetchPage(meta.name, 0, 0);
+          if(!first) throw new Error(`The shared online collection ${meta.name} could not be read`);
+          if(!first.ok || !first.body || first.body.name !== meta.name || !Array.isArray(first.body.records) || first.body.rev !== r.body.rev){
+            throw new Error((first.body && first.body.error) || 'The shared online state changed or a collection page failed during the read; retry the sync');
+          }
+          const records = [...first.body.records];
+          if(!first.body.done){
+            let offset = Number(first.body.nextOffset);
+            if(!Number.isSafeInteger(offset) || offset <= 0){
+              throw new Error(`The shared online collection ${meta.name} did not advance safely`);
+            }
+            const safeStep = Math.max(200, Math.floor(records.length * 0.75));
+            while(offset < meta.count){
+              const waveOffsets = [];
+              for(let w=0; w<4 && (offset + w * safeStep) < meta.count; w++){
+                waveOffsets.push(offset + w * safeStep);
+              }
+              const wavePages = await Promise.all(waveOffsets.map(off => fetchPage(meta.name, off, safeStep)));
+              for(let w=0; w<wavePages.length; w++){
+                const pg = wavePages[w];
+                const expectedStart = waveOffsets[w];
+                if(!pg){
+                  throw new Error(`The shared online collection ${meta.name} could not be read`);
+                }
+                if(!pg.ok || !pg.body || pg.body.name !== meta.name || !Array.isArray(pg.body.records) || pg.body.rev !== r.body.rev){
+                  throw new Error((pg.body && pg.body.error) || 'The shared online state changed or a collection page failed during the read; retry the sync');
+                }
+                if(offset !== expectedStart) break;
+                records.push(...pg.body.records);
+                if(pg.body.done){
+                  offset = records.length;
+                  break;
+                }
+                const next = Number(pg.body.nextOffset);
+                if(!Number.isSafeInteger(next) || next <= offset){
+                  throw new Error(`The shared online collection ${meta.name} did not advance safely`);
+                }
+                offset = next;
+              }
+              this.message = `Reading shared ${meta.name}: ${Math.min(offset, meta.count)} / ${meta.count}`;
+            }
+          }
+          if(records.length !== meta.count){
+            throw new Error(`The shared online collection ${meta.name} was incomplete (${records.length} of ${meta.count})`);
+          }
+          remoteDb[meta.name] = records;
+        };
+
+        try{
+          for(let i=0; i<paged.length; i+=3){
+            await Promise.all(paged.slice(i, i+3).map(meta => pullCollection(meta)));
+          }
+          this.adoptRemote(remoteDb, r.body.rev, r.body.saved);
+          this.state='connected'; this.message='Reading the shared online source'; this.bump();
+          return true;
+        }catch(err){
+          lastPullErr = err;
+          if(revMoved && fullAttempt === 0) continue;
+          break;
         }
-        if(!page){
-          this.state='error'; this.message=`The shared online collection ${meta.name} could not be read`; this.bump(); return false;
-        }
-        if(!page.ok || !page.body || page.body.name !== meta.name || !Array.isArray(page.body.records) || page.body.rev !== r.body.rev){
-          this.state='error';
-          this.message=(page.body && page.body.error) || 'The shared online state changed or a collection page failed during the read; retry the sync';
-          this.bump(); return false;
-        }
-        records.push(...page.body.records);
-        const next = Number(page.body.nextOffset);
-        if(page.body.done) break;
-        if(!Number.isSafeInteger(next) || next <= offset){
-          this.state='error'; this.message=`The shared online collection ${meta.name} did not advance safely`; this.bump(); return false;
-        }
-        offset = next;
-        this.message=`Reading shared ${meta.name}: ${Math.min(offset, meta.count)} / ${meta.count}`;
       }
-      if(records.length !== meta.count){
-        this.state='error'; this.message=`The shared online collection ${meta.name} was incomplete (${records.length} of ${meta.count})`; this.bump(); return false;
-      }
-      remoteDb[meta.name] = records;
+      this.state='error';
+      this.message=(lastPullErr && lastPullErr.message) || 'The shared online state could not be read';
+      this.bump();
+      return false;
+    }finally{
+      this._pulling = false;
     }
-    this.adoptRemote(remoteDb, r.body.rev, r.body.saved);
-    this.state='connected'; this.message='Reading the shared online source'; this.bump();
-    return true;
   },
 
   adoptRemote(db, rev, saved){
@@ -358,12 +462,14 @@ const SYNC = {
 
   queue(){
     if(!this.available() || !this.sessionToken) return;
+    if(this._pulling || (typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading'))) return;
     clearTimeout(this._timer);
     this._timer = setTimeout(()=>this.push(), 320);
   },
 
   async push(){
-    if(this._inflight || !this.sessionToken) return;
+    if(this._inflight || this._pulling || !this.sessionToken) return;
+    if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
     const patches = this.patches();
     if(!patches.length) return;
     this._inflight = true;
