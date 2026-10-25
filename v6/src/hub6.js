@@ -624,6 +624,13 @@ const GOV6 = {
     AUDIT.append({ actor:actor.id, action:'credential.county_reset', entity:'user', entityId:target.id,
       detail:`Replacement password set by County Administrator for ${target.username}; forced change on next login enabled.` });
     DB.save();
+    if(typeof SYNC!=='undefined' && SYNC.available && SYNC.available() && SYNC.sessionToken){
+      SYNC._json('api/credentials/provision', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id:target.id, username:target.username, email:target.email, name:target.name, roleId:target.roleId, countyId:target.countyId, password:newPassword, mustChange:true })
+      }).catch(()=>{});
+    }
     return { ok:true, ceremony:c };
   },
 
@@ -653,7 +660,7 @@ const GOV6 = {
     }
     if(req){ req.status = 'approved'; req.decidedBy = actor.id; req.decidedAt = new Date().toISOString(); req.issuedUsername = uname; req.activationCode = code; }
     DB.db.pendingActivations = DB.db.pendingActivations.filter(a=>a.username!==uname);
-    DB.db.pendingActivations.push({ username:uname, code, issuedBy:actor.id, issuedAt:new Date().toISOString(), expiresAt:new Date(Date.now()+7*86400e3).toISOString(), used:false });
+    DB.db.pendingActivations.push({ id: uid('act'), username:uname, code, issuedBy:actor.id, issuedAt:new Date().toISOString(), expiresAt:new Date(Date.now()+7*86400e3).toISOString(), used:false });
     AUDIT.append({ actor:actor.id, action:'account.activation_issued', entity:'user', entityId:user.id, detail:`Issued username ${uname} with one-time activation code` });
     DB.save();
     return { ok:true, username:uname, code };
@@ -666,7 +673,7 @@ const GOV6 = {
     if(!u) return { ok:false, error:'Unknown username.' };
     const code = this.randomCode('EMG', 8);
     DB.db.emergencyCodes = DB.db.emergencyCodes.filter(e=>e.username!==u.username);
-    DB.db.emergencyCodes.push({ username:u.username, code, issuedBy:actor.id, issuedAt:new Date().toISOString(), expiresAt:new Date(Date.now()+24*3600e3).toISOString(), used:false });
+    DB.db.emergencyCodes.push({ id: uid('emg'), username:u.username, code, issuedBy:actor.id, issuedAt:new Date().toISOString(), expiresAt:new Date(Date.now()+24*3600e3).toISOString(), used:false });
     (DB.db.recoveryRequests||[]).filter(r=>r.username===u.username && r.status==='open').forEach(r=>{ r.status='code_issued'; r.code=code; });
     AUDIT.append({ actor:actor.id, action:'credential.emergency_issued', entity:'user', entityId:u.id, detail:`24-hour emergency code issued for ${u.username}` });
     DB.save();

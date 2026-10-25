@@ -430,6 +430,7 @@ function wtAutoCard(current, act){
       <em class="wt-tag">Automatic${on?' · In use':''}</em></span></button>`;
 }
 function wtGridHtml(user, act){
+  if(typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
   const cur = WTHEME.choice(user) || WTHEME.orgDefault();
   return `<div class="wt-grid">${wtAutoCard(cur, act)}${WTHEMES.map(t=>wtCard(t, cur, act)).join('')}</div>`;
 }
@@ -472,6 +473,7 @@ function visualPacksHtml(user){
 
 function openThemePicker(tab='themes'){
   const user = AUTH.user; if(!user) return;
+  if(typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
   const st = WTHEME.studio(user);
   const scale = Number((DB.db.personalPrefs[user.id]||{}).textScale)||100;
   const tabsBar = `<div class="tabs" style="margin-bottom:14px">
@@ -484,10 +486,11 @@ function openThemePicker(tab='themes'){
     <div class="grid g2" style="gap:10px">
       ${STUDIO.font.opts.map(o=>{
         const on = st.font===o.v;
-        const hStack = (STUDIO.font.headStacks && STUDIO.font.headStacks[o.v]) || 'inherit';
+        const hStack = String((STUDIO.font.headStacks && STUDIO.font.headStacks[o.v]) || '"Inter","Segoe UI",system-ui,sans-serif').replace(/"/g, "'");
+        const bStack = String((STUDIO.font.stacks && STUDIO.font.stacks[o.v]) || '"Inter","Segoe UI",system-ui,sans-serif').replace(/"/g, "'");
         return `<button class="st-pre" style="text-align:left;border:${on?'2px solid var(--accent)':'1px solid var(--line)'}" data-act="studio-font-pick" data-value="${esc(o.v)}">
           <div class="spread" style="width:100%"><b style="font-family:${esc(hStack)};font-size:15px">${esc(o.l)}</b>${on?badge('Active','b-ok',false):''}</div>
-          <span style="font-family:${esc(STUDIO.font.stacks[o.v]||'inherit')}">CareLink OS · Serving our Neighbours in Love · 3,333 Records</span>
+          <span style="font-family:${esc(bStack)}">CareLink OS · Serving our Neighbours in Love · 3,333 Records</span>
         </button>`;
       }).join('')}
     </div>

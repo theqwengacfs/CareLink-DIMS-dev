@@ -27,6 +27,20 @@ const LIVE = {
   _busy: false,
   _current: 500,
 
+  syncFromHost(){
+    if(typeof SYNC === 'undefined') return;
+    const pref = (DB.db && DB.db.personalPrefs && AUTH.user && DB.db.personalPrefs[AUTH.user.id]) || {};
+    const org = (DB.db && DB.db.settings && DB.db.settings.sync) || {};
+    if(pref.live===false || org.live===false){ this.state='off'; this.paint(); return; }
+    if(!SYNC.available()){ this.state='device'; this.paint(); return; }
+    this.lastRev = SYNC.rev || 0;
+    if(SYNC.pendingRemote) this.state = 'holding';
+    else if(SYNC.state === 'connected' || SYNC.state === 'merge' || SYNC.state === 'saving') this.state = 'live';
+    else if(SYNC.state === 'device') this.state = 'device';
+    else this.state = 'waiting';
+    this.paint();
+  },
+
   start(){
     this.stop();
     if(typeof SYNC==='undefined') return;
@@ -35,10 +49,18 @@ const LIVE = {
     const pref = (DB.db && DB.db.personalPrefs && AUTH.user && DB.db.personalPrefs[AUTH.user.id]) || {};
     const org = (DB.db && DB.db.settings && DB.db.settings.sync) || {};
     if(pref.live===false || org.live===false){ this.state='off'; this.paint(); return; }
-    this.intervalMs = Math.max(250, Number(pref.liveMs || org.liveMs || 500));
+    /* When authenticated against the shared online source, SYNC already polls
+       and reconciles incremental patches + paged collections. Delegating to SYNC
+       avoids a second 500 ms poller reading multi-megabyte KV shards or adopting
+       unpaged base snapshots that omit paged patient collections. */
+    if(SYNC.available() && SYNC.sessionToken){
+      this.syncFromHost();
+      return;
+    }
+    this.intervalMs = Math.max(1500, Number(pref.liveMs || org.liveMs || 2500));
     this._current = this.intervalMs;
-    this.state = 'waiting';           /* honest until the first successful ask */
-    this._timer = setInterval(()=>this.tick(), this._current);
+    this.state = SYNC.available() ? 'waiting' : 'device';
+    if(SYNC.available()) this._timer = setInterval(()=>this.tick(), this._current);
     this.paint();
   },
   stop(){ if(this._timer) clearInterval(this._timer); this._timer=null; this.state='off'; },
@@ -95,7 +117,8 @@ const LIVE = {
 
   async _rev(){
     try{
-      const res = await fetch('api/rev', {cache:'no-store'});
+      const url = (typeof SYNC !== 'undefined' && typeof SYNC.resolveApiUrl === 'function') ? SYNC.resolveApiUrl('api/rev') : 'api/rev';
+      const res = await fetch(url, {cache:'no-store'});
       if(!res.ok) return null;
       const b = await res.json().catch(()=>null);
       return b && typeof b.rev==='number'? b : null;
@@ -107,16 +130,26 @@ const LIVE = {
     if(!r || !r.ok || !r.body || !r.body.db){ this.state='waiting'; this.paint(); return; }
     if(typeof r.body.rev==='number' && r.body.rev < SYNC.rev) return;
     if(this.holding()){ this.state='holding'; this.pending = r.body.rev; this.paint(); return; }
+    if(Array.isArray(r.body.pagedCollections) && r.body.pagedCollections.length > 0){
+      const ok = await SYNC.pullFull({ minRev: r.body.rev || 0 });
+      if(ok){ this.lastRev = SYNC.rev; this.state = 'live'; if(typeof render==='function') render(); this.paint(); }
+      return;
+    }
     this.adopt(r.body);
   },
 
   async apply(){
     const r = await SYNC._json('api/state');
-    if(r && r.ok && r.body && r.body.db && !this.holding()) this.adopt(r.body);
+    if(!r || !r.ok || !r.body || !r.body.db || this.holding()) return;
+    if(Array.isArray(r.body.pagedCollections) && r.body.pagedCollections.length > 0){
+      const ok = await SYNC.pullFull({ minRev: r.body.rev || 0 });
+      if(ok){ this.lastRev = SYNC.rev; this.state = 'live'; if(typeof render==='function') render(); this.paint(); }
+      return;
+    }
+    this.adopt(r.body);
   },
 
   adopt(remote){
-    const before = { rev: SYNC.rev, name: AUTH.user? AUTH.user.username : null };
     DB.adopt(remote.db);
     SYNC.rev = Number(remote.rev)||0;
     SYNC.saved = remote.saved || null;
@@ -130,9 +163,13 @@ const LIVE = {
     const active = document.activeElement;
     const key = active && active.id? '#'+active.id : (active && active.getAttribute && active.getAttribute('name')? `[name="${active.getAttribute('name')}"]` : null);
     if(AUTH.user){
-      const still = DB.db.users.find(u=>u.id===AUTH.user.id);
+      const lower = String(AUTH.user.username||'').toLowerCase();
+      const still = (DB.db.users||[]).find(u => u && (
+        u.id === AUTH.user.id ||
+        String(u.username||'').toLowerCase() === lower ||
+        (AUTH.user.roleId === 'chief' && u.roleId === 'chief')
+      ));
       if(still) AUTH.user = still;
-      else { AUTH.logout(); this.paint(); return; }
     }
     if(typeof render==='function') render();
     try{ window.scrollTo(0,y); }catch(e){}

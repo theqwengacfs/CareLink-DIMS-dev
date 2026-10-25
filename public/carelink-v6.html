@@ -16,10 +16,14 @@
 :root{
   --red:#C8102E; --red-2:#E01B22; --red-dark:#95001F; --red-soft:#FDECEE;
   --ink:#15171A; --ink-2:#2B3038; --muted:#5F6B7A; --muted-2:#8A94A2;
+  --text:#15171A; --text-2:#2B3038; --text-3:#5F6B7A;
   --line:#E3E7ED; --line-2:#EDF0F4;
+  --border:#E3E7ED; --border-strong:#CBD2DC;
   --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#FAFBFC;
-  --ok:#0F7B4F; --ok-bg:#E7F6EF; --warn:#9A5B00; --warn-bg:#FFF4E0;
-  --crit:#B00020; --crit-bg:#FDECEE; --info:#1D4ED8; --info-bg:#EAF0FF;
+  --ok:#0F7B4F; --ok-bg:#E7F6EF; --ok-bd:#A7DFC7;
+  --warn:#9A5B00; --warn-bg:#FFF4E0; --warn-bd:#F2CF92;
+  --crit:#B00020; --crit-bg:#FDECEE; --crit-bd:#F5B3BD;
+  --info:#1D4ED8; --info-bg:#EAF0FF; --info-bd:#B8CDFF;
   --shadow-sm:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
   --shadow:0 2px 8px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
   --shadow-lg:0 12px 40px rgba(16,24,40,.16);
@@ -1559,6 +1563,49 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
   --ld-bg:#F8F9FC; --ld-surface:#FFFFFF; --ld-surface-2:#EFF4FB;
   --ld-ink:#0F172A; --ld-dim:#475569; --ld-border:rgba(15,23,42,.12);
 }
+/* Ten complete front-door palettes matching LANDING_THEMES */
+.ld[data-theme="heritage"]{
+  --ld-bg:#071124; --ld-surface:#0D1C38; --ld-surface-2:#122548;
+  --ld-ink:#F8FAFC; --ld-dim:#CBD5E1; --ld-border:rgba(148,197,255,.16);
+}
+.ld[data-theme="dawn"]{
+  --ld-bg:#1D0D06; --ld-surface:#2E150A; --ld-surface-2:#401F10;
+  --ld-ink:#FFF7ED; --ld-dim:#FED7AA; --ld-border:rgba(251,146,60,.24);
+}
+.ld[data-theme="clinic"]{
+  --ld-bg:#F4FAFB; --ld-surface:#FFFFFF; --ld-surface-2:#E6F4F7;
+  --ld-ink:#0F172A; --ld-dim:#334155; --ld-border:rgba(14,116,144,.18);
+}
+.ld[data-theme="editorial"]{
+  --ld-bg:#F8F4EC; --ld-surface:#FFFDF9; --ld-surface-2:#EFE6D6;
+  --ld-ink:#1C1917; --ld-dim:#57534E; --ld-border:rgba(124,45,18,.18);
+}
+.ld[data-theme="editorial"] h1{ font-family:Georgia,"Cambria","Times New Roman",serif; }
+.ld[data-theme="canopy"]{
+  --ld-bg:#051F16; --ld-surface:#0A3324; --ld-surface-2:#0F4531;
+  --ld-ink:#ECFDF5; --ld-dim:#A7F3D0; --ld-border:rgba(52,211,153,.22);
+}
+.ld[data-theme="signal"]{
+  --ld-bg:#08090C; --ld-surface:#12141A; --ld-surface-2:#1B1E27;
+  --ld-ink:#FFFFFF; --ld-dim:#D1D5DB; --ld-border:rgba(225,29,72,.28);
+}
+.ld[data-theme="sand"]{
+  --ld-bg:#FBF6EF; --ld-surface:#FFFFFF; --ld-surface-2:#F0E3CE;
+  --ld-ink:#292018; --ld-dim:#5C4A38; --ld-border:rgba(180,83,9,.20);
+}
+.ld[data-theme="violet"]{
+  --ld-bg:#110922; --ld-surface:#1D1038; --ld-surface-2:#2A1850;
+  --ld-ink:#F5F3FF; --ld-dim:#DDD6FE; --ld-border:rgba(167,139,250,.24);
+}
+.ld[data-theme="paper"]{
+  --ld-bg:#FDFDFB; --ld-surface:#FFFFFF; --ld-surface-2:#F1F1ED;
+  --ld-ink:#111827; --ld-dim:#4B5563; --ld-border:rgba(17,24,39,.16);
+}
+.ld[data-theme="spectrum"]{
+  --ld-bg:#090D18; --ld-surface:#121A2E; --ld-surface-2:#1A2542;
+  --ld-ink:#F8FAFC; --ld-dim:#CBD5E1; --ld-border:rgba(96,165,250,.24);
+}
+.ld[data-mode="light"] .ld-subhead{ color:#1E293B; }
 
 /* Soft ambient depth only - ZERO bright white haze behind hero buttons */
 .ld-aurora{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
@@ -1808,14 +1855,16 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
   .lg6-brand{ display:none; }
 }
 
-/* Tablet & compact-height screens: restore spacious vertical flow so Landing & Sign-In are never cramped */
-@media (max-width:1080px), (max-height:780px){
+/* Tablet & compact-height screens: restore spacious vertical flow so Landing & Sign-In are never cramped
+   and onscreen tablet keyboards never clip password or submit buttons. */
+@media (max-width:1200px), (max-height:860px), (pointer:coarse){
   .ld[data-front="1"], .ld.ld-front{
     height:auto !important;
     max-height:none !important;
     min-height:100dvh;
     overflow-y:auto !important;
     overflow-x:clip !important;
+    -webkit-overflow-scrolling:touch;
   }
   .ld[data-front="1"] .ld-top, .ld.ld-front .ld-top{
     padding:14px clamp(18px,4vw,36px);
@@ -1835,22 +1884,86 @@ html[data-zoom="110"] .has-pane>.cbar .sync-detail,html[data-zoom="125"] .has-pa
     max-height:none !important;
     min-height:100dvh;
     overflow-y:auto !important;
+    -webkit-overflow-scrolling:touch;
   }
   .lg6-panel{
     overflow:visible !important;
     justify-content:flex-start;
-    padding:22px 18px 34px;
+    padding:22px 18px 40px;
+  }
+  .lg6-body{
+    overflow:visible !important;
   }
 }
-@media (min-width:700px) and (max-width:1080px){
+@media (min-width:700px) and (max-width:1180px){
   .ld[data-front="1"] .ld-hero-tight, .ld.ld-front .ld-hero-tight{
     grid-template-columns:1fr;
     max-width:820px;
     margin-inline:auto;
   }
   .lg6-card{
-    width:min(520px, 100%);
+    width:min(530px, 100%);
     padding:22px 24px;
+  }
+}
+
+/* Password Show/Hide toggle & tablet 16px zero-zoom touch comfort */
+.pw-wrap{
+  position:relative;
+  display:flex;
+  align-items:center;
+}
+.pw-wrap .input{
+  padding-right:42px !important;
+  width:100%;
+}
+.pw-eye{
+  position:absolute;
+  right:4px;
+  top:50%;
+  transform:translateY(-50%);
+  width:34px;
+  height:34px;
+  border-radius:8px;
+  border:0;
+  background:transparent;
+  color:var(--text-3, var(--muted));
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+.pw-eye:hover{
+  background:var(--hover, rgba(15,23,42,.06));
+  color:var(--text, var(--ink));
+}
+@media (pointer:coarse), (max-width:1180px){
+  .lg6-body .input,
+  .pw-wrap .input{
+    font-size:16px !important; /* prevents iOS/iPadOS Safari auto-zoom on focus */
+    min-height:44px;
+    padding:9px 12px;
+  }
+  .pw-eye{
+    width:40px;
+    height:40px;
+  }
+  .lg-tab{
+    min-height:38px;
+    font-size:12.5px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .lg6-card .btn-block{
+    min-height:46px;
+    font-size:15px;
+  }
+  .linkbtn{
+    min-height:34px;
+    display:inline-flex;
+    align-items:center;
+    padding:4px 2px;
   }
 }
 
@@ -3266,7 +3379,6 @@ html[data-calm="on"] *{animation-duration:.001ms!important;transition-duration:.
   .shell.has-pane:not(.np-rail) .topbar.cbar .live-pill .live-t{ display:none; }
   .shell.has-pane:not(.np-rail) .topbar.cbar .me-btn .me-nm{ display:none; }
   .shell.has-pane:not(.np-rail) .topbar.cbar .cb-id{ max-width:210px; }
-}
 }
 @media (max-width:1040px){
   .topbar.cbar .tb-ai-label{ display:none !important; }
@@ -4994,7 +5106,7 @@ details.cl-util-menu > summary::-webkit-details-marker{ display:none; }
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,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";
-window.BUILD_STAMP = "2026-10-25 12:50";
+window.BUILD_STAMP = "2026-10-25 13:48";
 </script>
 <script>
 /* ============================================================
@@ -8000,6 +8112,37 @@ const DB = {
     return this._vIdx.get(patientId) || [];
   },
 
+  PREFS_KEY: 'carelink.prefs.v6',
+  saveLocalPrefs(){
+    try{
+      if(!this.db) return;
+      const snap = {
+        personalPrefs: this.db.personalPrefs || {},
+        landingTheme: this.db.settings && this.db.settings.landingTheme,
+        consoleTheme: this.db.settings && this.db.settings.consoleTheme,
+        consoleThemeExplicit: Boolean(this.db.settings && this.db.settings.consoleThemeExplicit)
+      };
+      Store.set(this.PREFS_KEY, JSON.stringify(snap));
+    }catch(_e){}
+  },
+  loadLocalPrefs(){
+    try{
+      const raw = Store.get(this.PREFS_KEY);
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(_e){ return null; }
+  },
+  persistState(){
+    if(!this.db) return;
+    this.saveLocalPrefs();
+    const hostedLarge = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() && SYNC.sessionToken &&
+      Array.isArray(this.db.patients) && this.db.patients.length > 500;
+    if(hostedLarge){
+      try{ Store.del(this.KEY); }catch(_e){}
+    } else {
+      try{ Store.set(this.KEY, JSON.stringify(this.db)); }catch(_e){}
+    }
+  },
   load(){
     const raw = Store.get(this.KEY);
     if(raw){
@@ -8019,6 +8162,15 @@ const DB = {
     }
     if(!this.db.meta) this.db.meta = this.blank().meta;
     this.migrate();
+    const localPrefs = this.loadLocalPrefs();
+    if(localPrefs && localPrefs.personalPrefs && typeof localPrefs.personalPrefs === 'object'){
+      this.db.personalPrefs = this.db.personalPrefs || {};
+      for(const [uidKey, pVal] of Object.entries(localPrefs.personalPrefs)){
+        if(pVal && typeof pVal === 'object'){
+          this.db.personalPrefs[uidKey] = Object.assign({}, pVal, this.db.personalPrefs[uidKey] || {});
+        }
+      }
+    }
     return this.db;
   },
   /* A console that has been in use since an earlier release must not break
@@ -8047,7 +8199,7 @@ const DB = {
     if(!this.db) return;
     this.db.meta.saved = todayISO();
     this.db.meta.localEditedAt = new Date().toISOString();
-    Store.set(this.KEY, JSON.stringify(this.db));
+    this.persistState();
     if(typeof APPX!=='undefined') APPX.dirty = true;
     if(AUTH.user) AUTH.touch();
     if(typeof SYNC!=='undefined') SYNC.queue();
@@ -8058,9 +8210,16 @@ const DB = {
      person at this screen, not to the central record. */
   adopt(remote){
     if(!remote || !remote.meta) return false;
+    const prevPrefs = (this.db && this.db.personalPrefs) || {};
     this.db = remote;
     this.migrate();
-    try{ Store.set(this.KEY, JSON.stringify(this.db)); }catch(e){}
+    this.db.personalPrefs = Object.assign({}, prevPrefs, this.db.personalPrefs || {});
+    for(const [uidKey, pVal] of Object.entries(prevPrefs)){
+      if(pVal && typeof pVal === 'object'){
+        this.db.personalPrefs[uidKey] = Object.assign({}, pVal, (remote.personalPrefs && remote.personalPrefs[uidKey]) || {});
+      }
+    }
+    this.persistState();
     return true;
   },
   reset(){ this.db = this.blank(); this.save(); },
@@ -8208,8 +8367,35 @@ const AUTH = {
     const localOk = this.user.hash && this.user.salt && this.user.hash===strongHash(password,this.user.salt);
     const rememberedOk = verifier && verifier.hash===strongHash(password,verifier.salt);
     if(!localOk && !rememberedOk) return {ok:false,msg:'Incorrect password'};
-    this.touch(); AUDIT.append({actor:this.user.id,action:'session.unlock',entity:'user',entityId:this.user.id,detail:'Session resumed'});
+    this.touch();
+    if(typeof SESSION !== 'undefined' && SESSION.touch) SESSION.touch();
+    AUDIT.append({actor:this.user.id,action:'session.unlock',entity:'user',entityId:this.user.id,detail:'Session resumed'});
     return {ok:true};
+  },
+  async unlockOnline(password){
+    const local = this.unlock(password);
+    if(local.ok) return local;
+    if(!this.user || typeof SYNC === 'undefined' || !SYNC.available()) return local;
+    try{
+      const r = await SYNC._json('api/auth/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ username: this.user.username, password: String(password||'') }),
+        skipAuthHeader: true,
+        timeoutMs: 12000
+      });
+      if(r && r.ok && r.body && r.body.token){
+        SYNC.storeToken(r.body.token);
+        this._rememberVerifier(this.user, String(password||''));
+        this.touch();
+        if(typeof SESSION !== 'undefined' && SESSION.touch) SESSION.touch();
+        AUDIT.append({actor:this.user.id,action:'session.unlock',entity:'user',entityId:this.user.id,detail:'Session unlocked online'});
+        return {ok:true};
+      }
+      return {ok:false, msg:(r && r.body && r.body.error) || 'Incorrect password'};
+    }catch(_e){
+      return local;
+    }
   },
   setPassword(pw){
     if(!this.user) return {ok:false,msg:'No active session.'};
@@ -8275,9 +8461,14 @@ const AUTH = {
     this._rememberVerifier(u, password);
     this.user = u; this.online = true; this.mustChange = !!r.mustChange;
     this.session = {started:todayISO(), last:Date.now(), token:'srv', mustChange:this.mustChange};
-    AUDIT.append({actor:u.id, action:'auth.login', entity:'user', entityId:u.id,
-      detail:'Signed in — password verified on the shared online source', meta:{role:u.roleId, mustChange:this.mustChange}});
-    DB.save(); this.emit();
+    if(!this.mustChange){
+      AUDIT.append({actor:u.id, action:'auth.login', entity:'user', entityId:u.id,
+        detail:'Signed in — password verified on the shared online source', meta:{role:u.roleId, mustChange:this.mustChange}});
+      DB.save();
+    } else {
+      DB.saveLocalPrefs();
+    }
+    this.emit();
     return {ok:true, user:u, mustChange:this.mustChange};
   },
 
@@ -8367,7 +8558,7 @@ const RBAC = {
   /* Central authorisation decision. Returns {ok, reason}. */
   can(user, cap, ctx={}){
     if(!user) return {ok:false, reason:'No authenticated session'};
-    if(user.status!=='active') return {ok:false, reason:`Account is ${user.status}`};
+    if(!['active','pending_activation'].includes(user.status)) return {ok:false, reason:`Account is ${user.status}`};
     const role = roleObj(user.roleId)||{scope:{}};
     const scope = role.scope||{};
     if(!this.permsFor(user).has(cap)) return {ok:false, reason:`Role "${role.name}" does not hold ${cap}`};
@@ -14809,6 +15000,20 @@ const LIVE = {
   _busy: false,
   _current: 500,
 
+  syncFromHost(){
+    if(typeof SYNC === 'undefined') return;
+    const pref = (DB.db && DB.db.personalPrefs && AUTH.user && DB.db.personalPrefs[AUTH.user.id]) || {};
+    const org = (DB.db && DB.db.settings && DB.db.settings.sync) || {};
+    if(pref.live===false || org.live===false){ this.state='off'; this.paint(); return; }
+    if(!SYNC.available()){ this.state='device'; this.paint(); return; }
+    this.lastRev = SYNC.rev || 0;
+    if(SYNC.pendingRemote) this.state = 'holding';
+    else if(SYNC.state === 'connected' || SYNC.state === 'merge' || SYNC.state === 'saving') this.state = 'live';
+    else if(SYNC.state === 'device') this.state = 'device';
+    else this.state = 'waiting';
+    this.paint();
+  },
+
   start(){
     this.stop();
     if(typeof SYNC==='undefined') return;
@@ -14817,10 +15022,18 @@ const LIVE = {
     const pref = (DB.db && DB.db.personalPrefs && AUTH.user && DB.db.personalPrefs[AUTH.user.id]) || {};
     const org = (DB.db && DB.db.settings && DB.db.settings.sync) || {};
     if(pref.live===false || org.live===false){ this.state='off'; this.paint(); return; }
-    this.intervalMs = Math.max(250, Number(pref.liveMs || org.liveMs || 500));
+    /* When authenticated against the shared online source, SYNC already polls
+       and reconciles incremental patches + paged collections. Delegating to SYNC
+       avoids a second 500 ms poller reading multi-megabyte KV shards or adopting
+       unpaged base snapshots that omit paged patient collections. */
+    if(SYNC.available() && SYNC.sessionToken){
+      this.syncFromHost();
+      return;
+    }
+    this.intervalMs = Math.max(1500, Number(pref.liveMs || org.liveMs || 2500));
     this._current = this.intervalMs;
-    this.state = 'waiting';           /* honest until the first successful ask */
-    this._timer = setInterval(()=>this.tick(), this._current);
+    this.state = SYNC.available() ? 'waiting' : 'device';
+    if(SYNC.available()) this._timer = setInterval(()=>this.tick(), this._current);
     this.paint();
   },
   stop(){ if(this._timer) clearInterval(this._timer); this._timer=null; this.state='off'; },
@@ -14877,7 +15090,8 @@ const LIVE = {
 
   async _rev(){
     try{
-      const res = await fetch('api/rev', {cache:'no-store'});
+      const url = (typeof SYNC !== 'undefined' && typeof SYNC.resolveApiUrl === 'function') ? SYNC.resolveApiUrl('api/rev') : 'api/rev';
+      const res = await fetch(url, {cache:'no-store'});
       if(!res.ok) return null;
       const b = await res.json().catch(()=>null);
       return b && typeof b.rev==='number'? b : null;
@@ -14889,16 +15103,26 @@ const LIVE = {
     if(!r || !r.ok || !r.body || !r.body.db){ this.state='waiting'; this.paint(); return; }
     if(typeof r.body.rev==='number' && r.body.rev < SYNC.rev) return;
     if(this.holding()){ this.state='holding'; this.pending = r.body.rev; this.paint(); return; }
+    if(Array.isArray(r.body.pagedCollections) && r.body.pagedCollections.length > 0){
+      const ok = await SYNC.pullFull({ minRev: r.body.rev || 0 });
+      if(ok){ this.lastRev = SYNC.rev; this.state = 'live'; if(typeof render==='function') render(); this.paint(); }
+      return;
+    }
     this.adopt(r.body);
   },
 
   async apply(){
     const r = await SYNC._json('api/state');
-    if(r && r.ok && r.body && r.body.db && !this.holding()) this.adopt(r.body);
+    if(!r || !r.ok || !r.body || !r.body.db || this.holding()) return;
+    if(Array.isArray(r.body.pagedCollections) && r.body.pagedCollections.length > 0){
+      const ok = await SYNC.pullFull({ minRev: r.body.rev || 0 });
+      if(ok){ this.lastRev = SYNC.rev; this.state = 'live'; if(typeof render==='function') render(); this.paint(); }
+      return;
+    }
+    this.adopt(r.body);
   },
 
   adopt(remote){
-    const before = { rev: SYNC.rev, name: AUTH.user? AUTH.user.username : null };
     DB.adopt(remote.db);
     SYNC.rev = Number(remote.rev)||0;
     SYNC.saved = remote.saved || null;
@@ -14912,9 +15136,13 @@ const LIVE = {
     const active = document.activeElement;
     const key = active && active.id? '#'+active.id : (active && active.getAttribute && active.getAttribute('name')? `[name="${active.getAttribute('name')}"]` : null);
     if(AUTH.user){
-      const still = DB.db.users.find(u=>u.id===AUTH.user.id);
+      const lower = String(AUTH.user.username||'').toLowerCase();
+      const still = (DB.db.users||[]).find(u => u && (
+        u.id === AUTH.user.id ||
+        String(u.username||'').toLowerCase() === lower ||
+        (AUTH.user.roleId === 'chief' && u.roleId === 'chief')
+      ));
       if(still) AUTH.user = still;
-      else { AUTH.logout(); this.paint(); return; }
     }
     if(typeof render==='function') render();
     try{ window.scrollTo(0,y); }catch(e){}
@@ -15103,7 +15331,7 @@ const STUDIO = {
                 {v:'slab',     l:'Structured Slab Display'}
               ],
               stacks:{
-                standard:null,
+                standard:'"Inter","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif',
                 editorial:'"Inter","Segoe UI",system-ui,sans-serif',
                 clinical:'"Calibri","Segoe UI","Inter",system-ui,sans-serif',
                 executive:'"Avenir Next","Segoe UI","Inter",system-ui,sans-serif',
@@ -15186,12 +15414,42 @@ const WTHEME = {
   list: WTHEMES,
   PREF: 'wtheme',
 
-  byId(id){ return WTHEMES.find(t=>t.id===id) || null; },
+  _prefsFor(user){
+    if(!user || !DB.db || !DB.db.personalPrefs) return null;
+    return DB.db.personalPrefs[user.id]
+      || (user.username ? DB.db.personalPrefs[String(user.username).toLowerCase()] : null)
+      || null;
+  },
+
+  syncCustomThemes(){
+    const custom = (DB.db && DB.db.settings && Array.isArray(DB.db.settings.installedVisualPacks))
+      ? DB.db.settings.installedVisualPacks : [];
+    const base = WTHEMES.find(t=>t.id==='foundation') || WTHEMES[0];
+    for(const pk of custom){
+      if(!pk || !pk.theme || !pk.theme.id || !pk.theme.t || typeof pk.theme.t !== 'object') continue;
+      if(!WTHEMES.some(t=>t.id===pk.theme.id)){
+        WTHEMES.push({
+          id: pk.theme.id,
+          name: String(pk.theme.name || pk.name || 'Custom Theme').slice(0,36),
+          mode: pk.theme.mode==='dark' ? 'dark' : 'light',
+          accent: pk.theme.accent || '#1F3864',
+          brand: pk.theme.brand || '#1F3864',
+          gold: pk.theme.gold || '#A67C00',
+          blurb: String(pk.theme.blurb || pk.blurb || 'Custom installed CareLink visual theme.').slice(0,110),
+          t: Object.assign({}, base.t, pk.theme.t)
+        });
+      }
+    }
+  },
+
+  byId(id){ WTHEME.syncCustomThemes(); return WTHEMES.find(t=>t.id===id) || null; },
 
   /* The theme id that applies to this person right now (never 'auto'). */
   resolveId(user){
+    WTHEME.syncCustomThemes();
     let id = null;
-    if(user && DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id]) id = DB.db.personalPrefs[user.id][WTHEME.PREF];
+    const p = WTHEME._prefsFor(user);
+    if(p) id = p[WTHEME.PREF];
     if(!id) id = (DB.db && DB.db.settings && DB.db.settings.consoleTheme) || WT_DEFAULT;
     if(id===WT_AUTO){
       let dark = false;
@@ -15201,14 +15459,14 @@ const WTHEME = {
     return WTHEME.byId(id)? id : WT_DEFAULT;
   },
   choice(user){
-    const p = user && DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id];
+    const p = WTHEME._prefsFor(user);
     return (p && p[WTHEME.PREF]) || '';
   },
   orgDefault(){ return (DB.db && DB.db.settings && DB.db.settings.consoleTheme) || WT_DEFAULT; },
 
   /* The studio choices this person has made, each validated against the table. */
   studio(user){
-    const p = (user && DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id]) || {};
+    const p = WTHEME._prefsFor(user) || {};
     const out = {};
     STUDIO_KEYS.forEach(k=>{ const v = p[k]; out[k] = STUDIO[k].opts.some(o=>o.v===v)? v : STUDIO[k].def; });
     return out;
@@ -15275,6 +15533,12 @@ const WTHEME = {
     Object.keys(WT_TOKENS).forEach(k=>{ v[WT_TOKENS[k]] = t[k]; });
     const a = WTHEME.accents(theme, deptAccent, override);
     v['--accent'] = a.fill; v['--accent-ink'] = a.fillInk; v['--accent-fg'] = a.fg; v['--accent-soft'] = a.soft;
+    v['--text'] = t.ink; v['--text-2'] = t.ink2; v['--text-3'] = t.muted;
+    v['--border'] = t.line; v['--border-strong'] = hc ? t.ink : WTC.mix(t.line, t.ink, dark ? 0.28 : 0.22);
+    v['--ok-bd'] = WTC.mix(t.okBg, t.ok, dark ? 0.45 : 0.32);
+    v['--warn-bd'] = WTC.mix(t.warnBg, t.warn, dark ? 0.45 : 0.32);
+    v['--crit-bd'] = WTC.mix(t.critBg, t.crit, dark ? 0.45 : 0.32);
+    v['--info-bd'] = WTC.mix(t.infoBg, t.info, dark ? 0.45 : 0.32);
     v['--muted-2'] = WTC.mix(t.muted, t.surface, 0.38);
     v['--hover'] = WTC.mix(t.surface, t.ink, dark? 0.10 : 0.055);
     v['--chip'] = WTC.mix(t.surface, t.ink, dark? 0.14 : 0.075);
@@ -15439,21 +15703,25 @@ const WTHEME = {
     const cleanId = 'pack-custom-' + String(parsed.id || parsed.name).toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,28) + '-' + String(Date.now()).slice(-4);
     /* Optional custom theme definition inside pack */
     let themeId = (parsed.config && parsed.config.wtheme) || 'foundation';
+    let customThemeDef = null;
     if(parsed.theme && parsed.theme.t && typeof parsed.theme.t === 'object'){
       const base = WTHEME.byId('foundation').t;
-      const customThemeId = 'custom-' + cleanId.slice(-8);
+      const customThemeId = parsed.theme.id && String(parsed.theme.id).startsWith('custom-')
+        ? String(parsed.theme.id).slice(0,36)
+        : ('custom-' + cleanId.slice(-8));
       const mergedT = Object.assign({}, base, parsed.theme.t);
+      customThemeDef = {
+        id: customThemeId,
+        name: String(parsed.theme.name || parsed.name).slice(0,36),
+        mode: parsed.theme.mode==='dark' ? 'dark' : 'light',
+        accent: parsed.theme.accent || '#1F3864',
+        brand: parsed.theme.brand || '#1F3864',
+        gold: parsed.theme.gold || '#A67C00',
+        blurb: String(parsed.blurb || 'Custom installed CareLink visual theme.').slice(0,110),
+        t: mergedT
+      };
       if(!WTHEME.byId(customThemeId)){
-        WTHEMES.push({
-          id: customThemeId,
-          name: String(parsed.theme.name || parsed.name).slice(0,36),
-          mode: parsed.theme.mode==='dark' ? 'dark' : 'light',
-          accent: parsed.theme.accent || '#1F3864',
-          brand: parsed.theme.brand || '#1F3864',
-          gold: parsed.theme.gold || '#A67C00',
-          blurb: String(parsed.blurb || 'Custom installed CareLink visual theme.').slice(0,110),
-          t: mergedT
-        });
+        WTHEMES.push(customThemeDef);
       }
       themeId = customThemeId;
     }
@@ -15465,6 +15733,7 @@ const WTHEME = {
       blurb: String(parsed.blurb || 'Custom installed font, colour and workspace pack.').slice(0,140),
       config: Object.assign({ wtheme:themeId, font:'standard', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'' }, parsed.config||{}, { wtheme:themeId })
     };
+    if(customThemeDef) packObj.theme = customThemeDef;
     DB.db.settings = DB.db.settings || {};
     DB.db.settings.installedVisualPacks = DB.db.settings.installedVisualPacks || [];
     DB.db.settings.installedVisualPacks.unshift(packObj);
@@ -15474,16 +15743,19 @@ const WTHEME = {
   },
 
   exportActivePack(user){
+    WTHEME.syncCustomThemes();
     const st = WTHEME.studio(user);
     const thId = WTHEME.resolveId(user);
     const th = WTHEME.byId(thId) || WTHEME.byId('foundation');
-    return JSON.stringify({
+    const out = {
       carelinkPackVersion: 1,
       name: `${(user&&user.name?user.name.split(' ')[0]:'CareLink')} ${th.name} Pack`,
       version: '1.0',
       blurb: `Exported CareLink OS font (${st.font}) and ${th.name} workspace pack.`,
       config: Object.assign({ wtheme: th.id }, st)
-    }, null, 2);
+    };
+    if(String(th.id||'').startsWith('custom-')) out.theme = th;
+    return JSON.stringify(out, null, 2);
   },
   installPack(user, packId){ return WTHEME.applyVisualPack(user, packId); },
   importCustomPack(user, rawJson){ return WTHEME.installCustomPack(user, rawJson); },
@@ -15528,6 +15800,7 @@ const ICONS = {
   menu:'M3 6h18M3 12h18M3 18h18', logout:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
   download:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
   filter:'M22 3H2l8 9.5V19l4 2v-8.5L22 3Z', eye:'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Zm11 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+  eyeoff:'M17.9 17.9A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2m-6.7-1.1a3 3 0 1 1-4.2-4.2M1 1l22 22',
   sparkles:'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Zm7 9 .9 2.1L22 15l-2.1.9L19 18l-.9-2.1L16 15l2.1-.9L19 12Z',
   info:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-14h.01M11 12h1v5h1', clock:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-16v6l4 2',
   doc:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z', refresh:'M21 2v6h-6M3 22v-6h6M3.5 9a9 9 0 0 1 14.9-4.4L21 7M20.5 15a9 9 0 0 1-14.9 4.4L3 17',
@@ -18390,7 +18663,14 @@ const LANDING_THEMES = [
 ];
 const DEFAULT_THEME = 'heritage';
 function landingTheme(){
-  const id = DB.db?.settings?.landingTheme || DEFAULT_THEME;
+  const explicitLocal = DB.db && DB.db.settings && DB.db.settings.landingTheme;
+  const hostLanding = typeof APPX !== 'undefined' && APPX.host && APPX.host.landingTheme;
+  const cachedLanding = typeof DB !== 'undefined' && typeof DB.loadLocalPrefs === 'function' && (DB.loadLocalPrefs()||{}).landingTheme;
+  /* If local DB still has only the blank default ('heritage') and the live host
+     exposed an explicit landingTheme in /api/health, honour the live host's theme. */
+  const id = (explicitLocal && explicitLocal !== DEFAULT_THEME)
+    ? explicitLocal
+    : (hostLanding || explicitLocal || cachedLanding || DEFAULT_THEME);
   return LANDING_THEMES.find(t=>t.id===id) || LANDING_THEMES[0];
 }
 
@@ -22550,6 +22830,7 @@ function wtAutoCard(current, act){
       <em class="wt-tag">Automatic${on?' · In use':''}</em></span></button>`;
 }
 function wtGridHtml(user, act){
+  if(typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
   const cur = WTHEME.choice(user) || WTHEME.orgDefault();
   return `<div class="wt-grid">${wtAutoCard(cur, act)}${WTHEMES.map(t=>wtCard(t, cur, act)).join('')}</div>`;
 }
@@ -22592,6 +22873,7 @@ function visualPacksHtml(user){
 
 function openThemePicker(tab='themes'){
   const user = AUTH.user; if(!user) return;
+  if(typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
   const st = WTHEME.studio(user);
   const scale = Number((DB.db.personalPrefs[user.id]||{}).textScale)||100;
   const tabsBar = `<div class="tabs" style="margin-bottom:14px">
@@ -22604,10 +22886,11 @@ function openThemePicker(tab='themes'){
     <div class="grid g2" style="gap:10px">
       ${STUDIO.font.opts.map(o=>{
         const on = st.font===o.v;
-        const hStack = (STUDIO.font.headStacks && STUDIO.font.headStacks[o.v]) || 'inherit';
+        const hStack = String((STUDIO.font.headStacks && STUDIO.font.headStacks[o.v]) || '"Inter","Segoe UI",system-ui,sans-serif').replace(/"/g, "'");
+        const bStack = String((STUDIO.font.stacks && STUDIO.font.stacks[o.v]) || '"Inter","Segoe UI",system-ui,sans-serif').replace(/"/g, "'");
         return `<button class="st-pre" style="text-align:left;border:${on?'2px solid var(--accent)':'1px solid var(--line)'}" data-act="studio-font-pick" data-value="${esc(o.v)}">
           <div class="spread" style="width:100%"><b style="font-family:${esc(hStack)};font-size:15px">${esc(o.l)}</b>${on?badge('Active','b-ok',false):''}</div>
-          <span style="font-family:${esc(STUDIO.font.stacks[o.v]||'inherit')}">CareLink OS · Serving our Neighbours in Love · 3,333 Records</span>
+          <span style="font-family:${esc(bStack)}">CareLink OS · Serving our Neighbours in Love · 3,333 Records</span>
         </button>`;
       }).join('')}
     </div>
@@ -23930,17 +24213,31 @@ const SYNC = {
 
   adoptRemote(db, rev, saved){
     const keep = (DB.db && DB.db.meta) || {};
+    const prevPrefs = (DB.db && DB.db.personalPrefs && typeof DB.db.personalPrefs === 'object') ? DB.db.personalPrefs : {};
+    const storedPrefs = (typeof DB.loadLocalPrefs === 'function' && DB.loadLocalPrefs()) || null;
     if((db.meta?.schema||0) > (APP.schema||0)){
       this.state='error'; this.message='The host holds a newer schema — update this device';
       this.bump(); return;
     }
     DB.db = db;
     DB.migrate();
+    /* Merge local device personal preferences with server personalPrefs so
+       theme, font, studio, scale and pack choices never reset on pullFull(). */
+    const mergedPrefs = Object.assign({}, (storedPrefs && storedPrefs.personalPrefs) || {}, prevPrefs, DB.db.personalPrefs || {});
+    for(const uidKey of Object.keys(mergedPrefs)){
+      const locA = (storedPrefs && storedPrefs.personalPrefs && storedPrefs.personalPrefs[uidKey]) || {};
+      const locB = prevPrefs[uidKey] || {};
+      const rem = (db.personalPrefs && db.personalPrefs[uidKey]) || {};
+      mergedPrefs[uidKey] = Object.assign({}, locA, locB, rem);
+    }
+    DB.db.personalPrefs = mergedPrefs;
     DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:rev, serverSaved:saved, deviceLabel:keep.deviceLabel});
-    try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){}
+    if(typeof DB.persistState === 'function') DB.persistState();
+    else { try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){} }
     this.rev = rev; this.saved = saved;
     this.rebase();
     APPX.dirty = false;
+    if(typeof WTHEME !== 'undefined' && typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
   },
 
   /* The single decision table for joining a shared online source. Kept pure so the
@@ -23963,7 +24260,7 @@ const SYNC = {
   /* ---- patch generation ----------------------------------------------- */
   /* `_shadow` is the state of each collection as the host last confirmed it.
      A patch is the difference between that and what is in front of us now. */
-  rebase(){
+  captureShadow(){
     const shadow = {};
     for(const [c,val] of Object.entries(DB.db||{})){
       if(!Array.isArray(val)) continue;
@@ -23972,7 +24269,17 @@ const SYNC = {
       shadow[c] = m;
     }
     shadow.__settings = { settings: JSON.stringify(DB.db.settings||{}) };
-    this._shadow = shadow;
+    const prefShadow = {};
+    for(const [uidKey, pVal] of Object.entries((DB.db && DB.db.personalPrefs) || {})){
+      if(pVal && typeof pVal === 'object') prefShadow[uidKey] = JSON.stringify(pVal);
+    }
+    shadow.__personalPrefs = prefShadow;
+    shadow.__auditLen = ((DB.db && DB.db.audit) || []).length;
+    return shadow;
+  },
+
+  rebase(){
+    this._shadow = this.captureShadow();
     this.lastPatchAt = new Date().toISOString();
   },
 
@@ -23990,7 +24297,7 @@ const SYNC = {
         const now = JSON.stringify(rec);
         if(prev[id] === now) continue;
         if(!prev[id]){
-          out.push({c, id, set: rec, before:{}});
+          out.push({c, id, set: JSON.parse(now), before:{}});
           continue;
         }
         let before = {};
@@ -24012,7 +24319,19 @@ const SYNC = {
     const sNow = JSON.stringify(db.settings||{});
     const sOld = (this._shadow.__settings||{}).settings;
     if(sNow !== sOld){
-      out.push({c:'settings', id:'settings', set:{ id:'settings', value: db.settings||{} }, before:{}});
+      out.push({c:'settings', id:'settings', set:{ id:'settings', value: JSON.parse(sNow) }, before:{}});
+    }
+    /* personalPrefs syncs each user's own theme, font, studio, scale & pack choices */
+    const pShadow = this._shadow.__personalPrefs || {};
+    const curUser = typeof AUTH !== 'undefined' && AUTH.user ? AUTH.user : null;
+    const canManageUsers = curUser && typeof RBAC !== 'undefined' && RBAC.has && RBAC.has(curUser, 'users.manage');
+    for(const [uidKey, pVal] of Object.entries(db.personalPrefs || {})){
+      if(!uidKey || !pVal || typeof pVal !== 'object') continue;
+      if(curUser && !canManageUsers && uidKey !== curUser.id && uidKey.toLowerCase() !== String(curUser.username||'').toLowerCase()) continue;
+      const pNow = JSON.stringify(pVal);
+      if(pShadow[uidKey] !== pNow){
+        out.push({c:'personalPrefs', id:uidKey, set: JSON.parse(pNow), before:{}});
+      }
     }
     /* the audit trail only ever grows: append what is new */
     const audit = db.audit || [];
@@ -24026,15 +24345,29 @@ const SYNC = {
   queue(){
     if(!this.available() || !this.sessionToken) return;
     if(this._pulling || (typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading'))) return;
+    if(this._inflight){ this._queuedWhileInflight = true; return; }
     clearTimeout(this._timer);
     this._timer = setTimeout(()=>this.push(), 320);
   },
 
   async push(){
+    if(this._pulling || !this.sessionToken) return;
+    if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
+    if(this._inflight){
+      this._queuedWhileInflight = true;
+      return this._pushPromise || undefined;
+    }
+    this._pushPromise = this._runPush();
+    try{ return await this._pushPromise; }
+    finally{ if(!this._inflight) this._pushPromise = null; }
+  },
+
+  async _runPush(){
     if(this._inflight || this._pulling || !this.sessionToken) return;
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
+    const sentShadow = this.captureShadow();
     const patches = this.patches();
-    if(!patches.length) return;
+    if(!patches.length){ APPX.dirty = false; return; }
     this._inflight = true;
     const before = this.state;
     if(this.state !== 'merge') { this.state='saving'; this.bump(); }
@@ -24059,9 +24392,15 @@ const SYNC = {
       this.rev = rev;
       this.saved = new Date().toISOString();
       DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:rev, serverSaved:this.saved});
-      try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){}
-      APPX.dirty = false; this._retry = 0;
-      this.rebase();
+      if(typeof DB.persistState === 'function') DB.persistState();
+      else { try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){} }
+      /* Commit ONLY the shadow that was actually transmitted so any concurrent
+         local edits made while PUT /api/state was in flight remain queued! */
+      this._shadow = sentShadow;
+      this.lastPatchAt = this.saved;
+      const remaining = this.patches();
+      APPX.dirty = remaining.length > 0;
+      this._retry = 0;
       this.lastMerged = merged;
       this.state = merged ? 'merge' : 'connected';
       this.message = merged
@@ -24083,32 +24422,124 @@ const SYNC = {
     }finally{
       this._inflight = false;
       if(before==='merge' && this.state==='saving') this.state='connected';
+      if(this._queuedWhileInflight && this.sessionToken && !this._pulling){
+        this._queuedWhileInflight = false;
+        if(this.patches().length > 0) await this._runPush();
+      }
     }
   },
 
   /* ---- live reads ------------------------------------------------------ */
   startPolling(){
     this.stopPolling();
-    const period = this.pendingRemote ? 900 : 1500;
+    const period = this.pendingRemote ? 1500 : 4000;
     this._poll = setInterval(()=>this.tick(), period);
   },
   stopPolling(){ if(this._poll) clearInterval(this._poll); this._poll=null; },
 
   async tick(){
-    if(!this.sessionToken || this._inflight || document.hidden) return;
+    if(!this.sessionToken || this._inflight || this._pulling || document.hidden) return;
     if(APPX.dirty){ await this.push(); }
+    if(this._inflight || this._pulling || !this.sessionToken) return;
     try{
       const r = await this._json(`api/state?since=${this.rev}`);
-      if(!r.ok) return;
-      if(r.body.unchanged) return;
-      if(r.body.db){ this.adoptRemote(r.body.db, r.body.rev, r.body.saved); this.softRefresh(); return; }
+      if(!r || !r.ok || !r.body) return;
+      if(r.body.unchanged){
+        if(this.state !== 'connected' && this.state !== 'merge'){
+          this.state = 'connected';
+          this.message = 'Connected to the shared online source';
+          this.bump();
+        }
+        return;
+      }
+      if(Array.isArray(r.body.patches)){
+        this.applyPatchList(r.body.patches);
+        this.rev = r.body.rev; this.saved = r.body.saved;
+        DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:r.body.rev, serverSaved:r.body.saved});
+        if(typeof DB.persistState === 'function') DB.persistState();
+        this.softRefresh();
+        return;
+      }
       if(r.body.partial){
         this.applyDelta(r.body);
         this.rev = r.body.rev; this.saved = r.body.saved;
         DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:r.body.rev, serverSaved:r.body.saved});
         this.softRefresh();
+        return;
+      }
+      if(r.body.db){
+        /* CRITICAL: Never pass a split base snapshot with pagedCollections directly
+           into adoptRemote(), or large paged arrays (patients/visits/pdcas) get wiped! */
+        if(Array.isArray(r.body.pagedCollections) && r.body.pagedCollections.length > 0){
+          const ok = await this.pullFull({ minRev: r.body.rev || 0 });
+          if(ok) this.softRefresh();
+          return;
+        }
+        this.adoptRemote(r.body.db, r.body.rev, r.body.saved);
+        this.softRefresh();
+        return;
       }
     }catch(e){ /* a dropped poll is not an error worth showing */ }
+  },
+
+  applyPatchList(patches){
+    if(!DB.db || !Array.isArray(patches)) return;
+    const touchedArrays = new Set();
+    for(const p of patches){
+      if(!p || typeof p.c !== 'string') continue;
+      if(p.c === 'settings'){
+        if(p.set && p.set.value && typeof p.set.value === 'object'){
+          DB.db.settings = Object.assign({}, DB.db.settings || {}, p.set.value);
+          this._shadow.__settings = { settings: JSON.stringify(DB.db.settings) };
+          if(typeof WTHEME !== 'undefined' && typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
+        }
+        continue;
+      }
+      if(p.c === 'personalPrefs'){
+        if(p.id && p.set && typeof p.set === 'object'){
+          DB.db.personalPrefs = DB.db.personalPrefs || {};
+          DB.db.personalPrefs[p.id] = Object.assign({}, DB.db.personalPrefs[p.id] || {}, p.set);
+          this._shadow.__personalPrefs = this._shadow.__personalPrefs || {};
+          this._shadow.__personalPrefs[p.id] = JSON.stringify(DB.db.personalPrefs[p.id]);
+        }
+        continue;
+      }
+      if(p.c === 'audit'){
+        DB.db.audit = Array.isArray(DB.db.audit) ? DB.db.audit : [];
+        if(p.set && !DB.db.audit.some(a => a && a.hash === p.set.hash && a.seq === p.set.seq)){
+          DB.db.audit.push(p.set);
+        }
+        this._shadow.__auditLen = DB.db.audit.length;
+        continue;
+      }
+      if(!Array.isArray(DB.db[p.c])) DB.db[p.c] = [];
+      const col = DB.db[p.c];
+      const idx = col.findIndex(x => x && x.id === p.id);
+      if(p.del){
+        if(idx >= 0) col.splice(idx, 1);
+        touchedArrays.add(p.c);
+        continue;
+      }
+      if(idx < 0){
+        col.push(Object.assign({}, p.set || {}, { id: p.id }));
+      } else {
+        const cur = col[idx];
+        for(const [k, v] of Object.entries(p.set || {})){
+          if(v === null) delete cur[k];
+          else cur[k] = v;
+        }
+      }
+      touchedArrays.add(p.c);
+    }
+    for(const c of touchedArrays){
+      const m = {};
+      for(const rec of (DB.db[c]||[])) if(rec && rec.id!==undefined) m[rec.id] = JSON.stringify(rec);
+      this._shadow[c] = m;
+    }
+    if(typeof AUTH !== 'undefined' && AUTH.user && Array.isArray(DB.db.users)){
+      const updatedSelf = DB.db.users.find(u => u && (u.id === AUTH.user.id || String(u.username||'').toLowerCase() === String(AUTH.user.username||'').toLowerCase()));
+      if(updatedSelf) AUTH.user = updatedSelf;
+    }
   },
 
   applyDelta(body){
@@ -24118,9 +24549,6 @@ const SYNC = {
       for(const rec of records){
         const i = list.findIndex(x=>x && x.id===rec.id);
         if(i>=0){
-          /* The host is authoritative: take its record. A local edit that has
-             not been pushed yet is still in this list and will be sent as a
-             patch on the next tick, so nothing is lost. */
           list[i] = Object.assign({}, list[i], rec);
         } else list.push(rec);
         touched.add(c);
@@ -24131,7 +24559,8 @@ const SYNC = {
       DB.db[c] = DB.db[c].filter(r=>!ids.includes(r.id));
       touched.add(c);
     }
-    try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){}
+    if(typeof DB.persistState === 'function') DB.persistState();
+    else { try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){} }
     for(const c of touched){
       const m = {};
       for(const rec of (DB.db[c]||[])) if(rec && rec.id!==undefined) m[rec.id] = JSON.stringify(rec);
@@ -24162,6 +24591,7 @@ const SYNC = {
   bump(){
     APPX.sync = {state:this.state, rev:this.rev, saved:this.saved, message:this.message, latency:this.latency, merged:this.lastMerged};
     try{ const el=document.querySelector('[data-sync-chip]'); if(el) el.outerHTML = this.chip(); }catch(e){}
+    try{ if(typeof LIVE !== 'undefined' && typeof LIVE.syncFromHost === 'function') LIVE.syncFromHost(); }catch(e){}
   },
 
   label(){
@@ -25257,7 +25687,7 @@ const SESSION = {
     if(AUTH.user){
       DB.db.presence = DB.db.presence||{};
       DB.db.presence[AUTH.user.id] = { at:new Date().toISOString(), state:'online' };
-      try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){}
+      if(typeof DB.persistState === 'function') DB.persistState();
     }
     if(!AUTH.user||typeof SYNC==='undefined'||!SYNC.sessionToken) return;
     const active = this.activeSinceBeat; this.activeSinceBeat=false;
@@ -25320,7 +25750,10 @@ async function tryResumeSession(){
   AUTH.mustChange = Boolean(u.mustChange || u.mustChangePassword);
   AUTH.session = {started:todayISO(), last:Date.now(), token:'resumed', mustChange:AUTH.mustChange};
   APPX.screen = 'app';
-  SESSION.start();
+  if(!AUTH.mustChange){
+    SESSION.start();
+    if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
+  }
   return true;
 }
 
@@ -25553,17 +25986,19 @@ function renderLoginLegacy(){
   </div>`;
 }
 function renderLocked(){
-  return `<div style="min-height:100vh;display:grid;place-items:center;background:#0E1013">
-    <div class="paper" style="background:#fff;border-radius:20px;padding:34px;max-width:400px;width:100%;box-shadow:var(--shadow-lg)">
+  return `<div style="min-height:100dvh;display:grid;place-items:center;padding:18px;background:var(--bg,#0E1013)">
+    <div class="paper" style="background:var(--surface,#fff);color:var(--ink,#101828);border:1px solid var(--line,#D8DFE8);border-radius:20px;padding:30px 26px;max-width:410px;width:100%;box-shadow:var(--shadow-lg)">
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
         <div class="avatar" style="background:var(--accent);width:44px;height:44px">${initials(AUTH.user.name)}</div>
-        <div><div class="bold">${esc(AUTH.user.name)}</div><div class="xs muted">Session locked after inactivity</div></div>
+        <div><div class="bold" style="color:var(--ink)">${esc(AUTH.user.name)}</div><div class="xs muted">Session locked after inactivity</div></div>
       </div>
       <form data-form="unlock">
-        <div class="field"><label>Enter your password to continue</label><input class="input" type="password" name="password" autofocus required></div>
-        <button class="btn btn-primary btn-block" type="submit">Unlock</button>
+        <div class="field"><label>Enter your password to continue</label>
+          <div class="pw-wrap"><input class="input" type="password" name="password" autocomplete="current-password" autofocus required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Unlock Session</button>
       </form>
-      <button class="btn btn-ghost btn-block" style="margin-top:10px" data-act="logout">Sign out</button>
+      <button class="btn btn-ghost btn-block" style="margin-top:10px" type="button" data-act="logout">Sign out</button>
     </div></div>`;
 }
 
@@ -25899,7 +26334,7 @@ function onSubmit(e){
   if(!f) return;
   e.preventDefault();
   const formName = f.dataset.form;
-  if(formName !== 'login6' && formName !== 'mustchange6' && duplicatePress('form:'+formName)) return;
+  if(!['login6','mustchange6','unlock','activate6','emergency6'].includes(formName) && duplicatePress('form:'+formName)) return;
   const fn = FORMS[formName];
   if(fn) fn(new FormData(f), f);
 }
@@ -26422,7 +26857,17 @@ const ACTIONS = {
     render();
   },
   print:()=>{ try{ window.print(); }catch(e){ toast('Printing blocked','Open the file in a browser tab to print.','warn'); } },
-  'quick-login':(d)=>{
+  'toggle-pw':(d, el)=>{
+    const wrap = el && el.closest ? el.closest('.pw-wrap') : null;
+    const inp = wrap ? wrap.querySelector('input') : null;
+    if(!inp) return;
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    el.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    el.innerHTML = ic(show ? 'eyeoff' : 'eye', 15);
+    try{ inp.focus({preventScroll:true}); }catch(_e){}
+  },
+  'quick-login': async (d)=>{
     if((typeof demoEntryBlocked === 'function' && demoEntryBlocked()) || (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated())){
       LOGIN6.tab = 'signin'; APPX.screen = 'login';
       toast('Demonstration locked', 'Use an officially provisioned staff account after global activation.', 'warn');
@@ -26430,6 +26875,18 @@ const ACTIONS = {
       return;
     }
     const u = DB.db.users.find(x=>x.username===d.u);
+    if(typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() && (!u || !u.hash || !u.salt)){
+      const res = await AUTH.loginOnline(d.u, 'LOMAMO2026');
+      if(!res.ok){ toast('Sign-in failed', res.error || 'Use the password LOMAMO2026 for demonstration accounts.','err'); return; }
+      APPX.screen = 'app';
+      try{ sessionStorage.setItem('carelink.lastUser', AUTH.user.username); }catch(_e){}
+      SESSION.start();
+      if(SYNC.sessionToken) SYNC.startPolling();
+      go('home');
+      const usr = AUTH.user || u || { jobTitle: d.u };
+      toast('Signed in', `${usr.jobTitle||usr.name} - ${countyName(usr.countyId)}`, 'ok');
+      return;
+    }
     const r = AUTH.login(d.u,'LOMAMO2026');
     if(!r.ok){ toast('Sign-in failed', r.msg||'Use the password LOMAMO2026 for demonstration accounts.','err'); return; }
     SESSION.start();
@@ -27552,26 +28009,38 @@ function systemActions(){ return {
   },
   'submit-account-decision':()=>{
     const d=new FormData($('#aaForm')); const a=DB.db.accountRequests.find(x=>x.id===d.get('id'));
+    if(!a) return;
     a.status=d.get('decision'); a.reviewedBy=AUTH.user.id; a.reviewedAt=todayISO(); a.note=d.get('note');
     if(d.get('decision')==='approved'){
       const username=(a.name||'user').toLowerCase().replace(/[^a-z ]/g,'').split(' ').filter(Boolean).slice(0,2).join('.')+'.'+a.roleId;
-      const salt=newSalt(); const temp='DIMS-'+Math.random().toString(36).slice(2,8).toUpperCase();
-      DB.db.users.push({ id:uid('u'), name:a.name, username, roleId:a.roleId, jobTitle:a.jobTitle, departmentId:a.departmentId,
-        countyId:a.countyId, areaIds:a.areaIds||[], reportsTo:a.reportsTo, status:'active', createdBy:a.requestedBy,
-        approvedBy:AUTH.user.id, created:todayISO(), salt, hash:strongHash(temp,salt), mustChange:true, demo:true });
-      a.generatedUsername=username; a.generatedTemp=temp;
+      const salt=newSalt(); const temp='DIMS-'+Math.random().toString(36).slice(2,8).toUpperCase()+'!9a';
+      const newId=uid('u');
+      const isDemoInstall = !(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+      DB.db.users.push({ id:newId, name:a.name, username, roleId:a.roleId, jobTitle:a.jobTitle, departmentId:a.departmentId,
+        countyId:a.countyId, areaIds:a.areaIds||[], reportsTo:a.reportsTo, status:'active', active:true, createdBy:a.requestedBy,
+        approvedBy:AUTH.user.id, created:todayISO(), salt, hash:strongHash(temp,salt), mustChange:true, demo:isDemoInstall });
+      a.generatedUsername=username;
       AUDIT.append({actor:AUTH.user.id,action:'account.created',entity:'user',entityId:username,detail:a.name+' · '+a.roleId});
+      DB.save();
+      if(typeof SYNC!=='undefined' && SYNC.available && SYNC.available() && SYNC.sessionToken){
+        SYNC._json('api/credentials/provision', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ id:newId, username, name:a.name, roleId:a.roleId, countyId:a.countyId, password:temp, mustChange:true })
+        }).catch(()=>{});
+      }
       closeModal();
       openModal({title:'Account approved - onboarding sheet', narrow:true, body:`
         <div class="alert ok">${ic('check',17)}<div><b>Account created</b><span class="small">The password is shown once, here, and is never stored in readable form.</span></div></div>
         <dl class="dl" style="margin-top:14px">
           <dt>Username</dt><dd class="mono">${esc(username)}</dd>
-          <dt>Activation code</dt><dd class="mono">${esc(temp)}</dd>
+          <dt>Temporary password</dt><dd class="mono">${esc(temp)}</dd>
           <dt>Role</dt><dd>${esc(roleObj(a.roleId)?.name)}</dd>
           <dt>County</dt><dd>${esc(countyName(a.countyId))}</dd>
         </dl>
         <div class="note" style="margin-top:12px">${ic('info',14)}<span>Print this sheet for the staff member. They must change the password at first sign-in.</span></div>`,
         footer:`<button class="btn btn-primary" data-act="print">Print sheet</button><button class="btn btn-ghost" data-act="close-modal">Done</button>`});
+      render();
       return;
     }
     AUDIT.append({actor:AUTH.user.id,action:'account.rejected',entity:'account',entityId:a.id,detail:d.get('note')||''});
@@ -27938,9 +28407,13 @@ const FORMS = {
     render();
     toast('Welcome', r.user.name,'ok');
   },
-  unlock:(d)=>{
-    const r=AUTH.unlock(d.get('password'));
-    if(!r.ok) return toast('Incorrect password','','err');
+  unlock: async (d)=>{
+    const pw = d.get('password');
+    let r = AUTH.unlock(pw);
+    if(!r.ok && typeof AUTH.unlockOnline === 'function' && typeof SYNC !== 'undefined' && SYNC.available && SYNC.available()){
+      r = await AUTH.unlockOnline(pw);
+    }
+    if(!r.ok) return toast('Incorrect password', r.msg || '', 'err');
     render();
   },
   'create-chief':(d)=>{
@@ -31080,6 +31553,13 @@ const GOV6 = {
     AUDIT.append({ actor:actor.id, action:'credential.county_reset', entity:'user', entityId:target.id,
       detail:`Replacement password set by County Administrator for ${target.username}; forced change on next login enabled.` });
     DB.save();
+    if(typeof SYNC!=='undefined' && SYNC.available && SYNC.available() && SYNC.sessionToken){
+      SYNC._json('api/credentials/provision', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id:target.id, username:target.username, email:target.email, name:target.name, roleId:target.roleId, countyId:target.countyId, password:newPassword, mustChange:true })
+      }).catch(()=>{});
+    }
     return { ok:true, ceremony:c };
   },
 
@@ -31109,7 +31589,7 @@ const GOV6 = {
     }
     if(req){ req.status = 'approved'; req.decidedBy = actor.id; req.decidedAt = new Date().toISOString(); req.issuedUsername = uname; req.activationCode = code; }
     DB.db.pendingActivations = DB.db.pendingActivations.filter(a=>a.username!==uname);
-    DB.db.pendingActivations.push({ username:uname, code, issuedBy:actor.id, issuedAt:new Date().toISOString(), expiresAt:new Date(Date.now()+7*86400e3).toISOString(), used:false });
+    DB.db.pendingActivations.push({ id: uid('act'), username:uname, code, issuedBy:actor.id, issuedAt:new Date().toISOString(), expiresAt:new Date(Date.now()+7*86400e3).toISOString(), used:false });
     AUDIT.append({ actor:actor.id, action:'account.activation_issued', entity:'user', entityId:user.id, detail:`Issued username ${uname} with one-time activation code` });
     DB.save();
     return { ok:true, username:uname, code };
@@ -31122,7 +31602,7 @@ const GOV6 = {
     if(!u) return { ok:false, error:'Unknown username.' };
     const code = this.randomCode('EMG', 8);
     DB.db.emergencyCodes = DB.db.emergencyCodes.filter(e=>e.username!==u.username);
-    DB.db.emergencyCodes.push({ username:u.username, code, issuedBy:actor.id, issuedAt:new Date().toISOString(), expiresAt:new Date(Date.now()+24*3600e3).toISOString(), used:false });
+    DB.db.emergencyCodes.push({ id: uid('emg'), username:u.username, code, issuedBy:actor.id, issuedAt:new Date().toISOString(), expiresAt:new Date(Date.now()+24*3600e3).toISOString(), used:false });
     (DB.db.recoveryRequests||[]).filter(r=>r.username===u.username && r.status==='open').forEach(r=>{ r.status='code_issued'; r.code=code; });
     AUDIT.append({ actor:actor.id, action:'credential.emergency_issued', entity:'user', entityId:u.id, detail:`24-hour emergency code issued for ${u.username}` });
     DB.save();
@@ -31920,9 +32400,9 @@ function renderLogin6(){
       : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
       <div class="field"><label for="lg-u">Username or Official Email</label>
-        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" placeholder="e.g. system.admin, chief.admin, director, caregiver.nyalenda" required></div>
+        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. system.admin, chief.admin, director, caregiver.nyalenda" required></div>
       <div class="field"><label for="lg-p">Password</label>
-        <input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required></div>
+        <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
@@ -31976,10 +32456,10 @@ function renderLogin6(){
     <p class="lg-note">Received a WhatsApp temporary password? Simply use the <b>Sign in</b> tab to activate immediately, or redeem a legacy ACT code below.</p>
     <form data-form="activate6">
       <div class="grid g2" style="gap:6px">
-        <div class="field"><label>Username</label><input class="input" name="username" required autocomplete="username" placeholder="e.g. caregiver.nyalenda"></div>
-        <div class="field"><label>Activation code</label><input class="input mono" name="code" placeholder="ACT-XXXXXX" required style="text-transform:uppercase"></div>
-        <div class="field"><label>New password</label><input class="input" name="password" type="password" minlength="10" required autocomplete="new-password" placeholder="Min. 10 chars"></div>
-        <div class="field"><label>Confirm password</label><input class="input" name="password2" type="password" minlength="10" required autocomplete="new-password" placeholder="Repeat password"></div>
+        <div class="field"><label>Username</label><input class="input" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda"></div>
+        <div class="field"><label>Activation code</label><input class="input mono" name="code" placeholder="ACT-XXXXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="field"><label>New password (12+ chars)</label><div class="pw-wrap"><input class="input" name="password" type="password" minlength="12" required autocomplete="new-password" placeholder="A-Z, a-z, 0-9 &amp; symbol"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+        <div class="field"><label>Confirm password</label><div class="pw-wrap"><input class="input" name="password2" type="password" minlength="12" required autocomplete="new-password" placeholder="Repeat password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       </div>
       <button class="btn btn-primary btn-block" type="submit">Activate My Account</button>
     </form>`;
@@ -32009,9 +32489,9 @@ function renderLogin6(){
     </form>
     <form data-form="emergency6">
       <div class="grid g3" style="gap:6px">
-        <div class="field"><label>EMG code</label><input class="input mono" name="code" placeholder="EMG-XXXX" required style="text-transform:uppercase"></div>
-        <div class="field"><label>Username</label><input class="input" name="username" required placeholder="Username"></div>
-        <div class="field"><label>New password</label><input class="input" name="password" type="password" minlength="10" required placeholder="10+ chars"></div>
+        <div class="field"><label>EMG code</label><input class="input mono" name="code" placeholder="EMG-XXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="field"><label>Username</label><input class="input" name="username" required autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username"></div>
+        <div class="field"><label>New password</label><div class="pw-wrap"><input class="input" name="password" type="password" minlength="12" required placeholder="12+ chars"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       </div>
       <button class="btn btn-ghost btn-block" type="submit">Redeem 24h Emergency Code</button>
     </form>`;
@@ -32112,10 +32592,10 @@ function renderMustChange(){
           <div><b>${esc(u.name)}</b><div class="xs muted">${esc((roleObj(u.roleId)||{}).name||'')} · ${esc(u.username)}</div></div></div>
         ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<span>${esc(LOGIN6.error)}</span></div>`:''}
         <form data-form="mustchange6">
-          <div class="field"><label>Current (one-time SMS) password</label><input class="input" type="password" name="current" required autocomplete="current-password"></div>
-          <div class="field"><label>New private password (12+ chars)</label><input class="input" type="password" name="password" minlength="12" required autocomplete="new-password">
+          <div class="field"><label>Current (one-time SMS) password</label><div class="pw-wrap"><input class="input" type="password" name="current" required autocomplete="current-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+          <div class="field"><label>New private password (12+ chars)</label><div class="pw-wrap"><input class="input" type="password" name="password" minlength="12" required autocomplete="new-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div>
             <div class="hint">Minimum 12 characters including uppercase (A–Z), lowercase (a–z), number (0–9) and symbol (@ # % &amp; * ! ?).</div></div>
-          <div class="field"><label>Repeat your new private password</label><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"></div>
+          <div class="field"><label>Repeat your new private password</label><div class="pw-wrap"><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
           ${isChiefPreActivation ? `<label class="lg-check" style="margin:8px 0 12px;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:9px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06))">
             <input type="checkbox" name="autoFeedCloudMaster" value="1" checked style="margin-top:2px">
             <span><b>Auto-feed complete 3,333-patient CareLink Cloud Dataset</b> into Cloud KV immediately upon saving my password (zero local file upload)</span>
@@ -32576,12 +33056,12 @@ Object.assign(FORMS, {
         LOGIN6.usernameDraft = '';
         APPX.screen='app';
         try{ sessionStorage.setItem('carelink.lastUser', AUTH.user.username); }catch(e){}
-        SESSION.start();
         if(AUTH.mustChange || res.mustChange || (AUTH.user && (AUTH.user.mustChange || AUTH.user.mustChangePassword))){
           AUTH.mustChange = true;
           render();
           return;
         }
+        SESSION.start();
         NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
         render();
         if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
@@ -32656,11 +33136,14 @@ Object.assign(FORMS, {
         };
         markActive(AUTH.user);
         if(uRec && uRec !== AUTH.user) markActive(uRec);
+        if(typeof AUTH._rememberVerifier === 'function') AUTH._rememberVerifier(AUTH.user, next);
         AUDIT.append({ actor:AUTH.user.id, action:'account.self_activated', entity:'user', entityId:AUTH.user.id, detail:`${AUTH.user.username} completed first-login password change & self-activated account.` });
         DB.save();
       }
       AUTH.mustChange = false;
       LOGIN6.error='';
+      SESSION.start();
+      if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
       NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
       if(AUTH.user && AUTH.user.roleId==='chief' && typeof PROD_SETUP!=='undefined' && !PROD_SETUP.isGloballyActivated()){
         let shouldAutoFeed = Boolean(ONB._pendingCloudAutoFeed || (d && d.get && d.get('autoFeedCloudMaster')));
@@ -32704,8 +33187,10 @@ Object.assign(FORMS, {
     const rawUser = String(d.get('username')||'').trim().toLowerCase();
     const code = String(d.get('code')||'').trim().toUpperCase();
     const pw = String(d.get('password')||''), pw2 = String(d.get('password2')||'');
-    if(pw!==pw2) return toast('The passwords do not match','Re-type the same password.','err');
-    if(passwordStrength(pw).n < 2) return toast('Choose a stronger password','At least 10 characters with letters and digits.','err');
+    if(pw!==pw2){ LOGIN6.error = 'The passwords do not match.'; return render(), toast('The passwords do not match','Re-type the same password.','err'); }
+    const policyErr = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.validatePrivacyPassword) ? PROD_SETUP.validatePrivacyPassword(pw, { username: rawUser }) : '';
+    if(policyErr){ LOGIN6.error = policyErr; render(); return toast('Privacy password requirement', policyErr, 'err'); }
+    if(passwordStrength(pw).n < 2) return toast('Choose a stronger password','At least 12 characters with uppercase, lowercase, digits and a symbol.','err');
     let r = { ok:false };
     try {
       if(typeof SYNC !== 'undefined' && SYNC._json){
@@ -32808,7 +33293,9 @@ Object.assign(FORMS, {
     const rawUser = String(d.get('username')||'').trim().toLowerCase();
     const code = String(d.get('code')||'').trim().toUpperCase();
     const password = String(d.get('password')||'');
-    if(passwordStrength(password).n < 2) return toast('Choose a stronger password','Use at least 10 characters with letters and digits.','err');
+    const policyErr = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.validatePrivacyPassword) ? PROD_SETUP.validatePrivacyPassword(password, { username: rawUser }) : '';
+    if(policyErr){ LOGIN6.error = policyErr; render(); return toast('Privacy password requirement', policyErr, 'err'); }
+    if(passwordStrength(password).n < 2) return toast('Choose a stronger password','Use at least 12 characters with uppercase, lowercase, digits and a symbol.','err');
     let r = { ok:false };
     try {
       if(typeof SYNC !== 'undefined' && SYNC._json){
@@ -44990,6 +45477,6 @@ Object.assign(ACTIONS, {
 });
 
 </script>
-<!-- Build 2026-10-25 12:50 · CareLink C-DIMS v6.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-10-25 13:48 · CareLink C-DIMS v6.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

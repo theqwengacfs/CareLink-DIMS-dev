@@ -66,7 +66,7 @@ const SESSION = {
     if(AUTH.user){
       DB.db.presence = DB.db.presence||{};
       DB.db.presence[AUTH.user.id] = { at:new Date().toISOString(), state:'online' };
-      try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){}
+      if(typeof DB.persistState === 'function') DB.persistState();
     }
     if(!AUTH.user||typeof SYNC==='undefined'||!SYNC.sessionToken) return;
     const active = this.activeSinceBeat; this.activeSinceBeat=false;
@@ -129,7 +129,10 @@ async function tryResumeSession(){
   AUTH.mustChange = Boolean(u.mustChange || u.mustChangePassword);
   AUTH.session = {started:todayISO(), last:Date.now(), token:'resumed', mustChange:AUTH.mustChange};
   APPX.screen = 'app';
-  SESSION.start();
+  if(!AUTH.mustChange){
+    SESSION.start();
+    if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
+  }
   return true;
 }
 
@@ -362,17 +365,19 @@ function renderLoginLegacy(){
   </div>`;
 }
 function renderLocked(){
-  return `<div style="min-height:100vh;display:grid;place-items:center;background:#0E1013">
-    <div class="paper" style="background:#fff;border-radius:20px;padding:34px;max-width:400px;width:100%;box-shadow:var(--shadow-lg)">
+  return `<div style="min-height:100dvh;display:grid;place-items:center;padding:18px;background:var(--bg,#0E1013)">
+    <div class="paper" style="background:var(--surface,#fff);color:var(--ink,#101828);border:1px solid var(--line,#D8DFE8);border-radius:20px;padding:30px 26px;max-width:410px;width:100%;box-shadow:var(--shadow-lg)">
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
         <div class="avatar" style="background:var(--accent);width:44px;height:44px">${initials(AUTH.user.name)}</div>
-        <div><div class="bold">${esc(AUTH.user.name)}</div><div class="xs muted">Session locked after inactivity</div></div>
+        <div><div class="bold" style="color:var(--ink)">${esc(AUTH.user.name)}</div><div class="xs muted">Session locked after inactivity</div></div>
       </div>
       <form data-form="unlock">
-        <div class="field"><label>Enter your password to continue</label><input class="input" type="password" name="password" autofocus required></div>
-        <button class="btn btn-primary btn-block" type="submit">Unlock</button>
+        <div class="field"><label>Enter your password to continue</label>
+          <div class="pw-wrap"><input class="input" type="password" name="password" autocomplete="current-password" autofocus required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Unlock Session</button>
       </form>
-      <button class="btn btn-ghost btn-block" style="margin-top:10px" data-act="logout">Sign out</button>
+      <button class="btn btn-ghost btn-block" style="margin-top:10px" type="button" data-act="logout">Sign out</button>
     </div></div>`;
 }
 
@@ -708,7 +713,7 @@ function onSubmit(e){
   if(!f) return;
   e.preventDefault();
   const formName = f.dataset.form;
-  if(formName !== 'login6' && formName !== 'mustchange6' && duplicatePress('form:'+formName)) return;
+  if(!['login6','mustchange6','unlock','activate6','emergency6'].includes(formName) && duplicatePress('form:'+formName)) return;
   const fn = FORMS[formName];
   if(fn) fn(new FormData(f), f);
 }
@@ -1231,7 +1236,17 @@ const ACTIONS = {
     render();
   },
   print:()=>{ try{ window.print(); }catch(e){ toast('Printing blocked','Open the file in a browser tab to print.','warn'); } },
-  'quick-login':(d)=>{
+  'toggle-pw':(d, el)=>{
+    const wrap = el && el.closest ? el.closest('.pw-wrap') : null;
+    const inp = wrap ? wrap.querySelector('input') : null;
+    if(!inp) return;
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    el.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    el.innerHTML = ic(show ? 'eyeoff' : 'eye', 15);
+    try{ inp.focus({preventScroll:true}); }catch(_e){}
+  },
+  'quick-login': async (d)=>{
     if((typeof demoEntryBlocked === 'function' && demoEntryBlocked()) || (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated())){
       LOGIN6.tab = 'signin'; APPX.screen = 'login';
       toast('Demonstration locked', 'Use an officially provisioned staff account after global activation.', 'warn');
@@ -1239,6 +1254,18 @@ const ACTIONS = {
       return;
     }
     const u = DB.db.users.find(x=>x.username===d.u);
+    if(typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() && (!u || !u.hash || !u.salt)){
+      const res = await AUTH.loginOnline(d.u, 'LOMAMO2026');
+      if(!res.ok){ toast('Sign-in failed', res.error || 'Use the password LOMAMO2026 for demonstration accounts.','err'); return; }
+      APPX.screen = 'app';
+      try{ sessionStorage.setItem('carelink.lastUser', AUTH.user.username); }catch(_e){}
+      SESSION.start();
+      if(SYNC.sessionToken) SYNC.startPolling();
+      go('home');
+      const usr = AUTH.user || u || { jobTitle: d.u };
+      toast('Signed in', `${usr.jobTitle||usr.name} - ${countyName(usr.countyId)}`, 'ok');
+      return;
+    }
     const r = AUTH.login(d.u,'LOMAMO2026');
     if(!r.ok){ toast('Sign-in failed', r.msg||'Use the password LOMAMO2026 for demonstration accounts.','err'); return; }
     SESSION.start();
@@ -2361,26 +2388,38 @@ function systemActions(){ return {
   },
   'submit-account-decision':()=>{
     const d=new FormData($('#aaForm')); const a=DB.db.accountRequests.find(x=>x.id===d.get('id'));
+    if(!a) return;
     a.status=d.get('decision'); a.reviewedBy=AUTH.user.id; a.reviewedAt=todayISO(); a.note=d.get('note');
     if(d.get('decision')==='approved'){
       const username=(a.name||'user').toLowerCase().replace(/[^a-z ]/g,'').split(' ').filter(Boolean).slice(0,2).join('.')+'.'+a.roleId;
-      const salt=newSalt(); const temp='DIMS-'+Math.random().toString(36).slice(2,8).toUpperCase();
-      DB.db.users.push({ id:uid('u'), name:a.name, username, roleId:a.roleId, jobTitle:a.jobTitle, departmentId:a.departmentId,
-        countyId:a.countyId, areaIds:a.areaIds||[], reportsTo:a.reportsTo, status:'active', createdBy:a.requestedBy,
-        approvedBy:AUTH.user.id, created:todayISO(), salt, hash:strongHash(temp,salt), mustChange:true, demo:true });
-      a.generatedUsername=username; a.generatedTemp=temp;
+      const salt=newSalt(); const temp='DIMS-'+Math.random().toString(36).slice(2,8).toUpperCase()+'!9a';
+      const newId=uid('u');
+      const isDemoInstall = !(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+      DB.db.users.push({ id:newId, name:a.name, username, roleId:a.roleId, jobTitle:a.jobTitle, departmentId:a.departmentId,
+        countyId:a.countyId, areaIds:a.areaIds||[], reportsTo:a.reportsTo, status:'active', active:true, createdBy:a.requestedBy,
+        approvedBy:AUTH.user.id, created:todayISO(), salt, hash:strongHash(temp,salt), mustChange:true, demo:isDemoInstall });
+      a.generatedUsername=username;
       AUDIT.append({actor:AUTH.user.id,action:'account.created',entity:'user',entityId:username,detail:a.name+' · '+a.roleId});
+      DB.save();
+      if(typeof SYNC!=='undefined' && SYNC.available && SYNC.available() && SYNC.sessionToken){
+        SYNC._json('api/credentials/provision', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ id:newId, username, name:a.name, roleId:a.roleId, countyId:a.countyId, password:temp, mustChange:true })
+        }).catch(()=>{});
+      }
       closeModal();
       openModal({title:'Account approved - onboarding sheet', narrow:true, body:`
         <div class="alert ok">${ic('check',17)}<div><b>Account created</b><span class="small">The password is shown once, here, and is never stored in readable form.</span></div></div>
         <dl class="dl" style="margin-top:14px">
           <dt>Username</dt><dd class="mono">${esc(username)}</dd>
-          <dt>Activation code</dt><dd class="mono">${esc(temp)}</dd>
+          <dt>Temporary password</dt><dd class="mono">${esc(temp)}</dd>
           <dt>Role</dt><dd>${esc(roleObj(a.roleId)?.name)}</dd>
           <dt>County</dt><dd>${esc(countyName(a.countyId))}</dd>
         </dl>
         <div class="note" style="margin-top:12px">${ic('info',14)}<span>Print this sheet for the staff member. They must change the password at first sign-in.</span></div>`,
         footer:`<button class="btn btn-primary" data-act="print">Print sheet</button><button class="btn btn-ghost" data-act="close-modal">Done</button>`});
+      render();
       return;
     }
     AUDIT.append({actor:AUTH.user.id,action:'account.rejected',entity:'account',entityId:a.id,detail:d.get('note')||''});
@@ -2747,9 +2786,13 @@ const FORMS = {
     render();
     toast('Welcome', r.user.name,'ok');
   },
-  unlock:(d)=>{
-    const r=AUTH.unlock(d.get('password'));
-    if(!r.ok) return toast('Incorrect password','','err');
+  unlock: async (d)=>{
+    const pw = d.get('password');
+    let r = AUTH.unlock(pw);
+    if(!r.ok && typeof AUTH.unlockOnline === 'function' && typeof SYNC !== 'undefined' && SYNC.available && SYNC.available()){
+      r = await AUTH.unlockOnline(pw);
+    }
+    if(!r.ok) return toast('Incorrect password', r.msg || '', 'err');
     render();
   },
   'create-chief':(d)=>{

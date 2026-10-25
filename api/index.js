@@ -598,7 +598,7 @@ function getSession(state, req) {
      `/api/state` and `/api/auth/change-password` calls never 401 on replica lag. */
   const verified = verifySignedSessionToken(tok);
   if (!verified) return null;
-  if (!state.setup && Object.keys(state.creds || {}).length === 0) return null;
+  if (!state.setup && Object.keys(state.creds || {}).length === 0 && (!isDemoDatabase(state) || isGloballyActivated(state))) return null;
   const cred = state.creds && Object.prototype.hasOwnProperty.call(state.creds, verified.u)
     ? state.creds[verified.u]
     : null;
@@ -1067,6 +1067,8 @@ async function handleRequest(req, res) {
       rev: state.rev || 0,
       saved: state.saved,
       org: state.org,
+      landingTheme: (state.db && state.db.settings && state.db.settings.landingTheme) || 'heritage',
+      consoleTheme: (state.db && state.db.settings && state.db.settings.consoleTheme) || 'foundation',
       accounts: Object.keys(state.creds || {}).length,
       admins,
       host: req.headers.host || 'carelink-cloud',
@@ -1256,7 +1258,7 @@ async function handleRequest(req, res) {
         user.mustChange = true;
         user.mustChangePassword = true;
         user.demo = false;
-        user.status = 'pending_activation';
+        user.status = 'active';
         user.active = true;
         delete user.hash;
         delete user.salt;
@@ -1339,6 +1341,28 @@ async function handleRequest(req, res) {
       const chiefs = Object.values(state.creds || {}).filter((c) => c && c.roleId === 'chief');
       if (chiefs.length === 1 && (chiefs[0].username === 'chief.admin' || chiefs[0].username === 'system.admin')) {
         cred = chiefs[0];
+      }
+    }
+    /* Pre-commissioning synthetic evaluation Demo sign-in (strictly disabled
+       as soon as setup is commissioned or globally activated). */
+    if (!cred && !state.setup && !isGloballyActivated(state) && isDemoDatabase(state) && password === 'LOMAMO2026') {
+      const demoUsers = (state.db && Array.isArray(state.db.users)) ? state.db.users : [];
+      const demoMatch = demoUsers.find((u) => u && (String(u.username || '').toLowerCase() === rawId || String(u.email || '').toLowerCase() === rawId))
+        || ((rawId === 'system.admin' || rawId === 'chief.admin') ? demoUsers.find((u) => u && u.roleId === 'chief') : null);
+      if (demoMatch) {
+        const demoUname = String(demoMatch.username || rawId).toLowerCase();
+        const demoToken = mintSignedSessionToken({ id: demoMatch.id, roleId: demoMatch.roleId || 'staff', countyId: demoMatch.countyId || 'kisumu' }, demoUname);
+        const cleanDemoUser = sanitizeDbForClient({ users: [{ ...demoMatch, status: 'active', active: true, mustChange: false }] }).users[0];
+        return sendJson(res, 200, {
+          ok: true,
+          token: demoToken,
+          rev: state.rev || 0,
+          saved: state.saved,
+          user: cleanDemoUser,
+          username: demoUname,
+          mustChange: false,
+          idleSeconds: IDLE_SECONDS,
+        });
       }
     }
     const username = clipString(cred ? cred.username : rawId, 120);
@@ -1501,38 +1525,50 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, rev: state.rev });
   }
 
-  /* 5. Provision Unique Strong SMS Credential Pack (Chief System Admin) */
+  /* 5. Provision Unique Strong SMS Credential Pack (Chief System Admin or Account Admin) */
   if (route === 'credentials/provision' && method === 'POST') {
     const sess = getSession(state, req);
-    if (!sess || sess.roleId !== 'chief') {
-      return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may provision user credential packs.' });
+    if (!sess || (sess.roleId !== 'chief' && !ACCOUNT_ADMIN_ROLES.has(sess.roleId))) {
+      return sendJson(res, 403, { ok: false, error: 'Only an authorised account administrator may provision user credentials.' });
     }
     const body = await readJsonBody(req);
-    const accounts = Array.isArray(body.accounts) ? body.accounts : [];
+    const accounts = Array.isArray(body.accounts)
+      ? body.accounts
+      : (body && body.username ? [body] : []);
+    if (Array.isArray(body.accounts) && sess.roleId !== 'chief') {
+      return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may provision bulk user credential packs.' });
+    }
     const issued = [];
     const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host || 'carelink-dims.vercel.app'}`;
     for (const acc of accounts) {
       const uname = clipString(acc && acc.username, 120).trim().toLowerCase();
       if (!uname || uname === sess.username || FORBIDDEN_KEYS.has(uname)) continue;
-      /* Never silently demote or replace another Chief System Administrator through a bulk pack. */
+      /* Never silently demote or replace another Chief System Administrator through provisioning. */
       if (state.creds[uname] && state.creds[uname].roleId === 'chief') continue;
-      const tempPassword = generateStrongPassword();
+      if (acc.roleId === 'chief' && sess.roleId !== 'chief') continue;
+      const tempPassword = (typeof acc.password === 'string' && acc.password.length >= 10) ? acc.password : generateStrongPassword();
       const { salt, digest } = hashPassword(tempPassword);
+      const emailDomain = (body.emailDomain)
+        || (state.org && state.org.emailDomain)
+        || (state.db && state.db.settings && state.db.settings.org && state.db.settings.org.emailDomain)
+        || 'lomamo.example';
+      const mustChangeFlag = acc.mustChange !== undefined ? Boolean(acc.mustChange) : true;
       state.creds[uname] = {
         id: acc.id || `u-${uname.replace(/\./g, '-')}`,
         username: uname,
+        email: clipString(acc.email || `${uname}@${emailDomain}`, 240),
         name: acc.name || uname,
         roleId: acc.roleId || 'staff',
         countyId: acc.countyId || 'kisumu',
         salt,
         digest,
-        mustChange: true,
+        mustChange: mustChangeFlag,
         updatedAt: nowISO(),
       };
       if (state.db && Array.isArray(state.db.users)) {
         const u = state.db.users.find((x) => String(x.username).toLowerCase() === uname);
         if (u) {
-          u.mustChange = true;
+          u.mustChange = mustChangeFlag;
           u.demo = false;
           u.status = 'active';
           u.active = true;
@@ -1861,9 +1897,17 @@ async function handleRequest(req, res) {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to read the online database.' });
     const since = Number(urlObj.searchParams.get('since') || '0');
+    if (since > 0 && since >= (state.rev || 0)) {
+      return sendJson(res, 200, {
+        ok: true,
+        unchanged: true,
+        rev: state.rev || 0,
+        saved: state.saved,
+      });
+    }
     if (since > 0 && since < (state.rev || 0)) {
-      const deltas = (state.deltas || []).filter((d) => d.rev > since);
-      if (deltas.length) {
+      const deltas = (state.deltas || []).filter((d) => d.rev > since).sort((a, b) => a.rev - b.rev);
+      if (deltas.length > 0 && deltas[0].rev <= since + 1) {
         return sendJson(res, 200, {
           ok: true,
           rev: state.rev,
@@ -1895,6 +1939,23 @@ async function handleRequest(req, res) {
 
     for (const p of patches) {
       if (!p || typeof p.c !== 'string' || !SAFE_COLLECTION.test(p.c) || FORBIDDEN_KEYS.has(p.c)) continue;
+      if (p.c === 'personalPrefs') {
+        const prefKey = clipString(p.id || '', 160).trim();
+        if (!prefKey || FORBIDDEN_KEYS.has(prefKey)) continue;
+        const isOwnPref = prefKey === sess.userId || prefKey.toLowerCase() === sess.username || canAdminAccounts;
+        if (!isOwnPref) {
+          rejected.push({ c: p.c, id: prefKey, reason: 'not_permitted' });
+          continue;
+        }
+        const incomingPref = safeObject(p.set);
+        state.db.personalPrefs = safeObject(state.db.personalPrefs);
+        state.db.personalPrefs[prefKey] = {
+          ...safeObject(state.db.personalPrefs[prefKey]),
+          ...incomingPref,
+        };
+        applied.push({ c: 'personalPrefs', id: prefKey, set: state.db.personalPrefs[prefKey], before: {} });
+        continue;
+      }
       if (p.c === 'settings') {
         let appliedPatch = p;
         if (p.set && p.set.value) {
@@ -2094,6 +2155,132 @@ async function handleRequest(req, res) {
     appendServerAudit(state, body.username || 'unknown', 'auth.recovery_requested.county_urgent', 'user', body.username || '-', `URGENT -> ${assignedAdminUsername} · Recovery ${ref}`);
     await saveCloudState(state);
     return sendJson(res, 200, { ok: true, reference: ref, assignedCountyId: countyId, assignedAdminUsername });
+  }
+
+  /* 10b. Public Account Activation Code (ACT-XXXXXX) & 24h Emergency Code (EMG-XXXX) Redemption */
+  if (route === 'public/activate' && method === 'POST') {
+    const body = await readJsonBody(req);
+    const rawUser = String(body.username || '').trim().toLowerCase();
+    const code = String(body.code || '').trim().toUpperCase();
+    const newPw = String(body.password || '');
+    if (!rawUser || !code || !newPw) {
+      return sendJson(res, 400, { ok: false, error: 'Enter your username, activation code, and new password.' });
+    }
+    const dbUsers = (state.db && Array.isArray(state.db.users)) ? state.db.users : [];
+    const matchedUser = dbUsers.find((u) => u && (String(u.username || '').toLowerCase() === rawUser || String(u.email || '').toLowerCase() === rawUser));
+    const existingCred = Object.prototype.hasOwnProperty.call(state.creds || {}, rawUser)
+      ? state.creds[rawUser]
+      : Object.values(state.creds || {}).find((c) => String(c.email || '').toLowerCase() === rawUser);
+    const uname = clipString((existingCred && existingCred.username) || (matchedUser && matchedUser.username) || rawUser, 120).toLowerCase();
+    const pendingList = (state.db && Array.isArray(state.db.pendingActivations)) ? state.db.pendingActivations : [];
+    const act = pendingList.find((a) => a && String(a.username || '').toLowerCase() === uname && String(a.code || '').toUpperCase() === code && !a.used && new Date(a.expiresAt) > new Date());
+    if (!act || (!matchedUser && !existingCred)) {
+      recordLoginFailure(state, uname || 'anonymous');
+      await saveCloudState(state);
+      return sendJson(res, 400, { ok: false, error: 'Invalid or expired activation code for that username.' });
+    }
+    const pwErr = validatePrivacyPassword(newPw, uname);
+    if (pwErr) return sendJson(res, 400, { ok: false, error: pwErr });
+    const { salt, digest } = hashPassword(newPw);
+    act.used = true;
+    act.usedAt = nowISO();
+    state.creds = state.creds || {};
+    state.creds[uname] = {
+      ...(existingCred || {}),
+      id: (existingCred && existingCred.id) || (matchedUser && matchedUser.id) || `u-${uname.replace(/\./g, '-')}`,
+      username: uname,
+      email: (existingCred && existingCred.email) || (matchedUser && matchedUser.email) || `${uname}@${(state.org && state.org.emailDomain) || 'lomamo.example'}`,
+      name: (existingCred && existingCred.name) || (matchedUser && matchedUser.name) || uname,
+      roleId: (existingCred && existingCred.roleId) || (matchedUser && matchedUser.roleId) || 'staff',
+      countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',
+      salt,
+      digest,
+      mustChange: false,
+      privateSetAt: nowISO(),
+      updatedAt: nowISO(),
+    };
+    if (matchedUser) {
+      matchedUser.active = true;
+      matchedUser.status = 'active';
+      matchedUser.mustChange = false;
+      matchedUser.mustChangePassword = false;
+      matchedUser.dpaFirstLoginRequired = false;
+      matchedUser.privacyPasswordSet = true;
+      matchedUser.privacyPasswordAt = state.creds[uname].privateSetAt;
+      delete matchedUser.hash;
+      delete matchedUser.salt;
+    }
+    if (state.loginFailures) {
+      delete state.loginFailures[uname];
+      delete state.loginFailures[rawUser];
+    }
+    state.rev = (state.rev || 0) + 1;
+    appendServerAudit(state, state.creds[uname].id, 'account.activated', 'user', state.creds[uname].id, `Account @${uname} activated via issued ACT code`);
+    await saveCloudState(state);
+    return sendJson(res, 200, { ok: true, rev: state.rev, username: uname });
+  }
+
+  if (route === 'auth/emergency' && method === 'POST') {
+    const body = await readJsonBody(req);
+    const rawUser = String(body.username || '').trim().toLowerCase();
+    const code = String(body.code || '').trim().toUpperCase();
+    const newPw = String(body.password || '');
+    if (!rawUser || !code || !newPw) {
+      return sendJson(res, 400, { ok: false, error: 'Enter your username, 24-hour EMG code, and new password.' });
+    }
+    const dbUsers = (state.db && Array.isArray(state.db.users)) ? state.db.users : [];
+    const matchedUser = dbUsers.find((u) => u && (String(u.username || '').toLowerCase() === rawUser || String(u.email || '').toLowerCase() === rawUser));
+    const existingCred = Object.prototype.hasOwnProperty.call(state.creds || {}, rawUser)
+      ? state.creds[rawUser]
+      : Object.values(state.creds || {}).find((c) => String(c.email || '').toLowerCase() === rawUser);
+    const uname = clipString((existingCred && existingCred.username) || (matchedUser && matchedUser.username) || rawUser, 120).toLowerCase();
+    const emgList = (state.db && Array.isArray(state.db.emergencyCodes)) ? state.db.emergencyCodes : [];
+    const emg = emgList.find((e) => e && String(e.username || '').toLowerCase() === uname && String(e.code || '').toUpperCase() === code && !e.used && new Date(e.expiresAt) > new Date());
+    if (!emg || (!matchedUser && !existingCred)) {
+      recordLoginFailure(state, uname || 'anonymous');
+      await saveCloudState(state);
+      return sendJson(res, 400, { ok: false, error: 'Invalid or expired 24-hour emergency code for that username.' });
+    }
+    const pwErr = validatePrivacyPassword(newPw, uname);
+    if (pwErr) return sendJson(res, 400, { ok: false, error: pwErr });
+    const { salt, digest } = hashPassword(newPw);
+    emg.used = true;
+    emg.usedAt = nowISO();
+    state.creds = state.creds || {};
+    state.creds[uname] = {
+      ...(existingCred || {}),
+      id: (existingCred && existingCred.id) || (matchedUser && matchedUser.id) || `u-${uname.replace(/\./g, '-')}`,
+      username: uname,
+      email: (existingCred && existingCred.email) || (matchedUser && matchedUser.email) || `${uname}@${(state.org && state.org.emailDomain) || 'lomamo.example'}`,
+      name: (existingCred && existingCred.name) || (matchedUser && matchedUser.name) || uname,
+      roleId: (existingCred && existingCred.roleId) || (matchedUser && matchedUser.roleId) || 'staff',
+      countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',
+      salt,
+      digest,
+      mustChange: false,
+      privateSetAt: nowISO(),
+      updatedAt: nowISO(),
+    };
+    if (matchedUser) {
+      matchedUser.active = true;
+      matchedUser.status = 'active';
+      matchedUser.mustChange = false;
+      matchedUser.mustChangePassword = false;
+      matchedUser.dpaFirstLoginRequired = false;
+      matchedUser.failedLogins = 0;
+      matchedUser.privacyPasswordSet = true;
+      matchedUser.privacyPasswordAt = state.creds[uname].privateSetAt;
+      delete matchedUser.hash;
+      delete matchedUser.salt;
+    }
+    if (state.loginFailures) {
+      delete state.loginFailures[uname];
+      delete state.loginFailures[rawUser];
+    }
+    state.rev = (state.rev || 0) + 1;
+    appendServerAudit(state, state.creds[uname].id, 'auth.emergency_reset', 'user', state.creds[uname].id, `Password reset via 24h emergency code for @${uname}`);
+    await saveCloudState(state);
+    return sendJson(res, 200, { ok: true, rev: state.rev, username: uname });
   }
 
   return sendJson(res, 404, { ok: false, error: `Unknown CareLink API endpoint: /api/${route}` });
