@@ -112,9 +112,13 @@ function ok(name, cond, detail = '') {
     defaults.wtDefault === 'foundation' && defaults.devWtheme === 'foundation' &&
     defaults.foundation && defaults.foundation.name === 'Foundation White' &&
     defaults.foundation.mode === 'light' && defaults.foundation.t.surface === '#FFFFFF');
-  ok('Default landing theme is Heritage White (light mode)',
+  const console6CssRaw = fs.readFileSync(path.join(REPO, 'v6', 'src', 'console6.css'), 'utf8');
+  ok('Default landing theme is Heritage Sapphire Royal Blue (dark mode, #0E234A -> #1B3668 -> #071124 + #E9C765 gold)',
     defaults.landingDefault && defaults.landingDefault.id === 'heritage' &&
-    defaults.landingDefault.name === 'Heritage White' && defaults.landingDefault.mode === 'light');
+    defaults.landingDefault.name === 'Heritage Sapphire' &&
+    defaults.landingDefault.mode === 'dark' &&
+    defaults.landingDefault.accent === '#E9C765' &&
+    /\.ld\[data-theme="heritage"\][\s\S]*?#071124[\s\S]*?#1B3668/.test(console6CssRaw));
   ok('30 workspace themes (including 10 new themes) pass 100% of contrast audits',
     defaults.wthemeCount === 30 && defaults.auditFails === 0,
     `count=${defaults.wthemeCount}, auditFails=${defaults.auditFails}`);

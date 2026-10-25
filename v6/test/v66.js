@@ -424,14 +424,15 @@ test('11. Compiled single-script browser HTML bundle boots cleanly and renders L
   for (const l of winListeners) { if (l.ev === 'DOMContentLoaded') await l.fn(); }
 
   const landingHtml = root.innerHTML;
-  ok('APP.version is 6.6.0 across CareLink OS', vm.runInContext(`APP.version`, bctx) === '6.6.0');
-  ok('Compiled single-script bundle boots straight into visible Zero-Scroll Landing Page showing v6.6.0 (not blank white)',
-    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1"') && landingHtml.includes('6.6.0') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
+  const appVer = vm.runInContext(`APP.version`, bctx);
+  ok('APP.version is 6.6.8 across CareLink OS', appVer === '6.6.8', `got=${appVer}`);
+  ok('Compiled single-script bundle boots straight into visible Zero-Scroll Sapphire Blue Landing Page showing v6.6.8',
+    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="heritage" data-mode="dark"') && landingHtml.includes('v6.6.8') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'login'; render();`, bctx);
   const loginHtml = root.innerHTML;
-  ok('Compiled single-script bundle renders Sign-In page cleanly showing v6.6.0',
-    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes('v6.6.0') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
+  ok('Compiled single-script bundle renders Sign-In page cleanly showing v6.6.8 · Schema 6',
+    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes('CareLink C-DIMS v6.6.8 · Schema 6') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'architecture'; render();`, bctx);
   const archHtml = root.innerHTML;
