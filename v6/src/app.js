@@ -107,15 +107,29 @@ async function tryResumeSession(){
   if(!SYNC.sessionToken) return false;
   let uname = null;
   try{ uname = sessionStorage.getItem('carelink.lastUser'); }catch(e){}
-  if(!uname) return false;
+  if(!uname){
+    SYNC.storeToken(null);
+    return false;
+  }
   if(!APPX.host) return false;
   const ok = await SYNC.pullFull();
-  if(!ok) return false;
-  const u = (DB.db.users||[]).find(x=>String(x.username).toLowerCase()===uname.toLowerCase());
-  if(!u) return false;
+  if(!ok){
+    if(!SYNC.sessionToken){ try{ sessionStorage.removeItem('carelink.lastUser'); }catch(e){} }
+    return false;
+  }
+  const lower = uname.toLowerCase();
+  const u = (DB.db.users||[]).find(x=>String(x.username).toLowerCase()===lower)
+    || ((lower==='system.admin' || lower==='chief.admin') ? (DB.db.users||[]).find(x=>x && x.roleId==='chief') : null);
+  if(!u){
+    SYNC.storeToken(null);
+    try{ sessionStorage.removeItem('carelink.lastUser'); }catch(e){}
+    return false;
+  }
   AUTH.user = u; AUTH.online = true;
-  AUTH.session = {started:todayISO(), last:Date.now(), token:'resumed'};
+  AUTH.mustChange = Boolean(u.mustChange || u.mustChangePassword);
+  AUTH.session = {started:todayISO(), last:Date.now(), token:'resumed', mustChange:AUTH.mustChange};
   APPX.screen = 'app';
+  SESSION.start();
   return true;
 }
 
@@ -125,14 +139,27 @@ async function boot(){
   _booted = true;
   DB.load();
   applyTheme();
-  /* Draw immediately from local state so the Landing / Sign-In page is visible at 0ms
-     even while hostProbe() checks /api/health in the background. */
+  /* Attach click, submit, change and hash listeners synchronously at 0 ms
+     BEFORE the first render() or network probe so clicking Sign-In or
+     submitting a form works immediately even while /api/health is loading. */
+  AUTH.listeners.push(()=>render());
+  window.addEventListener('hashchange', ()=>{ parseHash(); render(); });
+  document.addEventListener('click', onClick, false);
+  document.addEventListener('submit', onSubmit, false);
+  document.addEventListener('change', onChange, false);
+  document.addEventListener('input', (e)=>{
+    const t = e && e.target;
+    if(t && t.name === 'username' && typeof LOGIN6 !== 'undefined' && t.closest && t.closest('[data-form="login6"]')){
+      LOGIN6.usernameDraft = t.value;
+    }
+  }, false);
+  ['pointerdown','keydown','touchstart','wheel'].forEach(ev=>
+    document.addEventListener(ev, ()=>{ if(AUTH.user) SESSION.touch(); }, {passive:true}));
+  window.addEventListener('hashchange', ()=>{ if(AUTH.user) SESSION.touch(); });
+  if(typeof NAVP!=='undefined' && NAVP.installAutoFoldListeners) NAVP.installAutoFoldListeners();
+
+  /* Respect explicit #/setup, #/onboard, #/login or #/architecture deep links at 0 ms */
   if(location.hash) parseHash();
-  render();
-  /* The front door probes whether a live host is answering and refreshes if needed. */
-  try{ APPX.host = await hostProbe(); }catch(e){ APPX.host = null; }
-  await tryResumeSession();
-  /* Respect explicit #/setup or #/onboard deep links while keeping Landing as default front door */
   if(!AUTH.user && /^#\/?(setup|onboard)\b/i.test(location.hash||'')){
     APPX.screen = 'onboard';
     ONB.step = 1;
@@ -141,15 +168,12 @@ async function boot(){
   } else if(!AUTH.user && /^#\/?architecture\b/i.test(location.hash||'')){
     APPX.screen = 'architecture';
   }
-  AUTH.listeners.push(()=>render());
-  window.addEventListener('hashchange', ()=>{ parseHash(); render(); });
-  document.addEventListener('click', onClick, false);
-  document.addEventListener('submit', onSubmit, false);
-  document.addEventListener('change', onChange, false);
-  ['pointerdown','keydown','touchstart','wheel'].forEach(ev=>
-    document.addEventListener(ev, ()=>{ if(AUTH.user) SESSION.touch(); }, {passive:true}));
-  window.addEventListener('hashchange', ()=>{ if(AUTH.user) SESSION.touch(); });
-  if(typeof NAVP!=='undefined' && NAVP.installAutoFoldListeners) NAVP.installAutoFoldListeners();
+  render();
+
+  /* The front door probes whether a live host is answering and refreshes if needed. */
+  try{ APPX.host = await hostProbe(); }catch(e){ APPX.host = null; }
+  if(APPX.host && typeof SYNC !== 'undefined') SYNC.server = APPX.host;
+  await tryResumeSession();
   if(location.hash) parseHash();
   render();
   if(typeof SYNC!=='undefined') setTimeout(()=>SYNC.start(), 300);
@@ -198,6 +222,46 @@ function applyTheme(){
 }
 
 /* ---------------- Render root ---------------- */
+function captureAuthFormState(root){
+  try{
+    if(!root || typeof root.querySelectorAll !== 'function') return null;
+    const inputs = root.querySelectorAll('input[id], input[name], select[id], select[name]');
+    if(!inputs || !inputs.length) return null;
+    const values = [];
+    for(const el of inputs){
+      if(!el || el.type === 'checkbox' || el.type === 'radio' || el.type === 'file') continue;
+      if(el.value) values.push({ id: el.id || '', name: el.name || '', form: (el.closest && el.closest('[data-form]') ? el.closest('[data-form]').dataset.form : ''), value: el.value });
+    }
+    const active = typeof document !== 'undefined' ? document.activeElement : null;
+    const focus = (active && (active.id || active.name) && root.contains && root.contains(active))
+      ? { id: active.id || '', name: active.name || '', selStart: active.selectionStart, selEnd: active.selectionEnd }
+      : null;
+    return (values.length || focus) ? { values, focus } : null;
+  }catch(_e){ return null; }
+}
+
+function restoreAuthFormState(root, snap){
+  try{
+    if(!snap || !root || typeof root.querySelector !== 'function') return;
+    for(const item of (snap.values || [])){
+      const sel = item.id ? `#${item.id}` : (item.form && item.name ? `[data-form="${item.form}"] [name="${item.name}"]` : '');
+      if(!sel) continue;
+      const el = root.querySelector(sel);
+      if(el && !el.value) el.value = item.value;
+    }
+    if(snap.focus){
+      const fSel = snap.focus.id ? `#${snap.focus.id}` : (snap.focus.name ? `[name="${snap.focus.name}"]` : '');
+      const fEl = fSel ? root.querySelector(fSel) : null;
+      if(fEl && typeof fEl.focus === 'function'){
+        fEl.focus();
+        if(typeof snap.focus.selStart === 'number' && typeof fEl.setSelectionRange === 'function'){
+          try{ fEl.setSelectionRange(snap.focus.selStart, snap.focus.selEnd); }catch(_e){}
+        }
+      }
+    }
+  }catch(_e){}
+}
+
 function render(){
   applyTheme();
   try{ if(typeof document!=='undefined') document.title = (typeof APP!=='undefined' && APP.tabTitle) ? APP.tabTitle : 'CareLink C-DIMS'; }catch(e){}
@@ -207,16 +271,25 @@ function render(){
   const staleDock = document.querySelector('.ai-dock');
   if(staleDock && (!AUTH.user || AUTH.locked() || !DB.db.users.length || APPX.screen==='public')) staleDock.remove();
   if(APPX.screen==='public'){ root.innerHTML = renderPublicPortal(APPX.params||{}); return; }
-  if(AUTH.user && !DB.db.settings.onboarding.complete){ root.innerHTML = renderOnboarding(); return; }
+  const onboardingDone = Boolean(DB.db && DB.db.settings && DB.db.settings.onboarding && DB.db.settings.onboarding.complete);
+  const hostCommissioned = Boolean(AUTH.online || (typeof commissionedEntryActive === 'function' && commissionedEntryActive()));
+  if(AUTH.user && !onboardingDone && !hostCommissioned){ root.innerHTML = renderOnboarding(); return; }
   if(!AUTH.user){
+    const snap = (APPX.screen==='login' || APPX.screen==='onboard') ? captureAuthFormState(root) : null;
     root.innerHTML = APPX.screen==='login' ? renderLogin()
       : APPX.screen==='onboard' ? renderOnboarding()
       : APPX.screen==='architecture' ? renderArchitecture()
       : renderLanding();
+    if(snap) restoreAuthFormState(root, snap);
     return;
   }
   /* A temporary password must be replaced before any console opens. */
-  if(AUTH.mustChange){ root.innerHTML = renderMustChange(); return; }
+  if(AUTH.mustChange){
+    const mcSnap = captureAuthFormState(root);
+    root.innerHTML = renderMustChange();
+    if(mcSnap) restoreAuthFormState(root, mcSnap);
+    return;
+  }
   if(AUTH.locked()){ root.innerHTML = renderLocked(); return; }
   const paneTop = NAVP.scrollState();
   const sheetLeft = (document.querySelector('.sheet')||{}).scrollLeft;
@@ -631,11 +704,12 @@ function onClick(e){
   finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
 }
 function onSubmit(e){
-  const f = e.target.closest('[data-form]');
+  const f = e && e.target && e.target.closest ? e.target.closest('[data-form]') : null;
   if(!f) return;
   e.preventDefault();
-  if(duplicatePress('form:'+f.dataset.form)) return;
-  const fn = FORMS[f.dataset.form];
+  const formName = f.dataset.form;
+  if(formName !== 'login6' && formName !== 'mustchange6' && duplicatePress('form:'+formName)) return;
+  const fn = FORMS[formName];
   if(fn) fn(new FormData(f), f);
 }
 function onChange(e){

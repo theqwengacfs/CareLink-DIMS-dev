@@ -21,7 +21,7 @@ const ONB = {
 };
 
 const LOGIN6 = {
-  tab:'signin', error:'', notice:'', busy:false, mustChangeBusy:false, results:null,
+  tab:'signin', error:'', notice:'', busy:false, mustChangeBusy:false, usernameDraft:'', results:null,
   slide:0, demoFilter:'all'
 };
 
@@ -491,7 +491,7 @@ function renderLogin6(){
       : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
       <div class="field"><label for="lg-u">Username or Official Email</label>
-        <input class="input" id="lg-u" name="username" autocomplete="username" placeholder="e.g. chief.admin, director, caregiver.nyalenda" required></div>
+        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" placeholder="e.g. system.admin, chief.admin, director, caregiver.nyalenda" required></div>
       <div class="field"><label for="lg-p">Password</label>
         <input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required></div>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
@@ -646,7 +646,7 @@ function renderLogin6(){
           <button class="btn btn-xs btn-ghost" data-act="goto-landing" type="button">Front page</button>
         </div>
         ${hostLine}
-        ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span>${!isActivated && /invalid online database|malformed JSON|KV/i.test(LOGIN6.error) ? `<div style="margin-top:6px"><button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Repair KV &amp; Start Fresh Setup</button></div>` : ''}</div></div>`:''}
+        ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span>${!isActivated && (commissionedEntryActive() || (host && host.setup) || /invalid online database|malformed JSON|KV/i.test(LOGIN6.error)) ? `<div style="margin-top:6px"><button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button></div>` : ''}</div></div>`:''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
         <div class="lg-tabs" style="grid-template-columns:repeat(${demoBlocked?4:5},1fr)">
           ${tabBtn('signin','Sign in')}
@@ -751,7 +751,7 @@ function renderOnboarding6(){
     body = `<p class="lg-note">Establish the <b>Chief System Administrator</b> commissioning account and initial setup password. Immediately after Step 4 returns you to the <b>Official Sign-In screen</b>, you will sign in with this initial setup password and be prompted to set your private personal password before clicking <b>Activate System Globally</b>.</p>
       <div class="grid g2" style="gap:10px">
         <div class="field"><label>Chief System Administrator full name</label><input class="input" id="ob-name" value="${esc(ONB.admin.name||'Chief System Administrator')}" placeholder="e.g. Chief System Administrator"></div>
-        <div class="field"><label>Username</label><input class="input" id="ob-user" value="${esc(ONB.admin.username||'chief.admin')}" placeholder="chief.admin"></div>
+        <div class="field"><label>Username</label><input class="input" id="ob-user" value="${esc(ONB.admin.username||'system.admin')}" placeholder="system.admin"><div class="hint">Both <b>system.admin</b> and <b>chief.admin</b> are accepted for Chief System Administrator sign-in.</div></div>
       </div>
       <div class="grid g2" style="gap:10px">
         <div class="field"><label>Initial Commissioning Setup Password (12+ chars)</label><input class="input" id="ob-pw" type="password" minlength="12" value="${esc(ONB.admin.password||'')}" autocomplete="new-password" oninput="(function(v){var el=document.getElementById('ob-strength');if(!el)return;var u={name:(document.getElementById('ob-name')||{}).value||'',username:(document.getElementById('ob-user')||{}).value||''};var err=(typeof PROD_SETUP!=='undefined')?PROD_SETUP.validatePrivacyPassword(v,u):(v.length<12?'At least 12 characters required.':'');el.textContent=err?err:'Strong commissioning password ready ('+v.length+' chars).';el.style.color=err?'var(--crit)':'var(--ok)';})(this.value)">
@@ -1101,9 +1101,15 @@ Object.assign(ACTIONS, {
 });
 
 Object.assign(FORMS, {
-  login6: async (d) => {
-    const username = String(d.get('username')||'').trim().toLowerCase();
-    const password = String(d.get('password')||'');
+  login6: async (d, f) => {
+    if(LOGIN6.busy) return;
+    const rawUser = d && typeof d.get === 'function' ? d.get('username') : '';
+    const domUser = f && typeof f.querySelector === 'function' ? (f.querySelector('[name="username"]')||{}).value : '';
+    const username = String(rawUser || domUser || LOGIN6.usernameDraft || '').trim().toLowerCase();
+    const rawPass = d && typeof d.get === 'function' ? d.get('password') : '';
+    const domPass = f && typeof f.querySelector === 'function' ? (f.querySelector('[name="password"]')||{}).value : '';
+    const password = String(rawPass || domPass || '');
+    LOGIN6.usernameDraft = username;
     if(!username || !password){
       LOGIN6.error = 'Enter both your username (or official email) and password.';
       return render();
@@ -1127,7 +1133,7 @@ Object.assign(FORMS, {
           await activateFullDemoDataset();
         }
         const localCandidate = (DB.db && Array.isArray(DB.db.users))
-          ? DB.db.users.find(x => x.username.toLowerCase()===username || String(x.email||'').toLowerCase()===username)
+          ? DB.db.users.find(x => x.username.toLowerCase()===username || String(x.email||'').toLowerCase()===username || ((username==='system.admin'||username==='chief.admin') && x.roleId==='chief'))
           : null;
         if((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned){
           const local = AUTH.login(username, password);
@@ -1138,6 +1144,7 @@ Object.assign(FORMS, {
       }
       LOGIN6.busy = false;
       if(res.ok){
+        LOGIN6.usernameDraft = '';
         APPX.screen='app';
         try{ sessionStorage.setItem('carelink.lastUser', AUTH.user.username); }catch(e){}
         SESSION.start();

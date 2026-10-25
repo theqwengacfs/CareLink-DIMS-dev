@@ -279,7 +279,100 @@ global.fetch = async (input, init = {}) => {
   assert.ok(!/Verifying\.\.\./.test(offlineHosted.run('renderLogin6()')), 'Rendered Sign-In button must not stay on Verifying...');
   assert.ok(offlineHosted.run('LOGIN6.error.length > 0'), 'Sign-In must display a clear error message on timeout');
 
-  console.log('kv-recovery-and-autofeed: real Upstash verbatim KV + reset-first-run + 3,333-patient zero-file Cloud Auto-Feed + Free-Tier <1 MiB KV sharding + Verifying-hang prevention + intact Master Import passed');
+  /* 10. Regression checks for 0 ms boot listeners, /public/ API path resolution,
+     GitHub Pages static-host detection, system.admin <-> chief.admin alias sign-in,
+     setup lockout clearing, and onboarding loop prevention. */
+  {
+    const docListeners = [];
+    let releaseHealth;
+    const healthGate = new Promise((r) => { releaseHealth = r; });
+    const slowBoot = makeCtx({
+      location: { hash: '#/login', protocol: 'https:', origin: 'https://carelink.test', host: 'carelink.test', hostname: 'carelink.test', pathname: '/carelink-v6.html' },
+      navigator: { userAgent: 'boot-listener-race-test' },
+      document: {
+        title: '',
+        body: { style: {}, dataset: {} },
+        documentElement: { style: { setProperty() {}, removeProperty() {} }, dataset: {} },
+        getElementById() { return { innerHTML: '', style: {}, classList: { add() {}, remove() {}, toggle() {} }, dataset: {}, addEventListener() {}, appendChild() {}, querySelector() { return null; }, querySelectorAll() { return []; } }; },
+        querySelector(sel) { return sel === '.ai-dock' ? null : { innerHTML: '', style: {}, classList: { add() {}, remove() {}, toggle() {} }, dataset: {}, remove() {}, addEventListener() {}, appendChild() {}, querySelector() { return null; }, querySelectorAll() { return []; } }; },
+        querySelectorAll() { return []; },
+        createElement() { return { innerHTML: '', style: {}, classList: { add() {}, remove() {} }, dataset: {}, addEventListener() {}, appendChild() {} }; },
+        addEventListener(ev) { docListeners.push(ev); },
+      },
+      fetch: async () => {
+        await healthGate;
+        return { ok: true, status: 200, json: async () => ({ ok: true, setup: true, rev: 1 }) };
+      },
+    });
+    const bootPromise = slowBoot.run('boot()');
+    assert.ok(docListeners.includes('click') && docListeners.includes('submit') && docListeners.includes('change'),
+      'boot() must attach click/submit/change listeners synchronously at 0 ms before hostProbe() resolves');
+    assert.equal(slowBoot.run('APPX.screen'), 'login', 'boot() must honour #/login immediately at 0 ms');
+    releaseHealth();
+    await bootPromise;
+
+    assert.equal(
+      slowBoot.run(`(()=>{ location.pathname = '/public/carelink-v6.html'; return SYNC.resolveApiUrl('api/auth/login'); })()`),
+      '../api/auth/login',
+      '/public/carelink-v6.html must rewrite api/... to ../api/... so serverless routes do not 404',
+    );
+    assert.equal(
+      slowBoot.run(`(()=>{ location.pathname = '/carelink-v6.html'; return SYNC.resolveApiUrl('api/auth/login'); })()`),
+      'api/auth/login',
+      'Root /carelink-v6.html must keep relative api/... path untouched',
+    );
+    assert.equal(
+      slowBoot.run(`(()=>{ location.hostname = 'theqwengacfs.github.io'; return SYNC.available(); })()`),
+      false,
+      'Static *.github.io preview host has no serverless /api/* and must run cleanly in static/offline mode',
+    );
+    assert.equal(
+      slowBoot.run(`(()=>{ location.hostname = 'care-link-dims-dev.vercel.app'; return SYNC.available(); })()`),
+      true,
+      'Vercel production host must report SYNC.available() === true',
+    );
+  }
+
+  /* 11. Pre-activation setup under chief.admin allows signing in as system.admin (and clears prior lockouts + onboarding loop) */
+  {
+    kv.clear();
+    const aliasSetupPw = 'Zx8#pL4!qW9@mN2';
+    /* Verify POST /api/setup wipes loginFailures and sets onboarding.complete = true */
+    const setupRes = await apiFetch('api/setup', {
+      method: 'POST',
+      body: {
+        org: { name: 'LOMAMO Foundation', shortName: 'LOMAMO', county: 'kisumu' },
+        admin: { username: 'chief.admin', name: 'Chief System Administrator', password: aliasSetupPw, mustChange: true },
+        db: { meta: { schema: 6, version: '6.6.0' }, settings: { onboarding: { complete: false, step: 1 } }, users: [{ id: 'u-chief-admin', username: 'chief.admin', roleId: 'chief', name: 'Chief System Administrator', status: 'active' }] },
+      },
+    });
+    assert.equal(setupRes.status, 200);
+    const badAliasRes = await apiFetch('api/auth/login', {
+      method: 'POST',
+      body: { username: 'system.admin', password: 'WrongPassword123!' },
+    });
+    const badAliasBody = await badAliasRes.json();
+    assert.equal(badAliasRes.status, 401, 'Wrong password via system.admin alias must still be rejected');
+    assert.match(badAliasBody.error || '', /system\.admin|Reset 4-Step Setup/i, 'Pre-activation 401 should give actionable guidance');
+
+    const aliasClient = makeCtx({
+      location: { hash: '', protocol: 'https:', origin: 'https://carelink.test', host: 'carelink.test', hostname: 'carelink.test', pathname: '/carelink-v6.html' },
+      navigator: { userAgent: 'chief-alias-test' },
+      sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+      fetch: apiFetch,
+    });
+    const aliasHealth = await (await apiFetch('api/health')).json();
+    aliasClient.run(`APPX.host = ${JSON.stringify(aliasHealth)}; SYNC.server = APPX.host; APPX.screen = 'login';`);
+    aliasClient.ctx.__form = { username: 'system.admin', password: aliasSetupPw };
+    await aliasClient.run('FORMS.login6(new FormData())');
+    assert.equal(aliasClient.run('Boolean(AUTH.user && AUTH.user.roleId === "chief")'), true,
+      'Signing in as system.admin must resolve to the Chief System Administrator provisioned in Step 2');
+    assert.equal(aliasClient.run('AUTH.mustChange'), true, 'First login via alias must still enforce temporary password replacement');
+    assert.equal(aliasClient.run('Boolean(DB.db.settings.onboarding && DB.db.settings.onboarding.complete)'), true,
+      'Setup and login must mark onboarding.complete = true so authenticated users never bounce back to onboarding');
+  }
+
+  console.log('kv-recovery-and-autofeed: real Upstash verbatim KV + reset-first-run + 3,333-patient zero-file Cloud Auto-Feed + Free-Tier <1 MiB KV sharding + Verifying-hang prevention + 0ms boot/alias/path fixes + intact Master Import passed');
 })().catch((err) => {
   console.error(err);
   process.exit(1);

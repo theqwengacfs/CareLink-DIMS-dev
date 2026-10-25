@@ -35,8 +35,22 @@ const SYNC = {
   _timer:null, _inflight:false, _poll:null, _shadow:{}, _retry:0,
 
   available(){
-    try{ return typeof fetch==='function' && typeof location!=='undefined' && /^https?:$/.test(location.protocol); }
+    try{
+      if(typeof fetch!=='function' || typeof location==='undefined' || !/^https?:$/.test(location.protocol)) return false;
+      if(/\.github\.io$/i.test(String(location.hostname||''))) return false;
+      return true;
+    }
     catch(e){ return false; }
+  },
+
+  resolveApiUrl(url){
+    try{
+      const s = String(url || '');
+      if(/^api\//.test(s) && typeof location !== 'undefined' && typeof location.pathname === 'string' && /\/public\/[^/]*$/.test(location.pathname)){
+        return '../' + s;
+      }
+      return s;
+    }catch(_e){ return url; }
   },
 
   /* ---- session -------------------------------------------------------- */
@@ -75,7 +89,7 @@ const SYNC = {
     try{
       const reqInit = Object.assign({cache:'no-store'}, fetchOpts, {headers});
       if(controller && !reqInit.signal) reqInit.signal = controller.signal;
-      r = await fetch(url, reqInit);
+      r = await fetch(this.resolveApiUrl(url), reqInit);
     }catch(err){
       if(timedOut) throw new Error('The shared online service timed out while responding. Check your connection and try again.');
       throw err;
@@ -192,9 +206,20 @@ const SYNC = {
   async start(){
     this.loadToken();
     if(!this.available()){ this.state='device'; this.message='This copy runs from the device'; this.bump(); return; }
+    /* Reuse a fresh host snapshot already loaded by boot() when unauthenticated
+       so we do not trigger a redundant /api/health redraw while the user is
+       typing into the Sign-In form. */
+    if(!this.sessionToken && typeof APPX !== 'undefined' && APPX.host && typeof APPX.host === 'object'){
+      this.server = APPX.host;
+      this.rev = APPX.host.rev || 0;
+      this.state = 'idle';
+      this.message = APPX.host.setup ? 'Sign in to the shared online source' : 'The shared online source is waiting for first-run setup';
+      this.bump();
+      return;
+    }
     this.state = 'probing'; this.bump();
     let health = null;
-    try{ health = await this._json('api/health'); }catch(e){ health = null; }
+    try{ health = await this._json('api/health', { skipAuthHeader: true, timeoutMs: 8000 }); }catch(e){ health = null; }
     if(!health || !health.ok){
       this.state = this.available() ? 'error' : 'device';
       this.message = this.available()
