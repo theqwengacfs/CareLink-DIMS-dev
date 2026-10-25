@@ -43,6 +43,10 @@ const PROD_SETUP = {
      with mandatory password change on Official Sign-In, and enables "Activate System Globally". */
   async completeFourStepHostSetup({ orgNameVal, orgName, shortNameVal, shortName, emailDomain, loginUrl, portalUrl, primaryCounty, chiefName, chiefUsername, chiefPassword, chiefTempPassword, seedMode }) {
     if(this.isGloballyActivated()) throw new Error('First-run setup is locked after global activation.');
+    const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
+    if(hosted && seedMode !== 'empty'){
+      throw new Error('Live Vercel setup must start with an empty patient register. After setup, use Master data import before global activation to upload the complete 3,333-patient reference master in verified chunks; the full package exceeds Vercel\'s 4.5 MB Function request limit.');
+    }
     const domain = String(emailDomain || 'lomamo.example').replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
     const portal = String(loginUrl || portalUrl || this.defaultPortalUrl()).trim();
     const chiefUser = String(chiefUsername || 'chief.admin').trim().toLowerCase();
@@ -50,7 +54,6 @@ const PROD_SETUP = {
     const effectivePw = chiefPassword || chiefTempPassword || 'TempSetup#2026!';
     const effectiveOrg = orgNameVal || orgName || 'LOMAMO Foundation Kenya';
     const effectiveShort = shortNameVal || shortName || 'LOMAMO';
-    const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
     const previousRaw = JSON.stringify(DB.db || DB.blank());
     const previousHost = typeof APPX !== 'undefined' ? APPX.host : null;
     const previousServer = typeof SYNC !== 'undefined' ? SYNC.server : null;
@@ -123,18 +126,29 @@ const PROD_SETUP = {
        refused/offline request, or a health read that cannot confirm the new
        commissioned state, must never produce a success screen. */
     if(hosted){
+      const setupBody = JSON.stringify({
+        admin: { name: chiefFull, username: chiefUser, email: admin.email, password: effectivePw, countyId: primaryCounty || 'kisumu', mustChange: true },
+        org: DB.db.settings.org,
+        awaitingGlobalActivation: true,
+        globallyActivated: false,
+        db: DB.db
+      });
+      const setupBytes = typeof TextEncoder !== 'undefined'
+        ? new TextEncoder().encode(setupBody).length
+        : (typeof Blob !== 'undefined' ? new Blob([setupBody]).size : setupBody.length);
+      /* Keep a margin below Vercel's 4.5 MB Function limit. This is a
+         fail-closed preflight, not permission to split a live installation
+         into an unverified series of public setup writes. */
+      if(setupBytes > 4 * 1024 * 1024){
+        rollback();
+        throw new Error('The setup package exceeds the safe Vercel request-size limit. Choose "Start with an empty patient register"; no setup request was sent and no completion is being claimed.');
+      }
       let response;
       try{
         response = await SYNC._json('api/setup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            admin: { name: chiefFull, username: chiefUser, email: admin.email, password: effectivePw, countyId: primaryCounty || 'kisumu', mustChange: true },
-            org: DB.db.settings.org,
-            awaitingGlobalActivation: true,
-            globallyActivated: false,
-            db: DB.db
-          })
+          body: setupBody
         });
       }catch(e){
         rollback();

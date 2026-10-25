@@ -56,7 +56,21 @@ const SYNC = {
     if(this.sessionToken) headers['X-CareLink-Session'] = this.sessionToken;
     const r = await fetch(url, Object.assign({cache:'no-store'}, opts, {headers}));
     this.latency = Math.round(performance.now()-t0);
-    const body = await r.json().catch(()=>({}));
+    let body = await r.json().catch(()=>({}));
+    /* Vercel rejects oversized Function requests before our API can return
+       JSON. Preserve that actionable failure instead of showing a generic
+       "database refused" message with no status or next step. */
+    if(!r.ok && (!body || typeof body !== 'object' || !body.error)){
+      const details = body && typeof body === 'object' ? body : {};
+      const tooLarge = r.status === 413;
+      body = Object.assign({}, details, {
+        ok:false,
+        code:tooLarge ? 'payload_too_large' : (details.code || `http_${r.status}`),
+        error:tooLarge
+          ? 'The request exceeded Vercel\'s 4.5 MB Function payload limit. For first-run setup, choose "Start with an empty patient register"; no completion is being claimed.'
+          : `The shared online service refused the request (HTTP ${r.status}). No success is being claimed.`
+      });
+    }
     if(r.status === 401 && this.sessionToken){
       /* The host ended the session (idle window, revocation or restart). */
       this.storeToken(null);
@@ -165,7 +179,40 @@ const SYNC = {
       if(r.status === 401){ this.state='idle'; this.message='Session ended — sign in again'; this.bump(); return false; }
       this.state='error'; this.message = r.body.error || 'The shared online state could not be read'; this.bump(); return false;
     }
-    this.adoptRemote(r.body.db, r.body.rev, r.body.saved);
+    const remoteDb = Object.assign({}, r.body.db);
+    const paged = Array.isArray(r.body.pagedCollections) ? r.body.pagedCollections : [];
+    for(const meta of paged){
+      if(!meta || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(String(meta.name||''))){
+        this.state='error'; this.message='The shared online state returned an invalid collection manifest'; this.bump(); return false;
+      }
+      const records = [];
+      let offset = 0;
+      while(true){
+        let page;
+        try{ page = await this._json(`api/state/collection?name=${encodeURIComponent(meta.name)}&offset=${offset}`); }
+        catch(e){
+          this.state='error'; this.message=`The shared online collection ${meta.name} could not be read`; this.bump(); return false;
+        }
+        if(!page.ok || !page.body || page.body.name !== meta.name || !Array.isArray(page.body.records) || page.body.rev !== r.body.rev){
+          this.state='error';
+          this.message=(page.body && page.body.error) || 'The shared online state changed or a collection page failed during the read; retry the sync';
+          this.bump(); return false;
+        }
+        records.push(...page.body.records);
+        const next = Number(page.body.nextOffset);
+        if(page.body.done) break;
+        if(!Number.isSafeInteger(next) || next <= offset){
+          this.state='error'; this.message=`The shared online collection ${meta.name} did not advance safely`; this.bump(); return false;
+        }
+        offset = next;
+        this.message=`Reading shared ${meta.name}: ${Math.min(offset, meta.count)} / ${meta.count}`;
+      }
+      if(records.length !== meta.count){
+        this.state='error'; this.message=`The shared online collection ${meta.name} was incomplete (${records.length} of ${meta.count})`; this.bump(); return false;
+      }
+      remoteDb[meta.name] = records;
+    }
+    this.adoptRemote(remoteDb, r.body.rev, r.body.saved);
     this.state='connected'; this.message='Reading the shared online source'; this.bump();
     return true;
   },

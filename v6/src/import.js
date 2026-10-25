@@ -167,7 +167,107 @@ const IMPORTER = {
   }
 };
 
+const REFERENCE_MASTER = {
+  package:null, file:null, phase:'idle', uploadId:null, received:0, error:'', result:null,
+
+  reset(){ this.package=null; this.file=null; this.phase='idle'; this.uploadId=null; this.received=0; this.error=''; this.result=null; },
+
+  inspect(manifest, file){
+    if(!manifest || manifest.format !== 'carelink-reference-master-v1' || manifest.encoding !== 'brotli-base64' ||
+       !Array.isArray(manifest.chunks) || !manifest.chunks.length || manifest.chunks.length !== manifest.chunkCount ||
+       manifest.chunkCount > 256 || !manifest.counts || manifest.counts.patients !== 3333 ||
+       !manifest.quality || manifest.quality.passed !== true){
+      throw new Error('Choose the unmodified CareLink full reference-master JSON file.');
+    }
+    if(!manifest.chunks.every(c => typeof c === 'string' && c.length > 0 && c.length <= 600000)){
+      throw new Error('The reference-master chunk layout is invalid. Download a fresh master file.');
+    }
+    this.package=manifest; this.file=file || {name:'CareLink-Reference-Master-v6.6.json'};
+    this.phase='ready'; this.uploadId=null; this.received=0; this.error=''; this.result=null;
+  },
+
+  async upload(){
+    const p=this.package;
+    if(!p || this.phase==='uploading' || this.phase==='loading') return;
+    if(typeof SYNC==='undefined' || !SYNC.available() || !SYNC.sessionToken){
+      this.error='Sign in through the shared online source as Chief System Administrator before uploading the reference master.';
+      this.phase='ready'; render(); return;
+    }
+    if(!AUTH.user || AUTH.user.roleId!=='chief'){
+      this.error='Only the Chief System Administrator can import the full reference master.';
+      this.phase='ready'; render(); return;
+    }
+    this.phase='uploading'; this.error=''; render();
+    try{
+      if(!this.uploadId){
+        const start=await SYNC._json('api/master-import/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+          format:p.format, encoding:p.encoding, digest:p.digest, compressedDigest:p.compressedDigest,
+          rawBytes:p.rawBytes, compressedBytes:p.compressedBytes, base64Length:p.base64Length,
+          chunkSize:p.chunkSize, chunkCount:p.chunkCount, fileName:this.file.name
+        })});
+        if(!start.ok || !start.body || start.body.ok!==true) throw new Error((start.body&&start.body.error)||'The shared online source refused the reference-master upload.');
+        this.uploadId=start.body.uploadId; this.received=start.body.received||0;
+      }
+      for(let i=0;i<p.chunks.length;i++){
+        const expectedReceived=i+1;
+        if(this.received>=expectedReceived) continue;
+        const r=await SYNC._json('api/master-import/chunk', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+          uploadId:this.uploadId, index:i, data:p.chunks[i]
+        })});
+        if(!r.ok || !r.body || r.body.ok!==true) throw new Error((r.body&&r.body.error)||`Reference-master chunk ${i+1} was refused.`);
+        this.received=r.body.received||expectedReceived;
+        render();
+      }
+      this.phase='loading'; render();
+      const done=await SYNC._json('api/master-import/finalize', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({uploadId:this.uploadId})});
+      if(!done.ok || !done.body || done.body.ok!==true) throw new Error((done.body&&done.body.error)||'The shared online source refused reference-master final validation.');
+      this.result=done.body;
+      const pulled=await SYNC.pullFull();
+      this.phase='done';
+      if(!pulled) this.error='The master was committed in the shared online source, but this browser could not finish loading it. Use Sync retry; do not upload the file again.';
+      render();
+      if(pulled) toast('Full reference master imported', '3,333 patients and all related reference collections are now loaded from the shared online source.', 'ok');
+    }catch(e){
+      this.phase=this.result?'done':'ready';
+      this.error=e.message||'The reference-master import failed.';
+      render();
+    }
+  }
+};
+
+function renderReferenceMasterImport(user){
+  const r=REFERENCE_MASTER, p=r.package, q=p.quality||{checks:[]}, counts=p.counts||{};
+  const busy=r.phase==='uploading'||r.phase==='loading';
+  const statusText=r.phase==='uploading'
+    ? `Uploading verified chunks to the shared online source: ${r.received} / ${p.chunkCount}`
+    : r.phase==='loading' ? 'Validating every record, committing to KV and loading the paged shared state…'
+    : r.phase==='done' ? 'Reference master committed in the shared online source'
+    : 'Ready for server-side digest, structure, relationship and completeness validation';
+  return pageHead('Full reference master import',
+    'One-time post-setup import of the complete synthetic 3,333-patient reference package, with live accounts and settings preserved.')
+    + card(esc(r.file&&r.file.name||'CareLink reference master'), `
+      <div class="grid g4" style="margin-bottom:16px">
+        ${kpi('Patients',num(counts.patients||0),'Complete synthetic profiles','ok','users')}
+        ${kpi('Longitudinal visits',num(counts.visits||0),'At least 12 per patient','ok','home')}
+        ${kpi('PDCA records',num(counts.pdcas||0),'Cycles and 30-day reviews','ok','refresh')}
+        ${kpi('Package chunks',num(p.chunkCount),'KV-backed verified upload','','upload')}
+      </div>
+      <div class="alert ${r.phase==='done'?'ok':'info'}" style="margin-bottom:14px">${ic(r.phase==='done'?'check':'database',18)}<div><b>${esc(statusText)}</b>
+        <span class="small">${(p.rawBytes/1048576).toFixed(1)} MB of validated source JSON transported as a ${(p.compressedBytes/1048576).toFixed(1)} MB Brotli package. Accounts, private passwords, organisation settings and the activation boundary are not overwritten.</span></div></div>
+      ${r.error?`<div class="alert crit" style="margin-bottom:14px">${ic('alert',17)}<span>${esc(r.error)}</span></div>`:''}
+      ${card('Automated quality evidence', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Check</th><th>Verified</th><th>Result</th></tr></thead><tbody>
+        ${(q.checks||[]).map(c=>`<tr><td class="small">${esc(c.label)}</td><td class="num">${num(c.actual)} / ${num(c.expected)}</td><td>${badge(c.passed?'Passed':'Review',c.passed?'b-ok':'b-warn','nodot')}</td></tr>`).join('')}
+        </tbody></table></div><p class="small muted">100% refers to the defined automated synthetic-reference checks. It is not a substitute for clinical verification of future real-world records.</p>`)}
+      <div class="row" style="margin-top:16px;gap:8px;flex-wrap:wrap">
+        ${r.phase!=='done'?`<button class="btn btn-primary" data-act="reference-master-upload" type="button" ${busy?'disabled':''}>${ic('upload',15)} ${busy?'Import in progress…':r.uploadId?'Resume verified upload':'Validate & upload full master'}</button>`:''}
+        ${r.phase==='done'?`<button class="btn btn-primary" data-act="go" data-v="patients" type="button">${ic('users',15)} Open 3,333-patient register</button>
+          <button class="btn btn-ghost" data-act="go" data-v="quality" type="button">${ic('check',15)} Open data quality</button>`:''}
+        <button class="btn btn-ghost" data-act="reference-master-reset" type="button" ${busy?'disabled':''}>${r.phase==='done'?'Back to master import':'Choose another file'}</button>
+      </div>`, {sub:`SHA-256 ${p.digest} · ${num(q.recordsChecked||0)} collection records checked`});
+}
+
 function renderImport(user){
+  if(typeof REFERENCE_MASTER!=='undefined' && REFERENCE_MASTER.package) return renderReferenceMasterImport(user);
   const s=IMPORTER;
   const steps=[['Upload','1'],['Map fields','2'],['Validate','3'],['Committed','4']];
   const stepper = `<div class="steps" style="padding-bottom:18px">${steps.map(([l,n],i)=>`<div class="step ${s.step>i+1?'done':''} ${s.step===i+1?'cur':''}"><span class="n">${s.step>i+1?'✓':n}</span>${l}</div>`).join('')}</div>`;
@@ -183,7 +283,9 @@ function renderImport(user){
       <div class="row" style="justify-content:center;margin-top:14px">
         <span class="btn btn-sm btn-primary" data-act="trigger-file">${ic('file',14)} Select file</span>
         <span class="btn btn-sm btn-ghost" data-act="download-template">${ic('download',14)} CSV template</span>
+        <a class="btn btn-sm btn-soft" href="master/CareLink-Reference-Master-v6.6.json" download>${ic('download',14)} Full 3,333-patient reference master</a>
       </div>
+      <div class="small muted" style="margin-top:10px">After the four-step setup and before global activation: download the full reference master, then select that same JSON file above. It includes all related system collections and is uploaded to the shared KV source in verified chunks.</div>
     </div>
     <div class="grid g2" style="margin-top:16px">
       ${card('Offline engine', `<div class="small">Multi-sheet workbooks require the local engine:</div>
@@ -253,8 +355,8 @@ function renderImport(user){
       <div id="reconArea"></div>`;
   }
 
-  return pageHead('Master data import','Offline-first import of the master patient workbook with preview, duplicate detection and reconciliation.')
-  + card('', stepper + body, {sub:'No patient data is transmitted to an external service during import.'})
+  return pageHead('Master data import','Master patient workbook tools and the complete post-setup synthetic reference package, with preview, validation and reconciliation.')
+  + card('', stepper + body, {sub:'Real workbook parsing stays on the device. The clearly labelled synthetic reference master is uploaded to shared KV only after Chief confirmation and server validation.'})
   + (DB.db.imports.length? card('Import history', table([
       {label:'Import',render:i=>`<div class="cellname">${esc(i.id)}<span class="sm">${esc(i.file)}</span></div>`},
       {label:'When',render:i=>fmtDateTime(i.at)},
@@ -267,6 +369,8 @@ function renderImport(user){
 }
 
 function importActions(){ return {
+  'reference-master-upload':()=>REFERENCE_MASTER.upload(),
+  'reference-master-reset':()=>{ REFERENCE_MASTER.reset(); render(); },
   'pick-file':()=>{ const i=$('#importFile'); if(i) i.click(); },
   'trigger-file':()=>{ const i=$('#importFile'); if(i) i.click(); },
   'download-template':()=>{
@@ -305,6 +409,12 @@ document.addEventListener('change',(e)=>{
       if(/\.json$/i.test(f.name)){
         try{
           const j=JSON.parse(text);
+          if(j && j.format==='carelink-reference-master-v1'){
+            REFERENCE_MASTER.inspect(j,f);
+            render();
+            toast('Full reference master loaded', `${j.counts.patients} patients in ${j.chunkCount} verified upload chunks. Review the quality evidence, then upload.`, 'ok');
+            return;
+          }
           const arr=Array.isArray(j)?j:(j.patients||[]);
           IMPORTER.headers=[...new Set(arr.flatMap(o=>Object.keys(o)))];
           IMPORTER.rows=arr.map(o=>Object.fromEntries(Object.entries(o).map(([k,v])=>[k,v==null?'':String(v)])));

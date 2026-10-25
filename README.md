@@ -20,7 +20,7 @@ That address opens `public/carelink-v6.html`, which is built from `v6/src/`.
 npm install
 npm run dev          # Vite dev server on 0.0.0.0:5173, rebuilds the bundle on every edit in v6/src
 npm run build        # type-check + production build (also rebuilds the bundle)
-npm run test:all     # lint, legacy acceptance, API security, and hosted PC/tablet workflow tests
+npm run test:all     # lint, acceptance, API security, and actual-master PC/tablet workflow tests
 ```
 
 Open the single file directly, with no server at all:
@@ -59,6 +59,50 @@ before opening the console; a failed hosted login, setup, activation or password
 change never falls back to a device-local account or demo register. Browser
 storage is a cache for the online client, not a second installation.
 
+Live first-run commissioning starts with an **empty production register**. The
+full 3,333-patient synthetic reference package is deliberately separate because
+its related visits, PDCA cycles and departmental records total roughly 70 MB of
+JSON, exceeding Vercel's 4.5 MB Function request/response limit and Upstash's
+10 MB free-tier request limit. After the four steps and before global
+activation, the Chief opens **System → Master data import**, downloads
+`master/CareLink-Reference-Master-v6.6.json`, and selects that same file for a
+one-time, authenticated, chunked import. The server verifies SHA-256 digests,
+every required collection and relationship, unique identifiers and all defined
+completeness checks before committing. Live accounts, private passwords,
+organisation settings and activation flags are preserved.
+
+Large online states are gzip-compressed in KV and downloaded through bounded
+collection pages, so a fresh PC or tablet can reconstruct the complete shared
+record without an oversized Vercel response. The hosted wizard refuses an
+oversized initial setup before it can claim success or leave a device-only
+commissioned document behind. Rebuild the public master with
+`npm run build:reference-master`; its source is the official synthetic seeder,
+never a real patient workbook.
+
+### PC setup → full master → tablets
+
+1. On a PC, open the live Vercel URL and complete all four first-run steps once.
+   Wait for the shared-online confirmation; do not treat a cached screen as a
+   successful setup.
+2. Sign in as **Chief / System Administrator** and complete the mandatory
+   private-password change.
+3. Open **System → Master data import**. Under step 1, click **Full
+   3,333-patient reference master** to download the JSON file. Keep it unchanged.
+4. Click **Select file** and choose that downloaded JSON. Review the automated
+   quality evidence, then click **Validate & upload full master**. Leave the PC
+   online until every chunk and the final shared-KV commit have been confirmed.
+5. Confirm that the register shows **3,333 patients**, the quality view has no
+   findings, and the import is recorded in the online audit trail.
+6. Use **Global activation** to issue staff credentials. Give each tablet user
+   their own credentials; every tablet opens the same Vercel URL and downloads
+   the same paged online state. Demo and setup entry points remain locked after
+   activation.
+
+The reference package is synthetic evaluation content, not real patient data.
+Its import is one-time and is refused after global activation. A real master
+workbook continues through the separate governed row-import/reconciliation
+workflow; it must never be published as a static file.
+
 `POST /api/public/demo-bootstrap` is limited to a fresh, uncommissioned
 evaluation installation. It is refused once live setup exists and permanently
 after `globallyActivated`; the Landing, Sign-In and first-run setup UI use the
@@ -94,8 +138,10 @@ Vite plugin hot-reloads the preview when anything in `v6/src/` changes.
 
 ## Personal data
 
-This repository is public. It contains **no patient record**. The Administration's
-master patient workbook was studied, mapped field by field into the system
+This repository is public. It contains **no real patient record**. The generated
+3,333-patient reference register is synthetic evaluation content with reserved
+contact details and no credential secrets. The Administration's master patient
+workbook was studied, mapped field by field into the system
 (`v6/docs/20_MASTER_WORKBOOK_MAPPING.md`) and then removed from the repository;
 what remains is its structure, vocabulary, formulas and mapping. Real records are
 imported on the office host through *System → Master data import*.

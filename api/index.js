@@ -13,6 +13,7 @@
    ============================================================ */
 
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 
 const CLOUD_KEY = 'carelink_cloud_v64';
 const PBKDF2_ROUNDS = 160000;
@@ -28,6 +29,15 @@ class CloudStorageError extends Error {
     this.name = 'CloudStorageError';
     this.code = code;
     this.statusCode = 503;
+  }
+}
+
+class MasterPackageError extends Error {
+  constructor(message, code = 'invalid_master_package') {
+    super(message);
+    this.name = 'MasterPackageError';
+    this.code = code;
+    this.statusCode = 400;
   }
 }
 
@@ -125,6 +135,7 @@ function blankStore() {
     emergencies: [],
     accountRequests: [],
     recoveryRequests: [],
+    masterImports: [],
     loginFailures: {},
   };
 }
@@ -139,17 +150,21 @@ function normalizeStore(value) {
   for (const key of ['creds', 'sessions', 'loginFailures']) {
     if (!state[key] || typeof state[key] !== 'object' || Array.isArray(state[key])) state[key] = {};
   }
-  for (const key of ['deltas', 'mergeJournal', 'audit', 'activations', 'emergencies', 'accountRequests', 'recoveryRequests']) {
+  for (const key of ['deltas', 'mergeJournal', 'audit', 'activations', 'emergencies', 'accountRequests', 'recoveryRequests', 'masterImports']) {
     if (!Array.isArray(state[key])) state[key] = [];
   }
   return state;
 }
 
-async function loadCloudState() {
+const CLOUD_GZIP_FORMAT = 'carelink-cloud-gzip-v1';
+const CLOUD_COMPRESS_THRESHOLD = 6 * 1024 * 1024;
+const MAX_CLOUD_STATE_BYTES = 128 * 1024 * 1024;
+
+async function readKvString(key) {
   const kv = requireKv();
   let response;
   try {
-    response = await fetch(`${kv.url}/get/${CLOUD_KEY}`, {
+    response = await fetch(`${kv.url}/get/${key}`, {
       headers: { Authorization: `Bearer ${kv.token}` },
     });
   } catch {
@@ -158,40 +173,28 @@ async function loadCloudState() {
   if (!response.ok) {
     throw new CloudStorageError('kv_unavailable', 'The mandatory CareLink KV store refused the read; no local fallback is used.');
   }
-
   let payload;
   try { payload = await response.json(); }
   catch { throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an unreadable response; no local fallback is used.'); }
   if (!payload || !Object.prototype.hasOwnProperty.call(payload, 'result')) {
     throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an invalid response; no local fallback is used.');
   }
-
-  /* Upstash returns null for a missing key.  Only that explicit result means
-     a new installation; a network error or malformed value must never look
-     like an empty database. */
-  if (payload.result === null || payload.result === undefined) {
-    return { state: blankStore(), driver: 'cloud-kv-redis' };
-  }
-  let parsed;
-  try { parsed = typeof payload.result === 'string' ? JSON.parse(payload.result) : payload.result; }
-  catch { throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.'); }
-  return { state: normalizeStore(parsed), driver: 'cloud-kv-redis' };
+  return payload.result;
 }
 
-async function saveCloudState(state) {
+async function writeKvString(key, value, { exSeconds = 0 } = {}) {
   const kv = requireKv();
-  state.saved = nowISO();
   let response;
   try {
-    response = await fetch(`${kv.url}/set/${CLOUD_KEY}`, {
+    response = await fetch(`${kv.url}/set/${key}${exSeconds ? `?EX=${Math.max(60, Math.floor(exSeconds))}` : ''}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${kv.token}`,
         'Content-Type': 'application/json',
       },
       /* Upstash's REST SET endpoint accepts a JSON string containing the
-         serialized document.  Await and verify this write before replying. */
-      body: JSON.stringify(JSON.stringify(state)),
+         serialized value. Await the write before acknowledging it. */
+      body: JSON.stringify(String(value)),
     });
   } catch {
     throw new CloudStorageError('kv_write_failed', 'CareLink could not commit to the mandatory KV store; the change was not acknowledged.');
@@ -199,6 +202,67 @@ async function saveCloudState(state) {
   if (!response.ok) {
     throw new CloudStorageError('kv_write_failed', 'CareLink KV refused the write; the change was not acknowledged.');
   }
+}
+
+async function deleteKvKey(key) {
+  const kv = requireKv();
+  try {
+    const response = await fetch(`${kv.url}/del/${key}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${kv.token}`, 'Content-Type': 'application/json' },
+      body: '[]',
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+function serializeCloudState(state) {
+  const raw = JSON.stringify(state);
+  if (Buffer.byteLength(raw) <= CLOUD_COMPRESS_THRESHOLD) return raw;
+  /* A full reference installation is ~70 MB as JSON. Upstash's free tier
+     rejects individual requests above 10 MB, so large states are stored as a
+     gzip envelope. This is still one authoritative KV value, never a memory
+     or filesystem fallback. Small installations keep the original format. */
+  const data = zlib.gzipSync(Buffer.from(raw), { level: 6 }).toString('base64');
+  return JSON.stringify({ format: CLOUD_GZIP_FORMAT, data });
+}
+
+function decodeCloudState(stored) {
+  let parsed;
+  try { parsed = typeof stored === 'string' ? JSON.parse(stored) : stored; }
+  catch { throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.'); }
+  if (parsed && parsed.format === CLOUD_GZIP_FORMAT) {
+    if (typeof parsed.data !== 'string' || parsed.data.length > 16 * 1024 * 1024) {
+      throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an invalid compressed online document; it was not replaced.');
+    }
+    try {
+      const raw = zlib.gunzipSync(Buffer.from(parsed.data, 'base64'), {
+        maxOutputLength: MAX_CLOUD_STATE_BYTES + 1,
+      }).toString('utf8');
+      if (Buffer.byteLength(raw) > MAX_CLOUD_STATE_BYTES) throw new Error('state too large');
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an unreadable compressed online document; it was not replaced.');
+    }
+  }
+  return normalizeStore(parsed);
+}
+
+async function loadCloudState() {
+  const stored = await readKvString(CLOUD_KEY);
+  /* Upstash returns null for a missing key. Only that explicit result means a
+     new installation; a network error or malformed value never looks empty. */
+  if (stored === null || stored === undefined) {
+    return { state: blankStore(), driver: 'cloud-kv-redis' };
+  }
+  return { state: decodeCloudState(stored), driver: 'cloud-kv-redis' };
+}
+
+async function saveCloudState(state) {
+  state.saved = nowISO();
+  await writeKvString(CLOUD_KEY, serializeCloudState(state));
 }
 
 function appendServerAudit(state, actor, action, entity, entityId, detail, meta = {}) {
@@ -277,6 +341,20 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
 const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const SAFE_COLLECTION = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const MASTER_PACKAGE_FORMAT = 'carelink-reference-master-v1';
+const MASTER_PAYLOAD_FORMAT = 'carelink-reference-payload-v1';
+const MASTER_ENCODING = 'brotli-base64';
+const MASTER_MAX_CHUNKS = 256;
+const MASTER_MAX_CHUNK_CHARS = 600000;
+const MASTER_MAX_RAW_BYTES = 100 * 1024 * 1024;
+const MASTER_MAX_COMPRESSED_BYTES = 8 * 1024 * 1024;
+const MASTER_CHUNK_PREFIX = 'carelink_reference_master_v1_';
+const STATE_PAGE_MAX_BYTES = 3 * 1024 * 1024;
+const STATE_PAGE_THRESHOLD = 512 * 1024;
+const MASTER_PROTECTED_KEYS = new Set([
+  'settings', 'meta', 'users', 'roles', 'audit', 'approvals', 'backups',
+  'drafts', 'mergeJournal', 'presence', 'sessions', 'creds', 'deltas',
+]);
 
 /* Roles allowed to change who holds which role, county or account status. */
 const ACCOUNT_ADMIN_ROLES = new Set(['chief', 'countyadmin', 'hr', 'director', 'president', 'program.admin']);
@@ -297,6 +375,152 @@ function safeObject(obj) {
 
 function clipString(v, max = 500) {
   return String(v == null ? '' : v).slice(0, max);
+}
+
+function masterChunkKey(uploadId, index) {
+  return `${MASTER_CHUNK_PREFIX}${uploadId}_${index}`;
+}
+
+function ownedMasterImport(state, uploadId, sess) {
+  const job = (state.masterImports || []).find((j) => j.id === uploadId && j.username === sess.username);
+  if (!job) throw new MasterPackageError('The reference-master upload session was not found or does not belong to this Chief Administrator.', 'master_upload_not_found');
+  return job;
+}
+
+function assertSafeJson(value) {
+  const stack = [{ value, depth: 0 }];
+  let visited = 0;
+  while (stack.length) {
+    const { value: current, depth } = stack.pop();
+    if (!current || typeof current !== 'object') continue;
+    if (depth > 40 || ++visited > 2500000) {
+      throw new MasterPackageError('The reference master has an unsafe or excessively complex structure.');
+    }
+    for (const [key, child] of Object.entries(current)) {
+      if (FORBIDDEN_KEYS.has(key)) throw new MasterPackageError('The reference master contains a forbidden object key.');
+      if (child && typeof child === 'object') stack.push({ value: child, depth: depth + 1 });
+    }
+  }
+}
+
+function validateReferencePayload(payload) {
+  if (!payload || payload.format !== MASTER_PAYLOAD_FORMAT || !payload.db || typeof payload.db !== 'object' || Array.isArray(payload.db)) {
+    throw new MasterPackageError('This is not a CareLink full reference-master payload.');
+  }
+  const db = payload.db;
+  assertSafeJson(db);
+  const required = [
+    'patients', 'visits', 'pdcas', 'patientConditions', 'support', 'documents',
+    'requests', 'transactions', 'employees', 'inventoryItems', 'budgets',
+    'referralEntities', 'careBeds', 'careResidents', 'stockLots', 'stockMoves',
+  ];
+  const missing = required.filter((key) => !Array.isArray(db[key]));
+  if (missing.length) throw new MasterPackageError(`The reference master is missing required collection(s): ${missing.join(', ')}.`);
+  const patients = db.patients;
+  if (patients.length !== 3333) throw new MasterPackageError(`The full reference master must contain exactly 3,333 patients; it contains ${patients.length}.`);
+  if ((db.users || []).some((u) => u && (u.hash || u.salt))) {
+    throw new MasterPackageError('The reference master must not contain password hashes or salts.');
+  }
+
+  for (const [collection, records] of Object.entries(db)) {
+    if (!Array.isArray(records)) continue;
+    const ids = new Set();
+    for (const record of records) {
+      if (!record || typeof record !== 'object') throw new MasterPackageError(`Collection ${collection} contains an invalid record.`);
+      if (record.id === undefined || record.id === null) continue;
+      const id = String(record.id);
+      if (ids.has(id)) throw new MasterPackageError(`Collection ${collection} contains duplicate record ID ${id}.`);
+      ids.add(id);
+    }
+  }
+
+  const patientIds = new Set(patients.map((p) => String(p.id)));
+  for (const collection of ['visits', 'pdcas', 'patientConditions', 'support', 'supportIssues', 'documents', 'requests', 'concerns']) {
+    for (const record of db[collection] || []) {
+      if (record.patientId && !patientIds.has(String(record.patientId))) {
+        throw new MasterPackageError(`Collection ${collection} contains a record linked to a missing patient.`);
+      }
+    }
+  }
+
+  const incompleteProfile = patients.filter((p) => !(
+    p.id && p.code && p.name && p.dob && p.sha && p.village && p.guardian &&
+    p.nationalId && p.ccc && p.phone && p.docsVerified && p.intake && p.carePlan && p.carePlan.objectives &&
+    p.clinical && p.clinical.diagnosis && p.clinical.conditionCategory && p.clinical.adherence &&
+    p.clinical.adherence !== 'Not recorded' && p.clinical.bp &&
+    Number(p.clinical.weightKg) > 0 && Number(p.clinical.baselineWeightKg) > 0 &&
+    Number(p.clinical.heightCm) > 0 && Number(p.clinical.bmi) > 0
+  )).length;
+  const visitCounts = new Map();
+  (db.visits || []).filter((v) => v.date && v.type && v.outcome && v.summary && v.nextDue && v.by && Number(v.weight) > 0)
+    .forEach((v) => visitCounts.set(v.patientId, (visitCounts.get(v.patientId) || 0) + 1));
+  const withoutTwelveVisits = patients.filter((p) => (visitCounts.get(p.id) || 0) < 12).length;
+  const reviewedPatients = new Set((db.pdcas || []).filter((p) => Array.isArray(p.reviews) && p.reviews.some((r) =>
+    r && r.kind === 'review' && Number(r.dueDay) > 0 && Number(r.dueDay) % 30 === 0 &&
+    r.completedAt && r.status === 'closed' && r.plan && r.doNote && r.checkNote && r.actNote
+  )).map((p) => p.patientId));
+  const withoutReviewedPdca = patients.filter((p) => !reviewedPatients.has(p.id)).length;
+  const conditionPatients = new Set((db.patientConditions || []).map((r) => r.patientId));
+  const supportPatients = new Set((db.support || []).map((r) => r.patientId));
+  const documentPatients = new Set((db.documents || []).map((r) => r.patientId));
+  const withoutRelated = patients.filter((p) => !conditionPatients.has(p.id) || !supportPatients.has(p.id) || !documentPatients.has(p.id)).length;
+  const discharged = patients.filter((p) => p.status === 'discharged');
+  const incompleteDischarge = discharged.filter((p) => !p.dischargeReferral || !p.dischargeSummary).length;
+  const evidencedTransactions = (db.transactions || []).filter((t) => t.receipt || t.ref).length;
+  const verifiedForms = (db.formRecords || []).filter((f) => f.status === 'verified' || f.status === 'submitted').length;
+  const completedRequests = (db.requests || []).filter((r) => ['completed', 'reconciled'].includes(r.status));
+  const reportedRequests = completedRequests.filter((r) => Boolean(r.clinicalReport)).length;
+  const operationalExpected = (db.transactions || []).length + (db.formRecords || []).length + completedRequests.length;
+  const operationalActual = evidencedTransactions + verifiedForms + reportedRequests;
+  const codes = new Set(); const cccNumbers = new Set(); const nationalIds = new Set();
+  let uniqueIdentifiers = 0;
+  patients.forEach((p) => {
+    const unique = p.code && p.ccc && p.nationalId && !codes.has(p.code) && !cccNumbers.has(p.ccc) && !nationalIds.has(p.nationalId);
+    if (unique) uniqueIdentifiers++;
+    codes.add(p.code); cccNumbers.add(p.ccc); nationalIds.add(p.nationalId);
+  });
+
+  const checks = [
+    { key: 'profiles', label: '3,333 complete demographic, identity, anthropometric, adherence and care-plan profiles', actual: patients.length - incompleteProfile, expected: 3333 },
+    { key: 'identifiers', label: 'Unique patient code, CCC number and national identifier for every patient', actual: uniqueIdentifiers, expected: 3333 },
+    { key: 'visits', label: 'At least 12 complete longitudinal visits for every patient', actual: patients.length - withoutTwelveVisits, expected: 3333 },
+    { key: 'pdcas', label: 'A PDCA cycle with a completed, structured 30-day review for every patient', actual: patients.length - withoutReviewedPdca, expected: 3333 },
+    { key: 'related', label: 'Condition, household-support and document coverage for every patient', actual: patients.length - withoutRelated, expected: 3333 },
+    { key: 'discharges', label: 'Structured referral and discharge summary for every discharged patient', actual: discharged.length - incompleteDischarge, expected: discharged.length },
+    { key: 'operations', label: 'Receipts, verified forms and clinical completion reports for operational records', actual: operationalActual, expected: operationalExpected },
+  ];
+  const failed = checks.filter((c) => c.actual !== c.expected);
+  if (failed.length) {
+    throw new MasterPackageError(`The reference master did not pass every completeness check: ${failed.map((c) => `${c.key} ${c.actual}/${c.expected}`).join('; ')}.`, 'master_quality_failed');
+  }
+
+  const counts = {};
+  for (const [key, value] of Object.entries(db)) if (Array.isArray(value)) counts[key] = value.length;
+  return {
+    counts,
+    quality: {
+      passed: true,
+      patientRegistryCompleteness: 100,
+      recordsChecked: Object.values(counts).reduce((sum, n) => sum + n, 0),
+      patientsChecked: patients.length,
+      fieldChecks: patients.length * 6,
+      checks: checks.map((c) => ({ ...c, passed: true })),
+    },
+  };
+}
+
+function splitLargeStateCollections(db) {
+  if (!db || typeof db !== 'object') return { db, pagedCollections: [] };
+  const base = { ...db };
+  const pagedCollections = [];
+  for (const [key, value] of Object.entries(db)) {
+    if (!Array.isArray(value)) continue;
+    const bytes = Buffer.byteLength(JSON.stringify(value));
+    if (bytes <= STATE_PAGE_THRESHOLD) continue;
+    pagedCollections.push({ name: key, count: value.length, bytes });
+    delete base[key];
+  }
+  return { db: base, pagedCollections };
 }
 
 function publicRef(prefix) {
@@ -930,7 +1154,178 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, username: uname, password: tempPassword, mustChange: true });
   }
 
+  /* 5c. Full reference-master import: authenticated, chunked and KV-backed.
+     The four-step setup stays small; the complete synthetic reference package
+     is a deliberate post-setup action by the Chief before global activation. */
+  if (route === 'master-import/start' && method === 'POST') {
+    const sess = getSession(state, req);
+    if (!sess || sess.roleId !== 'chief') return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may import the full reference master.' });
+    if (!state.setup || isGloballyActivated(state) || !(state.db && state.db.settings && state.db.settings.awaitingGlobalActivation)) {
+      return sendJson(res, 409, { ok: false, code: 'master_import_locked', error: 'Import the reference master after the four-step setup and before global activation.' });
+    }
+    if (state.db.meta && state.db.meta.referenceMaster) {
+      return sendJson(res, 409, { ok: false, code: 'master_already_imported', error: 'The full reference master has already been imported into this installation.' });
+    }
+    const body = await readJsonBody(req);
+    const integer = (v) => Number.isSafeInteger(Number(v)) && Number(v) >= 0 ? Number(v) : -1;
+    const rawBytes = integer(body.rawBytes);
+    const compressedBytes = integer(body.compressedBytes);
+    const base64Length = integer(body.base64Length);
+    const chunkSize = integer(body.chunkSize);
+    const chunkCount = integer(body.chunkCount);
+    if (body.format !== MASTER_PACKAGE_FORMAT || body.encoding !== MASTER_ENCODING ||
+        !/^[a-f0-9]{64}$/.test(String(body.digest || '')) || !/^[a-f0-9]{64}$/.test(String(body.compressedDigest || '')) ||
+        rawBytes < 1 || rawBytes > MASTER_MAX_RAW_BYTES || compressedBytes < 1 || compressedBytes > MASTER_MAX_COMPRESSED_BYTES ||
+        base64Length < 4 || chunkSize < 1 || chunkSize > MASTER_MAX_CHUNK_CHARS || chunkCount < 1 || chunkCount > MASTER_MAX_CHUNKS ||
+        Math.ceil(base64Length / chunkSize) !== chunkCount) {
+      return sendJson(res, 400, { ok: false, code: 'invalid_master_manifest', error: 'The reference-master manifest, sizes, encoding or chunk layout is invalid.' });
+    }
+    const job = {
+      id: crypto.randomUUID(), username: sess.username, createdAt: nowISO(), updatedAt: nowISO(),
+      status: 'uploading', fileName: clipString(body.fileName || 'CareLink-Reference-Master.json', 240),
+      format: body.format, encoding: body.encoding, digest: body.digest, compressedDigest: body.compressedDigest,
+      rawBytes, compressedBytes, base64Length, chunkSize, chunkCount, received: {},
+    };
+    state.masterImports = (state.masterImports || []).filter((j) => j.status === 'completed' || (Date.now() - new Date(j.createdAt).getTime()) < 86400000).slice(-15);
+    state.masterImports.push(job);
+    await saveCloudState(state);
+    return sendJson(res, 200, { ok: true, uploadId: job.id, chunkCount, received: 0 });
+  }
+
+  if (route === 'master-import/chunk' && method === 'POST') {
+    const sess = getSession(state, req);
+    if (!sess || sess.roleId !== 'chief') return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may upload reference-master chunks.' });
+    const body = await readJsonBody(req);
+    const job = ownedMasterImport(state, clipString(body.uploadId, 80), sess);
+    if (job.status === 'completed') return sendJson(res, 409, { ok: false, code: 'master_already_imported', error: 'This reference-master upload is already complete.' });
+    const index = Number(body.index);
+    const data = typeof body.data === 'string' ? body.data : '';
+    if (!Number.isSafeInteger(index) || index < 0 || index >= job.chunkCount || !data || data.length > MASTER_MAX_CHUNK_CHARS || !/^[A-Za-z0-9+/=]+$/.test(data)) {
+      return sendJson(res, 400, { ok: false, code: 'invalid_master_chunk', error: 'The reference-master chunk index or content is invalid.' });
+    }
+    const expected = Math.min(job.chunkSize, job.base64Length - (index * job.chunkSize));
+    if (data.length !== expected) return sendJson(res, 400, { ok: false, code: 'invalid_master_chunk_size', error: `Chunk ${index + 1} has ${data.length} characters; ${expected} were expected.` });
+    const chunkDigest = crypto.createHash('sha256').update(data).digest('hex');
+    if (job.received && job.received[index]) {
+      if (job.received[index] !== chunkDigest) return sendJson(res, 409, { ok: false, code: 'master_chunk_conflict', error: 'A different chunk is already stored at this position. Restart the import.' });
+      return sendJson(res, 200, { ok: true, uploadId: job.id, index, received: Object.keys(job.received).length, duplicate: true });
+    }
+    await writeKvString(masterChunkKey(job.id, index), data, { exSeconds: 86400 });
+    job.received = job.received || {};
+    job.received[index] = chunkDigest;
+    job.updatedAt = nowISO();
+    await saveCloudState(state);
+    return sendJson(res, 200, { ok: true, uploadId: job.id, index, received: Object.keys(job.received).length });
+  }
+
+  if (route === 'master-import/finalize' && method === 'POST') {
+    const sess = getSession(state, req);
+    if (!sess || sess.roleId !== 'chief') return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may finish the reference-master import.' });
+    const body = await readJsonBody(req);
+    const job = ownedMasterImport(state, clipString(body.uploadId, 80), sess);
+    if (job.status === 'completed') {
+      return sendJson(res, 200, { ok: true, rev: state.rev, counts: job.counts, quality: job.quality, alreadyCompleted: true });
+    }
+    if (isGloballyActivated(state)) return sendJson(res, 409, { ok: false, code: 'master_import_locked', error: 'The installation was globally activated before this import finished.' });
+    if (!job.received || Object.keys(job.received).length !== job.chunkCount) {
+      return sendJson(res, 409, { ok: false, code: 'master_chunks_missing', error: `Only ${Object.keys(job.received || {}).length} of ${job.chunkCount} chunks have been uploaded.` });
+    }
+    const parts = [];
+    for (let i = 0; i < job.chunkCount; i++) {
+      const part = await readKvString(masterChunkKey(job.id, i));
+      if (typeof part !== 'string' || crypto.createHash('sha256').update(part).digest('hex') !== job.received[i]) {
+        throw new MasterPackageError(`Reference-master chunk ${i + 1} is missing or failed its integrity check.`, 'master_chunk_integrity');
+      }
+      parts.push(part);
+    }
+    const base64 = parts.join('');
+    if (base64.length !== job.base64Length) throw new MasterPackageError('The assembled reference master has the wrong encoded size.', 'master_size_mismatch');
+    const compressed = Buffer.from(base64, 'base64');
+    if (compressed.length !== job.compressedBytes || crypto.createHash('sha256').update(compressed).digest('hex') !== job.compressedDigest) {
+      throw new MasterPackageError('The assembled reference master failed its compressed-file integrity check.', 'master_digest_mismatch');
+    }
+    let raw;
+    try {
+      raw = zlib.brotliDecompressSync(compressed, { maxOutputLength: job.rawBytes + 1 }).toString('utf8');
+    } catch {
+      throw new MasterPackageError('The reference master could not be decompressed safely.', 'master_decompression_failed');
+    }
+    if (Buffer.byteLength(raw) !== job.rawBytes || crypto.createHash('sha256').update(raw).digest('hex') !== job.digest) {
+      throw new MasterPackageError('The decompressed reference master failed its size or SHA-256 integrity check.', 'master_digest_mismatch');
+    }
+    let payload;
+    try { payload = JSON.parse(raw); } catch { throw new MasterPackageError('The reference-master payload is not valid JSON.'); }
+    const verified = validateReferencePayload(payload);
+
+    const live = state.db || {};
+    if (live.meta && live.meta.referenceMaster) {
+      return sendJson(res, 409, { ok: false, code: 'master_already_imported', error: 'Another reference-master upload has already been committed to this installation.' });
+    }
+    const liveImports = Array.isArray(live.imports) ? live.imports : [];
+    for (const [key, value] of Object.entries(payload.db)) {
+      if (!SAFE_COLLECTION.test(key) || MASTER_PROTECTED_KEYS.has(key) || key === 'imports') continue;
+      live[key] = value;
+    }
+    live.imports = liveImports;
+    const importId = `REF-${job.id.slice(0, 8).toUpperCase()}`;
+    live.imports.unshift({
+      id: importId, at: nowISO(), by: sess.userId || sess.username, file: job.fileName,
+      total: 3333, created: 3333, skipped: 0, review: 0,
+      checksum: job.digest, referenceMaster: true, quality: verified.quality,
+    });
+    live.meta = {
+      ...(live.meta || {}),
+      referenceMaster: {
+        id: importId, importedAt: nowISO(), importedBy: sess.username,
+        digest: job.digest, counts: verified.counts, quality: verified.quality,
+      },
+    };
+    state.db = live;
+    state.rev = (state.rev || 0) + 1;
+    /* Other clients must take the full paged snapshot rather than replaying an
+       older delta stream across this wholesale, audited reference import. */
+    state.deltas = [];
+    appendServerAudit(state, sess.userId || sess.username, 'data.reference_master_imported', 'import', importId,
+      `Full synthetic reference master imported: 3,333 patients; all ${verified.quality.checks.length} completeness groups passed; accounts/settings preserved.`);
+    job.status = 'completed';
+    job.completedAt = nowISO();
+    job.updatedAt = nowISO();
+    job.counts = verified.counts;
+    job.quality = verified.quality;
+    await saveCloudState(state);
+    for (let i = 0; i < job.chunkCount; i++) await deleteKvKey(masterChunkKey(job.id, i));
+    return sendJson(res, 200, { ok: true, rev: state.rev, saved: state.saved, counts: verified.counts, quality: verified.quality, importId });
+  }
+
   /* 6. Shared Online Database State & Field-Level Patch Merge */
+  if (route === 'state/collection' && method === 'GET') {
+    const sess = getSession(state, req);
+    if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to read the online database.' });
+    const name = String(urlObj.searchParams.get('name') || '');
+    const source = state.db && Array.isArray(state.db[name]) ? state.db[name] : null;
+    if (!SAFE_COLLECTION.test(name) || !source) return sendJson(res, 404, { ok: false, error: 'The requested online collection does not exist.' });
+    const offset = Number(urlObj.searchParams.get('offset') || '0');
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > source.length) return sendJson(res, 400, { ok: false, error: 'The collection-page offset is invalid.' });
+    const records = [];
+    let bytes = 0;
+    let nextOffset = offset;
+    while (nextOffset < source.length) {
+      let record = source[nextOffset];
+      if (name === 'users') record = sanitizeDbForClient({ users: [record] }).users[0];
+      const size = Buffer.byteLength(JSON.stringify(record));
+      if (size > 3 * 1024 * 1024) return sendJson(res, 500, { ok: false, error: `Record ${record && record.id} is too large for a paged online response.` });
+      if (records.length && bytes + size > STATE_PAGE_MAX_BYTES) break;
+      records.push(record);
+      bytes += size;
+      nextOffset++;
+      if (bytes >= STATE_PAGE_MAX_BYTES) break;
+    }
+    return sendJson(res, 200, {
+      ok: true, name, offset, nextOffset, done: nextOffset >= source.length,
+      total: source.length, records, bytes, rev: state.rev || 0, saved: state.saved,
+    });
+  }
+
   if (route === 'state' && method === 'GET') {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to read the online database.' });
@@ -946,11 +1341,13 @@ async function handleRequest(req, res) {
         });
       }
     }
+    const split = splitLargeStateCollections(sanitizeDbForClient(state.db || {}));
     return sendJson(res, 200, {
       ok: true,
       rev: state.rev || 0,
       saved: state.saved,
-      db: sanitizeDbForClient(state.db || {}),
+      db: split.db,
+      ...(split.pagedCollections.length ? { pagedCollections: split.pagedCollections, pageMaxBytes: STATE_PAGE_MAX_BYTES } : {}),
     });
   }
 
@@ -1180,11 +1577,12 @@ export default async function handler(req, res) {
   } catch (err) {
     if (res.writableEnded || res.finished) return;
     const storage = err && err.name === 'CloudStorageError';
-    const status = storage ? (err.statusCode || 503) : 500;
+    const master = err && err.name === 'MasterPackageError';
+    const status = storage ? (err.statusCode || 503) : (master ? (err.statusCode || 400) : 500);
     return sendJson(res, status, {
       ok: false,
-      code: storage ? err.code : 'internal_error',
-      error: storage ? err.message : 'The CareLink online service could not complete that request.',
+      code: storage || master ? err.code : 'internal_error',
+      error: storage || master ? err.message : 'The CareLink online service could not complete that request.',
     });
   }
 }
