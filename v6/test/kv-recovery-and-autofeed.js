@@ -97,7 +97,7 @@ global.fetch = async (input, init = {}) => {
   }
 
   /* 1. Simulate a previously broken / corrupted KV document on live Vercel KV */
-  kv.set('carelink_cloud_v64', '"not-an-object-legacy-broken-kv-value"');
+  kv.set('carelink_cloud_v66', '"not-an-object-legacy-broken-kv-value"');
   const brokenHealth = await apiFetch('api/health');
   assert.equal(brokenHealth.status, 503);
   const brokenBody = await brokenHealth.json();

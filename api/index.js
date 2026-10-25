@@ -18,7 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 
-const CLOUD_KEY = 'carelink_cloud_v64';
+const CLOUD_KEY = 'carelink_cloud_v66';
 const PBKDF2_ROUNDS = 160000;
 const IDLE_SECONDS = 1800;
 

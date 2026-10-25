@@ -14,15 +14,15 @@ globalThis.fetch = async (input, init = {}) => {
   const url = new URL(String(input));
   assert.equal(url.origin, 'https://kv.test');
   assert.equal(init.headers?.Authorization, 'Bearer test-token');
-  if (url.pathname === '/get/carelink_cloud_v64') {
+  if (url.pathname === '/get/carelink_cloud_v66') {
     if (failReads) return response({ error: 'read unavailable' }, 503);
-    return response({ result: kv.has('carelink_cloud_v64') ? kv.get('carelink_cloud_v64') : null });
+    return response({ result: kv.has('carelink_cloud_v66') ? kv.get('carelink_cloud_v66') : null });
   }
-  if (url.pathname === '/set/carelink_cloud_v64') {
+  if (url.pathname === '/set/carelink_cloud_v66') {
     if (failWrites) return response({ error: 'write unavailable' }, 503);
     const serialized = JSON.parse(init.body);
     assert.equal(typeof serialized, 'string');
-    kv.set('carelink_cloud_v64', serialized);
+    kv.set('carelink_cloud_v66', serialized);
     return response({ result: 'OK' });
   }
   throw new Error(`Unexpected KV request: ${url.pathname}`);
@@ -150,14 +150,14 @@ await check('public setup cannot self-declare global activation', async () => {
 
 let chiefToken = '';
 await check('demo bootstrap is locked once the installation is commissioned', async () => {
-  const before = kv.get('carelink_cloud_v64');
+  const before = kv.get('carelink_cloud_v66');
   const r = await call('public/demo-bootstrap', {
     method: 'POST',
     body: { db: { meta: { demoSeeded: 'replacement' }, users: [], patients: [] } },
   });
   assert.equal(r.status, 409);
   assert.equal(r.body.code, 'demo_bootstrap_locked');
-  assert.equal(kv.get('carelink_cloud_v64'), before, 'a refused demo request must not write KV');
+  assert.equal(kv.get('carelink_cloud_v66'), before, 'a refused demo request must not write KV');
   const login = await call('auth/login', { method: 'POST', body: { username: 'chief.admin', password: ADMIN_PW } });
   assert.equal(login.status, 200, JSON.stringify(login.body));
   chiefToken = login.body.token;
@@ -170,7 +170,7 @@ await check('ordinary patches cannot self-activate or publish activation deltas'
     body: { patches: [{ c: 'settings', id: 'settings', set: { value: { globallyActivated: true, demoDisabled: true, theme: 'heritage' } } }] },
   });
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  const stored = JSON.parse(kv.get('carelink_cloud_v64'));
+  const stored = JSON.parse(kv.get('carelink_cloud_v66'));
   assert.equal(stored.globallyActivated, false);
   assert.equal(stored.db.settings.globallyActivated, false);
   assert.equal(stored.db.settings.theme, 'heritage');
@@ -194,7 +194,7 @@ await check('global activation is committed to top-level and nested authoritativ
   assert.equal(r.body.issued[0].username, 'staff.one');
   const health = await call('health');
   assert.equal(health.body.globallyActivated, true);
-  const stored = JSON.parse(kv.get('carelink_cloud_v64'));
+  const stored = JSON.parse(kv.get('carelink_cloud_v66'));
   assert.equal(stored.globallyActivated, true);
   assert.equal(stored.db.settings.globallyActivated, true);
   assert.equal(stored.db.settings.awaitingGlobalActivation, false);
@@ -244,14 +244,14 @@ await check('repeated activation preserves private staff passwords instead of is
 });
 
 await check('demo bootstrap is permanently refused after global activation', async () => {
-  const before = kv.get('carelink_cloud_v64');
+  const before = kv.get('carelink_cloud_v66');
   const r = await call('public/demo-bootstrap', {
     method: 'POST',
     body: { db: { meta: { demoSeeded: 'post-activation-demo' }, users: [], patients: [] } },
   });
   assert.equal(r.status, 403);
   assert.equal(r.body.reason, 'globally_activated');
-  assert.equal(kv.get('carelink_cloud_v64'), before);
+  assert.equal(kv.get('carelink_cloud_v66'), before);
   const setup = await call('setup', {
     method: 'POST',
     token: chiefToken,
@@ -268,7 +268,7 @@ await check('ordinary settings patches cannot reopen demo mode', async () => {
     body: { patches: [{ c: 'settings', id: 'settings', set: { value: { globallyActivated: false, awaitingGlobalActivation: true, theme: 'foundation' } } }] },
   });
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  const stored = JSON.parse(kv.get('carelink_cloud_v64'));
+  const stored = JSON.parse(kv.get('carelink_cloud_v66'));
   assert.equal(stored.db.settings.globallyActivated, true);
   assert.equal(stored.db.settings.awaitingGlobalActivation, false);
   assert.equal(stored.db.settings.theme, 'foundation');
@@ -276,13 +276,13 @@ await check('ordinary settings patches cannot reopen demo mode', async () => {
 });
 
 await check('KV write failures return 503 and are never acknowledged as saves', async () => {
-  const before = kv.get('carelink_cloud_v64');
+  const before = kv.get('carelink_cloud_v66');
   failWrites = true;
   const r = await call('public/account-request', { method: 'POST', body: { name: 'Test User', countyId: 'kisumu' } });
   failWrites = false;
   assert.equal(r.status, 503);
   assert.equal(r.body.code, 'kv_write_failed');
-  assert.equal(kv.get('carelink_cloud_v64'), before);
+  assert.equal(kv.get('carelink_cloud_v66'), before);
 });
 
 console.log(`api-security: ${passed} checks passed`);
