@@ -491,9 +491,9 @@ function renderLogin6(){
       : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
       <div class="field"><label for="lg-u">Username or Official Email</label>
-        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" placeholder="e.g. system.admin, chief.admin, director, caregiver.nyalenda" required></div>
+        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. system.admin, chief.admin, director, caregiver.nyalenda" required></div>
       <div class="field"><label for="lg-p">Password</label>
-        <input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required></div>
+        <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
@@ -547,10 +547,10 @@ function renderLogin6(){
     <p class="lg-note">Received a WhatsApp temporary password? Simply use the <b>Sign in</b> tab to activate immediately, or redeem a legacy ACT code below.</p>
     <form data-form="activate6">
       <div class="grid g2" style="gap:6px">
-        <div class="field"><label>Username</label><input class="input" name="username" required autocomplete="username" placeholder="e.g. caregiver.nyalenda"></div>
-        <div class="field"><label>Activation code</label><input class="input mono" name="code" placeholder="ACT-XXXXXX" required style="text-transform:uppercase"></div>
-        <div class="field"><label>New password</label><input class="input" name="password" type="password" minlength="10" required autocomplete="new-password" placeholder="Min. 10 chars"></div>
-        <div class="field"><label>Confirm password</label><input class="input" name="password2" type="password" minlength="10" required autocomplete="new-password" placeholder="Repeat password"></div>
+        <div class="field"><label>Username</label><input class="input" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda"></div>
+        <div class="field"><label>Activation code</label><input class="input mono" name="code" placeholder="ACT-XXXXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="field"><label>New password (12+ chars)</label><div class="pw-wrap"><input class="input" name="password" type="password" minlength="12" required autocomplete="new-password" placeholder="A-Z, a-z, 0-9 &amp; symbol"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+        <div class="field"><label>Confirm password</label><div class="pw-wrap"><input class="input" name="password2" type="password" minlength="12" required autocomplete="new-password" placeholder="Repeat password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       </div>
       <button class="btn btn-primary btn-block" type="submit">Activate My Account</button>
     </form>`;
@@ -580,9 +580,9 @@ function renderLogin6(){
     </form>
     <form data-form="emergency6">
       <div class="grid g3" style="gap:6px">
-        <div class="field"><label>EMG code</label><input class="input mono" name="code" placeholder="EMG-XXXX" required style="text-transform:uppercase"></div>
-        <div class="field"><label>Username</label><input class="input" name="username" required placeholder="Username"></div>
-        <div class="field"><label>New password</label><input class="input" name="password" type="password" minlength="10" required placeholder="10+ chars"></div>
+        <div class="field"><label>EMG code</label><input class="input mono" name="code" placeholder="EMG-XXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="field"><label>Username</label><input class="input" name="username" required autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username"></div>
+        <div class="field"><label>New password</label><div class="pw-wrap"><input class="input" name="password" type="password" minlength="12" required placeholder="12+ chars"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       </div>
       <button class="btn btn-ghost btn-block" type="submit">Redeem 24h Emergency Code</button>
     </form>`;
@@ -683,10 +683,10 @@ function renderMustChange(){
           <div><b>${esc(u.name)}</b><div class="xs muted">${esc((roleObj(u.roleId)||{}).name||'')} · ${esc(u.username)}</div></div></div>
         ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<span>${esc(LOGIN6.error)}</span></div>`:''}
         <form data-form="mustchange6">
-          <div class="field"><label>Current (one-time SMS) password</label><input class="input" type="password" name="current" required autocomplete="current-password"></div>
-          <div class="field"><label>New private password (12+ chars)</label><input class="input" type="password" name="password" minlength="12" required autocomplete="new-password">
+          <div class="field"><label>Current (one-time SMS) password</label><div class="pw-wrap"><input class="input" type="password" name="current" required autocomplete="current-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+          <div class="field"><label>New private password (12+ chars)</label><div class="pw-wrap"><input class="input" type="password" name="password" minlength="12" required autocomplete="new-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div>
             <div class="hint">Minimum 12 characters including uppercase (A–Z), lowercase (a–z), number (0–9) and symbol (@ # % &amp; * ! ?).</div></div>
-          <div class="field"><label>Repeat your new private password</label><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"></div>
+          <div class="field"><label>Repeat your new private password</label><div class="pw-wrap"><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
           ${isChiefPreActivation ? `<label class="lg-check" style="margin:8px 0 12px;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:9px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06))">
             <input type="checkbox" name="autoFeedCloudMaster" value="1" checked style="margin-top:2px">
             <span><b>Auto-feed complete 3,333-patient CareLink Cloud Dataset</b> into Cloud KV immediately upon saving my password (zero local file upload)</span>
@@ -1147,12 +1147,12 @@ Object.assign(FORMS, {
         LOGIN6.usernameDraft = '';
         APPX.screen='app';
         try{ sessionStorage.setItem('carelink.lastUser', AUTH.user.username); }catch(e){}
-        SESSION.start();
         if(AUTH.mustChange || res.mustChange || (AUTH.user && (AUTH.user.mustChange || AUTH.user.mustChangePassword))){
           AUTH.mustChange = true;
           render();
           return;
         }
+        SESSION.start();
         NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
         render();
         if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
@@ -1227,11 +1227,14 @@ Object.assign(FORMS, {
         };
         markActive(AUTH.user);
         if(uRec && uRec !== AUTH.user) markActive(uRec);
+        if(typeof AUTH._rememberVerifier === 'function') AUTH._rememberVerifier(AUTH.user, next);
         AUDIT.append({ actor:AUTH.user.id, action:'account.self_activated', entity:'user', entityId:AUTH.user.id, detail:`${AUTH.user.username} completed first-login password change & self-activated account.` });
         DB.save();
       }
       AUTH.mustChange = false;
       LOGIN6.error='';
+      SESSION.start();
+      if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
       NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
       if(AUTH.user && AUTH.user.roleId==='chief' && typeof PROD_SETUP!=='undefined' && !PROD_SETUP.isGloballyActivated()){
         let shouldAutoFeed = Boolean(ONB._pendingCloudAutoFeed || (d && d.get && d.get('autoFeedCloudMaster')));
@@ -1275,8 +1278,10 @@ Object.assign(FORMS, {
     const rawUser = String(d.get('username')||'').trim().toLowerCase();
     const code = String(d.get('code')||'').trim().toUpperCase();
     const pw = String(d.get('password')||''), pw2 = String(d.get('password2')||'');
-    if(pw!==pw2) return toast('The passwords do not match','Re-type the same password.','err');
-    if(passwordStrength(pw).n < 2) return toast('Choose a stronger password','At least 10 characters with letters and digits.','err');
+    if(pw!==pw2){ LOGIN6.error = 'The passwords do not match.'; return render(), toast('The passwords do not match','Re-type the same password.','err'); }
+    const policyErr = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.validatePrivacyPassword) ? PROD_SETUP.validatePrivacyPassword(pw, { username: rawUser }) : '';
+    if(policyErr){ LOGIN6.error = policyErr; render(); return toast('Privacy password requirement', policyErr, 'err'); }
+    if(passwordStrength(pw).n < 2) return toast('Choose a stronger password','At least 12 characters with uppercase, lowercase, digits and a symbol.','err');
     let r = { ok:false };
     try {
       if(typeof SYNC !== 'undefined' && SYNC._json){
@@ -1379,7 +1384,9 @@ Object.assign(FORMS, {
     const rawUser = String(d.get('username')||'').trim().toLowerCase();
     const code = String(d.get('code')||'').trim().toUpperCase();
     const password = String(d.get('password')||'');
-    if(passwordStrength(password).n < 2) return toast('Choose a stronger password','Use at least 10 characters with letters and digits.','err');
+    const policyErr = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.validatePrivacyPassword) ? PROD_SETUP.validatePrivacyPassword(password, { username: rawUser }) : '';
+    if(policyErr){ LOGIN6.error = policyErr; render(); return toast('Privacy password requirement', policyErr, 'err'); }
+    if(passwordStrength(password).n < 2) return toast('Choose a stronger password','Use at least 12 characters with uppercase, lowercase, digits and a symbol.','err');
     let r = { ok:false };
     try {
       if(typeof SYNC !== 'undefined' && SYNC._json){

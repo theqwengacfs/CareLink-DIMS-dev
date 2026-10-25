@@ -160,7 +160,6 @@
   .shell.has-pane:not(.np-rail) .topbar.cbar .me-btn .me-nm{ display:none; }
   .shell.has-pane:not(.np-rail) .topbar.cbar .cb-id{ max-width:210px; }
 }
-}
 @media (max-width:1040px){
   .topbar.cbar .tb-ai-label{ display:none !important; }
   .topbar.cbar .cb-id{ max-width:200px; }

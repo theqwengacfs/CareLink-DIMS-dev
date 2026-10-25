@@ -392,17 +392,31 @@ const SYNC = {
 
   adoptRemote(db, rev, saved){
     const keep = (DB.db && DB.db.meta) || {};
+    const prevPrefs = (DB.db && DB.db.personalPrefs && typeof DB.db.personalPrefs === 'object') ? DB.db.personalPrefs : {};
+    const storedPrefs = (typeof DB.loadLocalPrefs === 'function' && DB.loadLocalPrefs()) || null;
     if((db.meta?.schema||0) > (APP.schema||0)){
       this.state='error'; this.message='The host holds a newer schema — update this device';
       this.bump(); return;
     }
     DB.db = db;
     DB.migrate();
+    /* Merge local device personal preferences with server personalPrefs so
+       theme, font, studio, scale and pack choices never reset on pullFull(). */
+    const mergedPrefs = Object.assign({}, (storedPrefs && storedPrefs.personalPrefs) || {}, prevPrefs, DB.db.personalPrefs || {});
+    for(const uidKey of Object.keys(mergedPrefs)){
+      const locA = (storedPrefs && storedPrefs.personalPrefs && storedPrefs.personalPrefs[uidKey]) || {};
+      const locB = prevPrefs[uidKey] || {};
+      const rem = (db.personalPrefs && db.personalPrefs[uidKey]) || {};
+      mergedPrefs[uidKey] = Object.assign({}, locA, locB, rem);
+    }
+    DB.db.personalPrefs = mergedPrefs;
     DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:rev, serverSaved:saved, deviceLabel:keep.deviceLabel});
-    try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){}
+    if(typeof DB.persistState === 'function') DB.persistState();
+    else { try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){} }
     this.rev = rev; this.saved = saved;
     this.rebase();
     APPX.dirty = false;
+    if(typeof WTHEME !== 'undefined' && typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
   },
 
   /* The single decision table for joining a shared online source. Kept pure so the
@@ -425,7 +439,7 @@ const SYNC = {
   /* ---- patch generation ----------------------------------------------- */
   /* `_shadow` is the state of each collection as the host last confirmed it.
      A patch is the difference between that and what is in front of us now. */
-  rebase(){
+  captureShadow(){
     const shadow = {};
     for(const [c,val] of Object.entries(DB.db||{})){
       if(!Array.isArray(val)) continue;
@@ -434,7 +448,17 @@ const SYNC = {
       shadow[c] = m;
     }
     shadow.__settings = { settings: JSON.stringify(DB.db.settings||{}) };
-    this._shadow = shadow;
+    const prefShadow = {};
+    for(const [uidKey, pVal] of Object.entries((DB.db && DB.db.personalPrefs) || {})){
+      if(pVal && typeof pVal === 'object') prefShadow[uidKey] = JSON.stringify(pVal);
+    }
+    shadow.__personalPrefs = prefShadow;
+    shadow.__auditLen = ((DB.db && DB.db.audit) || []).length;
+    return shadow;
+  },
+
+  rebase(){
+    this._shadow = this.captureShadow();
     this.lastPatchAt = new Date().toISOString();
   },
 
@@ -452,7 +476,7 @@ const SYNC = {
         const now = JSON.stringify(rec);
         if(prev[id] === now) continue;
         if(!prev[id]){
-          out.push({c, id, set: rec, before:{}});
+          out.push({c, id, set: JSON.parse(now), before:{}});
           continue;
         }
         let before = {};
@@ -474,7 +498,19 @@ const SYNC = {
     const sNow = JSON.stringify(db.settings||{});
     const sOld = (this._shadow.__settings||{}).settings;
     if(sNow !== sOld){
-      out.push({c:'settings', id:'settings', set:{ id:'settings', value: db.settings||{} }, before:{}});
+      out.push({c:'settings', id:'settings', set:{ id:'settings', value: JSON.parse(sNow) }, before:{}});
+    }
+    /* personalPrefs syncs each user's own theme, font, studio, scale & pack choices */
+    const pShadow = this._shadow.__personalPrefs || {};
+    const curUser = typeof AUTH !== 'undefined' && AUTH.user ? AUTH.user : null;
+    const canManageUsers = curUser && typeof RBAC !== 'undefined' && RBAC.has && RBAC.has(curUser, 'users.manage');
+    for(const [uidKey, pVal] of Object.entries(db.personalPrefs || {})){
+      if(!uidKey || !pVal || typeof pVal !== 'object') continue;
+      if(curUser && !canManageUsers && uidKey !== curUser.id && uidKey.toLowerCase() !== String(curUser.username||'').toLowerCase()) continue;
+      const pNow = JSON.stringify(pVal);
+      if(pShadow[uidKey] !== pNow){
+        out.push({c:'personalPrefs', id:uidKey, set: JSON.parse(pNow), before:{}});
+      }
     }
     /* the audit trail only ever grows: append what is new */
     const audit = db.audit || [];
@@ -488,15 +524,29 @@ const SYNC = {
   queue(){
     if(!this.available() || !this.sessionToken) return;
     if(this._pulling || (typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading'))) return;
+    if(this._inflight){ this._queuedWhileInflight = true; return; }
     clearTimeout(this._timer);
     this._timer = setTimeout(()=>this.push(), 320);
   },
 
   async push(){
+    if(this._pulling || !this.sessionToken) return;
+    if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
+    if(this._inflight){
+      this._queuedWhileInflight = true;
+      return this._pushPromise || undefined;
+    }
+    this._pushPromise = this._runPush();
+    try{ return await this._pushPromise; }
+    finally{ if(!this._inflight) this._pushPromise = null; }
+  },
+
+  async _runPush(){
     if(this._inflight || this._pulling || !this.sessionToken) return;
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
+    const sentShadow = this.captureShadow();
     const patches = this.patches();
-    if(!patches.length) return;
+    if(!patches.length){ APPX.dirty = false; return; }
     this._inflight = true;
     const before = this.state;
     if(this.state !== 'merge') { this.state='saving'; this.bump(); }
@@ -521,9 +571,15 @@ const SYNC = {
       this.rev = rev;
       this.saved = new Date().toISOString();
       DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:rev, serverSaved:this.saved});
-      try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){}
-      APPX.dirty = false; this._retry = 0;
-      this.rebase();
+      if(typeof DB.persistState === 'function') DB.persistState();
+      else { try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){} }
+      /* Commit ONLY the shadow that was actually transmitted so any concurrent
+         local edits made while PUT /api/state was in flight remain queued! */
+      this._shadow = sentShadow;
+      this.lastPatchAt = this.saved;
+      const remaining = this.patches();
+      APPX.dirty = remaining.length > 0;
+      this._retry = 0;
       this.lastMerged = merged;
       this.state = merged ? 'merge' : 'connected';
       this.message = merged
@@ -545,32 +601,124 @@ const SYNC = {
     }finally{
       this._inflight = false;
       if(before==='merge' && this.state==='saving') this.state='connected';
+      if(this._queuedWhileInflight && this.sessionToken && !this._pulling){
+        this._queuedWhileInflight = false;
+        if(this.patches().length > 0) await this._runPush();
+      }
     }
   },
 
   /* ---- live reads ------------------------------------------------------ */
   startPolling(){
     this.stopPolling();
-    const period = this.pendingRemote ? 900 : 1500;
+    const period = this.pendingRemote ? 1500 : 4000;
     this._poll = setInterval(()=>this.tick(), period);
   },
   stopPolling(){ if(this._poll) clearInterval(this._poll); this._poll=null; },
 
   async tick(){
-    if(!this.sessionToken || this._inflight || document.hidden) return;
+    if(!this.sessionToken || this._inflight || this._pulling || document.hidden) return;
     if(APPX.dirty){ await this.push(); }
+    if(this._inflight || this._pulling || !this.sessionToken) return;
     try{
       const r = await this._json(`api/state?since=${this.rev}`);
-      if(!r.ok) return;
-      if(r.body.unchanged) return;
-      if(r.body.db){ this.adoptRemote(r.body.db, r.body.rev, r.body.saved); this.softRefresh(); return; }
+      if(!r || !r.ok || !r.body) return;
+      if(r.body.unchanged){
+        if(this.state !== 'connected' && this.state !== 'merge'){
+          this.state = 'connected';
+          this.message = 'Connected to the shared online source';
+          this.bump();
+        }
+        return;
+      }
+      if(Array.isArray(r.body.patches)){
+        this.applyPatchList(r.body.patches);
+        this.rev = r.body.rev; this.saved = r.body.saved;
+        DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:r.body.rev, serverSaved:r.body.saved});
+        if(typeof DB.persistState === 'function') DB.persistState();
+        this.softRefresh();
+        return;
+      }
       if(r.body.partial){
         this.applyDelta(r.body);
         this.rev = r.body.rev; this.saved = r.body.saved;
         DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:r.body.rev, serverSaved:r.body.saved});
         this.softRefresh();
+        return;
+      }
+      if(r.body.db){
+        /* CRITICAL: Never pass a split base snapshot with pagedCollections directly
+           into adoptRemote(), or large paged arrays (patients/visits/pdcas) get wiped! */
+        if(Array.isArray(r.body.pagedCollections) && r.body.pagedCollections.length > 0){
+          const ok = await this.pullFull({ minRev: r.body.rev || 0 });
+          if(ok) this.softRefresh();
+          return;
+        }
+        this.adoptRemote(r.body.db, r.body.rev, r.body.saved);
+        this.softRefresh();
+        return;
       }
     }catch(e){ /* a dropped poll is not an error worth showing */ }
+  },
+
+  applyPatchList(patches){
+    if(!DB.db || !Array.isArray(patches)) return;
+    const touchedArrays = new Set();
+    for(const p of patches){
+      if(!p || typeof p.c !== 'string') continue;
+      if(p.c === 'settings'){
+        if(p.set && p.set.value && typeof p.set.value === 'object'){
+          DB.db.settings = Object.assign({}, DB.db.settings || {}, p.set.value);
+          this._shadow.__settings = { settings: JSON.stringify(DB.db.settings) };
+          if(typeof WTHEME !== 'undefined' && typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
+        }
+        continue;
+      }
+      if(p.c === 'personalPrefs'){
+        if(p.id && p.set && typeof p.set === 'object'){
+          DB.db.personalPrefs = DB.db.personalPrefs || {};
+          DB.db.personalPrefs[p.id] = Object.assign({}, DB.db.personalPrefs[p.id] || {}, p.set);
+          this._shadow.__personalPrefs = this._shadow.__personalPrefs || {};
+          this._shadow.__personalPrefs[p.id] = JSON.stringify(DB.db.personalPrefs[p.id]);
+        }
+        continue;
+      }
+      if(p.c === 'audit'){
+        DB.db.audit = Array.isArray(DB.db.audit) ? DB.db.audit : [];
+        if(p.set && !DB.db.audit.some(a => a && a.hash === p.set.hash && a.seq === p.set.seq)){
+          DB.db.audit.push(p.set);
+        }
+        this._shadow.__auditLen = DB.db.audit.length;
+        continue;
+      }
+      if(!Array.isArray(DB.db[p.c])) DB.db[p.c] = [];
+      const col = DB.db[p.c];
+      const idx = col.findIndex(x => x && x.id === p.id);
+      if(p.del){
+        if(idx >= 0) col.splice(idx, 1);
+        touchedArrays.add(p.c);
+        continue;
+      }
+      if(idx < 0){
+        col.push(Object.assign({}, p.set || {}, { id: p.id }));
+      } else {
+        const cur = col[idx];
+        for(const [k, v] of Object.entries(p.set || {})){
+          if(v === null) delete cur[k];
+          else cur[k] = v;
+        }
+      }
+      touchedArrays.add(p.c);
+    }
+    for(const c of touchedArrays){
+      const m = {};
+      for(const rec of (DB.db[c]||[])) if(rec && rec.id!==undefined) m[rec.id] = JSON.stringify(rec);
+      this._shadow[c] = m;
+    }
+    if(typeof AUTH !== 'undefined' && AUTH.user && Array.isArray(DB.db.users)){
+      const updatedSelf = DB.db.users.find(u => u && (u.id === AUTH.user.id || String(u.username||'').toLowerCase() === String(AUTH.user.username||'').toLowerCase()));
+      if(updatedSelf) AUTH.user = updatedSelf;
+    }
   },
 
   applyDelta(body){
@@ -580,9 +728,6 @@ const SYNC = {
       for(const rec of records){
         const i = list.findIndex(x=>x && x.id===rec.id);
         if(i>=0){
-          /* The host is authoritative: take its record. A local edit that has
-             not been pushed yet is still in this list and will be sent as a
-             patch on the next tick, so nothing is lost. */
           list[i] = Object.assign({}, list[i], rec);
         } else list.push(rec);
         touched.add(c);
@@ -593,7 +738,8 @@ const SYNC = {
       DB.db[c] = DB.db[c].filter(r=>!ids.includes(r.id));
       touched.add(c);
     }
-    try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){}
+    if(typeof DB.persistState === 'function') DB.persistState();
+    else { try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){} }
     for(const c of touched){
       const m = {};
       for(const rec of (DB.db[c]||[])) if(rec && rec.id!==undefined) m[rec.id] = JSON.stringify(rec);
@@ -624,6 +770,7 @@ const SYNC = {
   bump(){
     APPX.sync = {state:this.state, rev:this.rev, saved:this.saved, message:this.message, latency:this.latency, merged:this.lastMerged};
     try{ const el=document.querySelector('[data-sync-chip]'); if(el) el.outerHTML = this.chip(); }catch(e){}
+    try{ if(typeof LIVE !== 'undefined' && typeof LIVE.syncFromHost === 'function') LIVE.syncFromHost(); }catch(e){}
   },
 
   label(){

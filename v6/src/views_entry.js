@@ -22,7 +22,14 @@ const LANDING_THEMES = [
 ];
 const DEFAULT_THEME = 'heritage';
 function landingTheme(){
-  const id = DB.db?.settings?.landingTheme || DEFAULT_THEME;
+  const explicitLocal = DB.db && DB.db.settings && DB.db.settings.landingTheme;
+  const hostLanding = typeof APPX !== 'undefined' && APPX.host && APPX.host.landingTheme;
+  const cachedLanding = typeof DB !== 'undefined' && typeof DB.loadLocalPrefs === 'function' && (DB.loadLocalPrefs()||{}).landingTheme;
+  /* If local DB still has only the blank default ('heritage') and the live host
+     exposed an explicit landingTheme in /api/health, honour the live host's theme. */
+  const id = (explicitLocal && explicitLocal !== DEFAULT_THEME)
+    ? explicitLocal
+    : (hostLanding || explicitLocal || cachedLanding || DEFAULT_THEME);
   return LANDING_THEMES.find(t=>t.id===id) || LANDING_THEMES[0];
 }
 

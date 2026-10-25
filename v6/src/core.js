@@ -134,6 +134,37 @@ const DB = {
     return this._vIdx.get(patientId) || [];
   },
 
+  PREFS_KEY: 'carelink.prefs.v6',
+  saveLocalPrefs(){
+    try{
+      if(!this.db) return;
+      const snap = {
+        personalPrefs: this.db.personalPrefs || {},
+        landingTheme: this.db.settings && this.db.settings.landingTheme,
+        consoleTheme: this.db.settings && this.db.settings.consoleTheme,
+        consoleThemeExplicit: Boolean(this.db.settings && this.db.settings.consoleThemeExplicit)
+      };
+      Store.set(this.PREFS_KEY, JSON.stringify(snap));
+    }catch(_e){}
+  },
+  loadLocalPrefs(){
+    try{
+      const raw = Store.get(this.PREFS_KEY);
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(_e){ return null; }
+  },
+  persistState(){
+    if(!this.db) return;
+    this.saveLocalPrefs();
+    const hostedLarge = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() && SYNC.sessionToken &&
+      Array.isArray(this.db.patients) && this.db.patients.length > 500;
+    if(hostedLarge){
+      try{ Store.del(this.KEY); }catch(_e){}
+    } else {
+      try{ Store.set(this.KEY, JSON.stringify(this.db)); }catch(_e){}
+    }
+  },
   load(){
     const raw = Store.get(this.KEY);
     if(raw){
@@ -153,6 +184,15 @@ const DB = {
     }
     if(!this.db.meta) this.db.meta = this.blank().meta;
     this.migrate();
+    const localPrefs = this.loadLocalPrefs();
+    if(localPrefs && localPrefs.personalPrefs && typeof localPrefs.personalPrefs === 'object'){
+      this.db.personalPrefs = this.db.personalPrefs || {};
+      for(const [uidKey, pVal] of Object.entries(localPrefs.personalPrefs)){
+        if(pVal && typeof pVal === 'object'){
+          this.db.personalPrefs[uidKey] = Object.assign({}, pVal, this.db.personalPrefs[uidKey] || {});
+        }
+      }
+    }
     return this.db;
   },
   /* A console that has been in use since an earlier release must not break
@@ -181,7 +221,7 @@ const DB = {
     if(!this.db) return;
     this.db.meta.saved = todayISO();
     this.db.meta.localEditedAt = new Date().toISOString();
-    Store.set(this.KEY, JSON.stringify(this.db));
+    this.persistState();
     if(typeof APPX!=='undefined') APPX.dirty = true;
     if(AUTH.user) AUTH.touch();
     if(typeof SYNC!=='undefined') SYNC.queue();
@@ -192,9 +232,16 @@ const DB = {
      person at this screen, not to the central record. */
   adopt(remote){
     if(!remote || !remote.meta) return false;
+    const prevPrefs = (this.db && this.db.personalPrefs) || {};
     this.db = remote;
     this.migrate();
-    try{ Store.set(this.KEY, JSON.stringify(this.db)); }catch(e){}
+    this.db.personalPrefs = Object.assign({}, prevPrefs, this.db.personalPrefs || {});
+    for(const [uidKey, pVal] of Object.entries(prevPrefs)){
+      if(pVal && typeof pVal === 'object'){
+        this.db.personalPrefs[uidKey] = Object.assign({}, pVal, (remote.personalPrefs && remote.personalPrefs[uidKey]) || {});
+      }
+    }
+    this.persistState();
     return true;
   },
   reset(){ this.db = this.blank(); this.save(); },
@@ -342,8 +389,35 @@ const AUTH = {
     const localOk = this.user.hash && this.user.salt && this.user.hash===strongHash(password,this.user.salt);
     const rememberedOk = verifier && verifier.hash===strongHash(password,verifier.salt);
     if(!localOk && !rememberedOk) return {ok:false,msg:'Incorrect password'};
-    this.touch(); AUDIT.append({actor:this.user.id,action:'session.unlock',entity:'user',entityId:this.user.id,detail:'Session resumed'});
+    this.touch();
+    if(typeof SESSION !== 'undefined' && SESSION.touch) SESSION.touch();
+    AUDIT.append({actor:this.user.id,action:'session.unlock',entity:'user',entityId:this.user.id,detail:'Session resumed'});
     return {ok:true};
+  },
+  async unlockOnline(password){
+    const local = this.unlock(password);
+    if(local.ok) return local;
+    if(!this.user || typeof SYNC === 'undefined' || !SYNC.available()) return local;
+    try{
+      const r = await SYNC._json('api/auth/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ username: this.user.username, password: String(password||'') }),
+        skipAuthHeader: true,
+        timeoutMs: 12000
+      });
+      if(r && r.ok && r.body && r.body.token){
+        SYNC.storeToken(r.body.token);
+        this._rememberVerifier(this.user, String(password||''));
+        this.touch();
+        if(typeof SESSION !== 'undefined' && SESSION.touch) SESSION.touch();
+        AUDIT.append({actor:this.user.id,action:'session.unlock',entity:'user',entityId:this.user.id,detail:'Session unlocked online'});
+        return {ok:true};
+      }
+      return {ok:false, msg:(r && r.body && r.body.error) || 'Incorrect password'};
+    }catch(_e){
+      return local;
+    }
   },
   setPassword(pw){
     if(!this.user) return {ok:false,msg:'No active session.'};
@@ -409,9 +483,14 @@ const AUTH = {
     this._rememberVerifier(u, password);
     this.user = u; this.online = true; this.mustChange = !!r.mustChange;
     this.session = {started:todayISO(), last:Date.now(), token:'srv', mustChange:this.mustChange};
-    AUDIT.append({actor:u.id, action:'auth.login', entity:'user', entityId:u.id,
-      detail:'Signed in — password verified on the shared online source', meta:{role:u.roleId, mustChange:this.mustChange}});
-    DB.save(); this.emit();
+    if(!this.mustChange){
+      AUDIT.append({actor:u.id, action:'auth.login', entity:'user', entityId:u.id,
+        detail:'Signed in — password verified on the shared online source', meta:{role:u.roleId, mustChange:this.mustChange}});
+      DB.save();
+    } else {
+      DB.saveLocalPrefs();
+    }
+    this.emit();
     return {ok:true, user:u, mustChange:this.mustChange};
   },
 
@@ -501,7 +580,7 @@ const RBAC = {
   /* Central authorisation decision. Returns {ok, reason}. */
   can(user, cap, ctx={}){
     if(!user) return {ok:false, reason:'No authenticated session'};
-    if(user.status!=='active') return {ok:false, reason:`Account is ${user.status}`};
+    if(!['active','pending_activation'].includes(user.status)) return {ok:false, reason:`Account is ${user.status}`};
     const role = roleObj(user.roleId)||{scope:{}};
     const scope = role.scope||{};
     if(!this.permsFor(user).has(cap)) return {ok:false, reason:`Role "${role.name}" does not hold ${cap}`};

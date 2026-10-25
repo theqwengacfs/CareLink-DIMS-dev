@@ -135,7 +135,7 @@ const STUDIO = {
                 {v:'slab',     l:'Structured Slab Display'}
               ],
               stacks:{
-                standard:null,
+                standard:'"Inter","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif',
                 editorial:'"Inter","Segoe UI",system-ui,sans-serif',
                 clinical:'"Calibri","Segoe UI","Inter",system-ui,sans-serif',
                 executive:'"Avenir Next","Segoe UI","Inter",system-ui,sans-serif',
@@ -218,12 +218,42 @@ const WTHEME = {
   list: WTHEMES,
   PREF: 'wtheme',
 
-  byId(id){ return WTHEMES.find(t=>t.id===id) || null; },
+  _prefsFor(user){
+    if(!user || !DB.db || !DB.db.personalPrefs) return null;
+    return DB.db.personalPrefs[user.id]
+      || (user.username ? DB.db.personalPrefs[String(user.username).toLowerCase()] : null)
+      || null;
+  },
+
+  syncCustomThemes(){
+    const custom = (DB.db && DB.db.settings && Array.isArray(DB.db.settings.installedVisualPacks))
+      ? DB.db.settings.installedVisualPacks : [];
+    const base = WTHEMES.find(t=>t.id==='foundation') || WTHEMES[0];
+    for(const pk of custom){
+      if(!pk || !pk.theme || !pk.theme.id || !pk.theme.t || typeof pk.theme.t !== 'object') continue;
+      if(!WTHEMES.some(t=>t.id===pk.theme.id)){
+        WTHEMES.push({
+          id: pk.theme.id,
+          name: String(pk.theme.name || pk.name || 'Custom Theme').slice(0,36),
+          mode: pk.theme.mode==='dark' ? 'dark' : 'light',
+          accent: pk.theme.accent || '#1F3864',
+          brand: pk.theme.brand || '#1F3864',
+          gold: pk.theme.gold || '#A67C00',
+          blurb: String(pk.theme.blurb || pk.blurb || 'Custom installed CareLink visual theme.').slice(0,110),
+          t: Object.assign({}, base.t, pk.theme.t)
+        });
+      }
+    }
+  },
+
+  byId(id){ WTHEME.syncCustomThemes(); return WTHEMES.find(t=>t.id===id) || null; },
 
   /* The theme id that applies to this person right now (never 'auto'). */
   resolveId(user){
+    WTHEME.syncCustomThemes();
     let id = null;
-    if(user && DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id]) id = DB.db.personalPrefs[user.id][WTHEME.PREF];
+    const p = WTHEME._prefsFor(user);
+    if(p) id = p[WTHEME.PREF];
     if(!id) id = (DB.db && DB.db.settings && DB.db.settings.consoleTheme) || WT_DEFAULT;
     if(id===WT_AUTO){
       let dark = false;
@@ -233,14 +263,14 @@ const WTHEME = {
     return WTHEME.byId(id)? id : WT_DEFAULT;
   },
   choice(user){
-    const p = user && DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id];
+    const p = WTHEME._prefsFor(user);
     return (p && p[WTHEME.PREF]) || '';
   },
   orgDefault(){ return (DB.db && DB.db.settings && DB.db.settings.consoleTheme) || WT_DEFAULT; },
 
   /* The studio choices this person has made, each validated against the table. */
   studio(user){
-    const p = (user && DB.db && DB.db.personalPrefs && DB.db.personalPrefs[user.id]) || {};
+    const p = WTHEME._prefsFor(user) || {};
     const out = {};
     STUDIO_KEYS.forEach(k=>{ const v = p[k]; out[k] = STUDIO[k].opts.some(o=>o.v===v)? v : STUDIO[k].def; });
     return out;
@@ -307,6 +337,12 @@ const WTHEME = {
     Object.keys(WT_TOKENS).forEach(k=>{ v[WT_TOKENS[k]] = t[k]; });
     const a = WTHEME.accents(theme, deptAccent, override);
     v['--accent'] = a.fill; v['--accent-ink'] = a.fillInk; v['--accent-fg'] = a.fg; v['--accent-soft'] = a.soft;
+    v['--text'] = t.ink; v['--text-2'] = t.ink2; v['--text-3'] = t.muted;
+    v['--border'] = t.line; v['--border-strong'] = hc ? t.ink : WTC.mix(t.line, t.ink, dark ? 0.28 : 0.22);
+    v['--ok-bd'] = WTC.mix(t.okBg, t.ok, dark ? 0.45 : 0.32);
+    v['--warn-bd'] = WTC.mix(t.warnBg, t.warn, dark ? 0.45 : 0.32);
+    v['--crit-bd'] = WTC.mix(t.critBg, t.crit, dark ? 0.45 : 0.32);
+    v['--info-bd'] = WTC.mix(t.infoBg, t.info, dark ? 0.45 : 0.32);
     v['--muted-2'] = WTC.mix(t.muted, t.surface, 0.38);
     v['--hover'] = WTC.mix(t.surface, t.ink, dark? 0.10 : 0.055);
     v['--chip'] = WTC.mix(t.surface, t.ink, dark? 0.14 : 0.075);
@@ -471,21 +507,25 @@ const WTHEME = {
     const cleanId = 'pack-custom-' + String(parsed.id || parsed.name).toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,28) + '-' + String(Date.now()).slice(-4);
     /* Optional custom theme definition inside pack */
     let themeId = (parsed.config && parsed.config.wtheme) || 'foundation';
+    let customThemeDef = null;
     if(parsed.theme && parsed.theme.t && typeof parsed.theme.t === 'object'){
       const base = WTHEME.byId('foundation').t;
-      const customThemeId = 'custom-' + cleanId.slice(-8);
+      const customThemeId = parsed.theme.id && String(parsed.theme.id).startsWith('custom-')
+        ? String(parsed.theme.id).slice(0,36)
+        : ('custom-' + cleanId.slice(-8));
       const mergedT = Object.assign({}, base, parsed.theme.t);
+      customThemeDef = {
+        id: customThemeId,
+        name: String(parsed.theme.name || parsed.name).slice(0,36),
+        mode: parsed.theme.mode==='dark' ? 'dark' : 'light',
+        accent: parsed.theme.accent || '#1F3864',
+        brand: parsed.theme.brand || '#1F3864',
+        gold: parsed.theme.gold || '#A67C00',
+        blurb: String(parsed.blurb || 'Custom installed CareLink visual theme.').slice(0,110),
+        t: mergedT
+      };
       if(!WTHEME.byId(customThemeId)){
-        WTHEMES.push({
-          id: customThemeId,
-          name: String(parsed.theme.name || parsed.name).slice(0,36),
-          mode: parsed.theme.mode==='dark' ? 'dark' : 'light',
-          accent: parsed.theme.accent || '#1F3864',
-          brand: parsed.theme.brand || '#1F3864',
-          gold: parsed.theme.gold || '#A67C00',
-          blurb: String(parsed.blurb || 'Custom installed CareLink visual theme.').slice(0,110),
-          t: mergedT
-        });
+        WTHEMES.push(customThemeDef);
       }
       themeId = customThemeId;
     }
@@ -497,6 +537,7 @@ const WTHEME = {
       blurb: String(parsed.blurb || 'Custom installed font, colour and workspace pack.').slice(0,140),
       config: Object.assign({ wtheme:themeId, font:'standard', corners:'soft', backdrop:'plain', hero:'gradient', cards:'soft', kpiStyle:'vivid', accentPick:'' }, parsed.config||{}, { wtheme:themeId })
     };
+    if(customThemeDef) packObj.theme = customThemeDef;
     DB.db.settings = DB.db.settings || {};
     DB.db.settings.installedVisualPacks = DB.db.settings.installedVisualPacks || [];
     DB.db.settings.installedVisualPacks.unshift(packObj);
@@ -506,16 +547,19 @@ const WTHEME = {
   },
 
   exportActivePack(user){
+    WTHEME.syncCustomThemes();
     const st = WTHEME.studio(user);
     const thId = WTHEME.resolveId(user);
     const th = WTHEME.byId(thId) || WTHEME.byId('foundation');
-    return JSON.stringify({
+    const out = {
       carelinkPackVersion: 1,
       name: `${(user&&user.name?user.name.split(' ')[0]:'CareLink')} ${th.name} Pack`,
       version: '1.0',
       blurb: `Exported CareLink OS font (${st.font}) and ${th.name} workspace pack.`,
       config: Object.assign({ wtheme: th.id }, st)
-    }, null, 2);
+    };
+    if(String(th.id||'').startsWith('custom-')) out.theme = th;
+    return JSON.stringify(out, null, 2);
   },
   installPack(user, packId){ return WTHEME.applyVisualPack(user, packId); },
   importCustomPack(user, rawJson){ return WTHEME.installCustomPack(user, rawJson); },

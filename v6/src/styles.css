@@ -6,10 +6,14 @@
 :root{
   --red:#C8102E; --red-2:#E01B22; --red-dark:#95001F; --red-soft:#FDECEE;
   --ink:#15171A; --ink-2:#2B3038; --muted:#5F6B7A; --muted-2:#8A94A2;
+  --text:#15171A; --text-2:#2B3038; --text-3:#5F6B7A;
   --line:#E3E7ED; --line-2:#EDF0F4;
+  --border:#E3E7ED; --border-strong:#CBD2DC;
   --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#FAFBFC;
-  --ok:#0F7B4F; --ok-bg:#E7F6EF; --warn:#9A5B00; --warn-bg:#FFF4E0;
-  --crit:#B00020; --crit-bg:#FDECEE; --info:#1D4ED8; --info-bg:#EAF0FF;
+  --ok:#0F7B4F; --ok-bg:#E7F6EF; --ok-bd:#A7DFC7;
+  --warn:#9A5B00; --warn-bg:#FFF4E0; --warn-bd:#F2CF92;
+  --crit:#B00020; --crit-bg:#FDECEE; --crit-bd:#F5B3BD;
+  --info:#1D4ED8; --info-bg:#EAF0FF; --info-bd:#B8CDFF;
   --shadow-sm:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
   --shadow:0 2px 8px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
   --shadow-lg:0 12px 40px rgba(16,24,40,.16);
