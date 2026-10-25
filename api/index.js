@@ -332,6 +332,143 @@ function decodeCompressedEnvelopeToRaw(dataB64) {
   }
 }
 
+const FAST_PACK_PART_CHARS = 2000000;
+let _clientFastPackRing = [];
+
+function buildStateHead(state) {
+  const cleanUsers = sanitizeDbForClient({
+    users: (state.db && Array.isArray(state.db.users)) ? state.db.users : [],
+  }).users || [];
+  const compactUsers = cleanUsers.slice(0, 500).map((u) => ({
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    name: u.name,
+    jobTitle: u.jobTitle,
+    roleId: u.roleId,
+    departmentId: u.departmentId,
+    countyId: u.countyId,
+    areaId: u.areaId,
+    areaIds: Array.isArray(u.areaIds) ? u.areaIds : undefined,
+    status: u.status,
+    active: u.active,
+    mustChange: u.mustChange,
+  }));
+  return {
+    setup: Boolean(state.setup),
+    globallyActivated: isGloballyActivated(state),
+    demoMode: Boolean(state.db && state.db.meta && (
+      state.db.meta.demoMode || state.db.meta.demoSeed || state.db.meta.demoSeeded || state.db.meta.freshSeeded ||
+      /synthetic|demonstration/i.test(String(state.db.meta.label || ''))
+    )),
+    rev: state.rev || 0,
+    saved: state.saved,
+    org: state.org,
+    landingTheme: (state.db && state.db.settings && state.db.settings.landingTheme) || 'heritage',
+    consoleTheme: (state.db && state.db.settings && state.db.settings.consoleTheme) || 'foundation',
+    hasLargeCollections: Boolean(
+      (state.db && Array.isArray(state.db.patients) && state.db.patients.length > 400) ||
+      (state.db && Array.isArray(state.db.visits) && state.db.visits.length > 800) ||
+      (state.db && Array.isArray(state.db.pdcas) && state.db.pdcas.length > 800)
+    ),
+    creds: state.creds || {},
+    loginFailures: state.loginFailures || {},
+    sessions: state.sessions || {},
+    revokedSessions: state.revokedSessions || {},
+    users: compactUsers,
+  };
+}
+
+function getClientFastPack(state, targetRev = 0) {
+  const currentRev = Number(state.rev) || 0;
+  if (targetRev > 0) {
+    const hit = _clientFastPackRing.find((e) => e.rev === targetRev);
+    if (hit) return hit;
+  }
+  const existing = _clientFastPackRing.find((e) => e.rev === currentRev && e.saved === state.saved);
+  if (existing) return existing;
+  const cleanClientDb = sanitizeDbForClient(state.db || {});
+  if (state.setup && cleanClientDb && typeof cleanClientDb === 'object') {
+    cleanClientDb.settings = {
+      ...(cleanClientDb.settings || {}),
+      onboarding: { complete: true, step: 4 },
+    };
+  }
+  const payloadJson = JSON.stringify({
+    rev: currentRev,
+    saved: state.saved,
+    db: cleanClientDb,
+  });
+  const gzB64 = zlib.gzipSync(Buffer.from(payloadJson, 'utf8'), { level: 1 }).toString('base64');
+  const parts = [];
+  for (let offset = 0; offset < gzB64.length; offset += FAST_PACK_PART_CHARS) {
+    parts.push(gzB64.slice(offset, offset + FAST_PACK_PART_CHARS));
+  }
+  if (!parts.length) parts.push('');
+  const entry = { rev: currentRev, saved: state.saved, parts };
+  _clientFastPackRing = [entry, ..._clientFastPackRing.filter((e) => e.rev !== currentRev)].slice(0, 2);
+  return entry;
+}
+
+async function loadCloudHead() {
+  const stored = await readKvString(CLOUD_KEY);
+  if (stored === null || stored === undefined) {
+    return { state: blankStore(), driver: 'cloud-kv-redis' };
+  }
+  let unwrapped = stored;
+  try {
+    for (let depth = 0; depth < 3 && typeof unwrapped === 'string'; depth++) {
+      unwrapped = JSON.parse(unwrapped);
+    }
+  } catch {
+    throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.');
+  }
+  if (unwrapped && unwrapped.format === CLOUD_SHARDED_FORMAT) {
+    const count = Number(unwrapped.shardCount) || 0;
+    const digests = Array.isArray(unwrapped.shardDigests) ? unwrapped.shardDigests : [];
+    if (count < 1 || count > 64 || digests.length !== count) {
+      throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an invalid sharded online manifest; it was not replaced.');
+    }
+    const cacheKey = `sharded:${unwrapped.rev || 0}:${unwrapped.saved || ''}:${digests.join(',')}`;
+    if (_decodedCache && _decodedCache.cacheKey === cacheKey && _decodedCache.state) {
+      return { state: _decodedCache.state, driver: 'cloud-kv-redis' };
+    }
+    if (unwrapped.head && typeof unwrapped.head === 'object') {
+      const h = unwrapped.head;
+      return {
+        driver: 'cloud-kv-redis',
+        state: {
+          setup: Boolean(h.setup),
+          globallyActivated: Boolean(h.globallyActivated),
+          rev: Number(unwrapped.rev || h.rev) || 0,
+          saved: unwrapped.saved || h.saved || null,
+          org: h.org || null,
+          creds: h.creds || {},
+          loginFailures: h.loginFailures || {},
+          sessions: h.sessions || {},
+          revokedSessions: h.revokedSessions || {},
+          db: {
+            users: Array.isArray(h.users) ? h.users : [],
+            settings: {
+              landingTheme: h.landingTheme || 'heritage',
+              consoleTheme: h.consoleTheme || 'foundation',
+              globallyActivated: Boolean(h.globallyActivated),
+              onboarding: { complete: Boolean(h.setup), step: 4 },
+            },
+            meta: {
+              demoMode: Boolean(h.demoMode),
+              globallyActivated: Boolean(h.globallyActivated),
+            },
+          },
+          _headOnly: true,
+          _hasLargeCollections: Boolean(h.hasLargeCollections),
+        },
+      };
+    }
+  }
+  return loadCloudState({ readOnly: true });
+}
+
 async function loadCloudState({ readOnly = false } = {}) {
   const stored = await readKvString(CLOUD_KEY);
   /* Upstash returns null for a missing key. Only that explicit result means a
@@ -461,14 +598,28 @@ async function saveCloudState(state) {
   await Promise.all(
     shards.map((part, idx) => writeKvString(shardKeys[idx], part, { exSeconds: 7 * 86400 })),
   );
-  await writeKvString(CLOUD_KEY, JSON.stringify({
+  const headObj = buildStateHead(state);
+  let manifestPayload = JSON.stringify({
     format: CLOUD_SHARDED_FORMAT,
     shardCount: shards.length,
     shardKeys,
     shardDigests,
     saved: state.saved,
     rev: revTag,
-  }));
+    head: headObj,
+  });
+  if (Buffer.byteLength(manifestPayload) > CLOUD_SHARD_SIZE) {
+    manifestPayload = JSON.stringify({
+      format: CLOUD_SHARDED_FORMAT,
+      shardCount: shards.length,
+      shardKeys,
+      shardDigests,
+      saved: state.saved,
+      rev: revTag,
+      head: { ...headObj, users: [] },
+    });
+  }
+  await writeKvString(CLOUD_KEY, manifestPayload);
   _decodedCache = {
     cacheKey: `sharded:${revTag}:${state.saved}:${shardDigests.join(',')}`,
     rawJson,
@@ -1042,7 +1193,13 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, reset: true, rev: fresh.rev });
   }
 
-  let { state, driver } = await loadCloudState({ readOnly: method === 'GET' });
+  const isHeadRoute = (
+    ((route === 'health' || route === 'bootstrap' || route === 'rev' || route === 'session/whoami') && method === 'GET') ||
+    ((route === 'auth/login' || route === 'session/beat') && method === 'POST')
+  );
+  let { state, driver } = isHeadRoute
+    ? await loadCloudHead()
+    : await loadCloudState({ readOnly: method === 'GET' });
 
   /* 1. Health, bootstrap & revision probes */
   if ((route === 'health' || route === 'bootstrap') && method === 'GET') {
@@ -1376,6 +1533,9 @@ async function handleRequest(req, res) {
       });
     }
     if (!cred || !verifyPassword(password, cred.salt, cred.digest)) {
+      if (state._headOnly) {
+        ({ state, driver } = await loadCloudState({ readOnly: false }));
+      }
       recordLoginFailure(state, username || 'anonymous');
       appendServerAudit(state, username || 'anonymous', 'auth.failed', 'user', username, 'Online credential check failed');
       await saveCloudState(state);
@@ -1391,8 +1551,13 @@ async function handleRequest(req, res) {
       ),
     );
     if (hadPriorFailures) {
-      delete state.loginFailures[username];
-      if (rawId) delete state.loginFailures[rawId];
+      if (state._headOnly) {
+        ({ state, driver } = await loadCloudState({ readOnly: false }));
+      }
+      if (state.loginFailures) {
+        delete state.loginFailures[username];
+        if (rawId) delete state.loginFailures[rawId];
+      }
       pruneSessions(state);
       appendServerAudit(state, cred.id || username, 'auth.login', 'user', cred.id || username,
         `Online sign-in verified after prior failure reset (${cred.mustChange ? 'first-login password change required' : 'personal password'})`);
@@ -1418,20 +1583,31 @@ async function handleRequest(req, res) {
     }).users[0];
     /* Include non-paged initial state directly in the login response when under
        512 KB total so post-setup Chief sign-in adopts Primary state in a single
-       <150 ms round-trip with zero KV write contention or Read-Replica lag. */
-    const cleanClientDb = sanitizeDbForClient(state.db || {});
-    if (state.setup && cleanClientDb && typeof cleanClientDb === 'object') {
-      cleanClientDb.settings = {
-        ...(cleanClientDb.settings || {}),
-        onboarding: { complete: true, step: 4 },
-      };
-    }
-    const split = splitLargeStateCollections(cleanClientDb);
+       <150 ms round-trip with zero KV write contention or Read-Replica lag.
+       Skip expensive JSON serialisation immediately when sharded head or large
+       patient/visit collections already prove the state exceeds 512 KB. */
     let inlineState = null;
-    if (split.pagedCollections.length === 0) {
-      const dbBytes = Buffer.byteLength(JSON.stringify(split.db || {}));
-      if (dbBytes <= 512 * 1024) {
-        inlineState = { db: split.db, rev: state.rev || 0, saved: state.saved, pagedCollections: [] };
+    const obviouslyLarge = Boolean(
+      state._headOnly ||
+      state._hasLargeCollections ||
+      (state.db && Array.isArray(state.db.patients) && state.db.patients.length > 400) ||
+      (state.db && Array.isArray(state.db.visits) && state.db.visits.length > 800) ||
+      (state.db && Array.isArray(state.db.pdcas) && state.db.pdcas.length > 800)
+    );
+    if (!obviouslyLarge) {
+      const cleanClientDb = sanitizeDbForClient(state.db || {});
+      if (state.setup && cleanClientDb && typeof cleanClientDb === 'object') {
+        cleanClientDb.settings = {
+          ...(cleanClientDb.settings || {}),
+          onboarding: { complete: true, step: 4 },
+        };
+      }
+      const split = splitLargeStateCollections(cleanClientDb);
+      if (split.pagedCollections.length === 0) {
+        const dbBytes = Buffer.byteLength(JSON.stringify(split.db || {}));
+        if (dbBytes <= 512 * 1024) {
+          inlineState = { db: split.db, rev: state.rev || 0, saved: state.saved, pagedCollections: [] };
+        }
       }
     }
     return sendJson(res, 200, {
@@ -1466,8 +1642,13 @@ async function handleRequest(req, res) {
     /* Stateless HMAC tokens slide their idle window by returning a refreshed
        signed token without rewriting the multi-megabyte database every 10s. */
     if (state.sessions && Object.prototype.hasOwnProperty.call(state.sessions, sess.token)) {
-      state.sessions[sess.token].lastSeen = nowISO();
-      await saveCloudState(state);
+      if (state._headOnly) {
+        ({ state, driver } = await loadCloudState({ readOnly: false }));
+      }
+      if (state.sessions && state.sessions[sess.token]) {
+        state.sessions[sess.token].lastSeen = nowISO();
+        await saveCloudState(state);
+      }
       return sendJson(res, 200, { ok: true, expiresIn: IDLE_SECONDS });
     }
     const cred = (state.creds && state.creds[sess.username]) || {
@@ -1915,6 +2096,42 @@ async function handleRequest(req, res) {
           patches: deltas.flatMap((d) => d.patches || []),
         });
       }
+      if (urlObj.searchParams.get('deltaOnly') === '1') {
+        return sendJson(res, 200, {
+          ok: true,
+          deltaMiss: true,
+          rev: state.rev || 0,
+          saved: state.saved,
+        });
+      }
+    }
+    if (urlObj.searchParams.get('fast') === '1') {
+      const targetRev = Number(urlObj.searchParams.get('targetRev') || '0');
+      const partParam = urlObj.searchParams.get('part');
+      const pack = getClientFastPack(state, targetRev);
+      if (partParam !== null) {
+        const partIdx = Number(partParam);
+        if (!Number.isSafeInteger(partIdx) || partIdx < 0 || partIdx >= pack.parts.length) {
+          return sendJson(res, 400, { ok: false, error: 'Invalid fast-pack part index.' });
+        }
+        return sendJson(res, 200, {
+          ok: true,
+          fastPack: true,
+          rev: pack.rev,
+          saved: pack.saved,
+          part: partIdx,
+          totalParts: pack.parts.length,
+          data: pack.parts[partIdx],
+        });
+      }
+      return sendJson(res, 200, {
+        ok: true,
+        fastPack: true,
+        rev: pack.rev,
+        saved: pack.saved,
+        totalParts: pack.parts.length,
+        part0: pack.parts[0],
+      });
     }
     const split = splitLargeStateCollections(sanitizeDbForClient(state.db || {}));
     return sendJson(res, 200, {

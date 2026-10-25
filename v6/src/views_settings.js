@@ -473,13 +473,15 @@ function visualPacksHtml(user){
 
 function openThemePicker(tab='themes'){
   const user = AUTH.user; if(!user) return;
+  APPX._themePickerTab = tab;
   if(typeof WTHEME.syncCustomThemes === 'function') WTHEME.syncCustomThemes();
   const st = WTHEME.studio(user);
   const scale = Number((DB.db.personalPrefs[user.id]||{}).textScale)||100;
   const tabsBar = `<div class="tabs" style="margin-bottom:14px">
     <button class="tab ${tab==='themes'?'active':''}" data-act="wtheme-tab" data-tab="themes">${ic('palette',14)} Colour Themes (${WTHEMES.length})</button>
+    <button class="tab ${tab==='studio'?'active':''}" data-act="wtheme-tab" data-tab="studio">${ic('sparkle',14)} UI Customiser (${STUDIO_PRESETS.length} Presets)</button>
     <button class="tab ${tab==='fonts'?'active':''}" data-act="wtheme-tab" data-tab="fonts">${ic('file',14)} Font Styles & Scale (${STUDIO.font.opts.length})</button>
-    <button class="tab ${tab==='packs'?'active':''}" data-act="wtheme-tab" data-tab="packs">${ic('package',14)} Installable Visual Packs (${WTHEME.packs().length})</button>
+    <button class="tab ${tab==='packs'?'active':''}" data-act="wtheme-tab" data-tab="packs">${ic('package',14)} Visual Packs (${WTHEME.packs().length})</button>
   </div>`;
   const fontsPane = `<div class="col" style="gap:12px">
     <p class="small muted" style="margin:0">Choose an offline-ready institutional font family for your console headings, banners and tables. Changes apply immediately to your workspace.</p>
@@ -498,8 +500,8 @@ function openThemePicker(tab='themes'){
     ${settingRow('Text size scale','Scales console typography cleanly inside your fixed workspace.',
       `<div class="seg">${[100,110,125].map(n=>`<button class="${scale===n?'on':''}" data-act="pref-scale" data-scale="${n}">${n}%</button>`).join('')}</div>`)}
   </div>`;
-  const content = tab==='fonts' ? fontsPane : (tab==='packs' ? visualPacksHtml(user) : wtGridHtml(user,'set-wtheme'));
-  openModal({ title:'Workspace Theme, Font Styles & Visual Packs', sub:'Personalise your console typography, colour palette and visual pack without affecting permissions or records.', wide:true,
+  const content = tab==='fonts' ? fontsPane : (tab==='packs' ? visualPacksHtml(user) : (tab==='studio' ? studioHtml(user) : wtGridHtml(user,'set-wtheme')));
+  openModal({ title:'Workspace Themes, UI Customiser, Fonts & Visual Packs', sub:'Personalise your console palette, top banner style, borders, tabs, KPI cards and typography without affecting permissions or records.', wide:true,
     body: tabsBar + content,
     footer:`<button class="btn btn-ghost" data-act="wtheme-more">Full appearance settings</button><button class="btn btn-ghost" data-act="close-modal">Close</button>`});
 }
@@ -510,17 +512,21 @@ function studioHtml(user){
     `<button class="${st[key]===o.v?'on':''}" data-act="studio-set" data-key="${key}" data-value="${esc(o.v)}" aria-pressed="${st[key]===o.v}">${esc(o.l)}</button>`).join('')}</div>`;
   const dots = `<div class="st-sw" role="group" aria-label="Accent colour">${STUDIO.accentPick.opts.map(o=>
     `<button class="st-dot ${o.v===''?'none':''} ${st.accentPick===o.v?'on':''}" ${o.v?`style="background:${o.v}"`:''} data-act="studio-set" data-key="accentPick" data-value="${esc(o.v)}" aria-pressed="${st.accentPick===o.v}" aria-label="${esc(o.l)}" title="${esc(o.l)}">${st.accentPick===o.v?'\u2713':''}</button>`).join('')}</div>`;
-  return `<p class="small muted" style="margin:0 0 12px">Mix your own look. Presets set several choices at once. Every colour is checked for readability, so no combination can make text hard to read.</p>
+  return `<p class="small muted" style="margin:0 0 12px">Mix your own workspace look. Presets apply complete combinations in one click, and every colour pair is automatically checked for WCAG high-contrast legibility.</p>
     <div class="st-grid">${STUDIO_PRESETS.map(p=>`<button class="st-pre" data-act="studio-preset" data-id="${p.id}"><b>${esc(p.name)}</b><span>${esc(p.blurb)}</span></button>`).join('')}
       <button class="st-pre" data-act="studio-preset" data-id="random"><b>${ic('sparkle',14)} Surprise me</b><span>A random theme and combination. Try it, then reset if you do not like it.</span></button></div>
     <div style="margin-top:14px">
-    ${settingRow('Accent colour','Overrides the theme and department colour. It is adjusted automatically if it would be hard to read.', dots)}
-    ${settingRow('Corners','', seg('corners'))}
-    ${settingRow('Typeface','Easy to read uses wider spacing. All fonts are already on the device, so nothing is downloaded.', seg('font'))}
-    ${settingRow('Backdrop','A very faint pattern behind the page. Cards stay plain, and the pattern is kept light enough that text on it stays readable.', seg('backdrop'))}
-    ${settingRow('Hero panel','', seg('hero'))}
-    ${settingRow('Cards','', seg('cards'))}
-    ${STUDIO.kpiStyle ? settingRow('KPI stat cards','Vivid fills stat boxes with rich jewel gradients; Tinted uses soft washes with crisp coloured numbers.', seg('kpiStyle')) : ''}
+    ${settingRow('Accent colour','Overrides the theme and department colour while preserving automatic 5:1 text contrast.', dots)}
+    ${STUDIO.bannerStyle ? settingRow('Console top banner','Choose a full-spectrum multi-colour banner, deep duotone gradient or solid crest.', seg('bannerStyle')) : ''}
+    ${STUDIO.tabStyle ? settingRow('Tab & pill style','Switch tabs between filled pills, framed cards or clean underline bars.', seg('tabStyle')) : ''}
+    ${STUDIO.kpiStyle ? settingRow('KPI stat cards','Vivid spectrum jewel cards, bold fills, crisp top-bar cards or pure white outlined cards.', seg('kpiStyle')) : ''}
+    ${STUDIO.borderWeight ? settingRow('Box & table borders','Sharpen card and table borders from crisp standard to 1.5px or 2px ledger lines.', seg('borderWeight')) : ''}
+    ${STUDIO.tableStripe ? settingRow('Table row shading','Choose alternating zebra rows, pure unstriped white rows or ruled ledger cells.', seg('tableStripe')) : ''}
+    ${settingRow('Corners','Adjust corner rounding across cards, buttons, modals and inputs.', seg('corners'))}
+    ${settingRow('Typeface','Offline system font stacks with zero external downloads.', seg('font'))}
+    ${settingRow('Backdrop','Optional subtle page texture behind crisp solid cards.', seg('backdrop'))}
+    ${settingRow('Hero panel','Overview hero banner fill style.', seg('hero'))}
+    ${settingRow('Cards','Flat, soft-shadowed, lifted or crisp-framed workspace cards.', seg('cards'))}
     </div>
     <div class="row" style="margin-top:12px"><button class="btn btn-ghost" data-act="studio-reset">Reset the studio</button></div>
     <div class="divider"></div>

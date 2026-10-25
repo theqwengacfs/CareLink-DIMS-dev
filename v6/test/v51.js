@@ -25,9 +25,9 @@ const lum=h=>{h=h.replace('#','');const f=c=>{c/=255;return c<=.03928?c/12.92:Ma
 const cr=(a,b)=>{let x=lum(a),y=lum(b);if(x<y)[x,y]=[y,x];return (x+.05)/(y+.05)};
 
 /* ---------------- 1. the theme table ---------------- */
-test('twenty vibrant themes, unique, each defining every token', ()=>{
-  ok('twenty themes', THEMES.length===20, THEMES.join(','));
-  ok('ids unique', new Set(THEMES).size===20);
+test('thirty vibrant themes, unique, each defining every token', ()=>{
+  ok('thirty themes', THEMES.length===30, THEMES.join(','));
+  ok('ids unique', new Set(THEMES).size===30);
   const keys=J('Object.keys(WT_TOKENS)');
   THEMES.forEach(id=>{
     const t=J(`WTHEME.byId('${id}').t`);

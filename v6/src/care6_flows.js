@@ -1461,40 +1461,300 @@ const DEMO_SWITCH = {
 const ROLE_CTX = {
   groupLabel(user, groupLabel){
     if(!user) return groupLabel;
-    const role = roleObj(user.roleId) || {};
-    const cLabel = user.countyId ? countyName(user.countyId) : 'Global';
-    if(groupLabel === 'Overview'){
-      const m = {
-        caregiver: 'My Field Care Desk',
-        chw: 'My Community Desk',
-        coordinator: `${cLabel} Area Coordination`,
-        nurse: 'Nursing Triage Desk',
-        mcm: 'Case Management Desk',
-        depthead: 'Clinical Department Desk',
-        liaison: 'Hospital Focal Desk',
-        assistant: `${cLabel} Admin & Secretary Desk`,
-        'program.assistant': 'Programme Secretary Desk',
-        countyadmin: `${cLabel} County Office Desk`,
-        finance: `${cLabel} Finance Control Desk`,
-        procurement: 'Supply Chain & Procurement',
-        mediahead: 'Media & Ethics Studio',
-        pr: 'Public Relations Desk',
-        hr: 'Human Capital Desk',
-        welfare: 'Staff Welfare Desk',
-        vehicle: 'Fleet & Escort Dispatch',
-        auditor: 'Independent Audit Desk',
-        me: `${cLabel} M&E Verification Desk`,
-        intldata: 'International Data Desk',
-        'intl.medical': 'International Medical Desk',
-        director: 'Country Director Command',
-        president: 'Presidential Governance',
-        'program.admin': 'Chief Programme Command',
-        chief: 'CareLink OS Control'
-      };
-      if(m[user.roleId]) return m[user.roleId];
-      return `${(role.name||'Role').split(' ')[0]} Workspace`;
-    }
-    return groupLabel;
+    const r = user.roleId;
+    const role = roleObj(r) || {};
+    const cLabel = user.countyId ? countyName(user.countyId).replace(/\s+County Office$/i,'') : 'National';
+    const byRole = {
+      director: {
+        'Overview':'Country Director Command',
+        'Leadership':'National Executive Governance',
+        'Reporting':'Board & Strategic Reporting',
+        'Finance & procurement':'National Budget & Statutory',
+        'Partner & referral':'Government & MoH Partnerships',
+        'Patients & field':'Programme Caseload Oversight',
+        'People':'Executive HR & Delegation',
+        'Assurance':'Institutional Risk & Assurance',
+        'Hospital operations':'Emergency Referral Escalations',
+        'Clinical & pharmacy':'Specialist 120d PDCA Oversight',
+        'Department life':'Executive Recognition & Culture'
+      },
+      president: {
+        'Overview':'Presidential Governance',
+        'Leadership':'Foundation Strategy & Board',
+        'Reporting':'Global Impact & Donor Briefs',
+        'Partner & referral':'Government & Strategic Partners',
+        'Finance & procurement':'Stewardship & Budget Summary',
+        'Hospital operations':'Executive Referral Oversight',
+        'People':'Leadership Authority',
+        'Assurance':'Institutional Governance Audit',
+        'System':'Presidential Preferences & Governance',
+        'Department life':'Foundation Culture & Honours'
+      },
+      'program.admin': {
+        'Overview':'Chief Programme Command',
+        'Leadership':'Cross-County Programme Direction',
+        'Reporting':'Programme Performance Reports',
+        'Patients & field':'Cross-County Caseload Watch',
+        'Ministry & teams':'County Ministry Area Teams',
+        'Hospital operations':'Programme Hospital Escalations',
+        'Care centre':'Programme Respite Oversight',
+        'Partner & referral':'MoH & Facility Partnerships',
+        'Finance & procurement':'Programme Budget & Statutory',
+        'People':'Programme Staffing & Coverage',
+        'Assurance':'Programme Quality & Indicators',
+        'System':'Account Approvals & Governance',
+        'Department life':'Programme Culture & Evaluation'
+      },
+      'program.assistant': {
+        'Overview':'Programme Secretary Desk',
+        'Leadership':'Executive Sitting & Briefs',
+        'Reporting':'Monday Packs & Programme Reports',
+        'Finance & procurement':'Programme Office Operations',
+        'Patients & field':'Programme Beneficiary Overview',
+        'Ministry & teams':'Area Team Coordination',
+        'People':'Leave & Coverage Coordination',
+        'System':'Programme Desk Preferences',
+        'Department life':'Programme Office Directory'
+      },
+      chief: {
+        'Overview':'CareLink OS Control',
+        'System':'Platform Engineering & Security',
+        'Assurance':'Audit Chain, Security & KHIS',
+        'Reporting':'Platform & Statutory Reports',
+        'Finance & procurement':'Statutory Compliance Ledger',
+        'Patients & field':'Master Registry Index',
+        'People':'Platform Delegation & Authority',
+        'Department life':'Online Presence & Custody'
+      },
+      it: {
+        'Overview':'ICT & Technical Desk',
+        'System':'Infrastructure, Cloud & Backups',
+        'Assurance':'Security Self-Test & APIs',
+        'Reporting':'Technical Operations Reports',
+        'Department life':'ICT Asset & Online Status'
+      },
+      caregiver: {
+        'Overview':'My Field Care Desk',
+        'Patients & field':'My Assigned Households',
+        'Ministry & teams':'My Ministry Area Team',
+        'Hospital operations':'Hospital Escorts & Clinics',
+        'Care centre':'Homestay & Respite Handover',
+        'Clinical & pharmacy':'Household Care Plans',
+        'Reporting':'My Field Visit Summary',
+        'Department life':'My Coins & Field Weather'
+      },
+      chw: {
+        'Overview':'My CHV Community Desk',
+        'Patients & field':'My Community Households',
+        'Ministry & teams':'Area Outreach Team',
+        'Hospital operations':'Clinic Escort Requests',
+        'Care centre':'Respite & Care Handover',
+        'Clinical & pharmacy':'Community Care Plans',
+        'Reporting':'Community Activity Summary',
+        'Department life':'CHV Coins & Field Weather'
+      },
+      coordinator: {
+        'Overview':`${cLabel} Area Coordination`,
+        'Patients & field':'Area Households & Visits',
+        'Ministry & teams':'Area Caregivers & Visit Days',
+        'Hospital operations':'Area Hospital Referrals',
+        'Care centre':'Care Centre Placements',
+        'Clinical & pharmacy':'Area Care Plans',
+        'Reporting':'Area Performance & Targets',
+        'System':'Area Desk Preferences',
+        'Department life':'Area Team Recognition'
+      },
+      mcm: {
+        'Overview':'Case Management Desk',
+        'Patients & field':`${cLabel} Clinical Caseload`,
+        'Clinical & pharmacy':'Acuity, SOAP, Rx & 120d PDCA',
+        'Hospital operations':'Hospital Approvals & Recon',
+        'Care centre':'Clinical Respite & Safeguarding',
+        'Reporting':'Clinical & Referral Reports',
+        'Media & governance':'Beneficiary Story Consent',
+        'Ministry & teams':'Field-Clinical Team Sync',
+        'Partner & referral':'Hospital CCC Referrals',
+        'Assurance':'Clinical Data Completeness',
+        'System':'Clinical Preferences',
+        'Department life':'Clinical Library & Interns'
+      },
+      depthead: {
+        'Overview':'Clinical Department Desk',
+        'Patients & field':'Department Clinical Caseload',
+        'Clinical & pharmacy':'Clinical Oversight & Pharmacy',
+        'Hospital operations':'Hospital Referral Approvals',
+        'Care centre':'Care Centre & Safeguarding',
+        'Reporting':'Department Clinical Reports',
+        'Ministry & teams':'Clinical & Field Teams',
+        'People':'Clinical Staffing & Coverage',
+        'Assurance':'Clinical Quality Assurance',
+        'System':'Department Settings',
+        'Department life':'Clinical Library & Evaluation'
+      },
+      nurse: {
+        'Overview':'Nursing & Triage Desk',
+        'Patients & field':'Triage & Ward Caseload',
+        'Clinical & pharmacy':'Dispensing, TB & Care Plans',
+        'Hospital operations':'Hospital Referrals & Escorts',
+        'Care centre':'Ward Occupancy & Safeguarding',
+        'Reporting':'Nursing & Ward Summary',
+        'Ministry & teams':'Caregiver Triage Sync',
+        'Department life':'Clinical Library & Safety'
+      },
+      liaison: {
+        'Overview':'Hospital Focal Desk',
+        'Hospital operations':'Facility Queue, Visits & Recon',
+        'Patients & field':'Hospitalised Beneficiaries',
+        'Clinical & pharmacy':'Inpatient Clinical & Rx Notes',
+        'Ministry & teams':'Field Escort Coordination',
+        'Care centre':'Post-Discharge Respite',
+        'Reporting':'Hospital Referral Reports',
+        'Department life':'Hospital Desk Tools'
+      },
+      countyadmin: {
+        'Overview':`${cLabel} County Office Desk`,
+        'Patients & field':`${cLabel} Intake & Beneficiary Ops`,
+        'Ministry & teams':`${cLabel} Ministry Area Teams`,
+        'Finance & procurement':`${cLabel} County Finance & OpEx`,
+        'Hospital operations':`${cLabel} Hospital Reconciliations`,
+        'People':`${cLabel} County Staff & Coverage`,
+        'Reporting':`${cLabel} County Management Reports`,
+        'System':`${cLabel} Staff Accounts & Urgent Desk`,
+        'Fleet & transport':`${cLabel} County Vehicles & Trips`,
+        'Assurance':`${cLabel} County Audit & Quality`,
+        'Partner & referral':`${cLabel} MoH County Partnership`,
+        'Care centre':`${cLabel} Care Centre Oversight`,
+        'Department life':`${cLabel} Office Assets & Presence`
+      },
+      assistant: {
+        'Overview':`${cLabel} Admin & Secretary Desk`,
+        'Patients & field':'Hard-Copy Intake & Pipeline',
+        'Clinical & pharmacy':'Scanned Clinical Paper Filing',
+        'Finance & procurement':'Office Petty Cash & PAYG',
+        'Hospital operations':'Clinic Receipt Filing',
+        'Care centre':'Care Centre Intake Filing',
+        'Assurance':'Document Completeness Check',
+        'System':'County Desk Preferences',
+        'Reporting':'Monday Minutes & Office Reports',
+        'Department life':'Office Equipment & Directory'
+      },
+      finance: {
+        'Overview':`${cLabel} Finance Control Desk`,
+        'Finance & procurement':'Ledger, Budgets & Statutory',
+        'Reporting':'Financial & Variance Reports',
+        'Hospital operations':'Hospital Bills & Receipt Recon',
+        'Department life':'Finance Office Tools'
+      },
+      procurement: {
+        'Overview':'Supply Chain & Procurement',
+        'Finance & procurement':'Purchase Orders & Foodbags',
+        'Reporting':'Supply & Expenditure Reports',
+        'Hospital operations':'Urgent Medical Procurement',
+        'Department life':'122-Item Asset Custody'
+      },
+      hr: {
+        'Overview':'Human Capital Desk',
+        'People':'Staff Roster, Leave & Handovers',
+        'Reporting':'HR & Workforce Reports',
+        'System':'Staff Account Provisioning',
+        'Department life':'Evaluations, Interns & OHS'
+      },
+      welfare: {
+        'Overview':'Staff Welfare Desk',
+        'People':'Wellbeing, Leave & Support',
+        'Reporting':'Staff Welfare Summary',
+        'Department life':'OHS Safety & Recognition'
+      },
+      mediahead: {
+        'Overview':'Media & Ethics Studio',
+        'Media & governance':'Storytelling, Consent & Policy',
+        'Reporting':'Donor & Impact Publications',
+        'Department life':'Media Library & Gear Custody'
+      },
+      pr: {
+        'Overview':'Public Relations Desk',
+        'Media & governance':'Partner Comms & Consent',
+        'Reporting':'Partner & Donor Briefings',
+        'Department life':'Communications Library'
+      },
+      auditor: {
+        'Overview':'Independent Audit Desk',
+        'Assurance':'Audit Trail, Controls & Findings',
+        'Reporting':'Assurance & Variance Reports',
+        'Finance & procurement':'Audited Ledger & Vouchers',
+        'Hospital operations':'Hospital Receipt Audit',
+        'Clinical & pharmacy':'Clinical Record Compliance',
+        'People':'HR & Delegation Compliance',
+        'System':'Audit Governance Settings',
+        'Department life':'Assurance Reference'
+      },
+      me: {
+        'Overview':`${cLabel} M&E Verification Desk`,
+        'Reporting':'Indicator Reports & Pivot Maps',
+        'Assurance':'Data Quality & KHIS Staging',
+        'Patients & field':`${cLabel} Cohort & PDCA Metrics`,
+        'Clinical & pharmacy':'Clinical & Growth Indicators',
+        'Hospital operations':'Referral Outcome Metrics',
+        'Finance & procurement':'Cost-Effectiveness Metrics',
+        'Partner & referral':'MoH & Partner Indicators',
+        'Ministry & teams':'Area Coverage Metrics',
+        'System':'M&E Indicator Settings',
+        'Department life':'M&E Reference Library'
+      },
+      intldata: {
+        'Overview':'International Data Desk',
+        'Leadership':'Executive Analytics Briefs',
+        'Assurance':'Global QA, Co-Work & KHIS',
+        'Reporting':'Cross-County Analytics & Reports',
+        'Clinical & pharmacy':'120d PDCA Outcome Metrics',
+        'Patients & field':'3,333-Beneficiary Cohort Index',
+        'Ministry & teams':'Cross-County Area Metrics',
+        'Partner & referral':'Global Partner Indicators',
+        'Finance & procurement':'Unit-Cost & Steward Metrics',
+        'System':'Master Sync & Data Governance',
+        'Department life':'Data Governance Reference'
+      },
+      'intl.medical': {
+        'Overview':'International Medical Desk',
+        'Clinical & pharmacy':'120+ Day Specialist Reviews',
+        'Patients & field':'Extended-Stay Clinical Cohort',
+        'Ministry & teams':'Clinical-Field Case Sync',
+        'Reporting':'Clinical Outcome Reports',
+        'Department life':'Clinical Reference Library'
+      },
+      vehicle: {
+        'Overview':'Fleet & Escort Dispatch',
+        'Fleet & transport':'Vehicles, Escorts & Fuel Logs',
+        'Finance & procurement':'Fuel & Maintenance Imprest',
+        'Reporting':'Fleet Mileage & Trip Reports',
+        'Department life':'Fleet Safety & Weather'
+      },
+      homestay: {
+        'Overview':'Homestay & Care Centre Desk',
+        'Care centre':'Beds, Meals & Safeguarding',
+        'Patients & field':'Resident Beneficiaries',
+        'Hospital operations':'Resident Clinic Escorts',
+        'Reporting':'Occupancy & Care Summary',
+        'Department life':'Care Centre Safety & Weather'
+      },
+      'ccc.clinician': {
+        'Overview':'CCC / PSC Partner Desk',
+        'Partner & referral':'Facility Referrals & PMI Check',
+        'Hospital operations':'Shared Referral Follow-Up',
+        'Ministry & teams':'LOMAMO Liaison Contacts',
+        'Reporting':'Master Referral Feedback'
+      },
+      'gov.partner': {
+        'Overview':'MoH County Partnership',
+        'Partner & referral':'Aggregate Health Partnership',
+        'Ministry & teams':'County Sub-Area Coverage',
+        'Reporting':'DPA-Redacted County Briefs'
+      }
+    };
+    if(byRole[r] && byRole[r][groupLabel]) return byRole[r][groupLabel];
+    const rolePrefix = (role.name||'Role').replace(/\s*[\/&]+\s*/g, ' ').replace(/\s+Console$/i, '').trim().split(/\s+/).slice(0,2).join(' ');
+    if(groupLabel === 'Overview') return `${rolePrefix} Workspace`;
+    return `${rolePrefix} · ${groupLabel}`;
   },
 
   navLabel(user, id, fallback){
@@ -1508,7 +1768,10 @@ const ROLE_CTX = {
         attention:'Household Red Flags', drafts:'My Field Visit Drafts', patients:'My Assigned Households',
         visits:'Home Visits & Follow-Ups', bmiboard:'Household BMI & Child MUAC', schedule:'My Weekly Visit Route',
         visitplan:'Smart Visit Route Learner', requests:'Hospital Escorts & Clinics', forms:'Field Care Forms (LMMK)',
-        pdca:'30-Day & 120-Day PDCA', repeat:'Returning Beneficiary Check', calendar:'My Visit & Clinic Calendar',
+        pdca:'30-Day & 120-Day PDCA', households:'Households & Care Chains', programdays:'Household Programme Days',
+        teams:'My Area Team & Visit Days', care:'Homestay Bed & Handover', careplans:'Beneficiary Care Plans',
+        reports:'My Area Visit Summary', recognition:'My C-DIMS Coins', weather:'Field Weather Board',
+        repeat:'Returning Beneficiary Check', calendar:'My Visit & Clinic Calendar',
         messages:'Area Team & Nurse Inbox', settings:'My Tablet & Field Preferences', leave:'My Leave & Reliever Plan',
         handover:'Household Reliever Handover', workplans:'My Monthly Field Plan'
       },
@@ -1634,6 +1897,16 @@ const ROLE_CTX = {
         home:'Country Director Command Home', smartflow:'Executive Approvals & National QA',
         monday:'National & County Monday Synthesis', executive:'National Executive Summary', compare:'Kisumu vs Homa Bay Comparison',
         execconsole:'Executive Sitting Console', adminops:'Statutory, OpEx & Societies Compliance',
+        reports:'Executive Report Centre', archive:'Official Report Archive', targets:'National Targets & Baselines',
+        conditions:'National Morbidity Summary', donor:'Strategic Donor & Partner Brief', analytics:'National Analytics & Maps',
+        finance:'National Expenditure Oversight', costing:'Cost per Beneficiary Analysis', foodbudget:'National Food & Hygiene Budget',
+        govdashboard:'MoH & County Gov Partnership', patients:'National Beneficiary Register', bmiboard:'National Nutrition & SAM Overview',
+        pdca:'120-Day & Discharge PDCA Oversight', programdays:'Programme Duration Watch', intlmedical:'120+ Day Specialist Escalations',
+        urgent:'Emergency Cases vs Budget', staff:'Senior Staff Roster', leave:'Executive Leave Approvals',
+        handover:'Executive Authority Handover', workplans:'Departmental Work Plans', delegation:'Time-Bound Authority Delegation',
+        audit:'Audit Findings & Risk', accessaudit:'Role & Authority Matrix Audit', quality:'National Data Completeness',
+        indicators:'Strategic Programme Indicators', dualcheck:'Executive Co-Work Oversight', messages:'Executive & County Leadership Inbox',
+        calendar:'National Governance Calendar', recognition:'Foundation C-DIMS Coins', evaluation:'Executive Staff Evaluation',
         drafts:'Executive Decision Drafts', settings:'Country Director Settings'
       },
       president: {
@@ -1652,11 +1925,30 @@ const ROLE_CTX = {
         users:'Accounts, Provisioning & Urgent Desk', roles:'Custom Roles & Capabilities',
         governance:'DPA Credentials & Recovery', settings:'Host, Security & Theme Defaults',
         patients:'Beneficiary Metadata Index'
+      },
+      'ccc.clinician': {
+        home:'CCC Partner Desk Home', smartflow:'CCC Referral & Linkage QA',
+        cccdesk:'CCC / PSC Referral Desk', pmi:'Patient Master Index (PMI)',
+        drafts:'Referral Feedback Drafts', settings:'Facility Desk Preferences'
+      },
+      'gov.partner': {
+        home:'MoH County Partnership Home', smartflow:'County Partnership Overview',
+        govdesk:'Aggregate County Health Desk', reports:'DPA-Redacted County Reports',
+        settings:'Partner Display Preferences'
+      },
+      me: {
+        home:`${cShort} M&E Verification Home`, smartflow:'Indicator & KHIS Verification QA',
+        drafts:'M&E Verification Drafts', settings:'M&E Desk Preferences'
+      },
+      vehicle: {
+        home:'Fleet & Dispatch Home', smartflow:'Escort & Trip Log QA',
+        fleet:'Vehicles, Trips & Fuel Register', drafts:'Dispatch Log Drafts',
+        settings:'Fleet Desk Preferences'
       }
     };
     if(map[r] && map[r][id]) return map[r][id];
     /* Dynamic customization for any custom user-defined role! */
-    const customPrefix = (role.name || r || 'Role').replace(/\s+Console$/i,'').split(' ').slice(0,2).join(' ');
+    const customPrefix = (role.name || r || 'Role').replace(/\s*[\/&]+\s*/g, ' ').replace(/\s+Console$/i,'').trim().split(/\s+/).slice(0,2).join(' ');
     if(id === 'home') return `${customPrefix} Home`;
     if(id === 'smartflow') return `${customPrefix} Smart Workflow`;
     if(id === 'monday') return `${cShort} Monday Meeting`;
