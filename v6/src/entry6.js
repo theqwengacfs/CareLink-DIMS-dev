@@ -16,7 +16,7 @@
 const ONB = {
   step:1, host:null, org:{ name:'LOMAMO Foundation Kenya', county:'kisumu', shortName:'LOMAMO', emailDomain:'lomamo.example' },
   admin:{ name:'', username:'', password:'', confirm:'' },
-  mode:'host', roster:[], issued:null, seed:'reference', busy:false, error:'',
+  mode:'host', roster:[], issued:null, seed:'empty', busy:false, error:'',
   hostSetup:null, advice:''
 };
 
@@ -692,6 +692,7 @@ function renderMustChange(){
 function renderOnboarding6(){
   const isActivated = typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated();
   const demoBlocked = demoEntryBlocked();
+  const hostedSetup = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
   /* Deep links and stale rendered actions must not bypass the same lock used by
      the Sign-In screen.  After activation there is no host-setup/demo screen. */
   if(isActivated){
@@ -702,6 +703,11 @@ function renderOnboarding6(){
   if(hostedEntryPending()){
     return `<div class="lg6 one"><main class="lg6-panel"><div class="lg6-card"><div class="lg6-head"><div><div class="lg6-kicker">CareLink Online Setup</div><h2>Checking the shared online source</h2></div></div><p class="lg-note">This browser is checking the existing Vercel/KV installation before offering any setup or demonstration action. No device-local installation will be created.</p><button class="btn btn-primary" data-act="ob-retry-host" type="button" ${ONB.busy?'disabled':''}>${ONB.busy?'Checking…':'Check again'}</button></div></main></div>`;
   }
+  /* The full synthetic register is roughly 70 MB as JSON and cannot fit in a
+     Vercel Function request/response. Live commissioning is therefore always
+     an empty register; the complete reference master is a separate, chunked
+     post-setup import before global activation. */
+  if(hostedSetup) ONB.seed = 'empty';
   ONB.host = APPX.host || ONB.host || null;
   const host = ONB.host;
   if(host && host.setup && !ONB.hostSetup){ ONB.hostSetup = host; ONB.step = 3; }
@@ -771,7 +777,9 @@ function renderOnboarding6(){
   }
   if(step===4){
     const pack = (typeof PROD_SETUP!=='undefined') ? PROD_SETUP.lastPack : null;
-    body = `<p class="lg-note">Choose whether to start with the full 3,333-patient synthetic reference register across all 10 ministry areas and 14 departments, or an empty production register ready for live intake.</p>
+    body = `${hostedSetup
+      ? `<p class="lg-note">Live Vercel commissioning starts with an <b>empty production register</b>. After these four steps, the Chief can open <b>Master data import</b> before global activation to download and upload the complete 3,333-patient reference master in verified chunks. The large package is deliberately not part of this initial request because of Vercel's 4.5 MB Function request limit.</p>`
+      : `<p class="lg-note">Choose whether to start with the full 3,333-patient synthetic reference register across all 10 ministry areas and 14 departments, or an empty production register ready for live intake.</p>`}
       ${pack ? `<div class="alert ok" style="margin-bottom:12px">${ic('check',16)}<div>
         <b>${num(pack.count)} Staff Accounts Provisioned with Unique Strong SMS Passwords</b>
         <span class="small">Download your SMS distribution pack below before closing. Every user will be required on first login to replace their SMS password with a private 12+ character password known only to them.</span>
@@ -780,10 +788,10 @@ function renderOnboarding6(){
           <button class="btn btn-xs btn-ghost" type="button" data-act="dev-dl-sms-txt">${ic('download',13)} Download SMS Dispatch Sheet (.txt)</button>
         </div>
       </div></div>` : ''}
-      <div class="ob-choice ${ONB.seed==='reference'?'on':''}" data-act="ob-seed" data-seed="reference">
+      ${hostedSetup ? '' : `<div class="ob-choice ${ONB.seed==='reference'?'on':''}" data-act="ob-seed" data-seed="reference">
         <b>Load full 3,333-patient &amp; full-department dataset</b>
         <span>95% between 45 and 240 days, 5% between 241 and 330 days, plus clinical, hospital, pharmacy, finance, HR, fleet, media, library and 122-item equipment registers.</span>
-      </div>
+      </div>`}
       <div class="ob-choice ${ONB.seed==='empty'?'on':''}" data-act="ob-seed" data-seed="empty">
         <b>Start with an empty patient register</b>
         <span>For live clinical intake or master workbook import.</span>
@@ -830,7 +838,9 @@ Object.assign(ACTIONS, {
       LOGIN6.notice = commissionedEntryActive() ? 'This shared online installation is already commissioned. Sign in with your issued account; first-run setup is not available on this client.' : '';
       return render();
     }
-    APPX.screen='onboard'; ONB.step=1; ONB.error=''; render(); window.scrollTo({top:0});
+    APPX.screen='onboard'; ONB.step=1; ONB.error='';
+    if(typeof SYNC !== 'undefined' && SYNC.available && SYNC.available()) ONB.seed='empty';
+    render(); window.scrollTo({top:0});
   },
 
   /* Works everywhere (PC, Tablet, Onboarding, Sign-In, Settings) in one tap */
@@ -858,7 +868,15 @@ Object.assign(ACTIONS, {
     }
   },
 
-  'ob-seed': d => { ONB.seed = d.seed; render(); },
+  'ob-seed': d => {
+    if(typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() && d.seed !== 'empty'){
+      ONB.seed = 'empty';
+      toast('Live production register', 'Complete the four steps with an empty register, then use Master data import before global activation to upload the full reference master in verified chunks.', 'warn');
+      return render();
+    }
+    ONB.seed = d.seed === 'reference' ? 'reference' : 'empty';
+    render();
+  },
   /* --- the host is already set up: three honest ways forward --- */
   'ob-attach-signin': () => {
     ONB.error=''; ONB.hostSetup = ONB.hostSetup || { host:(ONB.host&&ONB.host.host)||location.host };

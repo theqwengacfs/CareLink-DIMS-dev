@@ -12,6 +12,7 @@ function hostedCtx() {
   return makeCtx({
     location: { hash: '', protocol: 'https:', origin: 'https://carelink.test', host: 'carelink.test' },
     navigator: { userAgent: 'hosted-regression-test' },
+    performance: { now: () => Date.now() },
     sessionStorage: { getItem(){ return null; }, setItem(){}, removeItem(){} },
   });
 }
@@ -75,6 +76,38 @@ const setupHealth = {
     check('an accepted-but-unverified setup stays fail-closed without claiming completion',
       c.run(`APPX.host.commissioned === true && APPX.host.setup === true`) &&
       !/data-tab="demo"|First-run online setup/i.test(c.run(`(()=>{ APPX.screen='login'; LOGIN6.tab='demo'; return renderLogin6(); })()`)));
+  }
+
+  {
+    const c = hostedCtx();
+    c.run(`DB.db = DB.blank(); APPX.host = { setup:false, commissioned:false, demoMode:false, globallyActivated:false };
+      SYNC.server = APPX.host; APPX.screen = 'onboard'; ONB.step = 4; ONB.seed = 'reference';`);
+    const html = c.run(`renderOnboarding6()`);
+    check('live Vercel commissioning offers only the safe empty production register',
+      c.run(`ONB.seed === 'empty'`) && !/data-seed="reference"/.test(html) &&
+      /empty production register/.test(html) && /4\.5 MB Function request limit/.test(html));
+  }
+
+  {
+    const c = hostedCtx();
+    c.run(`DB.db = DB.blank(); APPX.host = null; SYNC.server = null; __setupCalled = false;
+      SYNC._json = async () => { __setupCalled = true; return { ok:true, status:200, body:{ok:true} }; };`);
+    const before = c.run('JSON.stringify(DB.db)');
+    await assert.rejects(
+      c.run(`PROD_SETUP.completeFourStepHostSetup({ orgNameVal:'Test Org', shortNameVal:'TEST', seedMode:'reference', chiefPassword:'Kx9!vQ2#mTz7Lp' })`),
+      /empty patient register/
+    );
+    check('an oversized hosted reference setup is refused before seeding or sending a request',
+      c.run(`__setupCalled === false`) && c.run('JSON.stringify(DB.db)') === before);
+  }
+
+  {
+    const c = hostedCtx();
+    c.run(`fetch = async () => ({ ok:false, status:413, json:async () => { throw new Error('Vercel HTML error page'); } });`);
+    const response = await c.run(`SYNC._json('api/setup', { method:'POST' })`);
+    check('a Vercel 413 response becomes an actionable payload-limit error',
+      response && response.status === 413 && response.body.code === 'payload_too_large' &&
+      /empty patient register/.test(response.body.error));
   }
 
   {
