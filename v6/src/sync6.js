@@ -1,5 +1,5 @@
 /* ============================================================
-   sync6.js - Central database client (v6)
+   sync6.js - Shared online source client (v6)
 
    WHAT CHANGED FROM v5 AND WHY
    ----------------------------
@@ -66,18 +66,34 @@ const SYNC = {
   },
 
   async login(username, password, device){
-    const r = await this._json('api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({username, password, device: device || String(navigator.userAgent||'').slice(0,120)})});
+    let r;
+    try{
+      r = await this._json('api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({username, password, device: device || String(navigator.userAgent||'').slice(0,120)})});
+    }catch(e){
+      this.state = 'error'; this.message = 'The shared online source could not be reached'; this.bump();
+      return {ok:false, code:'offline', error:this.message, status:0};
+    }
     if(r.ok && r.body.token){
       this.storeToken(r.body.token);
       this.rev = r.body.rev || 0;
       this.state = 'connected';
-      this.message = 'Signed in on the central database';
+      this.message = 'Signed in on the shared online source';
       this.authError = null;
       this.bump();
+      /* Authentication alone is not enough: a fresh tablet must not render
+         its old/empty browser document while it waits for the next poll. */
+      const pulled = await this.pullFull();
+      if(!pulled){
+        await this.logout();
+        this.state = 'error';
+        this.message = 'Sign-in succeeded, but the shared online state could not be loaded';
+        this.bump();
+        return {ok:false, code:'state_unavailable', error:this.message, status:503};
+      }
       return {ok:true, user:r.body.user, mustChange:!!r.body.mustChange, idleSeconds:r.body.idleSeconds, username:r.body.username};
     }
-    this.authError = r.body.error || 'The host did not accept that sign-in.';
+    this.authError = r.body.error || 'The shared online source did not accept that sign-in.';
     return {ok:false, code:r.body.code||'failed', error:this.authError, status:r.status};
   },
 
@@ -101,7 +117,7 @@ const SYNC = {
   async changePassword(current, next){
     const r = await this._json('api/auth/change-password', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({current, password: next})});
-    return {ok: r.ok, error: r.body.error};
+    return {ok: Boolean(r.ok && r.body && r.body.ok === true), error: r.body && r.body.error};
   },
 
   /* ---- boot ----------------------------------------------------------- */
@@ -112,33 +128,45 @@ const SYNC = {
     let health = null;
     try{ health = await this._json('api/health'); }catch(e){ health = null; }
     if(!health || !health.ok){
-      this.state = 'device';
-      this.message = 'No central server answered — this device is holding its own copy';
+      this.state = this.available() ? 'error' : 'device';
+      this.message = this.available()
+        ? 'The shared online source is unavailable — no local copy is being presented as a live save'
+        : 'This copy runs from the device in offline/static mode';
       this.bump(); return;
     }
     this.server = health.body;
+    /* Keep the public entry screen on the same activation snapshot as the sync
+       client.  This matters when the first boot probe failed but this retry
+       reaches an already-activated Vercel host. */
+    if(typeof APPX !== 'undefined') APPX.host = health.body;
     this.rev = health.body.rev || 0;
     if(!health.body.setup){
-      this.state = 'idle'; this.message = 'The host is waiting for first-run setup'; this.bump();
+      this.state = 'idle'; this.message = 'The shared online source is waiting for first-run setup'; this.bump();
       APPX.hostReady = true; render(); return;
     }
     if(!this.sessionToken){
-      this.state = 'device';
-      this.message = 'The central database needs a sign-in';
-      this.bump(); return;
+      this.state = 'idle';
+      this.message = 'Sign in to the shared online source';
+      this.bump();
+      if(typeof render==='function') render();
+      return;
     }
     await this.pullFull();
     this.startPolling();
   },
 
   async pullFull(){
-    const r = await this._json('api/state');
+    let r;
+    try{ r = await this._json('api/state'); }
+    catch(e){
+      this.state='error'; this.message='The shared online state could not be read'; this.bump(); return false;
+    }
     if(!r.ok || !r.body.db){
-      if(r.status === 401){ this.state='device'; this.message='Session ended — sign in again'; this.bump(); return false; }
-      this.state='error'; this.message = r.body.error || 'The central database could not be read'; this.bump(); return false;
+      if(r.status === 401){ this.state='idle'; this.message='Session ended — sign in again'; this.bump(); return false; }
+      this.state='error'; this.message = r.body.error || 'The shared online state could not be read'; this.bump(); return false;
     }
     this.adoptRemote(r.body.db, r.body.rev, r.body.saved);
-    this.state='connected'; this.message='Reading the central database'; this.bump();
+    this.state='connected'; this.message='Reading the shared online source'; this.bump();
     return true;
   },
 
@@ -157,7 +185,7 @@ const SYNC = {
     APPX.dirty = false;
   },
 
-  /* The single decision table for joining a central database. Kept pure so the
+  /* The single decision table for joining a shared online source. Kept pure so the
      rule can be read and tested without a network. v6 no longer asks the person
      to choose: a device with no authority adopts the host; a device with local
      work sends patches that the host merges. */
@@ -263,7 +291,7 @@ const SYNC = {
         });
         if(!r.ok){
           this.state = r.status===403 ? 'error' : 'error';
-          this.message = r.body.error || 'The central database refused the save';
+          this.message = r.body.error || 'The shared online source refused the save';
           this.bump(); this._inflight=false; return;
         }
         rev = r.body.rev; merged += (r.body.merged||0);
@@ -278,7 +306,7 @@ const SYNC = {
       this.state = merged ? 'merge' : 'connected';
       this.message = merged
         ? `Saved · ${merged} overlapping field${merged===1?'':'s'} reconciled automatically`
-        : 'Saved to the central database';
+        : 'Saved to the shared online source';
       this.bump();
       if(merged){
         const box = document.createElement('div');
@@ -290,7 +318,7 @@ const SYNC = {
     }catch(e){
       this._retry++;
       this.state='error';
-      this.message='The host is unreachable — the change is held on this device and will be retried';
+      this.message='The shared online source is unreachable — the change is held on this device and will be retried';
       this.bump();
     }finally{
       this._inflight = false;
@@ -363,7 +391,7 @@ const SYNC = {
     if(editing){ this.pendingRemote = true; this.bump(); return; }
     this.pendingRemote = false;
     this.state = this.state==='merge' ? 'merge' : 'connected';
-    this.message = 'Updated from the central database';
+    this.message = 'Updated from the shared online source';
     this.bump();
     try{ render(); }catch(e){}
   },
@@ -377,8 +405,8 @@ const SYNC = {
   },
 
   label(){
-    return ({ idle:'Connecting', probing:'Connecting', connected:'Central database', device:'This device only',
-      saving:'Saving', merge:'Reconciled', error:'Not saved centrally' })[this.state] || 'Unknown';
+    return ({ idle:'Connecting', probing:'Connecting', connected:'Shared online source', device:'Offline/static mode',
+      saving:'Saving', merge:'Reconciled', error:'Online save unconfirmed' })[this.state] || 'Unknown';
   },
   tone(){
     if(this.state==='connected'||this.state==='merge') return 'ok';
@@ -389,10 +417,10 @@ const SYNC = {
   detail(){
     if(this.state==='connected') return `Revision ${this.rev} · live`;
     if(this.state==='merge') return `Revision ${this.rev} · ${this.lastMerged} field(s) reconciled`;
-    if(this.state==='saving') return 'Writing to the host computer';
-    if(this.state==='device') return 'No host answered — records are kept on this device';
+    if(this.state==='saving') return 'Writing to the online source';
+    if(this.state==='device') return this.available() ? 'Online source unavailable — no shared save is claimed' : 'Offline/static mode — local records only';
     if(this.state==='error') return this.message;
-    return this.message || 'Checking the host';
+    return this.message || 'Checking the shared online source';
   },
   chip(){
     const t = this.tone();
@@ -430,25 +458,24 @@ function openSyncModal(){
   let body = `<div class="spread" style="margin-bottom:12px">
       <span class="badge ${cls}">${esc(s.label())}</span>
       <span class="small muted">${esc(s.detail())}</span></div>`;
-  body += `<div class="sync-row"><span>Central revision</span><b class="mono">${s.rev}</b></div>
+  body += `<div class="sync-row"><span>Shared revision</span><b class="mono">${s.rev}</b></div>
     <div class="sync-row"><span>Round trip</span><b>${s.latency!=null? s.latency+' ms':'—'}</b></div>
     <div class="sync-row"><span>Last confirmed save</span><b>${esc((s.saved||'not yet').replace('T',' ').slice(0,19))}</b></div>
-    <p class="small muted" style="margin:10px 0 0;text-align:justify">Every device on this network reads the same
-    central database. Edits made on two devices are merged field by field at the host; when both devices change the
+    <p class="small muted" style="margin:10px 0 0;text-align:justify">Every PC, tablet and other client reads the same
+    shared online source. Edits made on two clients are merged field by field by the online service; when both clients change the
     <b>same</b> field the later edit is kept and both values are written to the merge journal. Nothing is overwritten
     without a record of it, and no one is asked to choose between two copies.</p>`;
   if(s.state==='device'){
-    body += `<div class="alert warn" style="margin-top:12px">${ic('wifi',16)}<div><b>No host answered</b>
-      <span class="small">Records are being kept on this device. Open the address the host computer printed, or ask
-      the administrator whether the server window is still open.</span></div></div>
+    body += `<div class="alert warn" style="margin-top:12px">${ic('wifi',16)}<div><b>Offline/static mode</b>
+      <span class="small">This explicitly offline copy keeps records on this device only. It is not a shared online save and is not a substitute for the Vercel/KV installation.</span></div></div>
       <button class="btn btn-primary btn-sm" style="margin-top:10px" data-act="sync-retry">Check again</button>`;
   }
   if(s.state==='error'){
     body += `<div class="alert crit" style="margin-top:12px">${ic('alert',16)}<div><b>${esc(s.message)}</b>
-      <span class="small">The change stays on this device until the host accepts it. Nothing is lost by closing the browser.</span></div></div>
+      <span class="small">No shared save is claimed while the online source is unavailable. Reconnect and retry before treating a browser change as confirmed.</span></div></div>
       <button class="btn btn-primary btn-sm" style="margin-top:10px" data-act="sync-retry">Retry now</button>`;
   }
-  openModal({title:'Central database', narrow:true, body,
+  openModal({title:'Shared online source', narrow:true, body,
     footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
       <button class="btn btn-ghost" data-act="go" data-v="mergejournal">Merge journal</button>`});
 }
@@ -458,7 +485,7 @@ function renderMergeJournal(user){
   if(!RBAC.has(user,'system.audit') && !RBAC.has(user,'audit.view')) return deniedPanel('system.audit');
   const rows = SYNC.journal || null;
   const body = rows===null
-    ? emptyState('Read the journal from the host','The journal is held on the host computer, not in this browser.','refresh',
+    ? emptyState('Read the journal from the host','The journal is held on the online source, not in this browser.','refresh',
         `<button class="btn btn-primary btn-sm" style="margin-top:10px" data-act="mj-load">Read the journal</button>`)
     : (rows.length
         ? table([

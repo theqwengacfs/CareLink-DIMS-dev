@@ -319,8 +319,8 @@ function settingsAI(user){
       <b>${probe.ok?'Endpoint answered':'Endpoint did not answer'}</b>
       <span class="small">${esc(probe.ok? `${probe.models.length} model${probe.models.length===1?'':'s'} available${probe.modelPresent?'':' · the configured model is not in the list'} · ${probe.ms} ms` : probe.error)}</span>
       ${probe.ok?`<div class="xs muted" style="margin-top:4px">${esc((probe.models||[]).slice(0,8).join(', '))}</div>`:''}</div></div>`:''}
-    ${!serverMode? `<div class="note" style="margin-top:12px">${ic('info',14)}<span>This page cannot reach the model endpoint directly when the application is opened as a file. Start the server on the host computer and open the application from its address to test from here.</span></div>`:''}`,
-    {sub:'The connection test runs on the host computer, so a tablet never needs direct access to the model service.'})}
+    ${!serverMode? `<div class="note" style="margin-top:12px">${ic('info',14)}<span>This page cannot reach the model endpoint directly when the application is opened as a file. Open the application from its served address to test from here.</span></div>`:''}`,
+    {sub:'The connection test runs through the configured model-service endpoint, so a tablet never needs direct access to the model process.'})}
     ${card('What the assistant may and may not do', `
       <div class="grid g2" style="gap:10px">
         <div><b class="small">It may</b><ul class="small muted" style="margin:6px 0 0 18px;padding:0">
@@ -377,28 +377,28 @@ function settingsNetwork(user){
   const lp = DB.db.personalPrefs?.[user.id] || {};
   const liveOn = lp.live!==false;
   const liveMs = Number(lp.liveMs || DB.db.settings.sync?.liveMs || 500);
-  return `${card('This device and the central database', `
+  return `${card('This client and the shared online source', `
     <div class="sync-row"><span>Connection</span><b>${esc(s? s.label():'Unknown')}</b></div>
     <div class="sync-row"><span>Detail</span><b class="small">${esc(s? s.detail():'')}</b></div>
-    <div class="sync-row"><span>Central revision</span><b class="mono">${s? s.rev : '-'}</b></div>
-    <div class="sync-row"><span>Host</span><b>${s&&s.server? esc(s.server.host||'the host computer') : 'not connected'}</b></div>
-    <div class="sync-row"><span>Data directory</span><b class="mono small">${s&&s.server? esc(s.server.dataDir||'-') : '-'}</b></div>
+    <div class="sync-row"><span>Shared revision</span><b class="mono">${s? s.rev : '-'}</b></div>
+    <div class="sync-row"><span>Online service</span><b>${s&&s.server? esc(s.server.host||'Vercel online service') : 'not connected'}</b></div>
+    <div class="sync-row"><span>Storage</span><b class="mono small">${s&&s.server? esc(s.server.storageDriver||s.server.storageMode||'Mandatory KV') : 'Not confirmed'}</b></div>
     <div class="row" style="margin-top:12px"><button class="btn btn-sm btn-primary" data-act="open-sync">${ic('refresh',14)} Open status and conflicts</button></div>`)}
     ${card('Live update', `
-      ${settingRow('Refresh this device automatically','Every connected device asks the host for changes twice a second. Nothing has to be tapped.', personalToggle('live', liveOn))}
-      ${settingRow('How often to ask','Half a second is what the organisation asked for. A slower rate saves battery on a device left open all day, and applies to your devices only.', segPref('liveMs',[{v:'500',l:'0.5 s'},{v:'1000',l:'1 s'},{v:'2000',l:'2 s'}], String(liveMs)))}
-      <div class="sync-row"><span>This device</span><b>${esc(live? live.label() : 'Not running')}</b></div>
+      ${settingRow('Refresh this client automatically','Every connected PC, tablet and other client reads the same shared online source. Nothing has to be tapped.', personalToggle('live', liveOn))}
+      ${settingRow('How often to ask','Half a second is what the organisation asked for. A slower rate saves battery on a client left open all day, and applies to your clients only.', segPref('liveMs',[{v:'500',l:'0.5 s'},{v:'1000',l:'1 s'},{v:'2000',l:'2 s'}], String(liveMs)))}
+      <div class="sync-row"><span>This client</span><b>${esc(live? live.label() : 'Not running')}</b></div>
       <div class="sync-row"><span>Updates taken this session</span><b class="mono">${live? num(live.applied) : '0'}</b></div>
-      <div class="sync-row"><span>Host revision</span><b class="mono">${esc(String(s? s.rev : 0))}</b></div>
-      <div class="note" style="margin-top:12px">${ic('info',14)}<span>A refresh never counts as activity, never interrupts typing or a form, and never writes back. It only reads the host copy.</span></div>`)}
-    ${card('Running on the office Wi-Fi', `
+      <div class="sync-row"><span>Shared revision</span><b class="mono">${esc(String(s? s.rev : 0))}</b></div>
+      <div class="note" style="margin-top:12px">${ic('info',14)}<span>A refresh never counts as activity, never interrupts typing or a form, and never writes back. It only reads the shared online copy.</span></div>`)}
+    ${card('One live online source for PC and tablet', `
       <ol class="small" style="margin:0 0 0 18px;padding:0;line-height:1.75">
-        <li>On the host computer, start <span class="mono">server.py</span> or <span class="mono">start.bat</span> and choose option 2.</li>
-        <li>Note the address printed, for example <span class="mono">http://192.168.1.24:8000/</span>.</li>
-        <li>On the tablet, open that address in Chrome.</li>
-        <li>Every accepted change is written to the host computer, not to the tablet.</li>
+        <li>Open the same Vercel CareLink URL on every PC, tablet or other client.</li>
+        <li>The server confirms first-run setup and global activation in the mandatory KV store before the browser reports completion.</li>
+        <li>Staff credentials are verified by that same online service; a fresh browser does not create its own account vault or patient register.</li>
+        <li>After sign-in, each client pulls the shared state and then receives live revisions. Browser storage is only a cache, never a second live installation.</li>
       </ol>
-      <div class="note" style="margin-top:12px">${ic('info',14)}<span>The application never calls <span class="mono">localhost</span> from a tablet. It uses the address it was opened from, which is the host computer.</span></div>`)}`;
+      <div class="note" style="margin-top:12px">${ic('info',14)}<span>The hosted system does not depend on a local network, a computer left running, or a per-device database. Offline/static files remain a separate, explicitly local mode.</span></div>`)}`;
 }
 
 /* ---------------- 13. Appearance ---------------- */

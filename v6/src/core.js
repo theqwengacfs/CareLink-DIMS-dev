@@ -140,7 +140,12 @@ const DB = {
       try{ this.db = JSON.parse(raw); }catch(e){ this.db = this.blank(); }
     } else {
       this.db = this.blank();
-      if(typeof seedOfficial === 'function'){
+      /* A hosted browser is a client of the shared online installation, not a
+         new installation of its own.  Never invent a 3,333-patient register
+         before /api/health and the authenticated state pull have answered. */
+      let hosted = false;
+      try{ hosted = /^https?:$/.test(location.protocol); }catch(e){}
+      if(!hosted && typeof seedOfficial === 'function'){
         seedOfficial(this.db, new Date(), {patients:3333, mustChange:false});
         this.db.meta.freshSeeded = true;
         try{ Store.set(this.KEY, JSON.stringify(this.db)); }catch(e){}
@@ -327,7 +332,10 @@ const AUTH = {
   },
   unlock(password){
     if(!this.user) return {ok:false,msg:'No session'};
-    if(this.user.hash!==strongHash(password,this.user.salt)) return {ok:false,msg:'Incorrect password'};
+    const verifier = this._deviceVerifier(this.user.username);
+    const localOk = this.user.hash && this.user.salt && this.user.hash===strongHash(password,this.user.salt);
+    const rememberedOk = verifier && verifier.hash===strongHash(password,verifier.salt);
+    if(!localOk && !rememberedOk) return {ok:false,msg:'Incorrect password'};
     this.touch(); AUDIT.append({actor:this.user.id,action:'session.unlock',entity:'user',entityId:this.user.id,detail:'Session resumed'});
     return {ok:true};
   },
@@ -355,32 +363,35 @@ const AUTH = {
   role(){ return this.user? roleObj(this.user.roleId):null; },
 
   /* ---- v6: server-verified sign-in ----------------------------------
-     The host is the authority. A password is checked there against a PBKDF2
-     hash that the browser never receives. On success the user record comes
-     back without any secret. If no host answers, the device falls back to a
-     verifier it stored locally the last time this person signed in here; that
-     is what makes an offline field visit possible without weakening the host. */
+     The shared online source is the authority on a hosted client. A password
+     is checked there against a PBKDF2 hash that the browser never receives,
+     and the full remote state is pulled before the console is opened. Local
+     verifier fallback is reserved for explicitly offline/static use. */
   online:false,
   mustChange:false,
 
   async loginOnline(username, password, device){
     const raw = String(username||'').trim();
-    const byMail = DB.db && DB.db.users ? DB.db.users.find(x=>String(x.email||'').toLowerCase()===raw.toLowerCase()) : null;
-    const name = byMail ? byMail.username : raw;
+    const name = raw;
     if(typeof SYNC === 'undefined' || !SYNC.available()){
       return {ok:false, code:'offline', error:'No network'};
     }
-    const r = await SYNC.login(name, password, device);
+    let r;
+    try{ r = await SYNC.login(name, password, device); }
+    catch(e){ return {ok:false, code:'offline', error:'The shared online source could not be reached. Sign-in was not completed locally.'}; }
     if(!r.ok) return r;
-    let u = DB.db.users.find(x=>String(x.username).toLowerCase()===name.toLowerCase()) || r.user;
-    if(!u){ return {ok:false, code:'no_record', error:'The host accepted the sign-in but this device has no record for that account yet.'}; }
+    let u = DB.db.users.find(x=>String(x.username).toLowerCase()===String(r.username||name).toLowerCase() || String(x.email||'').toLowerCase()===raw.toLowerCase()) || r.user;
+    if(!u){
+      try{ await SYNC.logout(); }catch(e){}
+      return {ok:false, code:'no_record', error:'The online source accepted the sign-in but returned no account record. No local session was opened.'};
+    }
     u.status = 'active';
     u.lastLogin = todayISO();
     this._rememberVerifier(u, password);
     this.user = u; this.online = true; this.mustChange = !!r.mustChange;
     this.session = {started:todayISO(), last:Date.now(), token:'srv', mustChange:this.mustChange};
     AUDIT.append({actor:u.id, action:'auth.login', entity:'user', entityId:u.id,
-      detail:'Signed in — password verified on the host computer', meta:{role:u.roleId, mustChange:this.mustChange}});
+      detail:'Signed in — password verified on the shared online source', meta:{role:u.roleId, mustChange:this.mustChange}});
     DB.save(); this.emit();
     return {ok:true, user:u, mustChange:this.mustChange};
   },
@@ -412,7 +423,7 @@ const AUTH = {
       if(this.session) this.session.mustChange = false;
       this._rememberVerifier(this.user, next);
       AUDIT.append({actor:this.user.id, action:'auth.password_changed', entity:'user', entityId:this.user.id,
-        detail:'Password changed and stored on the host computer'});
+        detail:'Password changed and stored on the shared online source'});
       DB.save();
     }
     return r;

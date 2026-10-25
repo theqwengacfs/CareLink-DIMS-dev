@@ -60,6 +60,21 @@ async function hostProbe(){
     return r.ok ? r.body : null;
   }catch(e){ return null; }
 }
+/* Entry-point state comes from the same health document on every client.  A
+   hosted browser with no health answer is pending/fail-closed, never a new
+   demo installation. */
+function hostedEntryPending(){
+  return typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() &&
+    !(typeof APPX !== 'undefined' && APPX.host) && !(SYNC.server);
+}
+function commissionedEntryActive(){
+  const h = (typeof APPX !== 'undefined' && APPX.host) || (typeof SYNC !== 'undefined' && SYNC.server) || null;
+  return !!(h && (h.commissioned === true || (h.setup && !h.demoMode)));
+}
+function demoEntryBlocked(){
+  return (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) ||
+    commissionedEntryActive() || hostedEntryPending();
+}
 function passwordStrength(pw){
   let n = 0;
   if(pw.length>=10) n++;
@@ -117,22 +132,66 @@ function downloadText(name, text, mime='text/plain'){
   setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
 }
 
-/* Activate full 3,333-patient & 47-account dataset locally AND on host if reachable */
+/* Activate the synthetic evaluation set only before the host is commissioned.
+   A globally activated host is a hard boundary, not merely a hidden button:
+   never seed the browser first and then discover that the server refused the
+   bootstrap, because that would leave a convincing local demo beside live data. */
 async function activateFullDemoDataset(){
   if(!DB.db) DB.load();
-  const count = DB.seedOfficial({ patients:3333, mustChange:false });
-  /* If a central host server is reachable, synchronize the demonstration seed cleanly */
+  const globallyActivated = () => typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated();
+  if(globallyActivated()) throw new Error('Demonstration data is locked after global activation.');
+  if(commissionedEntryActive()) throw new Error('Demonstration data is locked on this commissioned online installation.');
+
+  let host = (typeof APPX !== 'undefined' && APPX.host) || null;
   if(typeof SYNC !== 'undefined' && SYNC.available()){
-    try{
-      const r = await SYNC._json('api/public/demo-bootstrap', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ db: DB.db })
-      });
-      if(r && r.ok) APPX.host = await hostProbe();
-    }catch(e){}
+    /* Probe before touching the local document.  A commissioned host is not an
+       evaluation target, even if it has not completed global activation yet. */
+    const probed = await hostProbe();
+    if(!probed) throw new Error('The shared online source could not be verified; demonstration data was not loaded locally.');
+    host = probed; APPX.host = probed; SYNC.server = probed;
+    if(host.globallyActivated || host.demoDisabled){
+      throw new Error('Demonstration data is locked after global activation.');
+    }
+    if(host.setup){
+      throw new Error('Demonstration bootstrap is locked on this commissioned online installation.');
+    }
   }
-  return count;
+
+  const previousRaw = JSON.stringify(DB.db);
+  const previousDirty = typeof APPX !== 'undefined' ? APPX.dirty : false;
+  try{
+    const count = DB.seedOfficial({ patients:3333, mustChange:false });
+    if(typeof SYNC !== 'undefined' && SYNC.available()){
+      let r;
+      try{
+        r = await SYNC._json('api/public/demo-bootstrap', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ db: DB.db })
+        });
+      }catch(e){
+        throw new Error('The shared online source could not be reached; demonstration data was not loaded locally.');
+      }
+      if(!r || !r.ok || (r.body && r.body.skipped)){
+        if(r && r.body && r.body.globallyActivated){
+          APPX.host = Object.assign({}, host || {}, { globallyActivated:true, demoDisabled:true });
+        }
+        throw new Error((r && r.body && r.body.error) || 'The online source refused demonstration bootstrap.');
+      }
+      const refreshed = await hostProbe();
+      if(!refreshed || refreshed.demoMode !== true){
+        throw new Error('The online demonstration state could not be verified; no local demo success is being claimed.');
+      }
+      APPX.host = refreshed; SYNC.server = refreshed; SYNC.rev = refreshed.rev || 0;
+    }
+    return count;
+  }catch(e){
+    /* Roll back the local seed on a server-side lock/refusal.  The previous
+       document may contain real unsynchronised work and must not be lost. */
+    try{ DB.db = JSON.parse(previousRaw); Store.set(DB.KEY, previousRaw); }catch(_e){}
+    if(typeof APPX !== 'undefined') APPX.dirty = previousDirty;
+    throw e;
+  }
 }
 
 /* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar) */
@@ -179,7 +238,7 @@ function renderLanding6(){
             ${!isActivated ? `<button class="btn ld-cta ld-btn-secondary" data-act="login-request">${ic('userplus',16)} Request Access</button>` : ''}
           </div>
           <div class="ld-assure">
-            <span>${ic('database',14)} Unified online &amp; office Wi-Fi DB</span>
+            <span>${ic('database',14)} One shared live online source for every client</span>
             <span>${ic('wifi',14)} Zero-scroll PC &amp; tablet workspace</span>
             <span>${ic('shieldcheck',14)} SHA-256 tamper-evident audit</span>
             <span>${ic('sparkles',14)} CareLink AI workflow guidance</span>
@@ -408,7 +467,8 @@ function renderArchitecture6(){
 function renderLogin6(){
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const isAwaitingAct = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isAwaitingGlobalActivation && PROD_SETUP.isAwaitingGlobalActivation());
-  if(isActivated && LOGIN6.tab === 'demo') LOGIN6.tab = 'signin';
+  const demoBlocked = demoEntryBlocked();
+  if(demoBlocked && LOGIN6.tab === 'demo') LOGIN6.tab = 'signin';
   const t = LOGIN6.tab;
   const tabBtn = (id, label) => `<button class="lg-tab ${t===id?'on':''}" data-act="login-tab" data-tab="${id}" type="button">${label}</button>`;
   const host = APPX.host;
@@ -417,10 +477,10 @@ function renderLogin6(){
   const hostLine = isActivated
     ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Official Production System Active · ${num(uCount)} organogram accounts governed across Kisumu &amp; Homa Bay</span></div>`
     : (isAwaitingAct
-      ? `<div class="lg-host warn">${ic('key',13)}<span>4-Step Live Host Setup complete — sign in as Chief System Administrator to change password &amp; <b>Activate System Globally</b></span></div>`
+      ? `<div class="lg-host warn">${ic('key',13)}<span>4-Step Online Setup complete — sign in as Chief System Administrator to change password &amp; <b>Activate System Globally</b></span></div>`
       : (host
-        ? `<div class="lg-host ok">${ic('database',13)}<span>Central Wi-Fi DB active · rev ${host.rev} · ${num(pCount)} patients &amp; ${num(uCount)} accounts loaded</span></div>`
-        : `<div class="lg-host ok">${ic('check',13)}<span>Active dataset ready · ${num(pCount)} patients, ${num(uCount)} staff accounts &amp; 10 ministry areas</span></div>`));
+        ? `<div class="lg-host ok">${ic('database',13)}<span>Shared online source active · rev ${host.rev} · ${num(pCount)} patients &amp; ${num(uCount)} accounts loaded</span></div>`
+        : `<div class="lg-host ${hostedEntryPending()?'warn':'ok'}">${ic(hostedEntryPending()?'refresh':'check',13)}<span>${hostedEntryPending()?'Checking the shared online source — demo and setup remain closed until it answers':`Active dataset ready · ${num(pCount)} patients, ${num(uCount)} staff accounts &amp; 10 ministry areas`}</span></div>`));
 
   const slideIdx = ((LOGIN6.slide % LOGIN_TEAM_SLIDES.length) + LOGIN_TEAM_SLIDES.length) % LOGIN_TEAM_SLIDES.length;
   const curSlide = LOGIN_TEAM_SLIDES[slideIdx];
@@ -438,10 +498,10 @@ function renderLogin6(){
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
     <div class="lg-links">
-      ${!isActivated ? `<button class="linkbtn" data-act="login-tab" data-tab="demo" type="button">Explore demo accounts (${num(uCount)})</button>` : ''}
+      ${!demoBlocked ? `<button class="linkbtn" data-act="login-tab" data-tab="demo" type="button">Explore demo accounts (${num(uCount)})</button>` : ''}
       <button class="linkbtn" data-act="login-tab" data-tab="request" type="button">Request county account</button>
       <button class="linkbtn" data-act="login-tab" data-tab="forgot" type="button">Forgotten password?</button>
-      ${!isActivated ? `<button class="linkbtn" data-act="goto-onboard" type="button">Live host setup</button>` : ''}
+      ${!demoBlocked ? `<button class="linkbtn" data-act="goto-onboard" type="button">First-run online setup</button>` : ''}
     </div>`;
 
   const allUsers = (DB.db && DB.db.users && DB.db.users.length) ? DB.db.users : [];
@@ -526,7 +586,7 @@ function renderLogin6(){
       <button class="btn btn-ghost btn-block" type="submit">Redeem 24h Emergency Code</button>
     </form>`;
 
-  const body = (!isActivated && t==='demo') ? demoTab : t==='activate' ? activate : t==='request' ? request : t==='forgot' ? forgot : signIn;
+  const body = (!demoBlocked && t==='demo') ? demoTab : t==='activate' ? activate : t==='request' ? request : t==='forgot' ? forgot : signIn;
 
   return `<div class="lg6">
     <aside class="lg6-brand">
@@ -559,7 +619,7 @@ function renderLogin6(){
           </div>
         </figure>
 
-        <p class="lg6-copy">Every department of LOMAMO Foundation collaborates on one governed database across office Wi-Fi and offline in the field, uniting clinical care, household support and stewardship so children never become orphans.</p>
+        <p class="lg6-copy">Every department of LOMAMO Foundation collaborates on one governed online source across PCs, tablets and field clients, uniting clinical care, household support and stewardship so children never become orphans.</p>
       </div>
       <div class="lg6-brand-foot">
         <div><b>${esc(APP.full)}</b> · v${esc(APP.version)}</div>
@@ -580,16 +640,16 @@ function renderLogin6(){
           <img src="${window.LOGO||''}" alt="" class="lg6-mark">
           <div style="flex:1">
             <div class="lg6-kicker">${esc(orgName())}</div>
-            <h2>${(!isActivated && t==='demo')?'Active Demo Accounts':t==='activate'?'Activate Account':t==='request'?'Urgent County Account Request':t==='forgot'?'Urgent Password Recovery':'Official Staff Sign In'}</h2>
+            <h2>${(!demoBlocked && t==='demo')?'Active Demo Accounts':t==='activate'?'Activate Account':t==='request'?'Urgent County Account Request':t==='forgot'?'Urgent Password Recovery':'Official Staff Sign In'}</h2>
           </div>
           <button class="btn btn-xs btn-ghost" data-act="goto-landing" type="button">Front page</button>
         </div>
         ${hostLine}
         ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<span>${esc(LOGIN6.error)}</span></div>`:''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
-        <div class="lg-tabs" style="grid-template-columns:repeat(${isActivated?4:5},1fr)">
+        <div class="lg-tabs" style="grid-template-columns:repeat(${demoBlocked?4:5},1fr)">
           ${tabBtn('signin','Sign in')}
-          ${!isActivated ? tabBtn('demo','Demo') : ''}
+          ${!demoBlocked ? tabBtn('demo','Demo') : ''}
           ${tabBtn('activate','Activate')}
           ${tabBtn('request','Request')}
           ${tabBtn('forgot','Recover')}
@@ -630,8 +690,21 @@ function renderMustChange(){
 
 /* ------------------------------------------------------------ first run */
 function renderOnboarding6(){
-  if(!ONB.host) ONB.host = APPX.host || null;
+  const isActivated = typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated();
+  const demoBlocked = demoEntryBlocked();
+  /* Deep links and stale rendered actions must not bypass the same lock used by
+     the Sign-In screen.  After activation there is no host-setup/demo screen. */
+  if(isActivated){
+    APPX.screen = 'login';
+    LOGIN6.tab = 'signin';
+    return renderLogin6();
+  }
+  if(hostedEntryPending()){
+    return `<div class="lg6 one"><main class="lg6-panel"><div class="lg6-card"><div class="lg6-head"><div><div class="lg6-kicker">CareLink Online Setup</div><h2>Checking the shared online source</h2></div></div><p class="lg-note">This browser is checking the existing Vercel/KV installation before offering any setup or demonstration action. No device-local installation will be created.</p><button class="btn btn-primary" data-act="ob-retry-host" type="button" ${ONB.busy?'disabled':''}>${ONB.busy?'Checking…':'Check again'}</button></div></main></div>`;
+  }
+  ONB.host = APPX.host || ONB.host || null;
   const host = ONB.host;
+  if(host && host.setup && !ONB.hostSetup){ ONB.hostSetup = host; ONB.step = 3; }
   const step = ONB.step;
   const dots = [1,2,3,4].map(i=>`<span class="ob-dot ${step>=i?'on':''}"></span>`).join('');
   const head = `<div class="ob-head">
@@ -642,7 +715,7 @@ function renderOnboarding6(){
 
   let body = '';
   if(step===1){
-    body = `<p class="lg-note">Run the <b>4-Step Live Host Setup</b> to establish CareLink's institutional host &amp; organogram structure. Upon completion you return to the <b>Official Sign-In screen</b>, sign in as Chief System Administrator, change your password, and click <b>Activate System Globally</b> to generate the Team WhatsApp Credential Sheet.</p>
+    body = `<p class="lg-note">Run the <b>4-Step Online Setup</b> to establish CareLink's institutional host &amp; organogram structure. Upon completion you return to the <b>Official Sign-In screen</b>, sign in as Chief System Administrator, change your password, and click <b>Activate System Globally</b> to generate the Team WhatsApp Credential Sheet.</p>
       <div class="grid g2" style="gap:10px">
         <div class="field"><label>Organisation name</label><input class="input" id="ob-org" value="${esc(ONB.org.name)}"></div>
         <div class="field"><label>Official staff email domain</label><input class="input mono" id="ob-domain" value="${esc(ONB.org.emailDomain||'lomamo.example')}" placeholder="e.g. lomamofoundation.org"></div>
@@ -675,7 +748,7 @@ function renderOnboarding6(){
     const hs = ONB.hostSetup;
     body = hs? `<div class="ob-host-setup">
         <div class="ob-hs-h">${ic('database',17)}<div><b>This host already holds an installation</b>
-          <span>The host computer at ${esc(hs.host||'this address')} answered that it is already set up${hs.accounts?` and holds ${num(hs.accounts)} provisioned account${hs.accounts===1?'':'s'}`:''}. First-run setup commissions a <i>fresh</i> host; it never overwrites a live one, and it cannot create a second administrator on a host that already has one.</span></div></div>
+          <span>The shared online installation at ${esc(hs.host||'this address')} answered that it is already set up${hs.accounts?` and holds ${num(hs.accounts)} provisioned account${hs.accounts===1?'':'s'}`:''}. First-run setup commissions a <i>fresh</i> online installation; it never overwrites a live one, and it cannot create a second administrator on an installation that already has one.</span></div></div>
         <p class="lg-note">This is not a fault and you are not stuck. Choose one of the three ways forward below - the wizard continues from whichever you choose.</p>
         <div class="ob-hs-opts">
           <button class="ob-choice on" type="button" data-act="ob-attach-signin">
@@ -720,7 +793,7 @@ function renderOnboarding6(){
       <div class="row" style="gap:8px;flex-wrap:wrap">
         ${step>1?`<button class="btn btn-ghost" data-act="ob-back" type="button">Back</button>`
                 :`<button class="btn btn-ghost" data-act="goto-landing" type="button">Front page</button>`}
-        <button class="btn btn-soft" data-act="load-demo" type="button">${ic('sparkles',15)} Load Full 3,333-Patient Demo</button>
+        ${!demoBlocked ? `<button class="btn btn-soft" data-act="load-demo" type="button">${ic('sparkles',15)} Load Full 3,333-Patient Demo</button>` : ''}
       </div>
       ${step===3 && ONB.hostSetup
         ? `<button class="btn btn-primary" data-act="ob-attach-signin" type="button">Go to sign-in ${ic('chevron',15)}</button>`
@@ -739,7 +812,11 @@ function renderOnboarding6(){
 
 /* ------------------------------------------------------------ actions */
 Object.assign(ACTIONS, {
-  'login-tab': d => { LOGIN6.tab=d.tab; LOGIN6.error=''; LOGIN6.notice=''; render(); },
+  'login-tab': d => {
+    const lockedDemo = d.tab === 'demo' && demoEntryBlocked();
+    LOGIN6.tab = lockedDemo ? 'signin' : d.tab;
+    LOGIN6.error=''; LOGIN6.notice=''; render();
+  },
   'login-slide': d => { LOGIN6.slide = Number(d.idx)||0; render(); },
   'demo-filter': d => { LOGIN6.demoFilter = d.f || 'all'; render(); },
   'login-request': () => { LOGIN6.tab='request'; APPX.screen='login'; LOGIN6.error=''; render(); },
@@ -748,14 +825,22 @@ Object.assign(ACTIONS, {
   'goto-landing': () => { APPX.screen='landing'; LOGIN6.error=''; render(); window.scrollTo({top:0}); },
   'goto-architecture': () => { APPX.screen='architecture'; LOGIN6.error=''; render(); window.scrollTo({top:0}); },
   'goto-onboard': () => {
-    if (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) {
-      APPX.screen='login'; LOGIN6.tab='signin'; return render();
+    if (demoEntryBlocked()) {
+      APPX.screen='login'; LOGIN6.tab='signin';
+      LOGIN6.notice = commissionedEntryActive() ? 'This shared online installation is already commissioned. Sign in with your issued account; first-run setup is not available on this client.' : '';
+      return render();
     }
     APPX.screen='onboard'; ONB.step=1; ONB.error=''; render(); window.scrollTo({top:0});
   },
 
   /* Works everywhere (PC, Tablet, Onboarding, Sign-In, Settings) in one tap */
   'load-demo': async () => {
+    if(demoEntryBlocked()){
+      LOGIN6.busy = false; ONB.busy = false; LOGIN6.tab = 'signin'; APPX.screen = 'login';
+      toast('Demonstration unavailable', commissionedEntryActive() ? 'This commissioned online installation does not accept demo bootstrap.' : 'Wait for the shared online source before loading evaluation data.', 'warn');
+      render();
+      return;
+    }
     LOGIN6.busy = true; ONB.busy = true;
     try{
       const count = await activateFullDemoDataset();
@@ -792,6 +877,14 @@ Object.assign(ACTIONS, {
     render(); window.scrollTo({top:0});
   },
   'ob-device': () => { ONB.mode='device'; ONB.step=2; render(); },
+  'ob-retry-host': async () => {
+    ONB.busy = true; ONB.error = ''; render();
+    const health = await hostProbe();
+    ONB.busy = false;
+    if(health){ APPX.host = health; ONB.host = health; SYNC.server = health; }
+    else ONB.error = 'The shared online source is still unavailable. No device-local setup was started.';
+    render();
+  },
   'ob-back': () => {
     if(ONB.step===2){
       ONB.admin = {
@@ -812,6 +905,15 @@ Object.assign(ACTIONS, {
       const county = ($('#ob-county')||{}).value || 'kisumu';
       const emailDomain = (($('#ob-domain')||{}).value || ONB.org.emailDomain || 'lomamo.example').replace(/^@+/,'').trim().toLowerCase();
       ONB.org = {name:name.trim(), shortName:short.trim(), county, emailDomain};
+      if(typeof SYNC !== 'undefined' && SYNC.available()){
+        ONB.busy = true; render();
+        const health = await hostProbe();
+        ONB.busy = false;
+        if(!health){ ONB.error = 'The shared online source could not be verified. Setup was not started on this device.'; return render(); }
+        APPX.host = health; ONB.host = health;
+        if(health.globallyActivated){ APPX.screen='login'; LOGIN6.tab='signin'; return render(); }
+        if(health.setup){ ONB.hostSetup = health; ONB.step = 3; return render(); }
+      }
       ONB.step = 2; return render();
     }
     if(step===2){
@@ -849,8 +951,8 @@ Object.assign(ACTIONS, {
         APPX.screen = 'login';
         LOGIN6.tab = 'signin';
         LOGIN6.error = '';
-        LOGIN6.notice = `4-Step Live Host Setup complete. Sign in below as ${res.chiefUsername} (${res.chiefEmail}), set your private personal password, then click "Activate System Globally" to generate the Team WhatsApp Credential Sheet.`;
-        toast('Live Host Setup Complete', 'Sign in as Chief System Administrator to change your password and Activate System Globally.', 'ok');
+        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername} (${res.chiefEmail}), set your private personal password, then click "Activate System Globally" to generate the Team WhatsApp Credential Sheet.`;
+        toast('Online Setup Complete', 'The shared online source confirmed setup. Sign in as Chief System Administrator to change your password and Activate System Globally.', 'ok');
         render();
       }catch(e){ ONB.busy=false; ONB.error='Could not finish host setup: '+e.message; render(); }
       return;
@@ -906,11 +1008,12 @@ Object.assign(FORMS, {
     }
     LOGIN6.error=''; LOGIN6.notice=''; LOGIN6.busy=true; render();
     try{
+      const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
       let res = await AUTH.loginOnline(username, password, 'this device');
-      if(!res.ok){
-        /* Allow verified local PBKDF2/hash sign-in whenever:
-           1) The device is offline / host unreachable / host not yet server-provisioned, OR
-           2) Client-side 4-Step Host Setup or Global Activation provisioned salted hashes in DB.db.users. */
+      if(!res.ok && !hosted){
+        /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
+           feature.  A Vercel client never turns a failed server login into a
+           device-local account or an automatic demo installation. */
         const hostUnprovisioned = !APPX.host || !APPX.host.setup;
         const isGloballyActive = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
         if(!(DB.db && DB.db.users && DB.db.users.length) && !isGloballyActive && (res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned)){
@@ -959,10 +1062,19 @@ Object.assign(FORMS, {
     const strength = passwordStrength(next);
     if(strength.n < 2){ LOGIN6.error = 'Use at least 12 characters with uppercase, lowercase, digits and a symbol.'; return render(); }
     let r = {ok:false};
-    if(typeof SYNC!=='undefined' && SYNC.sessionToken){
-      try { r = await AUTH.changeOnServer(current, next); } catch(_e) { r = {ok:false}; }
-    }
-    if(!r.ok){
+    const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
+    if(hosted){
+      if(!SYNC.sessionToken){
+        LOGIN6.error = 'The shared online session is not available. Sign in again; the password was not changed locally.';
+        return render();
+      }
+      try { r = await AUTH.changeOnServer(current, next); }
+      catch(_e) { r = {ok:false, error:'The shared online source could not be reached.'}; }
+      if(!r.ok){
+        LOGIN6.error = r.error || 'The shared online source refused the password change. No local password change was made.';
+        return render();
+      }
+    } else if(!r.ok){
       const currentValid = (AUTH._pw && current === AUTH._pw) || (uRec && uRec.salt && uRec.hash && strongHash(current, uRec.salt) === uRec.hash);
       if(!currentValid){
         LOGIN6.error = 'Current temporary password is incorrect.';
@@ -1017,6 +1129,10 @@ Object.assign(FORMS, {
       LOGIN6.tab='signin'; LOGIN6.error=''; LOGIN6.notice='Account activated. Sign in with your new password.';
       return render();
     }
+    if(typeof SYNC !== 'undefined' && SYNC.available && SYNC.available()){
+      LOGIN6.error = (r && r.body && r.body.error) || 'The shared online source could not activate this account. No device-local activation was made.';
+      return render();
+    }
     const usr = (DB.db.users||[]).find(u=>u.username.toLowerCase()===rawUser || String(u.email||'').toLowerCase()===rawUser);
     const uname = usr ? usr.username.toLowerCase() : rawUser;
     const act = (DB.db.pendingActivations||[]).find(a=>String(a.username||'').toLowerCase()===uname && a.code===code && !a.used && new Date(a.expiresAt)>new Date());
@@ -1048,6 +1164,10 @@ Object.assign(FORMS, {
           body: JSON.stringify(payload)});
       }
     } catch(_e) { r = { ok:false }; }
+    if(typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() && (!r || !r.ok)){
+      LOGIN6.error = (r && r.body && r.body.error) || 'The shared online source could not receive the account request. It was not saved only on this device.';
+      return render();
+    }
     const ref = (r && r.ok && r.body && r.body.ref) ? r.body.ref : ('REQ-' + Math.floor(100000 + Math.random()*900000));
     DB.db.accountRequests = DB.db.accountRequests || [];
     DB.db.accountRequests.unshift({
@@ -1078,6 +1198,10 @@ Object.assign(FORMS, {
           body: JSON.stringify(payload)});
       }
     } catch(_e) { r = { ok:false }; }
+    if(typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() && (!r || !r.ok)){
+      LOGIN6.error = (r && r.body && r.body.error) || 'The shared online source could not receive the recovery request. It was not saved only on this device.';
+      return render();
+    }
     const ref = (r && r.ok && r.body && r.body.reference) ? r.body.reference : ('REC-' + Math.floor(10000 + Math.random()*90000));
     DB.db.recoveryRequests = DB.db.recoveryRequests || [];
     DB.db.recoveryRequests.unshift({
@@ -1106,6 +1230,10 @@ Object.assign(FORMS, {
     } catch(_e) { r = { ok:false }; }
     if(r && r.ok){
       LOGIN6.tab='signin'; LOGIN6.notice='Password reset with emergency code. Sign in now.'; LOGIN6.error='';
+      return render();
+    }
+    if(typeof SYNC !== 'undefined' && SYNC.available && SYNC.available()){
+      LOGIN6.error = (r && r.body && r.body.error) || 'The shared online source could not reset this password. No device-local reset was made.';
       return render();
     }
     const usr = (DB.db.users||[]).find(u=>u.username.toLowerCase()===rawUser || String(u.email||'').toLowerCase()===rawUser);

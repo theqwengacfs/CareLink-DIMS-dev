@@ -20,7 +20,7 @@ That address opens `public/carelink-v6.html`, which is built from `v6/src/`.
 npm install
 npm run dev          # Vite dev server on 0.0.0.0:5173, rebuilds the bundle on every edit in v6/src
 npm run build        # type-check + production build (also rebuilds the bundle)
-npm run test:all     # lint, smoke, wiring, views, v6.0 and v6.1 acceptance suites
+npm run test:all     # lint, legacy acceptance, API security, and hosted PC/tablet workflow tests
 ```
 
 Open the single file directly, with no server at all:
@@ -29,20 +29,40 @@ Open the single file directly, with no server at all:
 v6/LOMAMO-CareLink-DIMS-v6.0.html
 ```
 
-Sign in on the **Demo** tab, or use any account with the password `LOMAMO2026`.
-The demonstration dataset is synthetic and labelled `DEMO`: 3,333 patients, 59
-accounts, 10 ministry areas, 18 departments.
+In the explicitly offline/static file, sign in on the **Demo** tab, or use any
+account with the password `LOMAMO2026`. The demonstration dataset is synthetic
+and labelled `DEMO`: 3,333 patients, 59 accounts, 10 ministry areas, 18
+departments. This local mode is not the hosted live installation.
 
-### Office host (shared database over Wi-Fi)
+### Vercel online host (one shared source, mandatory KV)
 
-```bash
-python3 v6/server.py         # host computer, holds the database
+The Vercel API uses **Vercel KV / Upstash Redis as its only online source of
+truth**. Connect a KV database to the project and configure these environment
+variables for Production (and for Preview when the preview API is used):
+
+```text
+KV_REST_API_URL=<your KV REST URL>
+KV_REST_API_TOKEN=<your KV REST token>
 ```
 
-Tablets and laptops on the office Wi-Fi then read and write one shared record
-instead of their own browser storage. First-run setup commissions a fresh host;
-against a host that is already set up it offers sign-in, an account request, or
-device-only continuation — it never overwrites a live installation.
+The equivalent `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` variables
+are also accepted. The API returns HTTP `503` with `code: "kv_required"` if they
+are absent, and fails closed on KV read/write errors. It never substitutes
+process memory or Vercel's ephemeral filesystem for a failed KV operation, and
+a write is acknowledged only after KV accepts it.
+
+Every PC, tablet and other hosted client opens the same Vercel URL and uses this
+same KV-backed state and credential vault. First-run setup and global activation
+are acknowledged by the browser only after the API accepts them and a fresh
+health read confirms the shared state. Hosted sign-in pulls the shared document
+before opening the console; a failed hosted login, setup, activation or password
+change never falls back to a device-local account or demo register. Browser
+storage is a cache for the online client, not a second installation.
+
+`POST /api/public/demo-bootstrap` is limited to a fresh, uncommissioned
+evaluation installation. It is refused once live setup exists and permanently
+after `globallyActivated`; the Landing, Sign-In and first-run setup UI use the
+same server-provided activation/commissioning flags to remove demo controls.
 
 ## How the code is organised
 

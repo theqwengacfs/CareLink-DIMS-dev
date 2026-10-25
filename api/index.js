@@ -13,12 +13,23 @@
    ============================================================ */
 
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
 
-const CLOUD_FILE = process.env.CARELINK_CLOUD_FILE || '/tmp/carelink-online-db-v64.json';
+const CLOUD_KEY = 'carelink_cloud_v64';
 const PBKDF2_ROUNDS = 160000;
 const IDLE_SECONDS = 1800;
+
+/* Vercel instances are disposable and may serve different requests on every
+   invocation.  KV is therefore not an optional cache: it is the only online
+   system of record.  In particular, never fall back to process memory or the
+   ephemeral filesystem when KV is missing or unavailable. */
+class CloudStorageError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = 'CloudStorageError';
+    this.code = code;
+    this.statusCode = 503;
+  }
+}
 
 function nowISO() {
   return new Date().toISOString();
@@ -86,9 +97,21 @@ function kvConfig() {
   return url && token ? { url: url.replace(/\/+$/, ''), token } : null;
 }
 
+function requireKv() {
+  const kv = kvConfig();
+  if (!kv) {
+    throw new CloudStorageError(
+      'kv_required',
+      'CareLink online storage is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (or the Upstash equivalents) in Vercel; no local fallback is used.'
+    );
+  }
+  return kv;
+}
+
 function blankStore() {
   return {
     setup: false,
+    globallyActivated: false,
     rev: 0,
     saved: null,
     org: { name: 'LOMAMO Foundation Kenya', county: 'kisumu', shortName: 'CareLink' },
@@ -101,68 +124,80 @@ function blankStore() {
     activations: [],
     emergencies: [],
     accountRequests: [],
+    recoveryRequests: [],
+    loginFailures: {},
   };
 }
 
+function normalizeStore(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an invalid online database document; it was not replaced.');
+  }
+  /* Keep forwards/backwards-compatible defaults without ever treating a local
+     object as the stored state.  The object returned here came from KV. */
+  const state = { ...blankStore(), ...value };
+  for (const key of ['creds', 'sessions', 'loginFailures']) {
+    if (!state[key] || typeof state[key] !== 'object' || Array.isArray(state[key])) state[key] = {};
+  }
+  for (const key of ['deltas', 'mergeJournal', 'audit', 'activations', 'emergencies', 'accountRequests', 'recoveryRequests']) {
+    if (!Array.isArray(state[key])) state[key] = [];
+  }
+  return state;
+}
+
 async function loadCloudState() {
-  const kv = kvConfig();
-  if (kv) {
-    try {
-      const r = await fetch(`${kv.url}/get/carelink_cloud_v64`, {
-        headers: { Authorization: `Bearer ${kv.token}` },
-      });
-      if (r.ok) {
-        const j = await r.json();
-        if (j && j.result) {
-          const parsed = typeof j.result === 'string' ? JSON.parse(j.result) : j.result;
-          globalThis.__CARELINK_CLOUD__ = parsed;
-          return { state: parsed, driver: 'cloud-kv-redis' };
-        }
-      }
-    } catch {
-      /* fall through to warm/disk cache */
-    }
-  }
-  if (globalThis.__CARELINK_CLOUD__) {
-    return { state: globalThis.__CARELINK_CLOUD__, driver: 'cloud-memory+tmp' };
-  }
+  const kv = requireKv();
+  let response;
   try {
-    if (fs.existsSync(CLOUD_FILE)) {
-      const parsed = JSON.parse(fs.readFileSync(CLOUD_FILE, 'utf8'));
-      globalThis.__CARELINK_CLOUD__ = parsed;
-      return { state: parsed, driver: 'cloud-memory+tmp' };
-    }
+    response = await fetch(`${kv.url}/get/${CLOUD_KEY}`, {
+      headers: { Authorization: `Bearer ${kv.token}` },
+    });
   } catch {
-    /* initialize fresh */
+    throw new CloudStorageError('kv_unavailable', 'The mandatory CareLink KV store could not be read; no local fallback is used.');
   }
-  const fresh = blankStore();
-  globalThis.__CARELINK_CLOUD__ = fresh;
-  return { state: fresh, driver: kv ? 'cloud-kv-redis' : 'cloud-memory+tmp' };
+  if (!response.ok) {
+    throw new CloudStorageError('kv_unavailable', 'The mandatory CareLink KV store refused the read; no local fallback is used.');
+  }
+
+  let payload;
+  try { payload = await response.json(); }
+  catch { throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an unreadable response; no local fallback is used.'); }
+  if (!payload || !Object.prototype.hasOwnProperty.call(payload, 'result')) {
+    throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an invalid response; no local fallback is used.');
+  }
+
+  /* Upstash returns null for a missing key.  Only that explicit result means
+     a new installation; a network error or malformed value must never look
+     like an empty database. */
+  if (payload.result === null || payload.result === undefined) {
+    return { state: blankStore(), driver: 'cloud-kv-redis' };
+  }
+  let parsed;
+  try { parsed = typeof payload.result === 'string' ? JSON.parse(payload.result) : payload.result; }
+  catch { throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.'); }
+  return { state: normalizeStore(parsed), driver: 'cloud-kv-redis' };
 }
 
 async function saveCloudState(state) {
+  const kv = requireKv();
   state.saved = nowISO();
-  globalThis.__CARELINK_CLOUD__ = state;
+  let response;
   try {
-    fs.mkdirSync(path.dirname(CLOUD_FILE), { recursive: true });
-    fs.writeFileSync(CLOUD_FILE, JSON.stringify(state));
+    response = await fetch(`${kv.url}/set/${CLOUD_KEY}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${kv.token}`,
+        'Content-Type': 'application/json',
+      },
+      /* Upstash's REST SET endpoint accepts a JSON string containing the
+         serialized document.  Await and verify this write before replying. */
+      body: JSON.stringify(JSON.stringify(state)),
+    });
   } catch {
-    /* read-only fs fallback uses warm memory + KV */
+    throw new CloudStorageError('kv_write_failed', 'CareLink could not commit to the mandatory KV store; the change was not acknowledged.');
   }
-  const kv = kvConfig();
-  if (kv) {
-    try {
-      await fetch(`${kv.url}/set/carelink_cloud_v64`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${kv.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(JSON.stringify(state)),
-      });
-    } catch {
-      /* local/tmp copy already persisted */
-    }
+  if (!response.ok) {
+    throw new CloudStorageError('kv_write_failed', 'CareLink KV refused the write; the change was not acknowledged.');
   }
 }
 
@@ -202,6 +237,23 @@ function sanitizeDbForClient(db) {
     });
   }
   return copy;
+}
+
+function isGloballyActivated(state) {
+  return Boolean(
+    state.globallyActivated ||
+    (state.db && state.db.settings && state.db.settings.globallyActivated) ||
+    (state.db && state.db.meta && state.db.meta.globallyActivated) ||
+    (state.db && state.db.meta && state.db.meta.demoDisabled)
+  );
+}
+
+function isDemoDatabase(state) {
+  const meta = (state.db && state.db.meta) || {};
+  return Boolean(
+    meta.demoMode || meta.demoSeeded || meta.seeded === 'official' ||
+    /synthetic|demonstration/i.test(String(meta.label || ''))
+  );
 }
 
 function getSession(state, req) {
@@ -386,7 +438,7 @@ Never diagnose or prescribe. Keep responses concise, structured, and grounded in
   return { ok: true, engine: 'CareLink Shared Online Intelligence', reply: lines.join('\n') };
 }
 
-export default async function handler(req, res) {
+async function handleRequest(req, res) {
   const urlObj = new URL(req.url || '/api/health', `http://${req.headers.host || 'localhost'}`);
   const rewritten = urlObj.searchParams.get('__path');
   const route = rewritten
@@ -400,6 +452,10 @@ export default async function handler(req, res) {
   if ((route === 'health' || route === 'bootstrap') && method === 'GET') {
     /* Display names only: login usernames are never disclosed to unauthenticated callers. */
     const admins = Object.values(state.creds || {}).filter((c) => c.roleId === 'chief').map((c) => c.name || 'Chief System Administrator');
+    const demoMode = Boolean(state.db && state.db.meta && (
+      state.db.meta.demoMode || state.db.meta.demoSeed || state.db.meta.demoSeeded || state.db.meta.freshSeeded ||
+      /synthetic|demonstration/i.test(String(state.db.meta.label || ''))
+    ));
     return sendJson(res, 200, {
       ok: true,
       cloud: true,
@@ -408,7 +464,10 @@ export default async function handler(req, res) {
       storageMode: driver,
       storageDriver: driver,
       setup: Boolean(state.setup && Object.keys(state.creds || {}).length > 0),
-      globallyActivated: Boolean(state.globallyActivated || (state.db && state.db.settings && state.db.settings.globallyActivated)),
+      commissioned: Boolean(state.setup && Object.keys(state.creds || {}).length > 0 && !demoMode),
+      demoMode,
+      globallyActivated: isGloballyActivated(state),
+      demoDisabled: isGloballyActivated(state),
       rev: state.rev || 0,
       saved: state.saved,
       org: state.org,
@@ -420,16 +479,37 @@ export default async function handler(req, res) {
   }
 
   if (route === 'rev' && method === 'GET') {
-    return sendJson(res, 200, { ok: true, rev: state.rev || 0, saved: state.saved, setup: Boolean(state.setup) });
+    return sendJson(res, 200, {
+      ok: true,
+      rev: state.rev || 0,
+      saved: state.saved,
+      setup: Boolean(state.setup),
+      globallyActivated: isGloballyActivated(state),
+    });
   }
 
   if (route === 'public/status' && method === 'GET') {
-    return sendJson(res, 200, { ok: true, setup: Boolean(state.setup), org: state.org, rev: state.rev || 0 });
+    return sendJson(res, 200, {
+      ok: true,
+      setup: Boolean(state.setup),
+      globallyActivated: isGloballyActivated(state),
+      org: state.org,
+      rev: state.rev || 0,
+    });
   }
 
   /* 2. First-Run Production Setup */
   if (route === 'setup' && method === 'POST') {
     const body = await readJsonBody(req);
+    /* Global activation is a one-way production boundary.  A setup/recommission
+       request must never clear it and make the demo door available again. */
+    if (isGloballyActivated(state)) {
+      return sendJson(res, 409, {
+        ok: false,
+        code: 'globally_activated',
+        error: 'This installation is globally activated; first-run setup and recommissioning are locked.',
+      });
+    }
     const commissioned = state.setup && Object.keys(state.creds || {}).length > 0;
     if (commissioned) {
       /* Re-commissioning wipes every account, so it needs a live Chief System Administrator session. */
@@ -451,6 +531,12 @@ export default async function handler(req, res) {
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
     state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.6.0' }, users: [], audit: [] });
+    /* Only the authenticated activation endpoint may set this flag.  Ignore a
+       client-supplied true value during public first-run setup as well. */
+    if (state.db && typeof state.db === 'object') {
+      state.db.settings = { ...(state.db.settings || {}), globallyActivated: false };
+      state.db.meta = { ...(state.db.meta || {}), globallyActivated: false, demoDisabled: false, productionMode: false };
+    }
     state.creds = {
       [username]: {
         id: 'u-chief-admin',
@@ -467,7 +553,7 @@ export default async function handler(req, res) {
       },
     };
     state.setup = true;
-    state.globallyActivated = Boolean(body.globallyActivated);
+    state.globallyActivated = false;
     state.rev = (state.rev || 0) + 1;
     appendServerAudit(state, username, 'setup.commissioned', 'installation', 'online-cloud',
       `First-Run Production Setup completed by Chief System Administrator (@${username})`);
@@ -484,30 +570,138 @@ export default async function handler(req, res) {
     const body = await readJsonBody(req);
     state.globallyActivated = true;
     state.db = state.db || {};
-    if (body.settings) state.db.settings = { ...(state.db.settings || {}), ...safeObject(body.settings), globallyActivated: true };
-    if (body.meta) state.db.meta = { ...(state.db.meta || {}), ...safeObject(body.meta), globallyActivated: true };
+    /* Write the activation markers into every server-side location, even when
+       an older client omits settings/meta.  Health checks and later requests
+       therefore see the same permanent boundary. */
+    state.db.settings = {
+      ...(state.db.settings || {}),
+      ...safeObject(body.settings),
+      globallyActivated: true,
+      awaitingGlobalActivation: false,
+    };
+    state.db.meta = {
+      ...(state.db.meta || {}),
+      ...safeObject(body.meta),
+      globallyActivated: true,
+      demoDisabled: true,
+      productionMode: true,
+    };
     if (Array.isArray(body.users)) {
       state.db.users = sanitizeDbForClient({ users: body.users }).users;
     }
+
+    /* The browser prepares the human-readable credential sheet, but KV owns
+       the credentials.  Without this step a sheet could contain passwords
+       that no other PC or tablet could ever use.  Existing private passwords
+       are never replaced by a repeated activation/reissue action. */
+    const accounts = Array.isArray(body.accounts) ? body.accounts : [];
+    const issued = [];
+    const preserved = [];
+    state.creds = state.creds || {};
+    for (const acc of accounts) {
+      const uname = clipString(acc && acc.username, 120).trim().toLowerCase();
+      if (!uname || uname === sess.username || FORBIDDEN_KEYS.has(uname)) continue;
+      const existing = state.creds[uname];
+      if (existing && existing.roleId === 'chief') continue;
+      if (existing && existing.privateSetAt && !existing.mustChange) {
+        preserved.push(uname);
+        const existingUser = (state.db.users || []).find((u) => String(u.username || '').toLowerCase() === uname);
+        if (existingUser) {
+          existingUser.mustChange = false;
+          existingUser.mustChangePassword = false;
+          existingUser.dpaFirstLoginRequired = false;
+          existingUser.status = 'active';
+          existingUser.active = true;
+          existingUser.privacyPasswordSet = true;
+          delete existingUser.hash;
+          delete existingUser.salt;
+        }
+        continue;
+      }
+      const tempPassword = String(acc.password || acc.tempPassword || '') || generateStrongPassword();
+      const { salt, digest } = hashPassword(tempPassword);
+      state.creds[uname] = {
+        id: clipString(acc.id || `u-${uname.replace(/\./g, '-')}`, 160),
+        username: uname,
+        name: clipString(acc.name || uname, 240),
+        roleId: clipString(acc.roleId || 'staff', 80),
+        countyId: clipString(acc.countyId || 'kisumu', 80),
+        email: clipString(acc.email || `${uname}@${body.emailDomain || 'lomamo.example'}`, 240),
+        salt,
+        digest,
+        mustChange: true,
+        updatedAt: nowISO(),
+      };
+      const user = (state.db.users || []).find((u) => String(u.username || '').toLowerCase() === uname);
+      if (user) {
+        user.mustChange = true;
+        user.mustChangePassword = true;
+        user.demo = false;
+        user.status = 'pending_activation';
+        user.active = true;
+        delete user.hash;
+        delete user.salt;
+        delete user.privacyPasswordSet;
+        delete user.privacyPasswordAt;
+      }
+      issued.push({ username: uname, password: tempPassword, mustChange: true });
+    }
     state.rev = (state.rev || 0) + 1;
     appendServerAudit(state, (sess && sess.username) || body.activatedBy || 'chief.admin', 'system.activated_globally', 'system', 'global-activation',
-      `CareLink activated globally (@${body.emailDomain || 'lomamo.example'}); demo & host-setup screens permanently removed.`);
+      `CareLink activated globally (@${body.emailDomain || 'lomamo.example'}); ${issued.length} credentials issued, ${preserved.length} private credentials preserved; demo & setup screens permanently removed.`);
     await saveCloudState(state);
-    return sendJson(res, 200, { ok: true, globallyActivated: true, rev: state.rev });
+    return sendJson(res, 200, { ok: true, globallyActivated: true, rev: state.rev, issued, preserved });
   }
 
-  /* 3. Demo bootstrap (only when unprovisioned or explicitly allowed for evaluation) */
+  /* 3. Demo bootstrap is an evaluation-only, pre-commissioning operation.
+     It is deliberately not a general public "replace the database" endpoint:
+     once a live installation exists, and permanently after global activation,
+     the request is refused before parsing or writing the supplied document. */
   if (route === 'public/demo-bootstrap' && method === 'POST') {
-    if (state.setup && Object.keys(state.creds || {}).length > 0) {
-      return sendJson(res, 200, { ok: true, skipped: true, reason: 'Live production installation protected' });
+    if (isGloballyActivated(state)) {
+      return sendJson(res, 403, {
+        ok: false,
+        code: 'demo_bootstrap_locked',
+        reason: 'globally_activated',
+        globallyActivated: true,
+        error: 'Demonstration bootstrap is permanently disabled after global activation.',
+      });
+    }
+    const commissioned = Boolean(state.setup || Object.keys(state.creds || {}).length);
+    const hasNonDemoRevision = Boolean(state.rev && state.db && !isDemoDatabase(state));
+    if (commissioned || hasNonDemoRevision) {
+      return sendJson(res, 409, {
+        ok: false,
+        code: 'demo_bootstrap_locked',
+        reason: 'live_installation',
+        error: 'Demonstration bootstrap is locked because this online installation already contains a commissioned or non-demo database.',
+      });
     }
     const body = await readJsonBody(req);
-    if (body && body.db) {
-      state.db = sanitizeDbForClient(body.db);
-      state.rev = (state.rev || 0) + 1;
-      await saveCloudState(state);
+    if (!body || !body.db || typeof body.db !== 'object' || Array.isArray(body.db)) {
+      return sendJson(res, 400, { ok: false, error: 'A demonstration database document is required.' });
     }
-    return sendJson(res, 200, { ok: true, rev: state.rev });
+    const demoDb = sanitizeDbForClient(body.db);
+    /* Do not allow a demo document to smuggle activation/setup markers into the
+       public bootstrap path. */
+    demoDb.settings = {
+      ...(demoDb.settings || {}),
+      globallyActivated: false,
+      awaitingGlobalActivation: false,
+    };
+    demoDb.meta = {
+      ...(demoDb.meta || {}),
+      globallyActivated: false,
+      demoDisabled: false,
+      productionMode: false,
+      demoMode: true,
+    };
+    state.db = demoDb;
+    state.setup = false;
+    state.globallyActivated = false;
+    state.rev = (state.rev || 0) + 1;
+    await saveCloudState(state);
+    return sendJson(res, 200, { ok: true, rev: state.rev, demo: true });
   }
 
   /* 4. Authentication & DPA First-Login Password Replacement */
@@ -616,6 +810,10 @@ export default async function handler(req, res) {
       const u = state.db.users.find((x) => String(x.username).toLowerCase() === sess.username);
       if (u) {
         u.mustChange = false;
+        u.mustChangePassword = false;
+        u.dpaFirstLoginRequired = false;
+        u.status = 'active';
+        u.active = true;
         u.privacyPasswordSet = true;
         u.privacyPasswordAt = cred.privateSetAt;
         delete u.hash;
@@ -770,8 +968,25 @@ export default async function handler(req, res) {
     for (const p of patches) {
       if (!p || typeof p.c !== 'string' || !SAFE_COLLECTION.test(p.c) || FORBIDDEN_KEYS.has(p.c)) continue;
       if (p.c === 'settings') {
-        if (p.set && p.set.value) state.db.settings = { ...(state.db.settings || {}), ...safeObject(p.set.value) };
-        applied.push(p);
+        let appliedPatch = p;
+        if (p.set && p.set.value) {
+          const incoming = safeObject(p.set.value);
+          /* Global activation is controlled only by setup/activate-global.
+             Ordinary browser patches may change preferences, but can neither
+             switch demo mode back on nor activate the installation themselves. */
+          if (isGloballyActivated(state)) {
+            incoming.globallyActivated = true;
+            incoming.awaitingGlobalActivation = false;
+          } else {
+            delete incoming.globallyActivated;
+            delete incoming.demoDisabled;
+          }
+          state.db.settings = { ...(state.db.settings || {}), ...incoming };
+          /* Deltas go to other browsers too; publish the sanitized values, not
+             the client's original activation/demo flags. */
+          appliedPatch = { ...p, set: { ...p.set, value: incoming } };
+        }
+        applied.push(appliedPatch);
         continue;
       }
       if (p.c === 'audit') {
@@ -954,4 +1169,22 @@ export default async function handler(req, res) {
   }
 
   return sendJson(res, 404, { ok: false, error: `Unknown CareLink API endpoint: /api/${route}` });
+}
+
+/* Convert storage/configuration failures into an explicit unavailable response.
+   Most importantly, a failed KV read/write must never be reported as a successful
+   online save or silently diverted to an ephemeral local copy. */
+export default async function handler(req, res) {
+  try {
+    return await handleRequest(req, res);
+  } catch (err) {
+    if (res.writableEnded || res.finished) return;
+    const storage = err && err.name === 'CloudStorageError';
+    const status = storage ? (err.statusCode || 503) : 500;
+    return sendJson(res, status, {
+      ok: false,
+      code: storage ? err.code : 'internal_error',
+      error: storage ? err.message : 'The CareLink online service could not complete that request.',
+    });
+  }
 }

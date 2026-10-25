@@ -444,7 +444,7 @@ function renderPresence(user){
   const online = people.filter(u=>PRESENCE.online(u));
   const loc = (DB.db.presence||{})[user.id] || {};
   return pageHead('Who is on the network',
-    'Live presence across the office Wi-Fi, and a location a person shares deliberately. There is no background tracking.',
+    'Live presence across the shared online workspace, and a location a person shares deliberately. There is no background tracking.',
     `<button class="btn btn-sm btn-primary" data-act="presence-share">${ic('target',15)} Share my location</button>`) +
   `<div class="grid g3">
     ${kpi('Online now', num(online.length), 'signed in within 12 minutes','ok','wifi')}

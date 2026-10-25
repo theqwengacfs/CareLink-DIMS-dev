@@ -238,6 +238,7 @@ function renderLanding(){ return renderLanding6(); }
 function renderArchitecture(){ return typeof renderArchitecture6==='function' ? renderArchitecture6() : renderLanding6(); }
 
 function renderLoginLegacy(){
+  if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return renderLogin6();
   const demo = DB.db.users.filter(u=>u.demo);
   const groups = [
     ['Leadership','chief,president,director'],
@@ -304,6 +305,7 @@ function renderLocked(){
 
 /* ---------------- Onboarding (legacy reference) ---------------- */
 function renderOnboardingLegacy(){
+  if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return renderLogin6();
   const step = DB.db.settings.onboarding.step||1;
   const wrap = (body)=>`<div style="min-height:100vh;background:linear-gradient(160deg,#0E1013,#191C22);display:grid;place-items:center;padding:24px">
     <div class="paper" style="background:#fff;border-radius:22px;max-width:760px;width:100%;padding:34px;box-shadow:var(--shadow-lg)">${body}</div></div>`;
@@ -585,7 +587,8 @@ function contentFor(view, params, user){
   }
 }
 function deniedPanel(cap){
-  const isDemoSession = Boolean((AUTH.user && AUTH.user.demo) || DB.db?.meta?.demoSeeded || DB.db?.meta?.seeded==='official');
+  const globallyActivated = typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated();
+  const isDemoSession = !globallyActivated && Boolean((AUTH.user && AUTH.user.demo) || DB.db?.meta?.demoSeeded || DB.db?.meta?.seeded==='official');
   const candidate = (isDemoSession && typeof DEMO_SWITCH!=='undefined' && typeof cap==='string')
     ? DEMO_SWITCH.findBestUserForCap(cap) : null;
   const switchBtn = (candidate && AUTH.user && candidate.username !== AUTH.user.username)
@@ -1019,7 +1022,7 @@ const ACTIONS = {
     const f=document.querySelector('#syncAuthForm'); if(!f) return;
     const pw=new FormData(f).get('password')||'';
     SYNC.reauth(pw).then(ok=>{
-      if(ok){ closeModal(true); toast('Reconnected','The central database is reachable again.','ok'); }
+      if(ok){ closeModal(true); toast('Reconnected','The shared online source is reachable again.','ok'); }
       else toast('Not accepted', SYNC.message||'The password was not accepted.','err');
     });
   },
@@ -1155,6 +1158,12 @@ const ACTIONS = {
   },
   print:()=>{ try{ window.print(); }catch(e){ toast('Printing blocked','Open the file in a browser tab to print.','warn'); } },
   'quick-login':(d)=>{
+    if((typeof demoEntryBlocked === 'function' && demoEntryBlocked()) || (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated())){
+      LOGIN6.tab = 'signin'; APPX.screen = 'login';
+      toast('Demonstration locked', 'Use an officially provisioned staff account after global activation.', 'warn');
+      render();
+      return;
+    }
     const u = DB.db.users.find(x=>x.username===d.u);
     const r = AUTH.login(d.u,'LOMAMO2026');
     if(!r.ok){ toast('Sign-in failed', r.msg||'Use the password LOMAMO2026 for demonstration accounts.','err'); return; }
@@ -1163,6 +1172,7 @@ const ACTIONS = {
     toast('Signed in', `${u.jobTitle} - ${countyName(u.countyId)}`, 'ok');
   },
   'load-reference':()=>{
+    if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return toast('Reference data locked', 'Synthetic reference data cannot be loaded into the globally activated installation.', 'err');
     if(!RBAC.has(AUTH.user,'system.import')) return toast('Not permitted','Only a system administrator may load the reference register.','err');
     const n = DB.seedOfficial({patients:3333});
     AUDIT.append({actor:AUTH.user.id,action:'register.reference_loaded',entity:'system',entityId:'register',
@@ -1171,8 +1181,12 @@ const ACTIONS = {
     toast('Reference register loaded', `${n} synthetic patients. Every record is labelled synthetic and can be cleared from Settings.`, 'ok');
     render();
   },
-  'onboard-start':()=>{ DB.db.settings.onboarding.step=2; DB.save(); render(); },
+  'onboard-start':()=>{
+    if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return toast('Setup locked', 'This installation is already globally activated.', 'err');
+    DB.db.settings.onboarding.step=2; DB.save(); render();
+  },
   'onboard-finish':()=>{
+    if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return toast('Setup locked', 'This installation is already globally activated.', 'err');
     DB.db.settings.onboarding.complete=true; DB.db.settings.onboarding.step=3;
     AUDIT.append({actor:AUTH.user?.id||'system',action:'system.bootstrap',entity:'system',entityId:'org',detail:'Organisational structure confirmed'});
     DB.save(); go('home'); toast('Installation ready','Organisational structure confirmed. Create accounts through the approval workflow.','ok');
@@ -1280,8 +1294,15 @@ const ACTIONS = {
     toast('2/2 Verified & Committed', 'Both Administration and International Data signatures recorded.', 'ok');
     render();
   },
-  'prompt-switch-account':(d)=>{ DEMO_SWITCH.openPrompt(d.u, d.v||'home', d.asset||'Authorised Console'); },
+  'prompt-switch-account':(d)=>{
+    if((typeof demoEntryBlocked === 'function' && demoEntryBlocked()) || (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated())) return;
+    DEMO_SWITCH.openPrompt(d.u, d.v||'home', d.asset||'Authorised Console');
+  },
   'confirm-switch-account':(d)=>{
+    if((typeof demoEntryBlocked === 'function' && demoEntryBlocked()) || (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated())){
+      closeAllModals(true);
+      return toast('Demonstration locked', 'Demo account switching is disabled after global activation.', 'warn');
+    }
     const prev = AUTH.user ? AUTH.user.username : '';
     const target = (DB.db.users||[]).find(x=>x.username===d.u);
     if(!target) return toast('Account not found','','err');
@@ -1329,10 +1350,20 @@ function passwordActions(){ return {
       ${field('Confirm new password','password2','password',{required:true})}</form>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-pw">Update password</button>`});
   },
-  'submit-pw':()=>{
+  'submit-pw': async ()=>{
     const f = $('#pwForm'); const d = new FormData(f);
-    if(!AUTH.user || AUTH.user.hash!==strongHash(d.get('current'),AUTH.user.salt)) return toast('Incorrect password','Your current password is required.','err');
     if(d.get('password')!==d.get('password2')) return toast('Passwords do not match','','err');
+    const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
+    if(hosted){
+      if(!AUTH.user || !SYNC.sessionToken) return toast('Password not changed', 'Sign in to the shared online source again; no local password change was made.', 'err');
+      let r;
+      try{ r = await AUTH.changeOnServer(String(d.get('current')||''), String(d.get('password')||'')); }
+      catch(e){ r = {ok:false, error:'The shared online source could not be reached.'}; }
+      if(!r.ok) return toast('Password not changed', r.error || 'The online source refused the change; no local password was saved.', 'err');
+      closeModal(); toast('Password updated', 'The shared online credential vault confirmed the change.', 'ok');
+      return;
+    }
+    if(!AUTH.user || AUTH.user.hash!==strongHash(d.get('current'),AUTH.user.salt)) return toast('Incorrect password','Your current password is required.','err');
     const r = AUTH.setPassword(d.get('password'));
     if(!r.ok) return toast('Password not changed', r.msg,'err');
     closeModal(); toast('Password updated','Stored as a salted hash.','ok');
@@ -1746,7 +1777,7 @@ function openUploadModal(patientId){
       ${field('Classification','classification','select',{options:[
         {v:'clinical',l:'Clinical record'},{v:'identification',l:'Identification document'},{v:'hospital',l:'Hospital document'},
         {v:'internal_photo',l:'Internal patient photograph'},{v:'story_material',l:'Potential storytelling material'},{v:'restricted',l:'Restricted confidential attachment'}]})}
-      ${field('File','file','file',{hint:'The file is stored on the central database host, inside the database file, with a SHA-256 digest. It is not kept in the browser.',accept:'.pdf,.jpg,.jpeg,.png,.docx,.xlsx'})}
+      ${field('File','file','file',{hint:'The file is stored by the shared online service with a SHA-256 digest. It is not kept only in the browser.',accept:'.pdf,.jpg,.jpeg,.png,.docx,.xlsx'})}
       ${field('Consent confirmed for intended use','consent','checkbox',{})}
       ${field('Restrict to clinical roles','restricted','checkbox',{})}
     </form>`,
@@ -1925,7 +1956,7 @@ function mediaActions(){ return {
     const retention=doc.retention? RETENTION_BY_ID[doc.retention]:RETENTION_FOR_CLASS[doc.classification];
     const stored=doc.fileStored && doc.fileId;
     openModal({title:titleCase(doc.kind), sub:(p?.name||'')+' · '+titleCase(doc.classification), body:`
-      ${stored?`<div class="alert ok" style="margin-bottom:10px">${ic('check',16)}<div><b>File held on the central database host</b>
+      ${stored?`<div class="alert ok" style="margin-bottom:10px">${ic('check',16)}<div><b>File held by the shared online service</b>
         <span class="small">${esc(doc.fileName||'Document')} · ${num(Math.round((doc.fileBytes||0)/1024))} KB · SHA-256 ${esc(String(doc.fileSha||'').slice(0,24))}…</span></div></div>`
       :`<div class="alert warn" style="margin-bottom:10px">${ic('alert',16)}<div><b>No file is attached to this record</b>
         <span class="small">The document record exists, but the bytes were never stored. Upload the file again.</span></div></div>`}
@@ -2626,9 +2657,16 @@ const FORMS = {
   'enquiry':()=>ACTIONS['submit-enquiry']({}),
   'profile':()=>ACTIONS['submit-profile']({}),
   'enquiry-answer':()=>ACTIONS['submit-enquiry-answer']({}),
-  login:(d)=>{
-    const r=AUTH.login(d.get('username'),d.get('password'));
-    if(!r.ok) return toast('Sign-in failed', r.msg,'err');
+  login: async (d)=>{
+    const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
+    let r;
+    if(hosted){
+      try{ r = await AUTH.loginOnline(String(d.get('username')||'').trim(), String(d.get('password')||''), 'this device'); }
+      catch(e){ r = {ok:false, error:'The shared online source could not be reached.'}; }
+    } else {
+      r = AUTH.login(d.get('username'),d.get('password'));
+    }
+    if(!r.ok) return toast('Sign-in failed', r.msg || r.error || 'The online source did not accept that sign-in.','err');
     NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
     SESSION.start();
     try{ history.replaceState(null,'','#/home'); }catch(e){}
@@ -2641,6 +2679,8 @@ const FORMS = {
     render();
   },
   'create-chief':(d)=>{
+    if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return toast('Setup locked', 'This installation is already globally activated.', 'err');
+    if(typeof SYNC !== 'undefined' && SYNC.available && SYNC.available()) return toast('Use the shared online setup', 'A hosted client cannot create a separate device-local Chief Administrator.', 'err');
     if(d.get('password')!==d.get('password2')) return toast('Passwords do not match','','err');
     if((d.get('password')||'').length<12) return toast('Password too short','Use at least 12 characters.','err');
     const salt=newSalt();
@@ -2783,7 +2823,7 @@ function renderAIDock(){
             <input class="input" id="aiCfgUrl" value="${esc(cfg.ollama||'http://127.0.0.1:11434')}" placeholder="http://127.0.0.1:11434" style="padding:5px 8px;font-size:12px">
           </div>
           <div class="row" style="justify-content:space-between;gap:6px">
-            <span class="xs muted">Tablets automatically use the Host PC proxy when on Office Wi-Fi.</span>
+            <span class="xs muted">Local AI connections are separate from the shared CareLink data source.</span>
             <button type="button" class="btn btn-xs btn-primary" data-act="ai-save-cfg">Save &amp; Connect</button>
           </div>
         </div>` : ''}
@@ -2814,6 +2854,7 @@ function formatAIText(t){
 /* ---------------- User menu ---------------- */
 function userMenu(){
   const u=AUTH.user; const role=roleObj(u.roleId);
+  const demoPreviewAllowed = !(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   openModal({title:u.name, sub:`${role.name} · ${deptName(u.departmentId)}`, narrow:true, body:`
     <dl class="dl">
       <dt>Username</dt><dd class="mono">${esc(u.username)}</dd>
@@ -2824,7 +2865,7 @@ function userMenu(){
       <dt>Session started</dt><dd>${AUTH.session?fmtDateTime(AUTH.session.started):'-'}</dd>
     </dl>
     <div class="divider"></div>
-    ${((u.demo || DB.db?.meta?.demoSeeded || DB.db?.meta?.seeded==='official') && typeof DEMO_SWITCH!=='undefined') ? `
+    ${(demoPreviewAllowed && (u.demo || DB.db?.meta?.demoSeeded || DB.db?.meta?.seeded==='official') && typeof DEMO_SWITCH!=='undefined') ? `
       <div style="margin-bottom:12px">
         <div class="xs muted" style="text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Switch Demo Console (Authorised Role Preview)</div>
         <div class="row" style="gap:6px;flex-wrap:wrap">

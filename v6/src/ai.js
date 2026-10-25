@@ -400,7 +400,7 @@ const AI = {
     if(/ollama|host status|local model/.test(q)){
       const cfg = this.cfg();
       const hostInfo = (typeof APPX!=='undefined' && APPX.host)
-        ? `Central Wi-Fi SQLite host connected (revision ${APPX.host.rev}).`
+        ? `Shared online KV source connected (revision ${APPX.host.rev}).`
         : 'Standalone browser storage active on this device.';
       return out(`**AI & Host Connectivity Status**\n• Active specialist: **${prof.title}**\n• Engine mode: **${cfg.mode}** (${this.status.online ? `Connected via ${this.status.via} · model ${this.status.activeModel}` : 'Verified Offline Engine active'})\n• Configured Ollama URL: \`${cfg.ollama}\`\n• Database host: ${hostInfo}\n\nUse the **Model & Connection** toggle at the top of this assistant to test or switch local Ollama models at any time.`, [FACT], ['system settings','ai connector']);
     }
@@ -566,7 +566,7 @@ const AI = {
 
     /* Help */
     if(/help|what can you|capabilit|how do i/.test(q))
-      return out(`I am currently operating as **${prof.title}** (${prof.badge}), strictly within your permissions.\n\nSuggested questions for this workspace:\n${prof.chips.map(c=>'• "'+c+'"').join('\n')}\n\nYou can also connect a **Local Ollama LLM** (such as \`llama3.2\`, \`mistral\` or \`qwen2.5\`) over Office Wi-Fi or localhost using the **Model & Connection** button above.`, [AIX]);
+      return out(`I am currently operating as **${prof.title}** (${prof.badge}), strictly within your permissions.\n\nSuggested questions for this workspace:\n${prof.chips.map(c=>'• "'+c+'"').join('\n')}\n\nYou can also connect a **Local Ollama LLM** (such as \`llama3.2\`, \`mistral\` or \`qwen2.5\`) over a local network or localhost using the **Model & Connection** button above.`, [AIX]);
 
     /* Fallback - honest */
     const available = ctx;
