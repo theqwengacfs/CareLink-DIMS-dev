@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "public/master/CareLink-Reference-Master-v6.6.json",
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",

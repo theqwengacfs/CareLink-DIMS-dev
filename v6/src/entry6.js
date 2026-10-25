@@ -16,7 +16,7 @@
 const ONB = {
   step:1, host:null, org:{ name:'LOMAMO Foundation Kenya', county:'kisumu', shortName:'LOMAMO', emailDomain:'lomamo.example' },
   admin:{ name:'', username:'', password:'', confirm:'' },
-  mode:'host', roster:[], issued:null, seed:'empty', busy:false, error:'',
+  mode:'host', roster:[], issued:null, seed:'empty', autoFeedCloudMaster:true, _pendingCloudAutoFeed:false, busy:false, error:'',
   hostSetup:null, advice:''
 };
 
@@ -502,6 +502,7 @@ function renderLogin6(){
       <button class="linkbtn" data-act="login-tab" data-tab="request" type="button">Request county account</button>
       <button class="linkbtn" data-act="login-tab" data-tab="forgot" type="button">Forgotten password?</button>
       ${!demoBlocked ? `<button class="linkbtn" data-act="goto-onboard" type="button">First-run online setup</button>` : ''}
+      ${!isActivated && commissionedEntryActive() ? `<button class="linkbtn" data-act="reset-first-run-fresh" type="button">Reset pre-activation setup</button>` : ''}
     </div>`;
 
   const allUsers = (DB.db && DB.db.users && DB.db.users.length) ? DB.db.users : [];
@@ -645,7 +646,7 @@ function renderLogin6(){
           <button class="btn btn-xs btn-ghost" data-act="goto-landing" type="button">Front page</button>
         </div>
         ${hostLine}
-        ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<span>${esc(LOGIN6.error)}</span></div>`:''}
+        ${LOGIN6.error?`<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span>${!isActivated && /invalid online database|malformed JSON|KV/i.test(LOGIN6.error) ? `<div style="margin-top:6px"><button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Repair KV &amp; Start Fresh Setup</button></div>` : ''}</div></div>`:''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
         <div class="lg-tabs" style="grid-template-columns:repeat(${demoBlocked?4:5},1fr)">
           ${tabBtn('signin','Sign in')}
@@ -766,6 +767,9 @@ function renderOnboarding6(){
           <button class="ob-choice" type="button" data-act="ob-attach-device">
             <b>3 · Continue on this device only</b>
             <span>Keeps working offline on this device with its own record. It does not touch the host installation, and it can be joined to it later from Settings.</span></button>
+          ${!isActivated ? `<button class="ob-choice" type="button" data-act="reset-first-run-fresh">
+            <b>4 · Reset unfinished setup &amp; start a fresh 4-Step Commissioning</b>
+            <span>Clears an unactivated or interrupted pre-activation setup in Cloud KV and restarts at Step 1 of 4. Permanently disabled once Global System Activation is locked.</span></button>` : ''}
         </div>
         ${ONB.advice?`<div class="alert info lg6-alert">${ic('info',15)}<span>${esc(ONB.advice)}</span></div>`:''}
       </div>`
@@ -795,7 +799,11 @@ function renderOnboarding6(){
       <div class="ob-choice ${ONB.seed==='empty'?'on':''}" data-act="ob-seed" data-seed="empty">
         <b>Start with an empty patient register</b>
         <span>For live clinical intake or master workbook import.</span>
-      </div>`;
+      </div>
+      ${hostedSetup ? `<div class="ob-choice ${ONB.autoFeedCloudMaster!==false?'on':''}" data-act="ob-toggle-autofeed" style="margin-top:8px">
+        <b>${ONB.autoFeedCloudMaster!==false?'✓ ':''}Auto-feed 100%-complete 3,333-patient CareLink Cloud Dataset on Chief Sign-In (zero local file needed)</b>
+        <span>Automatically feeds the built-in 3,333-patient / 44,995-visit / 18,060-PDCA reference dataset directly from the server into Cloud KV right after Chief System Administrator password setup — without uploading any Excel or local file.</span>
+      </div>` : ''}`;
   }
   const footer = `<div class="ob-actions">
       <div class="row" style="gap:8px;flex-wrap:wrap">
@@ -895,6 +903,54 @@ Object.assign(ACTIONS, {
     render(); window.scrollTo({top:0});
   },
   'ob-device': () => { ONB.mode='device'; ONB.step=2; render(); },
+  'ob-toggle-autofeed': () => { ONB.autoFeedCloudMaster = ONB.autoFeedCloudMaster === false ? true : false; render(); },
+  'reset-first-run-fresh': async () => {
+    if (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) {
+      return toast('Reset Locked', 'This installation is globally activated and permanently locked.', 'warn');
+    }
+    ONB.busy = true; LOGIN6.busy = true; ONB.error = ''; LOGIN6.error = ''; render();
+    try {
+      if (typeof SYNC !== 'undefined' && SYNC.available && SYNC.available()) {
+        const res = await SYNC._json('api/setup/reset-first-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirm: 'RESET-FIRST-RUN' })
+        });
+        if (!res.ok || !res.body || !res.body.ok) {
+          throw new Error((res.body && res.body.error) || 'Could not reset pre-activation Cloud KV setup.');
+        }
+      }
+      try {
+        localStorage.removeItem(DB.KEY);
+        sessionStorage.removeItem('carelink.session');
+        sessionStorage.removeItem('carelink.lastUser');
+        sessionStorage.removeItem('carelink.pendingCloudAutoFeed');
+      } catch (_e) {}
+      if (typeof AUTH !== 'undefined' && AUTH.logout) AUTH.logout();
+      DB.db = DB.blank();
+      ONB.hostSetup = null;
+      ONB.advice = '';
+      ONB.step = 1;
+      ONB.seed = 'empty';
+      ONB.autoFeedCloudMaster = true;
+      ONB._pendingCloudAutoFeed = false;
+      const freshHealth = await hostProbe();
+      APPX.host = freshHealth;
+      ONB.host = freshHealth;
+      if (typeof SYNC !== 'undefined') SYNC.server = freshHealth;
+      ONB.busy = false; LOGIN6.busy = false;
+      APPX.screen = 'onboard';
+      toast('Fresh First-Run Setup Ready', 'Pre-activation KV state cleared. Complete Steps 1–4 cleanly below.', 'ok');
+      render();
+      if (typeof window !== 'undefined' && window.scrollTo) window.scrollTo({ top: 0 });
+    } catch (e) {
+      ONB.busy = false; LOGIN6.busy = false;
+      const msg = e.message || 'Could not reset First-Run setup.';
+      ONB.error = msg; LOGIN6.error = msg;
+      toast('Reset Failed', msg, 'crit');
+      render();
+    }
+  },
   'ob-retry-host': async () => {
     ONB.busy = true; ONB.error = ''; render();
     const health = await hostProbe();
@@ -966,11 +1022,18 @@ Object.assign(ACTIONS, {
         });
         APPX.showMustChange = false;
         ONB.busy = false;
+        if (ONB.autoFeedCloudMaster !== false) {
+          ONB._pendingCloudAutoFeed = true;
+          try { sessionStorage.setItem('carelink.pendingCloudAutoFeed', '1'); } catch (_e) {}
+        } else {
+          ONB._pendingCloudAutoFeed = false;
+          try { sessionStorage.removeItem('carelink.pendingCloudAutoFeed'); } catch (_e) {}
+        }
         APPX.screen = 'login';
         LOGIN6.tab = 'signin';
         LOGIN6.error = '';
-        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername} (${res.chiefEmail}), set your private personal password, then click "Activate System Globally" to generate the Team WhatsApp Credential Sheet.`;
-        toast('Online Setup Complete', 'The shared online source confirmed setup. Sign in as Chief System Administrator to change your password and Activate System Globally.', 'ok');
+        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername} (${res.chiefEmail}) and set your private personal password${ONB.autoFeedCloudMaster !== false ? ' — the 100%-complete 3,333-patient Cloud Dataset will auto-feed into KV immediately' : ''}, then click "Activate System Globally".`;
+        toast('Online Setup Complete', 'Sign in as Chief System Administrator to set your private password and Activate System Globally.', 'ok');
         render();
       }catch(e){ ONB.busy=false; ONB.error='Could not finish host setup: '+e.message; render(); }
       return;
@@ -1123,7 +1186,24 @@ Object.assign(FORMS, {
     LOGIN6.error='';
     NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
     if(AUTH.user && AUTH.user.roleId==='chief' && typeof PROD_SETUP!=='undefined' && !PROD_SETUP.isGloballyActivated()){
-      toast('Password Updated - Ready for Global Activation','Click "Activate System Globally" at the top of your console to generate the Team WhatsApp Credential Sheet.','ok');
+      let shouldAutoFeed = Boolean(ONB._pendingCloudAutoFeed);
+      try {
+        if (sessionStorage.getItem('carelink.pendingCloudAutoFeed') === '1') shouldAutoFeed = true;
+        sessionStorage.removeItem('carelink.pendingCloudAutoFeed');
+      } catch (_e) {}
+      ONB._pendingCloudAutoFeed = false;
+      const currentPatients = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
+      if (shouldAutoFeed && currentPatients < 3333 && typeof REFERENCE_MASTER !== 'undefined' && typeof REFERENCE_MASTER.autoFeedFromCloud === 'function') {
+        render();
+        const fed = await REFERENCE_MASTER.autoFeedFromCloud({ silent: true });
+        if (fed && fed.ok) {
+          toast('Password Saved & 3,333-Patient Dataset Loaded', 'All 3,333 complete patients, 44,995 visits & 18,060 PDCAs are now live in Cloud KV. Click "Activate System Globally" at the top of your console.', 'ok');
+        } else {
+          toast('Password Updated - Ready for Global Activation', 'Click "Auto-Feed 3,333-Patient Dataset" or "Activate System Globally" at the top of your console.', 'warn');
+        }
+      } else {
+        toast('Password Updated - Ready for Global Activation','Click "Activate System Globally" at the top of your console to generate the Team WhatsApp Credential Sheet.','ok');
+      }
     } else {
       toast('Account Activated & Private Password Saved','Your console is now open with your personal encrypted password known only to you.','ok');
     }

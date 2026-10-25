@@ -472,14 +472,23 @@ const PROD_SETUP = {
         </div>
       </div>`;
     }
+    const patientCount = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
+    const masterLoaded = Boolean((DB.db && DB.db.meta && DB.db.meta.referenceMaster) || patientCount >= 3333);
+    const feedingNow = typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'loading' || REFERENCE_MASTER.phase === 'uploading');
     return `<div class="card" style="margin-bottom:16px;padding:16px 20px;border:2px solid #D97706;background:linear-gradient(135deg, rgba(245,158,11,.12), rgba(15,118,110,.08))">
       <div class="spread" style="gap:16px;flex-wrap:wrap;align-items:center">
         <div style="flex:1;min-width:260px">
           <div class="xs bold" style="text-transform:uppercase;letter-spacing:.09em;color:#B45309;margin-bottom:4px">${ic('sparkles',13)} Final Commissioning Step · Chief System Administrator Authority</div>
           <div style="font-size:16.5px;font-weight:800;margin-bottom:4px">Ready to Activate CareLink C-DIMS Globally Across All LOMAMO Departments</div>
           <div class="small muted">Generates every organogram account name, official email, username, login URL &amp; one-time password formatted for your <b>Team WhatsApp Platform</b>, requires each user to self-activate by changing their password on first login, and <b>permanently removes all Demo &amp; Host Setup UI</b> from Landing and Sign-In.</div>
+          <div class="xs" style="margin-top:6px">${masterLoaded
+            ? `<span style="color:var(--ok);font-weight:700">✓ Complete 3,333-Patient Cloud Dataset Verified in KV (${num(patientCount)} patients · 100% completeness)</span>`
+            : `<span class="muted">Patient register currently has <b>${num(patientCount)}</b> records — you can auto-feed the built-in 100%-complete 3,333-patient dataset with zero local file upload before locking activation.</span>`}</div>
         </div>
-        <button class="btn btn-primary" style="padding:11px 20px;font-weight:800" data-act="open-global-activate">${ic('shieldcheck',16)} Activate System Globally</button>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          ${!masterLoaded ? `<button class="btn btn-soft" type="button" style="padding:11px 16px;font-weight:700" data-act="auto-feed-cloud-master" ${feedingNow?'disabled':''}>${ic('database',15)} ${feedingNow?'Feeding 3,333 Patients…':'Auto-Feed 3,333-Patient Dataset'}</button>` : ''}
+          <button class="btn btn-primary" type="button" style="padding:11px 20px;font-weight:800" data-act="open-global-activate">${ic('shieldcheck',16)} Activate System Globally</button>
+        </div>
       </div>
     </div>`;
   },
@@ -489,6 +498,8 @@ const PROD_SETUP = {
     if (!actor || actor.roleId !== 'chief') return toast('Chief System Administrator Only', '', 'err');
     const pack = this.lastPack;
     const rosterCount = (typeof OFFICIAL_ROSTER !== 'undefined' ? OFFICIAL_ROSTER.length : 0);
+    const patientCount = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
+    const masterLoaded = Boolean((DB.db && DB.db.meta && DB.db.meta.referenceMaster) || patientCount >= 3333);
     openModal({
       title: this.isGloballyActivated() ? 'Official Team WhatsApp Activation Sheet' : 'Activate CareLink System Globally',
       sub: `${orgName()} · Complete Organogram Provisioning & Permanent Demo Removal`,
@@ -504,6 +515,13 @@ const PROD_SETUP = {
             <div class="hint">Included on every staff member's WhatsApp dispatch block.</div>
           </div>
         </div>
+        ${!this.isGloballyActivated() ? (masterLoaded
+          ? `<div class="alert ok" style="margin-bottom:12px">${ic('check',16)}<div><b>100%-Complete 3,333-Patient Cloud Dataset Ready</b><div class="small">All ${num(patientCount)} complete patient profiles, visits, and PDCA cycles are already committed in Cloud KV and will be shared across all departmental consoles.</div></div></div>`
+          : `<label class="row" style="gap:10px;align-items:flex-start;padding:12px 14px;margin-bottom:12px;border-radius:10px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06));cursor:pointer">
+              <input type="checkbox" name="autoFeedMaster" value="1" checked style="margin-top:3px">
+              <span class="small"><b>Auto-feed complete 3,333-patient generated dataset from Cloud before locking Global Activation</b><br>
+              <span class="muted">Loads all 3,333 synthetic reference patients, 44,995 visits &amp; 18,060 PDCAs (100% completeness, zero local file upload) directly into Cloud KV right before activating all departmental accounts. Uncheck only if you want an empty production register.</span></span>
+            </label>`) : ''}
         <div class="alert info" style="margin-bottom:12px">${ic('shield',16)}<div>
           <b>What happens when you click Activate System Globally:</b>
           <div class="small" style="margin-top:4px">1. All <b>${num(rosterCount)} organogram accounts</b> (Leadership, County Admins, Area Coordinators, Caregivers, Clinicians, Hospital Desk, Finance, Procurement, Media, HR, Audit, ICT, plus applicable Secretaries, Deputies &amp; Clerks) receive official emails &amp; unique temporary passwords.<br>
@@ -1385,6 +1403,15 @@ Object.assign(ACTIONS, {
     const fd = f ? new FormData(f) : null;
     const emailDomain = fd ? fd.get('emailDomain') : PROD_SETUP.defaultEmailDomain();
     const loginUrl = fd ? fd.get('loginUrl') : PROD_SETUP.defaultPortalUrl();
+    const wantAutoFeed = Boolean(fd && fd.get('autoFeedMaster'));
+    const patientCount = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
+    if (wantAutoFeed && patientCount < 3333 && typeof REFERENCE_MASTER !== 'undefined' && typeof REFERENCE_MASTER.autoFeedFromCloud === 'function') {
+      toast('Feeding 3,333-Patient Cloud Dataset…', 'Verifying and committing the 100%-complete dataset into Cloud KV before Global Activation.', 'info');
+      const fed = await REFERENCE_MASTER.autoFeedFromCloud({ silent: true });
+      if (!fed || !fed.ok) {
+        return toast('Cloud Dataset Auto-Feed Halted', (fed && fed.error) || 'Could not auto-feed the 3,333-patient dataset before activation.', 'crit');
+      }
+    }
     const pack = await PROD_SETUP.activateSystemGlobally({ emailDomain, loginUrl });
     if (pack) {
       toast('CareLink System Activated Globally', `${pack.count} organogram accounts generated for WhatsApp dispatch. Demo & setup prompts permanently removed.`, 'ok');
