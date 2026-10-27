@@ -386,7 +386,7 @@ function renderOnboardingLegacy(){
   if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return renderLogin6();
   const step = DB.db.settings.onboarding.step||1;
   const wrap = (body)=>`<div style="min-height:100vh;background:linear-gradient(160deg,#0E1013,#191C22);display:grid;place-items:center;padding:24px">
-    <div class="paper" style="background:#fff;border-radius:22px;max-width:760px;width:100%;padding:34px;box-shadow:var(--shadow-lg)">${body}</div></div>`;
+    <div class="paper" style="background:#FFFFFF;color:#0F172A;border-radius:22px;max-width:760px;width:100%;padding:34px;box-shadow:var(--shadow-lg)">${body}</div></div>`;
   if(step===1) return wrap(`
     <div class="row" style="gap:14px;margin-bottom:6px"><img src="${window.LOGO||''}" style="width:52px;border-radius:10px;border:1px solid var(--line)" alt="">
       <div><div class="xs muted" style="letter-spacing:.14em;text-transform:uppercase">First-run configuration</div><h2 style="font-size:22px">Welcome to LOMAMO C-DIMS</h2></div></div>
@@ -471,6 +471,7 @@ function renderShell(){
         <button class="btn btn-xs btn-ghost no-print tb-ai-label" data-act="toggle-ai" title="Open ${esc(aiProf.title||'Console AI')}">${ic('sparkles',14)} <span>${esc(aiProf.badge||'Console AI')}</span></button>
         <button class="icon-btn tb-ai-icon no-print" data-act="toggle-ai" aria-label="Open ${esc(aiProf.title||'Console AI')}" title="${esc(aiProf.title||'Console AI')}">${ic('sparkles',18)}</button>
         <button class="icon-btn tb-theme no-print" data-act="wtheme-open" aria-label="Themes, Fonts & Visual Packs" title="Themes, Fonts & Visual Packs">${ic('palette',18)}</button>
+        <button class="icon-btn no-print" data-act="open-switch-account" aria-label="Switch account" title="Switch Account / Role Console">${ic('users',18)}</button>
         <button class="icon-btn no-print" data-act="open-notifications" aria-label="Notifications" title="Notifications">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
         <button class="me-btn" data-act="toggle-user-menu" aria-label="Your account" title="${esc(user.name)} · ${esc(role.name||'')}">
           ${avatarFor(user.name, dept.accent, user.photo)}
@@ -536,9 +537,11 @@ function workspaceHeroBanner(view, user){
   const demoBar = (!isGlobalAct && typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '';
   const coeditBar = (typeof DUALCHECK!=='undefined' && DUALCHECK.bannerHTML) ? DUALCHECK.bannerHTML(user) : '';
   const urgentCountyBar = (typeof COUNTY_URGENT_QUEUE!=='undefined' && COUNTY_URGENT_QUEUE.bannerHTML) ? COUNTY_URGENT_QUEUE.bannerHTML(user, view) : '';
-  const ctxStrip = (typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip) ? ROLE_CTX.contextStrip(user, view) : '';
+  const dpaBar = (typeof CARELINK_GOVERNANCE!=='undefined' && CARELINK_GOVERNANCE.dpaBannerHTML) ? CARELINK_GOVERNANCE.dpaBannerHTML(view, user) : '';
+  /* Avoid stacking duplicate context + hero headers on Console Home: ws67-hero provides the unified Home header */
+  const ctxStrip = (view!=='home' && typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip) ? ROLE_CTX.contextStrip(user, view) : '';
   const wfStrip = (view==='home' && typeof WORKFLOW_ENGINE!=='undefined' && WORKFLOW_ENGINE.homePriorityStrip) ? WORKFLOW_ENGINE.homePriorityStrip(user) : '';
-  return overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + ctxStrip + wfStrip;
+  return overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + dpaBar + ctxStrip + wfStrip;
 }
 function contentFor(view, params, user){
   const guard = (cap)=>{ if(!RBAC.assert(user,cap,{},false)) return deniedPanel(cap); return null; };
@@ -571,7 +574,7 @@ function contentFor(view, params, user){
       case 'media': return guard('media.view')||renderMedia(user);
       case 'consent': return guard('media.consent.manage')||renderConsent(user);
       case 'publish': return guard('media.publish')||renderPublish(user);
-      case 'policy': return guard('media.view')||renderPolicy(user);
+      case 'policy': return (RBAC.has(user,'media.view')||RBAC.has(user,'gov.oversight')||RBAC.has(user,'report.executive')||RBAC.has(user,'audit.view')||RBAC.has(user,'system.config')||RBAC.has(user,'admin.ops')) ? renderPolicy(user) : guard('media.view');
       case 'staff': return guard('hr.view')||renderStaff(user);
       case 'leave': return renderLeave(user);
       case 'forms': return (RBAC.has(user,'form.view')||RBAC.has(user,'patient.view.clinical'))?renderForms(user,params):deniedPanel('form.view');
@@ -3000,19 +3003,23 @@ function userMenu(){
     <div class="divider"></div>
     ${(demoPreviewAllowed && (u.demo || DB.db?.meta?.demoSeeded || DB.db?.meta?.seeded==='official') && typeof DEMO_SWITCH!=='undefined') ? `
       <div style="margin-bottom:12px">
-        <div class="xs muted" style="text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Switch Demo Console (Authorised Role Preview)</div>
+        <div class="xs muted" style="text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Instant 1-Click Role Switch</div>
         <div class="row" style="gap:6px;flex-wrap:wrap">
-          ${['director','chief.admin','intl.data','mcm.kisumu','nurse.kisumu','focal.kisumu','caregiver.nyalenda','finance.kisumu','procurement','media.head']
+          ${['director','chief.admin','intl.data','mcm.kisumu','nurse.kisumu','liaison.kisumu','caregiver.nyalenda','finance.kisumu','procurement','media.head']
             .map(un => DB.db.users.find(x=>x.username===un && x.username!==u.username))
             .filter(Boolean)
             .slice(0,8)
-            .map(tu => `<button class="btn btn-xs btn-ghost" data-act="prompt-switch-account" data-u="${esc(tu.username)}" data-v="home" data-asset="${esc((roleObj(tu.roleId)?.consoleTitle)||tu.jobTitle||'Console')}">${esc((roleObj(tu.roleId)?.name)||tu.username)}</button>`)
+            .map(tu => `<button class="btn btn-xs btn-ghost" data-act="confirm-switch-account" data-u="${esc(tu.username)}" data-v="home" data-asset="${esc((roleObj(tu.roleId)?.consoleTitle)||tu.jobTitle||'Console')}">${esc((roleObj(tu.roleId)?.name)||tu.username)}</button>`)
             .join('')}
         </div>
       </div>` : ''}
-    <div class="row"><button class="btn btn-sm btn-ghost" data-act="my-profile">${ic('user',14)} My profile</button>
-    <button class="btn btn-sm btn-ghost" data-act="change-password">${ic('lock',14)} Change password</button>
-    <button class="btn btn-sm btn-danger" data-act="logout">${ic('logout',14)} Sign out</button></div>`,
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      <button class="btn btn-sm btn-primary" data-act="open-switch-account">${ic('users',14)} Switch account</button>
+      <button class="btn btn-sm btn-ghost" data-act="my-profile">${ic('user',14)} My profile</button>
+      <button class="btn btn-sm btn-ghost" data-act="change-password">${ic('lock',14)} Password</button>
+      <button class="btn btn-sm btn-ghost" data-act="open-dpa-statement">${ic('shield',14)} Kenya DPA-2019</button>
+      <button class="btn btn-sm btn-danger" data-act="logout">${ic('logout',14)} Sign out</button>
+    </div>`,
     footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>`});
 }
 
@@ -3043,7 +3050,7 @@ document.addEventListener('input',(e)=>{
   const rs=repo.requests(AUTH.user).filter(r=>r.no.toLowerCase().includes(q)||r.reason.toLowerCase().includes(q)).slice(0,3);
   let panel=$('#searchPanel');
   if(!panel){ panel=document.createElement('div'); panel.id='searchPanel';
-    panel.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);width:min(520px,92vw);z-index:80;background:#fff;border-radius:14px;box-shadow:var(--shadow-lg);border:1px solid var(--line);overflow:hidden';
+    panel.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);width:min(520px,92vw);z-index:80;background:var(--surface);color:var(--ink);border-radius:14px;box-shadow:var(--shadow-lg);border:1px solid var(--line);overflow:hidden';
     document.body.appendChild(panel); }
   panel.innerHTML = `<div style="padding:10px 14px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2)">Search results</div>
     ${ps.length?`<div style="padding:6px">${ps.map(p=>`<button class="nav-item" style="color:var(--ink);background:transparent" data-act="open-patient" data-id="${p.id}">

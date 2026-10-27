@@ -48,15 +48,16 @@ function renderMedia(user){
 function renderConsent(user){
   const ps = repo.patientList(user);
   const groups = ['granted','pending','withdrawn','not_requested'].map(s=>({label:titleCase(s),value:ps.filter(p=>p.consent?.status===s).length,color:s==='granted'?'#0F7B4F':s==='pending'?'#D28A00':s==='withdrawn'?'#B00020':'#8A94A2'}));
-  return pageHead('Consent register','Consent is scoped: internal use, storytelling, or donor reporting. Withdrawal immediately blocks publication.')
+  return pageHead('Consent register','5-Layer Granular Consent (Care · Care Data · Capture · Public Story · External/Donor Sharing) under DPA 2019 §30, Health Act §11 & Children Act §27. Care eligibility is never tied to publicity.',
+    `<button class="btn btn-sm btn-ghost" data-act="go" data-v="policy" data-tab="dpa">${ic('shield',14)} 22-Point Checklist &amp; DPA-2019</button>`)
   + `<div class="grid g2" style="margin-bottom:16px">
       ${card('Consent status', `<div class="donut-wrap">${donut(groups)}${legend(groups)}</div>`)}
-      ${card('Consent scopes', `<div class="dl">
-        <dt>Internal use only</dt><dd>${ps.filter(p=>p.consent?.scope==='internal').length}</dd>
-        <dt>Storytelling</dt><dd>${ps.filter(p=>p.consent?.scope==='storytelling').length}</dd>
-        <dt>Donor reporting</dt><dd>${ps.filter(p=>p.consent?.scope==='donor_report').length}</dd>
+      ${card('5-Layer Consent & Identification Scopes', `<div class="dl">
+        <dt>Internal care use only</dt><dd>${ps.filter(p=>p.consent?.scope==='internal').length}</dd>
+        <dt>Storytelling (Name/Face/Channel scoped)</dt><dd>${ps.filter(p=>p.consent?.scope==='storytelling').length}</dd>
+        <dt>Donor reporting (Aggregate / De-identified)</dt><dd>${ps.filter(p=>p.consent?.scope==='donor_report').length}</dd>
         <dt>Blocked from publication</dt><dd>${ps.filter(p=>p.consent?.status!=='granted').length}</dd>
-      </div><div class="divider"></div>${note('A photograph uploaded under internal-use consent cannot be reused for a success story. The rule is enforced at publication, not by convention.')}`)}
+      </div><div class="divider"></div>${note('HIV/TB diagnosis, clinic/CCC names and children’s faces/schools are withheld by default unless separately & explicitly consented and safeguarding-cleared.')}`)}
     </div>`
   + card('Patient consent records', table([
       {label:'Patient',render:p=>`<div class="cellname">${esc(p.name)}<span class="sm">${esc(areaName(p.areaId))}</span></div>`},
@@ -72,9 +73,10 @@ function renderConsent(user){
 function renderPublish(user){
   const docs = repo.documents(user).filter(d=>['story_material','internal_photo'].includes(d.classification));
   const queue = docs.filter(d=>d.publication==='pending_review');
-  return pageHead('Publication queue','Publication is blocked where consent is absent, incomplete, withdrawn or scoped too narrowly.')
-  + `<div class="alert warn" style="margin-bottom:16px">${ic('shield',18)}<div><b>Mandatory governance control</b>
-      <span class="small">This control cannot be disabled by any administrator. It is evaluated against the patient's live consent record at the moment of publication.</span></div></div>`
+  return pageHead('Publication queue','10-Stage Ethical Storytelling Gate & 22-Point Compulsory Pre-Publication Checklist (Part VII) — separated from Confidential Patient Repository.',
+    `<button class="btn btn-sm btn-ghost" data-act="go" data-v="policy" data-tab="dpa">${ic('check',14)} View 22-Point Checklist</button>`)
+  + `<div class="alert warn" style="margin-bottom:16px">${ic('shield',18)}<div><b>Mandatory 22-Point Pre-Publication &amp; Multi-Actor Gate (Stages 6–8)</b>
+      <span class="small">Evaluates live 5-layer consent, Caregiver/PO factual verification, Privacy Lead stigma/child-safeguarding check, and Manager sign-off. Cannot be bypassed by any single user.</span></div></div>`
   + card('Awaiting publication decision', queue.length? `<div class="col" style="gap:12px">${queue.map(d=>{
       const p = DB.db.patients.find(x=>x.id===d.patientId);
       const gate = GOV.canPublish(d);
@@ -96,25 +98,28 @@ function renderPublish(user){
 }
 
 function renderPolicy(user){
+  if(typeof CARELINK_GOVERNANCE !== 'undefined' && CARELINK_GOVERNANCE.renderGovernancePolicyCenter){
+    return CARELINK_GOVERNANCE.renderGovernancePolicyCenter(user, APPX.params || {});
+  }
   const kb = DB.db.kbDocs;
-  return pageHead('Policy & knowledge base','Organisational documents indexed for authorised retrieval. Proposed changes follow Proposal → Review → Approval → Implementation → Testing → Versioning.')
+  return pageHead('Policy & knowledge base','Adopted institutional governance & Kenya Data Protection Act (2019) safeguards.')
   + card('Mandatory governance rules', `<div class="col" style="gap:10px">${GOV.MANDATORY.map(g=>`<div class="row" style="gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line-2)">
       <span style="color:var(--ok);flex:0 0 18px;margin-top:1px">${ic('lock',16)}</span>
       <div><div class="small">${esc(g.rule)}</div><div class="xs muted" style="margin-top:2px">Rule ${g.id.toUpperCase()} · enforced in the application layer</div></div></div>`).join('')}</div>`,
     {sub:'These rules cannot be waived through ordinary administration.'})
   + `<div class="grid g2" style="margin-top:16px">
       ${card('Knowledge base', table([
-        {label:'Document',render:d=>`<div class="cellname">${esc(d.title)}<span class="sm">${esc(d.type)} · v${esc(d.version)}</span></div>`},
+        {label:'Document',render:d=>`<div class="cellname">${esc(d.title)}<span class="sm">${esc(d.type)} · ${esc(d.version)}</span></div>`},
         {label:'Classification',render:d=>badge(d.classification,'b-neutral','nodot')},
         {label:'Owner',render:d=>`<span class="small">${esc(d.owner)}</span>`},
         {label:'Indexed',render:d=>d.indexed?badge('Yes','b-ok'):badge('No','b-warn')}
       ], kb), {sub:''+kb.length+' documents available to the local assistant'})}
       ${card('Policy status', `<dl class="dl">
-        <dt>Patient Confidentiality & Ethical Storytelling</dt><dd>${badge('PROPOSED v1.0','b-warn')}</dd>
-        <dt>Owner</dt><dd>Media & Information Governance</dd>
-        <dt>Applies to</dt><dd>All accounts, including administrators</dd>
-        <dt>Enforcement</dt><dd>Rule engine (g1-g8)</dd>
-      </dl><div class="divider"></div>${note('The policy is not yet formally adopted. Until adoption it operates as a proposed framework; mandatory technical controls apply regardless.','info')}`)}
+        <dt>Patient Confidentiality &amp; Ethical Storytelling</dt><dd>${badge('ADOPTED v3.2 · ENFORCED','b-ok')}</dd>
+        <dt>Kenya Data Protection Act (2019)</dt><dd>${badge('§44–46 Sensitive HIV/Health Safeguard','b-info')}</dd>
+        <dt>Owner</dt><dd>Media &amp; Information Governance</dd>
+        <dt>Enforcement</dt><dd>Rule engine (g1-g8) + RBAC isolation</dd>
+      </dl>`)}
     </div>`;
 }
 
@@ -692,11 +697,12 @@ function renderExecutive(user){
         {label:'Budget',cls:'num',render:c=>money(c.budget)}
       ], ex.counties))}
     </div>`
-  + card('Organisational risk register', `<div class="col" style="gap:11px">
-      ${alertBox('warn','Homa Bay ministry-area list unverified','<span class="small">Field import for Homa Bay should wait for confirmation of the full service-area list.</span>')}
-      ${alertBox('info','Storytelling policy not yet adopted','<span class="small">The Patient Confidentiality & Ethical Storytelling Policy remains PROPOSED pending executive approval.</span>')}
-      ${alertBox('warn','Hospital evidence gaps','<span class="small">Reconciliation depends on hospital focal person receipt submission; missing evidence is tracked per case and reported weekly.</span>')}
-      ${alertBox('ok','Access control rebuilt','<span class="small">Cross-department and cross-county visibility is now denied at the data layer; the authorisation self-test passes.</span>')}
+  + (typeof STRATEGIC_PLAN !== 'undefined' ? `<div style="margin-bottom:16px">${STRATEGIC_PLAN.renderScorecard(user)}</div>` : '')
+  + card('Organisational Governance & Assurance Register', `<div class="col" style="gap:11px">
+      ${alertBox('ok','Strategic Plan (2027–2031) & 8 Governance Policies Active','<span class="small">9-Part Patient Information Confidentiality, Data Protection &amp; Ethical Storytelling Policy (v3.2, 22-Point Checklist &amp; 5-Layer Consent), Safeguarding, Child Protection, Anti-Fraud and 4-Tier Procurement policies are enforced across all consoles; confidential source files are strictly blocked from external publication.</span>')}
+      ${alertBox('info','Kenya Data Protection Act (2019) — HIV & Sensitive Health Safeguards','<span class="small">Section 44–46 special-category safeguards isolate HIV/CCC/clinical fields to clinical RBAC, enforce k &ge; 5 partner suppression, and log every clinical access to the SHA-256 audit chain.</span>')}
+      ${alertBox('warn','Homa Bay expansion & hospital receipt reconciliation','<span class="small">Continue verifying Homa Bay rural outreach service-area mapping and hospital focal-person structured eTIMS/receipt closures each week.</span>')}
+      ${alertBox('ok','Zero cross-county or cross-department leakage','<span class="small">Repository-level scoping and authorisation self-tests verify strict isolation across Kisumu HQ and Homa Bay County Office.</span>')}
     </div>`);
 }
 function renderCompare(user){

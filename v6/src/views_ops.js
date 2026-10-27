@@ -354,6 +354,7 @@ function renderTargets(user){
       caption:'Where a measure cannot be read from the register by this account, the actual is shown as zero rather than guessed.'}),
       {sub:'Both series carry their own written table beneath the chart.'})}</div>`:'')
 
+  + (typeof STRATEGIC_PLAN !== 'undefined' ? `<div style="margin-bottom:16px">${STRATEGIC_PLAN.renderScorecard(user, { compact: false })}</div>` : '')
   + card('Target register', table([
       {label:'Level',render:t=>badge(titleCase(t.level||'county'), (t.level||'county')==='national'?'b-accent':(t.level==='area'?'b-info':'b-neutral'))},
       {label:'County',render:t=>esc(countyName(t.countyId))},
@@ -634,7 +635,7 @@ function buildReportDoc(type, params, user){
       <h4>Matters for leadership decision</h4>
       <ul>
         <li>Homa Bay ministry-area list requires verification against the current organogram before field import.</li>
-        <li>Patient Confidentiality & Ethical Storytelling Policy remains in PROPOSED status pending formal adoption.</li>
+        <li>Patient Information Confidentiality, Data Protection (Kenya DPA 2019) &amp; Ethical Storytelling Policy (v3.2) is adopted and technically enforced across all consoles; confidential source documents are blocked from publication.</li>
         <li>Hospital financial reconciliation depends on hospital focal persons submitting structured receipts; missing evidence is tracked per case.</li>
       </ul>`;
     return reportShell({ title:'Executive Performance Summary', sub:'Organisation-wide position for authorised leadership', meta: metaBase(), body,

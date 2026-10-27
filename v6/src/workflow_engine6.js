@@ -588,33 +588,36 @@ const WORKFLOW_ENGINE = {
     return sorted;
   },
 
-  /* Compact role-customized priority & QA strip rendered on Console Home */
+  /* Compact, non-congesting role-customized priority & QA ribbon rendered on Console Home */
   homePriorityStrip(user) {
     if (!user) return '';
     const m = this.completionMatrix(user);
     const prof = m.profile || this.roleProfile(user);
     const top = this.prioritiesFor(user).slice(0, 3);
+    const leadTask = top[0];
     const scopes = [
       ['Seat QA', m.personal.pct],
       ['Dept QA', m.department.pct],
       ['Office QA', m.county.pct],
       ...(prof.isGlobalOversight ? [['Global QA', m.global.pct]] : [])
     ];
-    return `<section class="wf-strip no-print" aria-label="${esc(prof.stripTitle)}">
-      <div class="wf-strip-head">
-        <div class="row" style="gap:9px;flex-wrap:wrap">
+    return `<details class="wf-strip wf-slim-ribbon no-print" aria-label="${esc(prof.stripTitle)}">
+      <summary class="wf-strip-head wf-slim-summary">
+        <div class="row" style="gap:9px;flex-wrap:wrap;min-width:0">
           <span class="wf-ai-pill">${ic('sparkles',13)} CareLink Role AI</span>
           <b class="small">${esc(prof.stripTitle)}</b>
+          ${leadTask ? `<span class="wf-lead-hint xs muted">Next: <b>${esc(leadTask.title)}</b></span>` : ''}
         </div>
-        <div class="row" style="gap:10px;flex-wrap:wrap">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
           <div class="wf-mini-meters">
             ${scopes.map(([lbl, pctVal]) => `<span class="wf-meter-chip ${pctVal>=99?'ok':pctVal>=90?'info':'warn'}" title="${esc(lbl)}">
               <i>${esc(lbl)}:</i> <b class="mono">${pctVal}%</b>
             </span>`).join('')}
           </div>
-          <button class="btn btn-xs btn-primary" data-act="go" data-v="smartflow">${ic('flow',12)} Open Role QA Hub</button>
+          <span class="wf-expand-lbl xs bold">Tasks (${top.length}) &#9662;</span>
+          <button class="btn btn-xs btn-primary" type="button" data-act="go" data-v="smartflow">${ic('flow',12)} Role QA Hub</button>
         </div>
-      </div>
+      </summary>
       <div class="grid g3 wf-top-grid">
         ${top.map((t, idx) => `<div class="wf-task-mini">
           <div class="spread" style="gap:6px;margin-bottom:4px">
@@ -630,7 +633,7 @@ const WORKFLOW_ENGINE = {
           </div>
         </div>`).join('')}
       </div>
-    </section>`;
+    </details>`;
   },
 
   /* Role-Customized Smart Workflow & Quality Assurance Hub */

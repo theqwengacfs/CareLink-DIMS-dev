@@ -1026,7 +1026,9 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
-    { tag:'v6.6.8', date:'2026-10-25', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
+    { tag:'v6.7.0', date:'2026-10-27', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
+      summary:'Strategic Plan (2027–2031) Live Alignment (7× Caseload Scale-Up to 3,703 Active, Sub-County Sequence & Alumni Network), 9-Part Confidentiality & Ethical Storytelling Policy (22-Point Pre-Pub Gate & 5-Layer Consent) + Kenya DPA (2019) HIV/Health Safeguards, Decongested 6-Archetype Departmental Consoles, 100% Zero White-Out Text/Tabs, 5-Tier Banner Typography & Seamless Online-Safe Account Switching.' },
+    { tag:'v6.6.8', date:'2026-10-25', channel:'Production', schema:63, author:'CareLink OS Core Engineering',
       summary:'Restored Heritage Sapphire Royal Blue Landing Page, bumped APP.version v6.6.8, Upstash root POST + Native Redis RESP2 TCP/TLS Failover, Exact Host/Body 403 Diagnostics, 30 Workspace Themes (Foundation White console default) & Strict 29-Role Scoped Left Navigation.' },
     { tag:'v6.6.0', date:'2026-10-24', channel:'Production', schema:63, author:'CareLink OS Core Engineering',
       summary:'Official CareLink C-DIMS PDCA 120-Day & Discharge Engine, AI Monday Meeting Processor & Secretary Desk, Baseline-Anchored Charts, Dominant Dept Banners, Installable Font/Theme Packs, Tablet Foundation Default & System Admin Version Control.' },
