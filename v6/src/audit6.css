@@ -133,28 +133,35 @@ table.tbl tbody tr:hover{background:var(--surface-2)}
    B. Legibility on coloured fills
    ------------------------------------------------------------ */
 /* Jewel metric boxes: the label, the value, the detail line and the icon
-   chip are all light on the gradient, in every theme, light or dark. */
-html:not([data-kpistyle="tinted"]) .kpi{color:#FFFFFF}
-html:not([data-kpistyle="tinted"]) .kpi .k,
-html:not([data-kpistyle="tinted"]) .kpi .kl{
+   chip are all light on the gradient, in every filled KPI style.
+   Outlined and Tinted KPI styles keep crisp theme ink on var(--surface) so
+   there is NEVER white text on a white KPI box. */
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi{color:#FFFFFF}
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .k,
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .kl{
   color:rgba(255,255,255,.94)!important;font-weight:750;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.28)}
-html:not([data-kpistyle="tinted"]) .kpi .v,
-html:not([data-kpistyle="tinted"]) .kpi .kv{color:#FFFFFF!important;text-shadow:0 1px 3px rgba(0,0,0,.30)}
-html:not([data-kpistyle="tinted"]) .kpi .v small{color:rgba(255,255,255,.9)!important}
-html:not([data-kpistyle="tinted"]) .kpi .d,
-html:not([data-kpistyle="tinted"]) .kpi .ks{color:rgba(255,255,255,.90)!important}
-html:not([data-kpistyle="tinted"]) .kpi .k svg,
-html:not([data-kpistyle="tinted"]) .kpi .d svg{color:rgba(255,255,255,.92)}
-html:not([data-kpistyle="tinted"]) .kpi .kic,
-html:not([data-kpistyle="tinted"]) .kpi .k .ico{background:rgba(255,255,255,.20);color:#FFFFFF;border-radius:9px}
-html:not([data-kpistyle="tinted"]) .kpi .badge{background:rgba(255,255,255,.22);color:#FFFFFF;border-color:rgba(255,255,255,.34)}
-html:not([data-kpistyle="tinted"]) .kpi a,
-html:not([data-kpistyle="tinted"]) .kpi .linkbtn{color:#FFFFFF;text-decoration:underline}
-/* Soft-tint mode keeps the theme's own ink, which is already solved. */
-html[data-kpistyle="tinted"] .kpi{color:var(--ink)}
-html[data-kpistyle="tinted"] .kpi .k{color:var(--muted)}
-html[data-kpistyle="tinted"] .kpi .v{color:var(--ink)}
-html[data-kpistyle="tinted"] .kpi .d{color:var(--muted)}
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .v,
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .kv{color:#FFFFFF!important;text-shadow:0 1px 3px rgba(0,0,0,.30)}
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .v small{color:rgba(255,255,255,.9)!important}
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .d,
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .ks{color:rgba(255,255,255,.90)!important}
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .k svg,
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .d svg{color:rgba(255,255,255,.92)}
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .kic,
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .k .ico{background:rgba(255,255,255,.20);color:#FFFFFF;border-radius:9px}
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .badge{background:rgba(255,255,255,.22);color:#FFFFFF;border-color:rgba(255,255,255,.34)}
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi a,
+html:not([data-kpistyle="tinted"]):not([data-kpistyle="outlined"]) .kpi .linkbtn{color:#FFFFFF;text-decoration:underline}
+/* Soft-tint and Outlined modes keep the theme's own solved ink. */
+html[data-kpistyle="tinted"] .kpi,
+html[data-kpistyle="outlined"] .kpi{background:var(--surface);color:var(--ink)}
+html[data-kpistyle="outlined"] .kpi{border:2px solid var(--accent);box-shadow:0 2px 8px rgba(15,23,42,.05)}
+html[data-kpistyle="tinted"] .kpi .k,html[data-kpistyle="outlined"] .kpi .k,
+html[data-kpistyle="tinted"] .kpi .kl,html[data-kpistyle="outlined"] .kpi .kl{color:var(--ink-2)!important;text-shadow:none}
+html[data-kpistyle="tinted"] .kpi .v,html[data-kpistyle="outlined"] .kpi .v,
+html[data-kpistyle="tinted"] .kpi .kv,html[data-kpistyle="outlined"] .kpi .kv{color:var(--ink)!important;text-shadow:none}
+html[data-kpistyle="tinted"] .kpi .d,html[data-kpistyle="outlined"] .kpi .d,
+html[data-kpistyle="tinted"] .kpi .ks,html[data-kpistyle="outlined"] .kpi .ks{color:var(--muted)!important;text-shadow:none}
 
 /* Count pills inside tabs and nav items */
 .tcount{background:var(--ink-3);color:var(--surface);font-variant-numeric:tabular-nums}
@@ -187,7 +194,7 @@ html[data-kpistyle="tinted"] .kpi .d{color:var(--muted)}
    against the tint instead, and it is underlined so it is never colour alone. */
 .alert .linkbtn,.note .linkbtn,.card .linkbtn,.panel .linkbtn,.ctx-strip .linkbtn{
   color:var(--accent-fg);font-weight:800;text-decoration:underline;text-underline-offset:2px}
-.panel .linkbtn,.hero-qtab.linkbtn{color:#FFFFFF}
+.panel.home-hero .linkbtn,.hero-qtab.linkbtn{color:#FFFFFF}
 .linkbtn{color:var(--accent-fg);font-weight:750}
 .linkbtn:hover{text-decoration:underline;color:var(--accent-fg)}
 

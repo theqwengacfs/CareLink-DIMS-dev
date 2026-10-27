@@ -20,8 +20,8 @@ const APP = {
   shortName: 'CareLink',
   formerName: 'LOMAMO C-DIMS',
   full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
-  version: '6.6.8',
-  build: '2026.10.25',
+  version: '6.7.0',
+  build: '2026.10.27',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
   motto: 'Love Matters Most',
@@ -890,13 +890,16 @@ function seedDemo(db, now){
 
   /* --- knowledge base --- */
   const kbDocs=[
-    { id:'kb1', title:'LOMAMO Constitution & Bylaws (for review, 22 Jul 2025)', type:'Policy', classification:'Internal organisational', version:'2025.07', owner:'Executive', updated:'2025-07-22', indexed:true },
-    { id:'kb2', title:'KCO Organogram with Sub-Counties', type:'Organisational', classification:'Internal organisational', version:'2026', owner:'Administration', updated:'2026-01-01', indexed:true },
-    { id:'kb3', title:'Patient Confidentiality & Ethical Storytelling Policy', type:'Policy', classification:'Restricted departmental', version:'PROPOSED v1.0', owner:'Media & Information Governance', updated:'2026-10-18', indexed:true, proposed:true },
-    { id:'kb4', title:'Staff Leave Management Specification', type:'Procedure', classification:'Internal organisational', version:'v1.0', owner:'Human Resources', updated:'2026-06-01', indexed:true },
-    { id:'kb5', title:'Omaha System - Problem Classification Scheme reference', type:'Reference', classification:'Internal organisational', version:'2019', owner:'Medical', updated:'2026-02-01', indexed:true },
-    { id:'kb6', title:'PDCA formulation - HIV/AIDS & TB (example)', type:'Guideline', classification:'Internal organisational', version:'example', owner:'Medical', updated:'2026-02-01', indexed:true },
-    { id:'kb7', title:'Mid-Year Report Jan-Jun 2026 (REVIEWED)', type:'Report baseline', classification:'Donor-facing (approved)', version:'final', owner:'M&E', updated:'2026-07-15', indexed:true }
+    { id:'kb1', title:'LOMAMO Constitution, Legal Registration & Board Governance Charter', type:'Governance Charter', classification:'Internal governed — never published raw', version:'2026.10', owner:'Executive & Board', updated:'2026-10-27', indexed:true },
+    { id:'kb2', title:'LOMAMO Foundation Kenya Strategic Plan (2027–2031)', type:'Strategic Plan', classification:'Internal governed — never published raw', version:'2027–2031', owner:'Executive & M&E', updated:'2026-10-27', indexed:true },
+    { id:'kb3', title:'Patient Information Confidentiality, Data Protection & Ethical Storytelling Policy', type:'Adopted Policy', classification:'Mandatory all-staff — never published raw', version:'ADOPTED v3.2', owner:'Media & Information Governance', updated:'2026-10-27', indexed:true, proposed:false },
+    { id:'kb4', title:'Kenya Data Protection Act (2019) — Sensitive HIV/CCC & Health Data Standard', type:'Statutory Safeguard', classification:'Mandatory clinical & data — never published raw', version:'DPA-2019 v2.0', owner:'Data Protection & Clinical', updated:'2026-10-27', indexed:true },
+    { id:'kb5', title:'Safeguarding & Child Protection Policy (Children Act 2022)', type:'Adopted Policy', classification:'Mandatory all-staff — never published raw', version:'ADOPTED v2.1', owner:'Safeguarding & HR', updated:'2026-10-27', indexed:true },
+    { id:'kb6', title:'Anti-Fraud, Anti-Bribery, Conflict-of-Interest & Whistleblowing Policy', type:'Adopted Policy', classification:'Internal assurance — never published raw', version:'ADOPTED v2.0', owner:'Internal Audit & Finance', updated:'2026-10-27', indexed:true },
+    { id:'kb7', title:'4-Tier Procurement, Supplier Vetting & KRA eTIMS Policy', type:'Adopted Policy', classification:'Internal finance — never published raw', version:'ADOPTED v2.4', owner:'Procurement & Finance', updated:'2026-10-27', indexed:true },
+    { id:'kb8', title:'Audited Accounts & IRS Form 990 Stewardship Register (FY2021–FY2025)', type:'Financial Governance', classification:'Summary verified — internal schedules restricted', version:'FY2025', owner:'Finance & Board Treasurer', updated:'2026-10-27', indexed:true },
+    { id:'kb9', title:'Staff Leave Management, Omaha System & PDCA Clinical Formulation Reference', type:'Clinical & HR Reference', classification:'Internal organisational', version:'2026', owner:'Medical & HR', updated:'2026-07-15', indexed:true },
+    { id:'kb10', title:'Mid-Year Report Jan–Jun 2026 (Aggregate Verified Summary)', type:'Report baseline', classification:'Donor-facing (approved)', version:'final', owner:'M&E', updated:'2026-07-15', indexed:true }
   ];
 
   /* --- digitised paper forms (synthetic) --------------------------------

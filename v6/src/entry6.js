@@ -485,6 +485,7 @@ function renderLogin6(){
       ${!demoBlocked ? `<button class="linkbtn" data-act="login-tab" data-tab="demo" type="button">Explore demo accounts (${num(uCount)})</button>` : ''}
       <button class="linkbtn" data-act="login-tab" data-tab="request" type="button">Request county account</button>
       <button class="linkbtn" data-act="login-tab" data-tab="forgot" type="button">Forgotten password?</button>
+      <button class="linkbtn" data-act="open-dpa-statement" type="button">Kenya DPA (2019) Notice</button>
       ${!demoBlocked ? `<button class="linkbtn" data-act="goto-onboard" type="button">First-run online setup</button>` : ''}
       ${!isActivated && commissionedEntryActive() ? `<button class="linkbtn" data-act="reset-first-run-fresh" type="button">Reset pre-activation setup</button>` : ''}
     </div>`;
@@ -1239,14 +1240,19 @@ Object.assign(FORMS, {
       LOGIN6.busy = false;
       if(res.ok){
         LOGIN6.usernameDraft = '';
+        if(typeof ACCOUNT_SWITCHER !== 'undefined' && ACCOUNT_SWITCHER.rememberUsername && AUTH.user){
+          ACCOUNT_SWITCHER.rememberUsername(AUTH.user.username);
+        }
         APPX.screen='app';
         try{ sessionStorage.setItem('carelink.lastUser', AUTH.user.username); }catch(e){}
         if(AUTH.mustChange || res.mustChange || (AUTH.user && (AUTH.user.mustChange || AUTH.user.mustChangePassword))){
           AUTH.mustChange = true;
+          applyTheme();
           render();
           return;
         }
         SESSION.start();
+        applyTheme();
         NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
         render();
         if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();

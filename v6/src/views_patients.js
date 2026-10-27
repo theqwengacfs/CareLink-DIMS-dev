@@ -58,6 +58,9 @@ function renderHome(user){
   else if(id==='hr'||id==='welfare') mods.push(...peopleHome(user));
   else if(id==='vehicle') mods.push(...fleetHome(user));
   else if(id==='pr') mods.push(...mediaHome(user));
+  else if(id==='ccc.clinician') mods.push(...cccClinicianHome(user,st));
+  else if(id==='gov.partner') mods.push(...govPartnerHome(user,st));
+  else if(id==='intl.medical') mods.push(...intlMedicalHome(user,st));
   else if(['chief','director','president','depthead','it','program','program.admin','program.assistant'].includes(id)) mods.push(...leadershipHome(user,st));
 
   /* Every departmental console carries the cost of its own service. */
@@ -70,10 +73,71 @@ function renderHome(user){
      already use and reorders or hides them as this person chose. */
   DASH.remember(mods);
   const arranged = DASH.apply(user, mods);
+  if(typeof WORKSPACE_LAYOUTS !== 'undefined' && WORKSPACE_LAYOUTS.renderHomeWorkspace){
+    return WORKSPACE_LAYOUTS.renderHomeWorkspace(user, {
+      greeting: greeting(),
+      dateStr: today.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),
+      scopeText: scopeSentence(user),
+      actionsHtml: homeHeroActions(user),
+      qtabs,
+      arranged
+    });
+  }
   const tiles = arranged.slice(0,4), rest = arranged.slice(4);
   const arrangeBtn = `<div class="row" style="justify-content:flex-end;margin:-6px 0 10px">
     <button class="btn btn-xs btn-ghost" data-act="arrange-home">${ic('settings',13)} Arrange this console</button></div>`;
   return hero + arrangeBtn + `<div class="grid g4" style="margin-bottom:18px">${tiles.join('')}</div>` + rest.join('');
+}
+
+function cccClinicianHome(user, st){
+  const ps = repo.patientList(user);
+  const reqs = repo.requests(user);
+  const openReqs = reqs.filter(r => !['closed','rejected'].includes(r.status));
+  return [
+    kpi('Facility-linked patients', num(ps.length), user.facility || countyName(user.countyId), 'info', 'users'),
+    kpi('Open CCC / referral cases', num(openReqs.length), 'Bidirectional feedback queue', openReqs.length ? 'warn' : 'ok', 'hospital'),
+    kpi('Active on home follow-up', num(st.active || ps.filter(p=>p.status==='active').length), 'Joint adherence continuum', 'ok', 'heart'),
+    kpi('DPA-2019 Safeguard', 'Enforced', 'HIV/CCC records scoped strictly to facility', 'ok', 'shield'),
+    card('Bidirectional CCC / PSC Referral Desk', `<p class="small">Review facility-linked home-based care referrals, ART/TB adherence notes, and hospital return feedback under Kenya Data Protection Act (2019) §44–46 safeguards.</p>
+      <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" data-act="go" data-v="cccdesk">${ic('hospital',14)} Open CCC / PSC Referral Desk</button>
+        <button class="btn btn-sm btn-ghost" data-act="go" data-v="requests">${ic('clipboard',14)} Referral Requests (${num(openReqs.length)})</button>
+      </div>`)
+  ];
+}
+
+function govPartnerHome(user){
+  const cname = countyName(user.countyId);
+  const cPatients = (DB.db.patients || []).filter(p => p.countyId === user.countyId && p.status !== 'merged');
+  const activeCount = cPatients.filter(p => p.status === 'active').length;
+  const gradCount = cPatients.filter(p => p.status === 'discharged').length;
+  return [
+    kpi('County active households', activeCount >= 5 ? num(activeCount) : '<5', cname + ' aggregate (k ≥ 5)', 'info', 'users'),
+    kpi('Healthy graduations', gradCount >= 5 ? num(gradCount) : '<5', 'Completed recovery cycles', 'ok', 'check'),
+    kpi('Privacy & DPA-2019', 'Zero PII', 'Aggregate county health metrics only', 'ok', 'shield'),
+    kpi('Health Strategy Alignment', 'KAISF / SHA', '2025–2030 Partnership Framework', 'info', 'target'),
+    card('County Health Partnership & Aggregate Oversight', `<p class="small">Welcome to the ${esc(cname)} Government &amp; MOH Partnership Desk. All indicators are de-identified with <code>k &ge; 5</code> small-cell suppression in full compliance with the Kenya Data Protection Act (2019).</p>
+      <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" data-act="go" data-v="govpartner">${ic('globe',14)} Open Partnership Analytics</button>
+        <button class="btn btn-sm btn-ghost" data-act="go" data-v="interop">${ic('layers',14)} KHIS / DHIS2 Verification</button>
+      </div>`)
+  ];
+}
+
+function intlMedicalHome(user, st){
+  const ps = repo.patientList(user);
+  const over120 = ps.filter(p => p.status === 'active' && PAT.days(p) >= 120);
+  return [
+    kpi('120+ Day Specialist Queue', num(over120.length), 'Awaiting international clinical concurrence', over120.length ? 'warn' : 'ok', 'activity'),
+    kpi('Active clinical caseload', num(st.active || ps.filter(p=>p.status==='active').length), 'Cross-county clinical scope', 'info', 'users'),
+    kpi('Open PDCA cycles', num((DB.db.pdcas||[]).filter(x=>x.status==='open').length), 'Structured Plan-Do-Check-Act', '', 'refresh'),
+    kpi('DPA-2019 §48 Safeguard', 'Active', 'Audited clinical review scope', 'ok', 'lock'),
+    card('International Medical Specialist Review Board', `<p class="small">Conduct structured 120+ day clinical extension reviews, complex HIV/TB/malnutrition case concurrences, and PDCA recommendations alongside the Kenya Medical Case Management team.</p>
+      <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" data-act="go" data-v="intlmedical">${ic('activity',14)} Open 120+ Day Review Queue</button>
+        <button class="btn btn-sm btn-ghost" data-act="go" data-v="pdca">${ic('refresh',14)} PDCA Clinical Board</button>
+      </div>`)
+  ];
 }
 function greeting(){ const h=new Date().getHours(); return h<12?'Good morning':h<17?'Good afternoon':'Good evening'; }
 function scopeSentence(user){
@@ -481,12 +545,13 @@ function mediaHome(user){
     ], pending,{empty:emptyState('Nothing awaiting review','New storytelling submissions appear here for consent and ethics review.','check')}),
       {foot:`<span>${ic('lock',13)} Patient photographs are never published merely because they were uploaded.</span>`}),
     card('Governance policy', `<div class="col" style="gap:10px">
-      <div class="bold small">Patient Confidentiality & Ethical Storytelling Policy</div>
-      ${note('Implemented as a rule engine, not a super-user account. The Chief System Administrator cannot switch these controls off.')}
+      <div class="bold small">Patient Information Confidentiality, Data Protection &amp; Ethical Storytelling Policy</div>
+      ${note('Adopted & enforced across clinical, media and public portal layers under Kenya Data Protection Act (2019). Sensitive governance & patient source documents are never published.')}
       <div class="dl">
-        <dt>Status</dt><dd>${badge('PROPOSED v1.0','b-warn')}</dd>
-        <dt>Owner</dt><dd>Media & Information Governance</dd>
-      </div></div>`, {actions:`<button class="btn btn-xs btn-ghost" data-act="go" data-v="policy">Open policy ${ic('chevron',12)}</button>`})
+        <dt>Status</dt><dd>${badge('ADOPTED v3.2 · ENFORCED','b-ok')}</dd>
+        <dt>Statutory Basis</dt><dd>Kenya Data Protection Act, 2019 (§25, §30, §44–46)</dd>
+        <dt>Owner</dt><dd>Media &amp; Information Governance</dd>
+      </div></div>`, {actions:`<button class="btn btn-xs btn-ghost" data-act="go" data-v="policy">Open Charter ${ic('chevron',12)}</button>`})
   ];
 }
 function peopleHome(user){

@@ -143,6 +143,8 @@ const CONTRAST_PAIRS = [
   { name:'Warning text on its tint',     fg:'warn',   bg:'warnBg',  min:4.5 },
   { name:'Critical text on its tint',    fg:'crit',   bg:'critBg',  min:4.5 },
   { name:'Info text on its tint',        fg:'info',   bg:'infoBg',  min:4.5 },
+  { name:'Text box ink on field box',    fg:null,     bg:null,      min:4.5, special:'fieldInput' },
+  { name:'Inactive tab text on tab bar', fg:'ink2',   bg:'bar',     min:4.5 },
   { name:'Card boundary against the page',fg:'line',  bg:'bg',      min:1.1, boundary:true }
 ];
 
@@ -160,6 +162,7 @@ const VISUALX = {
         let fg, bg;
         if(p.special==='accent'){ fg = acc.fg; bg = acc.soft; }
         else if(p.special==='accentFill'){ fg = acc.fillInk; bg = acc.fill; }
+        else if(p.special==='fieldInput'){ fg = vars['--ink'] || t.ink; bg = vars['--field'] || t.field || t.surface; }
         else if(p.computed){ fg = vars['--chip-ink'] || t.ink2; bg = vars['--chip'] || t.surface2; }
         else { fg = t[p.fg]; bg = t[p.bg]; }
         if(!fg || !bg) return null;

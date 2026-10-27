@@ -814,22 +814,22 @@ html[data-calm="on"] *{animation:none!important;transition:none!important;scroll
 .msg-layout{display:grid;grid-template-columns:250px minmax(0,1fr) 280px;gap:14px;align-items:start}
 @media(max-width:1150px){.msg-layout{grid-template-columns:220px minmax(0,1fr)}.msg-side{display:none}}
 @media(max-width:760px){.msg-layout{grid-template-columns:1fr}.msg-list{max-height:220px;overflow:auto}}
-.msg-list{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.msg-list{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .msg-list-h{padding:11px 13px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);border-bottom:1px solid var(--line-2)}
-.msg-thread{display:block;width:100%;text-align:left;padding:10px 13px;border:0;border-bottom:1px solid var(--line-2);background:#fff}
+.msg-thread{display:block;width:100%;text-align:left;padding:10px 13px;border:0;border-bottom:1px solid var(--line-2);background:var(--surface);color:var(--ink)}
 .msg-thread:hover{background:var(--surface-2)}
-.msg-thread.on{background:#EEF3FB;box-shadow:inset 3px 0 0 var(--brand,#1F3864)}
-.msg-thread b{font-size:12.5px}
+.msg-thread.on{background:var(--accent-soft);color:var(--ink);box-shadow:inset 3px 0 0 var(--accent,var(--brand,#1F3864))}
+.msg-thread b{font-size:12.5px;color:var(--ink)}
 .msg-thread span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .msg-thread em{display:block;font-size:10.5px;color:var(--muted-2);font-style:normal;margin-top:3px}
-.msg-dot{background:var(--brand,#1F3864);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;margin-left:auto}
-.msg-pane{background:#fff;border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:440px;max-height:64vh}
+.msg-dot{background:var(--accent,var(--brand,#1F3864));color:var(--accent-ink,#fff);border-radius:999px;font-size:10px;padding:1px 6px;margin-left:auto}
+.msg-pane{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:440px;max-height:64vh}
 .msg-pane-h{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line-2)}
-.msg-pane-h b{display:block;font-size:13.5px}
+.msg-pane-h b{display:block;font-size:13.5px;color:var(--ink)}
 .msg-pane-h span{display:block;font-size:11.5px;color:var(--muted)}
 .msg-scroll{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface-2)}
-.msg{max-width:78%;align-self:flex-start;background:#fff;border:1px solid var(--line);border-radius:12px 12px 12px 4px;padding:8px 11px}
-.msg.mine{align-self:flex-end;background:#EAF0FB;border-color:#D5E0F3;border-radius:12px 12px 4px 12px}
+.msg{max-width:78%;align-self:flex-start;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px 12px 12px 4px;padding:8px 11px}
+.msg.mine{align-self:flex-end;background:var(--accent-soft);color:var(--ink);border-color:color-mix(in srgb,var(--accent) 32%,var(--line));border-radius:12px 12px 4px 12px}
 .msg-meta{font-size:10.5px;color:var(--muted-2);margin-bottom:3px}
 .msg-body{font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .msg-flag{display:flex;gap:5px;align-items:center;margin-top:6px;font-size:10.5px;color:var(--warn)}
@@ -1042,8 +1042,8 @@ html[data-calm="on"] *{animation:none!important;transition:none!important;scroll
 .cmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
 .cmap-h{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
 .cmap-i{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 10px;border-radius:9px;border:1px solid transparent;
-  background:#F7F8FA;color:var(--ink);font-size:13px;margin-bottom:5px;min-height:40px}
-.cmap-i:hover{border-color:var(--accent);background:#fff}
+  background:var(--surface-2);color:var(--ink);font-size:13px;margin-bottom:5px;min-height:40px}
+.cmap-i:hover{border-color:var(--accent);background:var(--hover);color:var(--ink)}
 .cmap-i.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,transparent);font-weight:650}
 .cmap-i svg{opacity:.7;flex:0 0 16px}
 .cmap-i .tcount{margin-left:auto}

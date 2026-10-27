@@ -850,23 +850,28 @@ details.chart-table[open] > summary.chart-table-btn{
   padding:20px 22px; border-radius:16px; margin:20px 0;
   background:linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
   border:1px solid #BFDBFE;
+  color:#0F172A !important;
 }
-.pp-gov-head h2{ margin:4px 0 6px; font-size:21px; color:#0F172A; }
+.pp-gov-strip p, .pp-gov-strip li, .pp-gov-strip div{ color:#1E293B; }
+.pp-gov-head h2{ margin:4px 0 6px; font-size:21px; color:#0F172A !important; }
 .pp-gov-kpis{
   display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
   gap:10px; margin-top:14px;
 }
 .pp-gov-kpi{
   padding:12px; border-radius:12px; background:#FFFFFF; border:1px solid #DBEAFE;
-  display:flex; flex-direction:column; gap:2px;
+  display:flex; flex-direction:column; gap:2px; color:#0F172A !important;
 }
-.pp-gov-kpi b{ font-size:20px; color:#1E3A8A; }
-.pp-gov-kpi span{ font-size:12px; font-weight:700; color:#0F172A; }
-.pp-gov-kpi small{ font-size:11px; color:#64748B; }
+.pp-gov-kpi b{ font-size:20px; color:#1E3A8A !important; }
+.pp-gov-kpi span{ font-size:12px; font-weight:700; color:#0F172A !important; }
+.pp-gov-kpi small{ font-size:11px; color:#475569 !important; }
 .pp-partner-panel{
   margin-top:14px; padding:16px; border-radius:12px;
   background:#FFFFFF; border:1.5px solid #10B981;
+  color:#0F172A !important;
 }
+.pp-partner-panel h3, .pp-partner-panel b, .pp-partner-panel strong{ color:#0F172A !important; }
+.pp-partner-panel p, .pp-partner-panel div, .pp-partner-panel span{ color:#1E293B; }
 .pp-partner-grid{
   display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
   gap:12px; margin-top:10px; font-size:12.5px;
@@ -1990,6 +1995,480 @@ details.cl-util-menu > summary::-webkit-details-marker{ display:none; }
 .cdims-sig-grid{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:16px; margin-top:20px; }
 @media (max-width:640px){ .cdims-sig-grid{ grid-template-columns:1fr; } }
 .cdims-sig-line{ border-bottom:1.5px solid #162F59; height:22px; margin-bottom:5px; }
+
+/* ============================================================================
+   CareLink C-DIMS v6.7.0 — Complete Visual Overhaul:
+   1. 100% Zero White-Out Guarantee Across All Inputs, Selects, Tabs & Panels
+   2. 5-Tier Distinct Banner & Bar Visual / Typographic Hierarchy
+   3. 6 Decongested Multi-Archetype Departmental Console Workspaces
+   4. Strategic Plan (2027–2031), Governance Charter, Kenya DPA-2019 & Switcher
+   ============================================================================ */
+
+/* --- A. 100% ZERO WHITE-OUT GUARANTEE FOR INPUTS, SELECTS, TABS & PANELS --- */
+input.input, textarea.input, select.input,
+.field input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.field textarea, .field select{
+  background-color:var(--field, var(--surface)) !important;
+  color:var(--ink) !important;
+  border:1.5px solid var(--field-line, var(--border-strong, var(--line))) !important;
+  caret-color:var(--ink);
+}
+input.input::placeholder, textarea.input::placeholder,
+.field input::placeholder, .field textarea::placeholder{
+  color:var(--muted) !important;
+  opacity:.82;
+}
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill{
+  -webkit-text-fill-color:var(--ink, #0F172A) !important;
+  -webkit-box-shadow:0 0 0 1000px var(--field, #FFFFFF) inset !important;
+  transition:background-color 9999s ease-out 0s;
+}
+.lg6-panel input:-webkit-autofill,
+.lg6-panel input:-webkit-autofill:focus{
+  -webkit-text-fill-color:#0F172A !important;
+  -webkit-box-shadow:0 0 0 1000px #FFFFFF inset !important;
+}
+/* Native <option> & <optgroup> popups in Chrome/Edge/Windows must never inherit white banner ink */
+select option, select optgroup{
+  background-color:var(--surface, #FFFFFF);
+  color:var(--ink, #0F172A);
+}
+.cbar select option, .cbar select optgroup,
+.npane select option, .npane select optgroup,
+.home-hero select option, .lg6-panel select option{
+  background-color:#FFFFFF !important;
+  color:#0F172A !important;
+}
+/* Non-hero .panel must never render white hero text on a light card */
+.panel:not(.home-hero){
+  background:var(--surface);
+  color:var(--ink);
+  border:1px solid var(--line);
+}
+/* Unbreakable Tab & Tab-Counter Contrast across Pill, Solid & Underline Tab Styles */
+.tabs .tab, .sheet .tab{
+  color:var(--ink-2) !important;
+  font-weight:650;
+}
+.tabs .tab:hover, .sheet .tab:hover{
+  background:var(--hover) !important;
+  color:var(--ink) !important;
+}
+html:not([data-tabstyle="underline"]) .tabs .tab.active,
+html:not([data-tabstyle="underline"]) .tabs .tab.on{
+  background:var(--accent) !important;
+  color:var(--accent-ink, #FFFFFF) !important;
+  border-color:var(--accent) !important;
+  font-weight:800 !important;
+}
+html:not([data-tabstyle="underline"]) .tabs .tab.active span,
+html:not([data-tabstyle="underline"]) .tabs .tab.active svg,
+html:not([data-tabstyle="underline"]) .tabs .tab.on span,
+html:not([data-tabstyle="underline"]) .tabs .tab.on svg{
+  color:var(--accent-ink, #FFFFFF) !important;
+}
+html:not([data-tabstyle="underline"]) .tabs .tab.active .ct,
+html:not([data-tabstyle="underline"]) .tabs .tab.active .tcount:not(.crit),
+html:not([data-tabstyle="underline"]) .tabs .tab.on .ct,
+html:not([data-tabstyle="underline"]) .tabs .tab.on .tcount:not(.crit){
+  background:rgba(255,255,255,.24) !important;
+  color:var(--accent-ink, #FFFFFF) !important;
+  border:1px solid rgba(255,255,255,.35);
+}
+html[data-tabstyle="underline"] .tabs .tab.active,
+html[data-tabstyle="underline"] .tabs .tab.on{
+  background:transparent !important;
+  color:var(--accent-fg) !important;
+  border-color:transparent !important;
+  border-bottom:2.5px solid var(--accent) !important;
+  border-radius:0 !important;
+  font-weight:800 !important;
+}
+html[data-tabstyle="underline"] .tabs .tab.active span,
+html[data-tabstyle="underline"] .tabs .tab.active svg{
+  color:var(--accent-fg) !important;
+}
+.sheet .tab.active, .sheet .tab.on{
+  background:var(--accent-soft) !important;
+  color:var(--accent-fg) !important;
+  border-color:color-mix(in srgb, var(--accent) 42%, var(--line)) !important;
+  font-weight:800 !important;
+}
+.sheet .tab.active span, .sheet .tab.active svg{
+  color:var(--accent-fg) !important;
+}
+.sheet .tab.active .tcount:not(.crit){
+  background:var(--accent) !important;
+  color:var(--accent-ink, #FFFFFF) !important;
+}
+
+/* --- B. 5-TIER DISTINCT BANNER & BAR TYPOGRAPHIC / STRUCTURAL HIERARCHY ---
+   Tier 1 (.topbar.cbar)      : Fixed OS Command Header — bold geometric sans, dark spectrum, gold bottom hairline
+   Tier 2 (.ctx-strip/.ws67)  : Module / Console Workspace Header — editorial serif title, 6px left dept spine, pure card surface
+   Tier 3 (System/DPA bars)   : Authority / Statutory Notice — monospace technical tag, crisp framed ribbon
+   Tier 4 (.wf-slim-ribbon)   : AI Workflow Strip — collapsible 1-line glass-paper bar with dashed accent divider
+   Tier 5 (.alert/.note)      : Contextual Inline Callout — soft semantic tint, 4px rounded left bar, clean body copy
+*/
+.topbar.cbar{
+  box-shadow:0 3px 16px rgba(2,6,23,.22), inset 0 -2px 0 rgba(245,196,81,.42);
+}
+.topbar.cbar .cb-os-tag{
+  font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+  letter-spacing:.11em;
+  font-weight:850;
+}
+.topbar.cbar h1{
+  font-family:var(--font-sans, 'Inter', system-ui, -apple-system, sans-serif);
+  font-weight:850;
+  letter-spacing:-.022em;
+}
+
+/* Tier 2: Inner Module Context Header (.ctx-strip) — Editorial Serif Headline + 6px Left Spine */
+.ctx-strip{
+  background:var(--surface) !important;
+  border:1px solid var(--line) !important;
+  border-left:6px solid var(--accent) !important;
+  border-radius:14px !important;
+  padding:13px 18px !important;
+  margin-bottom:14px !important;
+  box-shadow:0 2px 10px rgba(15,23,42,.04) !important;
+}
+.ctx-strip .ctx-title,
+.page-head h2{
+  font-family:Georgia,'Iowan Old Style','Palatino Linotype',serif;
+  letter-spacing:-.01em;
+  font-weight:700;
+  color:var(--ink) !important;
+}
+
+/* Tier 3: System Governance, Demo Switch, Co-Edit & Statutory Kenya DPA-2019 Ribbons */
+.demo-view-bar,
+.global-activate-banner,
+.silent-override-bar,
+.coedit-bar,
+.dpa-statute-bar{
+  border-radius:10px;
+  margin-bottom:10px;
+  font-size:12px;
+}
+.dpa-statute-bar{
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  padding:8px 14px;
+  background:linear-gradient(90deg, color-mix(in srgb, var(--info-bg, #EFF6FF) 88%, var(--surface)) 0%, var(--surface) 100%);
+  border:1px solid color-mix(in srgb, var(--info, #1D4ED8) 34%, var(--line));
+  border-left:5px solid var(--info, #1D4ED8);
+  color:var(--ink);
+}
+.dpa-statute-left{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; flex:1 1 360px; }
+.dpa-statute-tag{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 8px; border-radius:6px;
+  font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+  font-size:10.5px; font-weight:800; letter-spacing:.06em;
+  background:var(--info, #1D4ED8); color:#FFFFFF; white-space:nowrap;
+}
+.dpa-statute-txt{ font-size:12px; line-height:1.42; color:var(--ink-2); }
+.dpa-statute-txt b{ color:var(--ink); }
+.dpa-btn{
+  background:var(--surface) !important;
+  color:var(--accent-fg) !important;
+  border:1px solid color-mix(in srgb, var(--accent) 40%, var(--line)) !important;
+  font-weight:750 !important;
+}
+
+/* Tier 4: Sleek Collapsible 1-Line Smart AI Workflow Ribbon */
+details.wf-strip.wf-slim-ribbon{
+  padding:9px 14px !important;
+  margin-bottom:14px !important;
+  border-radius:12px !important;
+  background:var(--surface-2) !important;
+  border:1px dashed color-mix(in srgb, var(--accent) 42%, var(--line)) !important;
+  box-shadow:none !important;
+}
+details.wf-strip.wf-slim-ribbon > summary.wf-slim-summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  margin:0 !important;
+}
+details.wf-strip.wf-slim-ribbon > summary.wf-slim-summary::-webkit-details-marker{ display:none; }
+.wf-lead-hint{
+  padding-left:8px; border-left:1px solid var(--line);
+  max-width:360px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.wf-expand-lbl{ color:var(--accent-fg); cursor:pointer; padding:2px 6px; border-radius:6px; background:var(--accent-soft); }
+details.wf-strip.wf-slim-ribbon[open] .wf-top-grid{
+  margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);
+}
+
+/* --- C. DECONGESTED MULTI-ARCHETYPE DEPARTMENTAL CONSOLE WORKSPACES --- */
+.ws67-hero.ctx-strip{
+  border-left:7px solid var(--ws-accent, var(--accent)) !important;
+  padding:18px 20px 12px !important;
+  margin-bottom:16px !important;
+}
+.ws67-role-tabs{
+  margin-top:12px; padding-top:10px; border-top:1px solid var(--line-2);
+}
+.ws67-hero{
+  position:relative;
+  background:var(--surface);
+  color:var(--ink);
+  border:1px solid var(--line);
+  border-left:7px solid var(--ws-accent, var(--accent));
+  border-radius:16px;
+  padding:18px 20px 12px;
+  margin-bottom:16px;
+  box-shadow:0 4px 18px rgba(15,23,42,.05);
+}
+/* 6 Distinct Departmental Console Colour Schemes & Signatures */
+.ws67-hero[data-archetype="exec-briefing"]{
+  --ws-accent:#1E3A8A; --ws-tint:rgba(30,58,138,.055);
+  background:linear-gradient(135deg, color-mix(in srgb, #1E3A8A 6%, var(--surface)) 0%, var(--surface) 68%);
+  border-top:2px solid rgba(217,119,6,.45);
+}
+.ws67-hero[data-archetype="clinical-triage"]{
+  --ws-accent:#0F766E; --ws-tint:rgba(15,118,110,.06);
+  background:linear-gradient(135deg, color-mix(in srgb, #0F766E 7%, var(--surface)) 0%, var(--surface) 70%);
+}
+.ws67-hero[data-archetype="field-action"]{
+  --ws-accent:#C2410C; --ws-tint:rgba(194,65,12,.06);
+  background:linear-gradient(135deg, color-mix(in srgb, #EA580C 6%, var(--surface)) 0%, var(--surface) 70%);
+}
+.ws67-hero[data-archetype="ledger-matrix"]{
+  --ws-accent:#047857; --ws-tint:rgba(4,120,87,.06);
+  background:linear-gradient(135deg, color-mix(in srgb, #047857 6%, var(--surface)) 0%, var(--surface) 70%);
+}
+.ws67-hero[data-archetype="studio-editorial"]{
+  --ws-accent:#6D28D9; --ws-tint:rgba(109,40,217,.06);
+  background:linear-gradient(135deg, color-mix(in srgb, #6D28D9 6%, var(--surface)) 0%, var(--surface) 70%);
+}
+.ws67-hero[data-archetype="command-grid"]{
+  --ws-accent:#0369A1; --ws-tint:rgba(3,105,161,.06);
+  background:linear-gradient(135deg, color-mix(in srgb, #0369A1 6%, var(--surface)) 0%, var(--surface) 70%);
+}
+.ws67-hero-main{
+  display:grid;
+  grid-template-columns:minmax(0, 1.35fr) minmax(260px, .9fr);
+  gap:18px;
+  align-items:center;
+}
+@media (max-width:960px){ .ws67-hero-main{ grid-template-columns:1fr; } }
+.ws67-eyebrow{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+.ws67-arch-pill, .ws67-hero .ws67-arch-pill.hero-dept-pill{
+  font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+  font-size:10px; font-weight:850; letter-spacing:.09em; text-transform:uppercase;
+  padding:3px 9px; border-radius:6px;
+  background:var(--ws-accent, var(--accent)) !important;
+  border-color:var(--ws-accent, var(--accent)) !important;
+  color:#FFFFFF !important;
+}
+.ws67-scope-pill{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11.5px; font-weight:700; color:var(--ink-2);
+  padding:2px 9px; border-radius:999px;
+  background:var(--surface-2); border:1px solid var(--line);
+}
+.ws67-greeting{
+  font-family:Georgia,'Iowan Old Style','Palatino Linotype',serif;
+  font-size:clamp(20px, 2.1vw, 25px);
+  font-weight:700; letter-spacing:-.015em; margin:2px 0 5px;
+  color:var(--ink);
+}
+.ws67-sub{ font-size:13px; line-height:1.5; color:var(--muted); margin:0 0 12px; max-width:68ch; }
+.ws67-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.ws67-qgrid, .ws67-hero .ws67-qgrid.hero-qtabs{
+  display:grid !important; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;
+}
+.ws67-qcard{
+  text-align:left; padding:10px 12px; border-radius:12px;
+  background:var(--surface-2); color:var(--ink);
+  border:1px solid var(--line);
+  display:flex; flex-direction:column; gap:3px; cursor:pointer;
+  transition:border-color .14s ease, transform .14s ease;
+}
+.ws67-qcard:hover{
+  border-color:var(--ws-accent, var(--accent));
+  background:var(--hover);
+  transform:translateY(-1px);
+}
+.ws67-qcard.is-alert{
+  border-color:color-mix(in srgb, var(--warn) 55%, var(--line));
+  background:var(--warn-bg);
+}
+.ws67-qlbl{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11px; font-weight:700; color:var(--muted);
+}
+.ws67-qnum{
+  font-size:20px; font-weight:850; color:var(--ink);
+  font-variant-numeric:tabular-nums;
+}
+.ws67-layout-bar{
+  margin-top:12px; padding-top:10px; border-top:1px solid var(--line-2);
+  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+}
+.ws67-kpi-row{ margin-bottom:18px; gap:14px; }
+.ws67-primary-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:18px;
+  align-items:start;
+  margin-bottom:18px;
+}
+.ws67-primary-grid.arch-exec-briefing{ grid-template-columns:minmax(0, 1.15fr) minmax(0, .85fr); }
+.ws67-primary-grid.arch-ledger-matrix{ grid-template-columns:minmax(0, 1.08fr) minmax(0, .92fr); }
+@media (max-width:1080px){
+  .ws67-primary-grid,
+  .ws67-primary-grid.arch-exec-briefing,
+  .ws67-primary-grid.arch-ledger-matrix{ grid-template-columns:1fr; }
+}
+.ws67-primary-slot > .card{ margin-bottom:0; height:100%; }
+.ws67-stack{ display:flex; flex-direction:column; gap:18px; }
+.ws67-secondary-drawer{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:16px 18px;
+  margin-top:4px;
+}
+.ws67-drawer-head{ margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.ws67-drawer-tag{
+  font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+  font-size:10.5px; font-weight:850; letter-spacing:.08em; color:var(--accent-fg);
+  margin-right:8px;
+}
+.ws67-mod-tabs{ margin-bottom:14px; flex-wrap:wrap; gap:6px; }
+.ws67-all-modules-toggle{ margin-top:12px; padding-top:10px; border-top:1px dashed var(--line-2); }
+.ws67-all-modules-toggle > summary{ cursor:pointer; font-weight:700; }
+
+/* --- D. STRATEGIC PLAN (2027–2031) & GOVERNANCE / DPA-2019 CARDS --- */
+.sp67-card{
+  background:var(--surface);
+  color:var(--ink);
+  border:1px solid var(--line);
+  border-top:4px solid #1E3A8A;
+  border-radius:16px;
+  padding:18px 20px;
+  margin-bottom:18px;
+}
+.sp67-head{
+  display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;
+  margin-bottom:14px;
+}
+.sp67-kicker{
+  display:inline-flex; align-items:center; gap:5px;
+  font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+  font-size:10.5px; font-weight:850; letter-spacing:.08em; color:var(--accent-fg);
+}
+.sp67-head h3{ margin:3px 0 2px; font-size:17px; font-family:Georgia,serif; color:var(--ink); }
+.sp67-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:12px;
+}
+@media (max-width:980px){ .sp67-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+@media (max-width:640px){ .sp67-grid{ grid-template-columns:1fr; } }
+.sp67-pillar{
+  background:var(--surface-2);
+  color:var(--ink);
+  border:1px solid var(--line);
+  border-left:4px solid var(--sp-c, var(--accent));
+  border-radius:12px;
+  padding:12px 14px;
+  display:flex; flex-direction:column; gap:6px;
+}
+.sp67-pillar.is-lead{
+  background:color-mix(in srgb, var(--sp-c, var(--accent)) 6%, var(--surface));
+  border-color:color-mix(in srgb, var(--sp-c, var(--accent)) 35%, var(--line));
+}
+.sp67-p-top{ display:flex; justify-content:space-between; align-items:center; gap:6px; }
+.sp67-code{
+  font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+  font-size:10.5px; font-weight:850; padding:2px 7px; border-radius:5px;
+  background:var(--sp-c, var(--accent)); color:#FFFFFF;
+}
+.sp67-pct{ font-size:11px; font-weight:800; color:var(--ok); font-variant-numeric:tabular-nums; }
+.sp67-pillar h4{ margin:0; font-size:13.5px; font-weight:800; color:var(--ink); }
+.sp67-pillar p{ margin:0; font-size:12px; line-height:1.46; color:var(--muted); flex:1; }
+.sp67-bar{ height:5px; border-radius:999px; background:var(--line); overflow:hidden; margin-top:2px; }
+.sp67-bar i{ display:block; height:100%; background:var(--sp-c, var(--accent)); border-radius:999px; }
+.sp67-target{ display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--ink-2); }
+
+.gov67-charter-grid{
+  display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px;
+}
+@media (max-width:920px){ .gov67-charter-grid{ grid-template-columns:1fr; } }
+.gov67-sec-card{
+  background:var(--surface); color:var(--ink);
+  border:1px solid var(--line); border-radius:14px; padding:16px 18px;
+}
+.gov67-sec-card h3{ margin:8px 0 4px; font-size:15.5px; font-family:Georgia,serif; color:var(--ink); }
+.gov67-list{ margin:8px 0 0; padding-left:18px; font-size:12.4px; line-height:1.52; color:var(--ink-2); }
+.gov67-list li{ margin-bottom:5px; }
+.gov67-item{
+  display:flex; gap:10px; align-items:flex-start;
+  padding:10px 12px; border-radius:10px; background:var(--surface-2); border:1px solid var(--line);
+}
+.gov67-ic{ color:var(--ok); flex:0 0 18px; margin-top:2px; }
+
+.dpa-modal-lead{
+  padding:12px 14px; border-radius:10px; margin-bottom:14px;
+  background:var(--surface-2); border:1px solid var(--line);
+}
+.dpa-clause-grid{
+  display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px;
+}
+@media (max-width:780px){ .dpa-clause-grid{ grid-template-columns:1fr; } }
+.dpa-clause-card{
+  padding:13px 15px; border-radius:12px;
+  background:var(--surface-2); color:var(--ink);
+  border:1px solid var(--line); border-left:4px solid var(--accent);
+}
+.dpa-clause-code{
+  display:inline-block; font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+  font-size:10.5px; font-weight:850; color:var(--accent-fg);
+  background:var(--accent-soft); padding:2px 7px; border-radius:5px; margin-bottom:5px;
+}
+.dpa-clause-card h4{ margin:2px 0 5px; font-size:13.5px; color:var(--ink); }
+.dpa-clause-card p{ margin:0; font-size:12.2px; line-height:1.5; color:var(--ink-2); }
+.sp67-subbox{
+  padding:12px 14px; border-radius:12px;
+  background:var(--surface-2); color:var(--ink);
+  border:1px solid var(--line);
+}
+
+/* --- E. SEAMLESS ACCOUNT SWITCHER GRID --- */
+.sw67-grid{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
+  gap:9px; max-height:58vh; overflow-y:auto; padding:2px;
+}
+.sw67-item{
+  text-align:left; padding:10px 12px; border-radius:11px;
+  background:var(--surface-2); color:var(--ink);
+  border:1px solid var(--line); border-left:4px solid var(--sw-c, var(--accent));
+  display:flex; flex-direction:column; gap:3px; cursor:pointer;
+  transition:border-color .14s ease, background .14s ease;
+}
+.sw67-item:hover:not(:disabled){
+  border-color:var(--sw-c, var(--accent));
+  background:var(--hover);
+}
+.sw67-item.is-current{
+  opacity:.72; cursor:default; background:var(--accent-soft);
+}
+.sw67-top{ display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:2px; }
+.sw67-dept{
+  font-size:9.8px; font-weight:850; letter-spacing:.05em; text-transform:uppercase;
+  padding:2px 7px; border-radius:5px; color:#FFFFFF;
+}
+.sw67-role{ font-size:12.5px; font-weight:800; color:var(--ink); line-height:1.3; }
+.sw67-name{ font-size:11px; color:var(--muted); line-height:1.35; }
+
 
 
 
