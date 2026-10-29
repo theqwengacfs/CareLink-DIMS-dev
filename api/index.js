@@ -773,7 +773,7 @@ function overlayAuthoritativeHead(state, head, manifestRev = 0, manifestSaved = 
   }
   state.rev = targetRev;
   if (manifestSaved || head.saved) state.saved = manifestSaved || head.saved;
-  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.9.1' }, users: [], audit: [] };
+  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.9.2' }, users: [], audit: [] };
   if (Array.isArray(head.users) && head.users.length) {
     state.db.users = Array.isArray(state.db.users) ? state.db.users : [];
     for (const hu of head.users) {
@@ -2023,7 +2023,7 @@ async function handleRequest(req, res) {
     ));
     return sendJson(res, 200, {
       ok: true,
-      version: '6.9.1',
+      version: '6.9.2',
       cloud: true,
       onlineDatabase: true,
       mode: 'online-site-db',
@@ -2098,7 +2098,7 @@ async function handleRequest(req, res) {
 
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
-    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.1' }, users: [], audit: [] });
+    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.2' }, users: [], audit: [] });
     const chiefEmail = admin.email || `${username}@${(body.org && body.org.emailDomain) || 'lomamo.example'}`;
     const chiefDisplayName = admin.name || 'Chief System Administrator';
     let chiefUserId = 'u-chief-admin';
@@ -2977,7 +2977,7 @@ async function handleRequest(req, res) {
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to write to the online database.' });
     const body = await readJsonBody(req);
     const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
-    state.db = state.db || { meta: { schema: 6, version: '6.9.1' } };
+    state.db = state.db || { meta: { schema: 6, version: '6.9.2' } };
     const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
     const applied = [];
     const rejected = [];

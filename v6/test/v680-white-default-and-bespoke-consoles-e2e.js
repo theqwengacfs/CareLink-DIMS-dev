@@ -46,7 +46,7 @@ const { makeCtx } = require('./dom');
     };
   })())`));
 
-  ok('APP.version is 6.9.1', themeAudit.appVersion === '6.9.1', themeAudit.appVersion);
+  ok('APP.version is 6.9.2', themeAudit.appVersion === '6.9.2', themeAudit.appVersion);
   ok('Global Landing Default is Heritage Sapphire (deep blue with dimensional topology)',
     themeAudit.defaultLandingId === 'heritage' &&
     themeAudit.firstLanding.id === 'heritage' &&
@@ -55,6 +55,13 @@ const { makeCtx } = require('./dom');
     themeAudit.landingHtml.includes('data-theme="heritage" data-mode="dark"') &&
     themeAudit.landingHtml.includes('linearGradient id="beamGrad"') &&
     themeAudit.landingHtml.includes('fill="#0B1933"'));
+
+  const signInCss = fs.readFileSync(path.join(REPO, 'v6', 'src', 'console6.css'), 'utf8');
+  ok('Sign-In restores Heritage Sapphire visual identity with a deep-blue brand panel, subtle radial depth and readable white console card',
+    themeAudit.loginHtml.includes('class="lg6"') &&
+    /\.lg6-brand\{[\s\S]*?linear-gradient\(152deg, #0B1E42 0%, #123A7A 56%, #1E3A8A 100%\)/.test(signInCss) &&
+    /\.lg6-panel\{[\s\S]*?radial-gradient\(680px 480px at 96% 2%/.test(signInCss) &&
+    /\.lg6-card\{[\s\S]*?background:#FFFFFF/.test(signInCss));
 
   const epochAudit = JSON.parse(run(`JSON.stringify((() => {
     const u = DB.db.users.find(x => x.username === 'director');
