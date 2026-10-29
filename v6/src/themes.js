@@ -23,9 +23,9 @@ const WT_TOKENS = {
 };
 
 const WTHEMES = [
-  { id:'foundation', name:'Foundation White', mode:'light', accent:'#1E3A8A', brand:'#1E3A8A', gold:'#9A6700',
-    blurb:'Crisp institutional pure white with royal navy and burnished gold. The default across all devices.',
-    t:{ bg:'#F8FAFC', surface:'#FFFFFF', surface2:'#F1F5F9', ink:'#0F172A', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#0F2143', chrome2:'#1B3668', chromeInk:'#FFFFFF', chromeMuted:'#C7D7F4', chromeLine:'#2C4E8A', action:'#1E3A8A', action2:'#1D4ED8', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'foundation', name:'Foundation White', mode:'light', accent:'dept', brand:'#1E3A8A', gold:'#9A6700',
+    blurb:'Luminous architectural pure white with specular glass sheen, crisp obsidian typography and subtle jewel accents. Global default.',
+    t:{ bg:'#F7F9FC', surface:'#FFFFFF', surface2:'#F1F5FA', ink:'#0F172A', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#DCE4EE', line2:'#E8EEF6', bar:'#FFFFFF', chrome:'#FFFFFF', chrome2:'#F1F5FA', chromeInk:'#0F172A', chromeMuted:'#475569', chromeLine:'#E2E8F0', action:'#1E3A8A', action2:'#1D4ED8', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
   { id:'classic', name:'Daylight White', mode:'light', accent:'dept', brand:'#1F3864', gold:'#9A6700',
     blurb:'The classic console look on crisp white paper with your department colour.',
     t:{ bg:'#F4F6FA', surface:'#FFFFFF', surface2:'#F1F4F8', ink:'#0F172A', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#16294A', chrome2:'#21386A', chromeInk:'#EEF2F9', chromeMuted:'#B8C8DF', chromeLine:'#2B4472', action:'#C8102E', action2:'#B80D28', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E7F6EF', warn:'#9A5B00', warnBg:'#FFF4E0', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#EAF0FF' } },
@@ -84,8 +84,8 @@ const WTHEMES = [
     blurb:'Deep executive violet-obsidian paired with crisp lavender and gold glow.',
     t:{ bg:'#130D21', surface:'#1D1533', surface2:'#261C42', ink:'#F2ECFF', ink2:'#D9CEF2', ink3:'#ACA0CA', muted:'#B1A5CE', line:'#372A5C', line2:'#2D224C', bar:'#18112B', chrome:'#0D0818', chrome2:'#1D1533', chromeInk:'#F2ECFF', chromeMuted:'#C4B5FD', chromeLine:'#332656', action:'#7E22CE', action2:'#9333EA', actionInk:'#FFFFFF', ok:'#5FD3A0', okBg:'#13362C', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#1A2C52' } },
   { id:'alabaster', name:'Alabaster pure white', mode:'light', accent:'dept', brand:'#0F172A', gold:'#9A6700',
-    blurb:'Pure gallery-white workspace with razor-sharp slate borders and maximum text clarity.',
-    t:{ bg:'#FFFFFF', surface:'#FFFFFF', surface2:'#F4F6F9', ink:'#090D16', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#0F172A', chrome2:'#1E293B', chromeInk:'#FFFFFF', chromeMuted:'#CBD5E1', chromeLine:'#334155', action:'#1D4ED8', action2:'#1E40AF', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+    blurb:'Pure gallery-white workspace and sidebar with razor-sharp slate borders and maximum text clarity.',
+    t:{ bg:'#FFFFFF', surface:'#FFFFFF', surface2:'#F4F6F9', ink:'#090D16', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#FFFFFF', chrome2:'#F1F5F9', chromeInk:'#090D16', chromeMuted:'#475569', chromeLine:'#CBD5E1', action:'#1D4ED8', action2:'#1E40AF', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
   { id:'vellum', name:'Linen & slate white', mode:'light', accent:'#0F766E', brand:'#0F5257', gold:'#9A6700',
     blurb:'Soft architectural stone-white paper with crisp charcoal type and deep mineral teal.',
     t:{ bg:'#F7F7F5', surface:'#FFFFFF', surface2:'#F0F0EC', ink:'#141413', ink2:'#292826', ink3:'#52504C', muted:'#52504C', line:'#D4D2CA', line2:'#E5E4DE', bar:'#FFFFFF', chrome:'#142826', chrome2:'#1D3B38', chromeInk:'#F7FAF9', chromeMuted:'#B8D8D4', chromeLine:'#2B5652', action:'#0F766E', action2:'#115E59', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F6EE', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
@@ -187,8 +187,8 @@ const STUDIO = {
   backdrop: { label:'Backdrop', def:'plain', opts:[ {v:'plain',l:'Plain'}, {v:'dots',l:'Dots'}, {v:'grid',l:'Grid'}, {v:'waves',l:'Waves'}, {v:'kente',l:'Woven stripes'}, {v:'linen',l:'Finecross'} ] },
   hero:     { label:'Hero panel', def:'gradient', opts:[ {v:'gradient',l:'Gradient'}, {v:'solid',l:'Solid'}, {v:'pattern',l:'Patterned'} ] },
   cards:    { label:'Cards', def:'soft', opts:[ {v:'flat',l:'Flat'}, {v:'soft',l:'Soft'}, {v:'lifted',l:'Lifted'}, {v:'framed',l:'Crisp frame'} ] },
-  kpiStyle: { label:'Metric boxes', def:'vivid', opts:[ {v:'vivid',l:'Vivid spectrum'}, {v:'bold',l:'Bold jewel'}, {v:'tinted',l:'Crisp top-bar'}, {v:'outlined',l:'Pure outlined'} ] },
-  bannerStyle:{ label:'Console top banner', def:'spectrum', opts:[ {v:'spectrum',l:'Spectrum gradient'}, {v:'duotone',l:'Deep duotone'}, {v:'solid',l:'Solid crest'} ] },
+  kpiStyle: { label:'Metric boxes', def:'tinted', opts:[ {v:'tinted',l:'Luminous specular white'}, {v:'outlined',l:'Pure outlined'}, {v:'vivid',l:'Vivid spectrum'}, {v:'bold',l:'Bold jewel'} ] },
+  bannerStyle:{ label:'Console top banner', def:'glass', opts:[ {v:'glass',l:'Luminous white / glass'}, {v:'spectrum',l:'Spectrum gradient'}, {v:'duotone',l:'Deep duotone'}, {v:'solid',l:'Solid crest'} ] },
   tabStyle: { label:'Tab & pill style', def:'pill', opts:[ {v:'pill',l:'Filled pill'}, {v:'boxed',l:'Framed card'}, {v:'underline',l:'Clean bar'} ] },
   borderWeight:{ label:'Box & table borders', def:'crisp', opts:[ {v:'crisp',l:'Crisp standard'}, {v:'bold',l:'High-contrast 1.5px'}, {v:'heavy',l:'Ledger 2px'} ] },
   tableStripe:{ label:'Table row shading', def:'subtle', opts:[ {v:'subtle',l:'Zebra rows'}, {v:'clean',l:'Pure white'}, {v:'ruled',l:'Ruled ledger'} ] },
@@ -204,10 +204,10 @@ const STUDIO = {
 const STUDIO_KEYS = Object.keys(STUDIO);
 
 const STUDIO_PRESETS = [
-  { id:'clinic',    name:'Foundation White',  blurb:'Crisp pure white, royal navy accents and soft architectural cards.',
-    p:{ wtheme:'foundation', corners:'soft',  font:'standard', backdrop:'plain', hero:'gradient', cards:'soft',   kpiStyle:'vivid', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
+  { id:'clinic',    name:'Foundation White',  blurb:'Luminous pure white, subtle specular glare, royal navy accents and calm architectural cards.',
+    p:{ wtheme:'foundation', corners:'soft',  font:'standard', backdrop:'plain', hero:'gradient', cards:'soft',   kpiStyle:'tinted', bannerStyle:'glass', tabStyle:'pill', borderWeight:'crisp', accentPick:'' } },
   { id:'purewhite', name:'Gallery Alabaster', blurb:'Pure white surfaces, high-contrast 1.5px borders and outlined metric boxes.',
-    p:{ wtheme:'alabaster',  corners:'soft',  font:'clinical', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'outlined', bannerStyle:'spectrum', tabStyle:'boxed', borderWeight:'bold', accentPick:'#1D4ED8' } },
+    p:{ wtheme:'alabaster',  corners:'soft',  font:'clinical', backdrop:'plain', hero:'gradient', cards:'framed', kpiStyle:'outlined', bannerStyle:'glass', tabStyle:'boxed', borderWeight:'bold', accentPick:'#1D4ED8' } },
   { id:'glacier',   name:'Glacier Clinical',  blurb:'Arctic ice-white cards, cerulean clinical clarity and crisp top-bar KPIs.',
     p:{ wtheme:'glacier',    corners:'soft',  font:'clinical', backdrop:'plain', hero:'gradient', cards:'soft',   kpiStyle:'tinted', bannerStyle:'spectrum', tabStyle:'pill', borderWeight:'crisp', accentPick:'#0E7490' } },
   { id:'night',     name:'Night shift',       blurb:'Dark slate, flat cards and easy legibility for ward hours after dusk.',
@@ -449,8 +449,8 @@ const WTHEME = {
     const attr = (k,v)=>{ if(root.setAttribute) root.setAttribute(k,v); };
     /* A person's theme belongs to their console. The public pages are
        always drawn in the default look. */
-    const id = user? WTHEME.resolveId(user) : 'classic';
-    const theme = WTHEME.byId(id) || WTHEME.byId('classic');
+    const id = user? WTHEME.resolveId(user) : 'foundation';
+    const theme = WTHEME.byId(id) || WTHEME.byId('foundation');
     WTHEME._active = theme;
     let dept = '#C8102E';
     if(user){
@@ -473,8 +473,8 @@ const WTHEME = {
     set('--font-head', (STUDIO.font.headStacks && STUDIO.font.headStacks[fontKey]) || '"Inter","Segoe UI",system-ui,-apple-system,sans-serif');
     attr('data-font', (st&&st.font)||'standard'); attr('data-bg', (st&&st.backdrop)||'plain');
     attr('data-hero', (st&&st.hero)||'gradient'); attr('data-cards', (st&&st.cards)||'soft'); attr('data-corners', (st&&st.corners)||'soft');
-    attr('data-kpistyle', (st&&st.kpiStyle)||'vivid');
-    attr('data-banner', (st&&st.bannerStyle)||'spectrum');
+    attr('data-kpistyle', (st&&st.kpiStyle)||'tinted');
+    attr('data-banner', (st&&st.bannerStyle)||'glass');
     attr('data-tabstyle', (st&&st.tabStyle)||'pill');
     attr('data-borders', (st&&st.borderWeight)||'crisp');
     attr('data-tstripe', (st&&st.tableStripe)||'subtle');

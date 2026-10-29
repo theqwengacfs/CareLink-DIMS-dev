@@ -21,7 +21,7 @@ JS_ORDER = ["data.js", "data6.js", "inventory_data.js", "core.js", "access_rules
             "pmi.js", "recognition.js", "workplace.js", "insight6.js", "indicators6.js", "hub6.js", "entry6.js",
             "org_teams.js", "household.js", "costing.js", "tb_dispensing.js", "master_registry.js", "master_analysis.js", "waiting_urgent.js", "portal_content.js",
             "bmi_clinical6.js", "discharge_hardcopy6.js", "monday_procurement6.js", "handover_partners6.js",
-            "admin_workflows6.js", "dev_console6.js", "workflow_engine6.js", "visual_audit.js", "strategic_governance67.js"]
+            "admin_workflows6.js", "dev_console6.js", "workflow_engine6.js", "visual_audit.js", "strategic_governance67.js", "role_consoles68.js"]
 
 def read(p):
     return (SRC / p).read_text(encoding="utf-8")
@@ -42,8 +42,8 @@ def build():
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1F3864">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.7.0) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.8.0) - LOMAMO Foundation Kenya Data & Information Management System">
 <title>CareLink C-DIMS</title>
 <link rel="icon" href="{logo}">
 <style>
@@ -62,7 +62,7 @@ window.BUILD_STAMP = "{stamp}";
 <script>
 {js}
 </script>
-<!-- Build {stamp} · CareLink C-DIMS v6.7.0 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build {stamp} · CareLink C-DIMS v6.8.0 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
 """

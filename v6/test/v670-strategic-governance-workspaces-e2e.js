@@ -188,13 +188,12 @@ function ok(name, cond, detail = '') {
       const arch = WORKSPACE_LAYOUTS.archetypeFor(u);
       archetypesSeen.add(arch);
       if (!h.includes('ws67-hero') || !h.includes('data-archetype="' + arch + '"')) brokenHomes.push(u.username + ':no-ws67-hero');
-      /* workspaceHeroBanner('home', u) must NOT emit a separate duplicate .ctx-strip above .ws67-hero */
+      /* workspaceHeroBanner('home', u) must NOT emit a separate duplicate .ctx-strip OR stacked .wf-slim-ribbon above .ws67-hero */
       if (banner.includes('ctx-strip')) brokenHomes.push(u.username + ':duplicate-ctx-strip-on-home');
-      /* Smart workflow strip on home must be sleek collapsible <details class="wf-strip wf-slim-ribbon"> */
-      if (!banner.includes('wf-slim-ribbon')) brokenHomes.push(u.username + ':missing-slim-wf-ribbon');
+      if (banner.includes('wf-slim-ribbon')) brokenHomes.push(u.username + ':stacked-wf-ribbon-on-home');
     });
 
-    /* Inner view ('patients') MUST still render .ctx-strip cleanly */
+    /* Inner view ('patients') MUST still render .ctx-strip, .dpa-statute-bar & sleek collapsible .wf-slim-ribbon cleanly */
     const mcm = DB.db.users.find(u => u.username === 'mcm.kisumu');
     const innerBanner = workspaceHeroBanner('patients', mcm);
 

@@ -793,6 +793,10 @@ const WORKSPACE_LAYOUTS = {
       else contentCards.push(item);
     });
 
+    const roleSpec = (typeof ROLE_CONSOLES_68 !== 'undefined' && ROLE_CONSOLES_68.specFor) ? ROLE_CONSOLES_68.specFor(user) : null;
+    const scopeLabel = (typeof ROLE_CONSOLES_68 !== 'undefined' && ROLE_CONSOLES_68.scopeBadge)
+      ? ROLE_CONSOLES_68.scopeBadge(user)
+      : `${countyLabel} · ${dept.name}`;
     const qtabs = Array.isArray(ctx.qtabs) ? ctx.qtabs.slice(0, 4) : [];
     const barCfg = (typeof ROLE_CTX !== 'undefined' && ROLE_CTX.roleBarConfig) ? ROLE_CTX.roleBarConfig(user) : { tabs: [] };
     const roleTabs = Array.isArray(barCfg.tabs) ? barCfg.tabs.slice(0, 6) : [];
@@ -801,20 +805,20 @@ const WORKSPACE_LAYOUTS = {
           ${roleTabs.map(t => `<button type="button" class="ctx-rtab ${t.v === 'home' ? 'on' : ''}" data-act="go" data-v="${esc(t.v)}">${ic(t.ic || 'file', 13)}<span>${esc(t.l)}</span></button>`).join('')}
         </div>`
       : '';
-    const headerHtml = `<section class="ws67-hero ctx-strip" data-archetype="${esc(arch.id)}" data-dept="${esc(role.dept || 'exec')}" data-role="${esc(user.roleId)}">
+    const headerHtml = `<section class="ws67-hero ctx-strip" data-archetype="${esc(arch.id)}" data-dept="${esc(role.dept || 'exec')}" data-role="${esc(user.roleId)}" style="${roleSpec && roleSpec.color ? `--ws-accent:${esc(roleSpec.color)}` : ''}">
       <div class="ws67-hero-main">
         <div class="ws67-hero-copy">
           <div class="ws67-eyebrow">
-            <span class="ws67-arch-pill hero-dept-pill">${esc(arch.tag)}</span>
-            <span class="ws67-scope-pill">${ic('globe', 12)} ${esc(countyLabel)} · ${esc(dept.name)}</span>
+            <span class="ws67-arch-pill hero-dept-pill">${esc((roleSpec && roleSpec.code) || arch.tag)}</span>
+            <span class="ws67-scope-pill">${ic('globe', 12)} ${esc(scopeLabel)}</span>
           </div>
           <h2 class="ws67-greeting">${esc(ctx.greeting)}, ${esc(user.name.replace(/^Demo - /, ''))}</h2>
-          <p class="ws67-sub">${esc(role.consoleTitle || 'Department Console')} — ${esc(ctx.dateStr)}. ${esc(ctx.scopeText)}</p>
+          <p class="ws67-sub">${esc((roleSpec && roleSpec.summary) || `${role.consoleTitle || 'Department Console'} — ${ctx.dateStr}. ${ctx.scopeText}`)}</p>
           <div class="ws67-actions">
             ${ctx.actionsHtml || ''}
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="open-switch-account">${ic('users', 13)} Switch Account</button>
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="wtheme-open">${ic('palette', 13)} Themes &amp; Style</button>
-            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="arrange-home">${ic('settings', 13)} Arrange (${arranged.length})</button>
+            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="arrange-home">${ic('settings', 13)} Arrange</button>
           </div>
         </div>
         ${qtabs.length ? `<div class="ws67-qgrid hero-qtabs" role="group" aria-label="Key console metrics">
@@ -826,7 +830,7 @@ const WORKSPACE_LAYOUTS = {
       </div>
       ${roleTabsHtml}
       <div class="ws67-layout-bar no-print">
-        <span class="xs muted"><b>Workspace View:</b> ${esc(arch.label)}</span>
+        <span class="xs muted"><b>Console Architecture:</b> ${esc((roleSpec && roleSpec.headline) || arch.label)} · ${esc(ctx.dateStr)}</span>
         <div class="seg ws67-mode-seg" role="group" aria-label="Console workspace layout mode">
           <button type="button" class="${mode === 'smart' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="smart">Decongested Deck</button>
           <button type="button" class="${mode === 'tabbed' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="tabbed">Focused Tabs</button>
@@ -839,7 +843,11 @@ const WORKSPACE_LAYOUTS = {
       ? `<div class="grid ${kpiTiles.length === 3 ? 'g3' : 'g4'} ws67-kpi-row">${kpiTiles.slice(0, 4).join('')}</div>`
       : '';
 
-    const showStrategicOnHome = ['president', 'director', 'program.admin', 'me', 'auditor'].includes(user.roleId);
+    const bespokeBlock = (typeof ROLE_CONSOLES_68 !== 'undefined' && ROLE_CONSOLES_68.renderSignatureBlock)
+      ? ROLE_CONSOLES_68.renderSignatureBlock(user)
+      : '';
+
+    const showStrategicOnHome = ['president', 'director'].includes(user.roleId);
     const strategicHtml = showStrategicOnHome ? STRATEGIC_PLAN.renderScorecard(user, { compact: true }) : '';
 
     let cardsHtml = '';
@@ -880,7 +888,7 @@ const WORKSPACE_LAYOUTS = {
       cardsHtml = `<div class="${contentCards.length === 2 ? 'ws67-primary-grid arch-' + esc(arch.id) : 'ws67-stack'}">${contentCards.join('')}</div>`;
     }
 
-    return headerHtml + kpiHtml + strategicHtml + cardsHtml;
+    return headerHtml + kpiHtml + bespokeBlock + strategicHtml + cardsHtml;
   }
 };
 

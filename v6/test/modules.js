@@ -9,5 +9,5 @@ module.exports = [
   'views_extra.js','office_actions.js','app.js','pmi.js','recognition.js','workplace.js','insight6.js','indicators6.js','hub6.js','entry6.js',
   'org_teams.js','household.js','costing.js','tb_dispensing.js','master_registry.js','master_analysis.js','waiting_urgent.js','portal_content.js',
   'bmi_clinical6.js','discharge_hardcopy6.js','monday_procurement6.js','handover_partners6.js',
-  'admin_workflows6.js','dev_console6.js','workflow_engine6.js','visual_audit.js','strategic_governance67.js'
+  'admin_workflows6.js','dev_console6.js','workflow_engine6.js','visual_audit.js','strategic_governance67.js','role_consoles68.js'
 ];

@@ -13,13 +13,13 @@ ok('Ten landing themes exist', T('LANDING_THEMES.length')===10, String(T('LANDIN
 ok('Every theme has a unique id', new Set(T('LANDING_THEMES.map(t=>t.id)')).size===10);
 ok('Every theme carries a name and a blurb', T('LANDING_THEMES.every(t=>t.name&&t.blurb)'));
 ok('Both light and dark themes are offered', T("LANDING_THEMES.some(t=>t.mode==='light') && LANDING_THEMES.some(t=>t.mode==='dark')"));
-ok('The default theme is used when nothing is set', (()=>{ T("DB.db.settings.landingTheme=undefined"); return T("landingTheme().id")==='heritage'; })());
-ok('An unknown theme falls back instead of failing', (()=>{ T("DB.db.settings.landingTheme='not-a-theme'"); return T("landingTheme().id")==='heritage'; })());
+ok('The default theme is used when nothing is set', (()=>{ T("DB.db.settings.landingTheme=undefined"); return T("landingTheme().id")==='clinic'; })());
+ok('An unknown theme falls back instead of failing', (()=>{ T("DB.db.settings.landingTheme='not-a-theme'"); return T("landingTheme().id")==='clinic'; })());
 T("DB.db.settings.landingTheme='spectrum'");
 ok('A chosen theme is applied to the landing page', T("renderLanding()").includes('data-theme="spectrum"'));
 ok('The landing page still offers the staff action', /Proceed to My (LOMAMO )?C(-DIMS|areLink) Console/.test(T("renderLanding()")));
 ok('The landing page offers the public portal', T("renderLanding()").includes('goto-public'));
-T("DB.db.settings.landingTheme='heritage'");
+T("DB.db.settings.landingTheme='clinic'");
 ok('A landing theme does not change the workspace accent', T("(()=>{DB.db.settings.accentMode='department'; applyTheme(); const ak=[...Object.keys(DB.db.settings)].filter(k=>/accent/i.test(k)); return ak.length===1;})()"));
 
 /* ---------- The sixty-second rule ---------- */

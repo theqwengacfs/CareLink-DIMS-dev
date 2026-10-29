@@ -153,7 +153,7 @@ const NAVP = {
       colBtn.setAttribute('aria-pressed', railOn ? 'true' : 'false');
       colBtn.setAttribute('title', railOn ? 'Expand navigation pane' : 'Fold the pane to icons');
       const sp = colBtn.querySelector && colBtn.querySelector('.np-l');
-      if(sp) sp.textContent = railOn ? 'Expand pane' : 'Fold pane';
+      if(sp) sp.textContent = railOn ? 'Expand' : 'Fold';
     }
   },
 
@@ -307,11 +307,13 @@ const NAVP = {
       </div>
       <div class="np-scroll">${body}</div>
       <div class="np-foot">
-        <button class="np-i" data-act="wtheme-open" title="Workspace theme">${ic('palette',18)}<span class="np-l">Theme</span></button>
-        <button class="np-i" data-act="go" data-v="settings" title="Preferences">${ic('settings',18)}<span class="np-l">Preferences</span></button>
-        <button class="np-i" data-act="nav-autofold" title="Toggle automatic folding when scrolling or working in the workspace" aria-pressed="${autoActive}">${ic('sparkles',18)}<span class="np-l">Auto-fold: ${autoActive?'ON':'OFF'}</span></button>
-        <button class="np-i np-collapse" data-act="nav-rail" title="${effRail?'Expand navigation pane':'Fold the pane to icons'}" aria-pressed="${effRail}">${ic('panel',18)}<span class="np-l">${effRail?'Expand pane':'Fold pane'}</span></button>
-        <div class="np-meta">${total} pages for your role</div>
+        <div class="np-foot-grid">
+          <button class="np-i np-foot-btn" data-act="wtheme-open" title="Workspace theme & studio">${ic('palette',16)}<span class="np-l">Theme</span></button>
+          <button class="np-i np-foot-btn" data-act="go" data-v="settings" title="Preferences">${ic('settings',16)}<span class="np-l">Prefs</span></button>
+          <button class="np-i np-foot-btn" data-act="nav-autofold" title="Toggle automatic folding when scrolling or working in the workspace" aria-pressed="${autoActive}">${ic('sparkles',16)}<span class="np-l">Auto ${autoActive?'ON':'OFF'}</span></button>
+          <button class="np-i np-foot-btn np-collapse" data-act="nav-rail" title="${effRail?'Expand navigation pane':'Fold the pane to icons'}" aria-pressed="${effRail}">${ic('panel',16)}<span class="np-l">${effRail?'Expand':'Fold'}</span></button>
+        </div>
+        <div class="np-meta">${total} modules · v${esc((typeof APP!=='undefined'&&APP.version)||'6.8.0')}</div>
       </div>
     </nav>`;
   },
