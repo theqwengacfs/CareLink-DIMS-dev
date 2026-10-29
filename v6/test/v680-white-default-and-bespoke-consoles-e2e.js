@@ -46,13 +46,40 @@ const { makeCtx } = require('./dom');
     };
   })())`));
 
-  ok('APP.version is 6.8.0', themeAudit.appVersion === '6.8.0', themeAudit.appVersion);
+  ok('APP.version is 6.9.0', themeAudit.appVersion === '6.9.0', themeAudit.appVersion);
   ok('Global Landing Default is Foundation White (clinic, mode=light, accent=#1E3A8A)',
     themeAudit.defaultLandingId === 'clinic' &&
     themeAudit.firstLanding.id === 'clinic' &&
     themeAudit.firstLanding.mode === 'light' &&
     themeAudit.resolvedLanding.id === 'clinic' &&
-    themeAudit.landingHtml.includes('data-theme="clinic" data-mode="light"'));
+    themeAudit.landingHtml.includes('data-theme="clinic" data-mode="light"') &&
+    !themeAudit.landingHtml.includes('fill="#0B1933"'));
+
+  const epochAudit = JSON.parse(run(`JSON.stringify((() => {
+    const u = DB.db.users.find(x => x.username === 'director');
+    /* Simulate a legacy pre-690 Upstash KV / localStorage state */
+    delete DB.db.settings.uiEpoch;
+    DB.db.settings.landingTheme = 'spectrum';
+    DB.db.settings.landingThemeExplicit = true;
+    DB.db.settings.consoleTheme = 'classic';
+    DB.db.personalPrefs[u.id] = { wtheme: 'night', bannerStyle: 'spectrum', kpiStyle: 'vivid', textScale: 110 };
+    DB.migrate();
+    return {
+      uiEpoch: DB.db.settings.uiEpoch,
+      landingAfter: landingTheme().id,
+      resolvedWtheme: WTHEME.resolveId(u),
+      studioAfter: WTHEME.studio(u),
+      keptTextScale: DB.db.personalPrefs[u.id].textScale
+    };
+  })())`));
+  ok('Legacy pre-690 cloud/browser preferences auto-migrate to clean Foundation White while preserving accessibility textScale',
+    epochAudit.uiEpoch === 690 &&
+    epochAudit.landingAfter === 'clinic' &&
+    epochAudit.resolvedWtheme === 'foundation' &&
+    epochAudit.studioAfter.bannerStyle === 'glass' &&
+    epochAudit.studioAfter.kpiStyle === 'tinted' &&
+    epochAudit.keptTextScale === 110,
+    JSON.stringify(epochAudit));
   ok('Global Workspace Default is Luminous Foundation White across surface, bar & sidebar chrome',
     themeAudit.wtDefault === 'foundation' &&
     themeAudit.deviceDefault === 'foundation' &&

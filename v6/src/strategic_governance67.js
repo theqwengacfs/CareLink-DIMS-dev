@@ -800,11 +800,16 @@ const WORKSPACE_LAYOUTS = {
     const qtabs = Array.isArray(ctx.qtabs) ? ctx.qtabs.slice(0, 4) : [];
     const barCfg = (typeof ROLE_CTX !== 'undefined' && ROLE_CTX.roleBarConfig) ? ROLE_CTX.roleBarConfig(user) : { tabs: [] };
     const roleTabs = Array.isArray(barCfg.tabs) ? barCfg.tabs.slice(0, 6) : [];
-    const roleTabsHtml = roleTabs.length
-      ? `<div class="ctx-role-tabs ws67-role-tabs" role="navigation" aria-label="Role contextual workspace tabs">
+    const roleTabsHtml = `<div class="ctx-role-tabs ws67-role-tabs" style="justify-content:space-between;gap:10px" role="navigation" aria-label="Role contextual workspace tabs">
+        <div class="row" style="gap:6px;flex-wrap:wrap">
           ${roleTabs.map(t => `<button type="button" class="ctx-rtab ${t.v === 'home' ? 'on' : ''}" data-act="go" data-v="${esc(t.v)}">${ic(t.ic || 'file', 13)}<span>${esc(t.l)}</span></button>`).join('')}
-        </div>`
-      : '';
+        </div>
+        <div class="seg ws67-mode-seg no-print" role="group" aria-label="Console workspace layout mode">
+          <button type="button" class="${mode === 'smart' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="smart">Decongested Deck</button>
+          <button type="button" class="${mode === 'tabbed' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="tabbed">Focused Tabs</button>
+          <button type="button" class="${mode === 'full' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="full">Expanded Stack</button>
+        </div>
+      </div>`;
     const headerHtml = `<section class="ws67-hero ctx-strip" data-archetype="${esc(arch.id)}" data-dept="${esc(role.dept || 'exec')}" data-role="${esc(user.roleId)}" style="${roleSpec && roleSpec.color ? `--ws-accent:${esc(roleSpec.color)}` : ''}">
       <div class="ws67-hero-main">
         <div class="ws67-hero-copy">
@@ -829,14 +834,6 @@ const WORKSPACE_LAYOUTS = {
         </div>` : ''}
       </div>
       ${roleTabsHtml}
-      <div class="ws67-layout-bar no-print">
-        <span class="xs muted"><b>Console Architecture:</b> ${esc((roleSpec && roleSpec.headline) || arch.label)} · ${esc(ctx.dateStr)}</span>
-        <div class="seg ws67-mode-seg" role="group" aria-label="Console workspace layout mode">
-          <button type="button" class="${mode === 'smart' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="smart">Decongested Deck</button>
-          <button type="button" class="${mode === 'tabbed' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="tabbed">Focused Tabs</button>
-          <button type="button" class="${mode === 'full' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="full">Expanded Stack</button>
-        </div>
-      </div>
     </section>`;
 
     const kpiHtml = kpiTiles.length

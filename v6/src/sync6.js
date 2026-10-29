@@ -1076,7 +1076,7 @@ function openSyncModal(){
   body += `<div class="sync-row"><span>Shared revision</span><b class="mono">${s.rev}</b></div>
     <div class="sync-row"><span>Round trip</span><b>${s.latency!=null? s.latency+' ms':'—'}</b></div>
     <div class="sync-row"><span>Last confirmed save</span><b>${esc((s.saved||'not yet').replace('T',' ').slice(0,19))}</b></div>
-    <p class="small muted" style="margin:10px 0 0;text-align:justify">Every PC, tablet and other client reads the same
+    <p class="small muted" style="margin:10px 0 0;text-align:left">Every PC, tablet and other client reads the same
     shared online source. Edits made on two clients are merged field by field by the online service; when both clients change the
     <b>same</b> field the later edit is kept and both values are written to the merge journal. Nothing is overwritten
     without a record of it, and no one is asked to choose between two copies.</p>`;

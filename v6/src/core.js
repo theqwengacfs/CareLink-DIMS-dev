@@ -88,7 +88,7 @@ const DB = {
         care:{ capacity:12, handoverHour:19 },
         notifications:{ mondayReport:true, overdueReviews:true, pendingApprovals:true, incidents:true, weeklyDigest:false },
         accessibility:{ reducedMotion:false, highContrast:false },
-        landingTheme:'clinic', consoleTheme:'foundation', workspaceTheme:'foundation',
+        landingTheme:'clinic', consoleTheme:'foundation', workspaceTheme:'foundation', uiEpoch:690,
         sync:{ mode:'auto', live:true, liveMs:500 }
       },
       users:[], roles:[], patients:[], visits:[], pdcas:[], requests:[], transactions:[],
@@ -139,6 +139,7 @@ const DB = {
     try{
       if(!this.db) return;
       const snap = {
+        uiEpoch: 690,
         personalPrefs: this.db.personalPrefs || {},
         landingTheme: this.db.settings && this.db.settings.landingTheme,
         landingThemeExplicit: Boolean(this.db.settings && this.db.settings.landingThemeExplicit),
@@ -152,7 +153,12 @@ const DB = {
     try{
       const raw = Store.get(this.PREFS_KEY);
       if(!raw) return null;
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if(!parsed || Number(parsed.uiEpoch || 0) < 690){
+        try{ Store.del(this.PREFS_KEY); }catch(_e){}
+        return null;
+      }
+      return parsed;
     }catch(_e){ return null; }
   },
   persistState(){
@@ -202,6 +208,7 @@ const DB = {
      records already held are left exactly as they are. */
   migrate(){
     if(!this.db) return;
+    const prevUiEpoch = Number((this.db.settings && this.db.settings.uiEpoch) || 0);
     const base = this.blank();
     for(const k of Object.keys(base)){
       if(this.db[k]===undefined) this.db[k] = base[k];
@@ -216,6 +223,24 @@ const DB = {
     if(was < APP.schema){
       this.db.meta.migratedAt = new Date().toISOString();
       this.db.meta.migratedFrom = was;
+    }
+    /* One-time v6.9.0 visual architecture reset: upgrades legacy pre-690 dark/spectrum/crimson
+       cached settings to clean Foundation White while preserving any choice made on >=690. */
+    if(this.db.settings && prevUiEpoch < 690){
+      this.db.settings.uiEpoch = 690;
+      this.db.settings.landingTheme = 'clinic';
+      delete this.db.settings.landingThemeExplicit;
+      this.db.settings.consoleTheme = 'foundation';
+      this.db.settings.workspaceTheme = 'foundation';
+      delete this.db.settings.consoleThemeExplicit;
+    }
+    if(this.db.personalPrefs && typeof this.db.personalPrefs === 'object'){
+      for(const p of Object.values(this.db.personalPrefs)){
+        if(p && typeof p === 'object' && Number(p.uiEpoch || 0) < 690){
+          ['wtheme','bannerStyle','kpiStyle','backdrop','hero','accentPick','cards','tabStyle','borderWeight'].forEach(k=>{ delete p[k]; });
+          p.uiEpoch = 690;
+        }
+      }
     }
   },
   save(){

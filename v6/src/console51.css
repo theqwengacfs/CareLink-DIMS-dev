@@ -7,11 +7,11 @@
    ============================================================ */
 
 :root{
-  --ink-3:#5B6573; --accent-fg:var(--accent); --accent-ink:#fff;
-  --hover:#F2F4F7; --chip:#EEF1F5; --chip-ink:#2B3038; --field:#fff; --field-line:#D5DBE3;
-  --bar:#FFFFFF; --chrome:#FFFFFF; --chrome-2:#F1F5FA; --chrome-ink:#0F172A; --chrome-muted:#475569; --chrome-line:#E2E8F0;
-  --action:#C8102E; --action-2:#E01B22; --action-ink:#fff; --focus:#1F3864; --scrim:rgba(12,16,22,.55); --paper:#fff;
-  --panel-mix:#101216; --np-ind:#1E3A8A; --np-w:264px; --np-w-rail:72px; --zoom:1; --tap:48px;
+  --ink-3:#475569; --accent-fg:var(--accent); --accent-ink:#fff;
+  --hover:#F1F5F9; --chip:#F1F5F9; --chip-ink:#334155; --field:#fff; --field-line:#CBD5E1;
+  --bar:#FFFFFF; --chrome:#FFFFFF; --chrome-2:#F1F5F9; --chrome-ink:#0F172A; --chrome-muted:#475569; --chrome-line:#E2E8F0;
+  --action:#1E3A8A; --action-2:#1D4ED8; --action-ink:#fff; --focus:#1E3A8A; --scrim:rgba(15,23,42,.45); --paper:#fff;
+  --panel-mix:#0F172A; --np-ind:#1E3A8A; --np-w:256px; --np-w-rail:68px; --zoom:1; --tap:44px;
   --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
   --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
 }

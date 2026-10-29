@@ -742,8 +742,9 @@ function buildStateHead(state) {
     rev: state.rev || 0,
     saved: state.saved,
     org: state.org,
-    landingTheme: (state.db && state.db.settings && state.db.settings.landingTheme) || 'clinic',
-    consoleTheme: (state.db && state.db.settings && state.db.settings.consoleTheme) || 'foundation',
+    landingTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.landingTheme) || 'clinic',
+    consoleTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.consoleTheme) || 'foundation',
+    uiEpoch: Number((state.db && state.db.settings && state.db.settings.uiEpoch) || 0),
     hasLargeCollections: Boolean(
       (state.db && Array.isArray(state.db.patients) && state.db.patients.length > 400) ||
       (state.db && Array.isArray(state.db.visits) && state.db.visits.length > 800) ||
@@ -837,8 +838,9 @@ async function loadCloudHead() {
           db: {
             users: Array.isArray(h.users) ? h.users : [],
             settings: {
-              landingTheme: h.landingTheme || 'clinic',
-              consoleTheme: h.consoleTheme || 'foundation',
+              landingTheme: (Number(h.uiEpoch || 0) >= 690 && h.landingTheme) ? h.landingTheme : 'clinic',
+              consoleTheme: (Number(h.uiEpoch || 0) >= 690 && h.consoleTheme) ? h.consoleTheme : 'foundation',
+              uiEpoch: Number(h.uiEpoch || 0),
               globallyActivated: Boolean(h.globallyActivated),
               onboarding: { complete: Boolean(h.setup), step: 4 },
             },
@@ -872,8 +874,9 @@ async function loadCloudHead() {
         db: {
           users: Array.isArray(h.users) ? h.users : [],
           settings: {
-            landingTheme: h.landingTheme || 'clinic',
-            consoleTheme: h.consoleTheme || 'foundation',
+            landingTheme: (Number(h.uiEpoch || 0) >= 690 && h.landingTheme) ? h.landingTheme : 'clinic',
+            consoleTheme: (Number(h.uiEpoch || 0) >= 690 && h.consoleTheme) ? h.consoleTheme : 'foundation',
+            uiEpoch: Number(h.uiEpoch || 0),
             globallyActivated: Boolean(h.globallyActivated),
             onboarding: { complete: Boolean(h.setup), step: 4 },
           },
@@ -1693,7 +1696,7 @@ async function handleRequest(req, res) {
     ));
     return sendJson(res, 200, {
       ok: true,
-      version: '6.8.0',
+      version: '6.9.0',
       cloud: true,
       onlineDatabase: true,
       mode: 'online-site-db',
@@ -1707,8 +1710,8 @@ async function handleRequest(req, res) {
       rev: state.rev || 0,
       saved: state.saved,
       org: state.org,
-      landingTheme: (state.db && state.db.settings && state.db.settings.landingTheme) || 'clinic',
-      consoleTheme: (state.db && state.db.settings && state.db.settings.consoleTheme) || 'foundation',
+      landingTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.landingTheme) || 'clinic',
+      consoleTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.consoleTheme) || 'foundation',
       accounts: Object.keys(state.creds || {}).length,
       admins,
       host: req.headers.host || 'carelink-cloud',
@@ -1768,7 +1771,7 @@ async function handleRequest(req, res) {
 
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
-    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.8.0' }, users: [], audit: [] });
+    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.0' }, users: [], audit: [] });
     const chiefEmail = admin.email || `${username}@${(body.org && body.org.emailDomain) || 'lomamo.example'}`;
     const chiefDisplayName = admin.name || 'Chief System Administrator';
     let chiefUserId = 'u-chief-admin';
@@ -2640,7 +2643,7 @@ async function handleRequest(req, res) {
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to write to the online database.' });
     const body = await readJsonBody(req);
     const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
-    state.db = state.db || { meta: { schema: 6, version: '6.8.0' } };
+    state.db = state.db || { meta: { schema: 6, version: '6.9.0' } };
     const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
     const applied = [];
     const rejected = [];
