@@ -9,9 +9,9 @@
    recolour of one page. The workspace accent is deliberately separate: a theme
    changes only the public front door. */
 const LANDING_THEMES = [
-  { id:'heritage', name:'Heritage Sapphire', blurb:'Deep sapphire royal blue and burnished gold. The LOMAMO Foundation signature front door.', accent:'#E9C765', mode:'dark' },
+  { id:'clinic',   name:'Foundation White', blurb:'Luminous architectural pure white with specular glass sheen, crisp slate typography and royal sapphire accent. Global default.', accent:'#1E3A8A', mode:'light' },
+  { id:'heritage', name:'Heritage Sapphire', blurb:'Deep sapphire royal blue and burnished gold. Classic evening front door.', accent:'#E9C765', mode:'dark' },
   { id:'dawn',     name:'Dawn',          blurb:'Warm sunrise gradient, centred hero, soft cards. Optimistic and open.', accent:'#F97316', mode:'dark' },
-  { id:'clinic',   name:'Clinic white',  blurb:'Light, calm, generous white space with a single teal accent. Quietly clinical.', accent:'#0E7490', mode:'light' },
   { id:'editorial',name:'Editorial',     blurb:'Magazine layout: oversized serif headline, rule lines, one column of text.', accent:'#7C2D12', mode:'light' },
   { id:'canopy',   name:'Canopy',        blurb:'Deep green, organic shapes, layered leaves of colour. Rooted and human.', accent:'#15803D', mode:'dark' },
   { id:'signal',   name:'Signal',        blurb:'High-contrast black with a vivid spectrum bar. Direct and modern.', accent:'#E11D48', mode:'dark' },
@@ -20,13 +20,18 @@ const LANDING_THEMES = [
   { id:'paper',    name:'Paper',         blurb:'Off-white, black rules, small caps. Plain, documentary, unfussy.', accent:'#111827', mode:'light' },
   { id:'spectrum', name:'Spectrum',      blurb:'A full visible-light ribbon running through the page. Vibrant and celebratory.', accent:'#2563EB', mode:'dark' }
 ];
-const DEFAULT_THEME = 'heritage';
+const DEFAULT_THEME = 'clinic';
 function landingTheme(){
-  const explicitLocal = DB.db && DB.db.settings && DB.db.settings.landingTheme;
-  const hostLanding = typeof APPX !== 'undefined' && APPX.host && APPX.host.landingTheme;
-  const cachedLanding = typeof DB !== 'undefined' && typeof DB.loadLocalPrefs === 'function' && (DB.loadLocalPrefs()||{}).landingTheme;
-  /* If local DB still has only the blank default ('heritage') and the live host
-     exposed an explicit landingTheme in /api/health, honour the live host's theme. */
+  const preview = DB.db && DB.db.settings && DB.db.settings._landingPreview;
+  if(preview) return LANDING_THEMES.find(t=>t.id===preview) || LANDING_THEMES[0];
+  const explicitFlag = Boolean(DB.db && DB.db.settings && DB.db.settings.landingThemeExplicit);
+  const rawLocal = DB.db && DB.db.settings && DB.db.settings.landingTheme;
+  /* Legacy seeded databases carried 'heritage' without landingThemeExplicit; upgrade cleanly to global White default ('clinic') unless explicitly selected */
+  const explicitLocal = (rawLocal === 'heritage' && !explicitFlag) ? DEFAULT_THEME : rawLocal;
+  const hostRaw = typeof APPX !== 'undefined' && APPX.host && APPX.host.landingTheme;
+  const hostLanding = (hostRaw === 'heritage' && !explicitFlag) ? DEFAULT_THEME : hostRaw;
+  const cachedRaw = typeof DB !== 'undefined' && typeof DB.loadLocalPrefs === 'function' && (DB.loadLocalPrefs()||{}).landingTheme;
+  const cachedLanding = (cachedRaw === 'heritage' && !explicitFlag) ? DEFAULT_THEME : cachedRaw;
   const id = (explicitLocal && explicitLocal !== DEFAULT_THEME)
     ? explicitLocal
     : (hostLanding || explicitLocal || cachedLanding || DEFAULT_THEME);

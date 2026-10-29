@@ -196,7 +196,7 @@ async function activateFullDemoDataset(){
 
 /* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar, zero duplicate tabs) */
 function renderLanding6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#1E3A8A' };
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const facts = [
     { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
@@ -307,7 +307,7 @@ function renderLanding6(){
 
 /* ------------------------------------------------------------ dedicated architecture & departments page */
 function renderArchitecture6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#1E3A8A' };
   const departments = DEPARTMENTS.slice(0, 10);
   const dept = d => `<div class="ld-dept" style="--c:${d.accent}">
       <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.short)}</span></div>`;

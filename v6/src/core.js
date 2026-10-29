@@ -88,7 +88,7 @@ const DB = {
         care:{ capacity:12, handoverHour:19 },
         notifications:{ mondayReport:true, overdueReviews:true, pendingApprovals:true, incidents:true, weeklyDigest:false },
         accessibility:{ reducedMotion:false, highContrast:false },
-        landingTheme:'heritage', workspaceTheme:'spectrum',
+        landingTheme:'clinic', consoleTheme:'foundation', workspaceTheme:'foundation',
         sync:{ mode:'auto', live:true, liveMs:500 }
       },
       users:[], roles:[], patients:[], visits:[], pdcas:[], requests:[], transactions:[],
@@ -141,6 +141,7 @@ const DB = {
       const snap = {
         personalPrefs: this.db.personalPrefs || {},
         landingTheme: this.db.settings && this.db.settings.landingTheme,
+        landingThemeExplicit: Boolean(this.db.settings && this.db.settings.landingThemeExplicit),
         consoleTheme: this.db.settings && this.db.settings.consoleTheme,
         consoleThemeExplicit: Boolean(this.db.settings && this.db.settings.consoleThemeExplicit)
       };

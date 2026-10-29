@@ -84,7 +84,7 @@ const DEVICE = {
   themeDefault(){
     const st = (DB.db && DB.db.settings) || {};
     if(st.consoleThemeExplicit && st.consoleTheme && st.consoleTheme!=='auto') return st.consoleTheme;
-    return (st.consoleTheme && st.consoleTheme!=='auto') ? st.consoleTheme : WT_DEFAULT;
+    return WT_DEFAULT;
   },
 
   /* Write the device class onto the document so CSS can measure for it. */
@@ -144,6 +144,8 @@ const CONTRAST_PAIRS = [
   { name:'Critical text on its tint',    fg:'crit',   bg:'critBg',  min:4.5 },
   { name:'Info text on its tint',        fg:'info',   bg:'infoBg',  min:4.5 },
   { name:'Text box ink on field box',    fg:null,     bg:null,      min:4.5, special:'fieldInput' },
+  { name:'Header title on top bar',      fg:'ink',    bg:'bar',     min:4.5 },
+  { name:'Body text on surface-2 tile',  fg:'ink',    bg:'surface2',min:4.5 },
   { name:'Inactive tab text on tab bar', fg:'ink2',   bg:'bar',     min:4.5 },
   { name:'Card boundary against the page',fg:'line',  bg:'bg',      min:1.1, boundary:true }
 ];

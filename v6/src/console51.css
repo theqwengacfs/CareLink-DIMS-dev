@@ -9,9 +9,9 @@
 :root{
   --ink-3:#5B6573; --accent-fg:var(--accent); --accent-ink:#fff;
   --hover:#F2F4F7; --chip:#EEF1F5; --chip-ink:#2B3038; --field:#fff; --field-line:#D5DBE3;
-  --bar:#fff; --chrome:#16294A; --chrome-2:#21386A; --chrome-ink:#EEF2F9; --chrome-muted:#A9B8CE; --chrome-line:#2B4472;
+  --bar:#FFFFFF; --chrome:#FFFFFF; --chrome-2:#F1F5FA; --chrome-ink:#0F172A; --chrome-muted:#475569; --chrome-line:#E2E8F0;
   --action:#C8102E; --action-2:#E01B22; --action-ink:#fff; --focus:#1F3864; --scrim:rgba(12,16,22,.55); --paper:#fff;
-  --panel-mix:#101216; --np-ind:#E3B93C; --np-w:272px; --np-w-rail:76px; --zoom:1; --tap:48px;
+  --panel-mix:#101216; --np-ind:#1E3A8A; --np-w:264px; --np-w-rail:72px; --zoom:1; --tap:48px;
   --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
   --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
 }
@@ -120,7 +120,7 @@ html[data-cards=framed] .card,html[data-cards=framed] .action-card,html[data-car
 .np-dot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 0 2px var(--chrome)}
 .np-x{display:none;place-items:center;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--chrome-ink);cursor:pointer}
 .np-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:8px 8px 12px;scrollbar-width:thin;scrollbar-color:var(--chrome-line) transparent}
-.np-scroll{box-shadow:inset 0 -16px 14px -14px rgba(0,0,0,.45)}
+.np-scroll{box-shadow:inset 0 -12px 10px -10px rgba(15,23,42,.06)}
 .np-g{margin-bottom:4px}
 .np-gh{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:6px 10px;border:0;background:transparent;color:var(--chrome-muted);
   font:inherit;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border-radius:8px;text-align:left}
@@ -151,7 +151,7 @@ html[data-cards=framed] .card,html[data-cards=framed] .action-card,html[data-car
   .has-pane>.npane{grid-column:1;grid-row:1 / span 3;position:sticky;top:0;align-self:start;height:calc(100dvh / var(--zoom,1))}
   .has-pane>.cbar,.has-pane>.sheet,.has-pane>.content{grid-column:2;min-width:0}
   .has-pane>.sheet{display:none}
-  .has-pane>.cbar .cb-logo,.has-pane>.cbar .tb-theme{display:none}
+  .has-pane>.cbar .cb-logo{display:none}
   .has-pane>.cbar .tb-actions{flex-wrap:nowrap}
   .has-pane>.cbar .searchbox{flex:1 1 200px;min-width:120px}
   .has-pane>.content{align-self:stretch}

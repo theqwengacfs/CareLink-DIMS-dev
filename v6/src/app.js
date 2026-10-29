@@ -458,8 +458,8 @@ function renderShell(){
         <button class="icon-btn" data-act="nav-forward" aria-label="Forward" title="Forward (Alt+Right)" ${NAVH.canForward()?'':'disabled aria-disabled="true"'}>${ic('forward',18)}</button>
       </div>
       <div class="cb-id">
-        <div class="cb-k"><span class="cb-os-tag">CARELINK OS</span><span class="cb-county-tag">${esc(countyDisp)}</span><span class="cb-page-tag">${esc(crumb.title)}</span></div>
-        <h1><span class="cb-console-name">${esc(role.consoleTitle||((role.name||'Staff')+' Console'))}</span><span class="cb-title-sep"> · </span><span class="cb-view-name">${esc(crumb.title)}</span></h1>
+        <div class="cb-k"><span class="cb-os-tag">CareLink</span><span class="cb-county-tag">${esc(countyDisp)}</span></div>
+        <h1><span class="cb-console-name">${esc(role.consoleTitle||((role.name||'Staff')+' Console'))}</span>${APPX.view!=='home'?`<span class="cb-title-sep"> / </span><span class="cb-view-name">${esc(crumb.title)}</span>`:''}</h1>
       </div>
       <div class="cb-quick no-print" role="navigation" aria-label="Quick console shortcuts">
         ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
@@ -538,10 +538,9 @@ function workspaceHeroBanner(view, user){
   const coeditBar = (typeof DUALCHECK!=='undefined' && DUALCHECK.bannerHTML) ? DUALCHECK.bannerHTML(user) : '';
   const urgentCountyBar = (typeof COUNTY_URGENT_QUEUE!=='undefined' && COUNTY_URGENT_QUEUE.bannerHTML) ? COUNTY_URGENT_QUEUE.bannerHTML(user, view) : '';
   const dpaBar = (typeof CARELINK_GOVERNANCE!=='undefined' && CARELINK_GOVERNANCE.dpaBannerHTML) ? CARELINK_GOVERNANCE.dpaBannerHTML(view, user) : '';
-  /* Avoid stacking duplicate context + hero headers on Console Home: ws67-hero provides the unified Home header */
+  /* Avoid stacking duplicate context + workflow banners on Console Home: ws67-hero provides a clean, unified Home header */
   const ctxStrip = (view!=='home' && typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip) ? ROLE_CTX.contextStrip(user, view) : '';
-  const wfStrip = (view==='home' && typeof WORKFLOW_ENGINE!=='undefined' && WORKFLOW_ENGINE.homePriorityStrip) ? WORKFLOW_ENGINE.homePriorityStrip(user) : '';
-  return overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + dpaBar + ctxStrip + wfStrip;
+  return overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + dpaBar + ctxStrip;
 }
 function contentFor(view, params, user){
   const guard = (cap)=>{ if(!RBAC.assert(user,cap,{},false)) return deniedPanel(cap); return null; };
@@ -811,6 +810,7 @@ const ACTIONS = {
     if(!t) return toast('Unknown theme','The selected theme is not available. The default remains in use.','err');
     const before = DB.db.settings.landingTheme||DEFAULT_THEME;
     DB.db.settings.landingTheme = t.id;
+    DB.db.settings.landingThemeExplicit = true;
     AUDIT.append({actor:AUTH.user.id,action:'landing.theme_changed',entity:'setting',entityId:'landingTheme',
       detail:`${before} to ${t.id}`});
     DB.save(); toast('Landing page updated', t.name+' is now the front door.','ok');
@@ -818,17 +818,17 @@ const ACTIONS = {
   },
   'preview-theme':(d)=>{
     const t = LANDING_THEMES.find(x=>x.id===d.id)||LANDING_THEMES[0];
-    const prev = DB.db.settings.landingTheme;
+    const cur = landingTheme().id;
     /* A preview must not change what anyone else sees, so it is drawn from the
        same renderer into a frame rather than by saving the setting. */
-    DB.db.settings.landingTheme = t.id;
+    DB.db.settings._landingPreview = t.id;
     let html='';
-    try{ html = renderLanding(); } finally { DB.db.settings.landingTheme = prev; }
+    try{ html = renderLanding(); } finally { delete DB.db.settings._landingPreview; }
     openModal({title:'Landing preview', sub:`${t.name} · ${t.mode==='dark'?'dark':'light'} · nothing has been saved`, wide:true,
       body:`<div class="theme-preview-wrap"><div class="theme-preview-inner">${html}</div></div>
         <div class="row" style="margin-top:12px"><span class="chip">${esc(t.blurb)}</span></div>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
-        <button class="btn btn-primary" data-act="set-landing-theme" data-id="${t.id}" ${prev===t.id?'disabled':''}>${prev===t.id?'Already in use':'Apply this theme'}</button>`});
+        <button class="btn btn-primary" data-act="set-landing-theme" data-id="${t.id}" ${cur===t.id?'disabled':''}>${cur===t.id?'Already in use':'Apply this theme'}</button>`});
   },
   'goto-public':()=>{ APPX.screen='public'; APPX.params={}; refreshPublicFeed(); render(); window.scrollTo({top:0}); },
   'my-profile':()=>{
