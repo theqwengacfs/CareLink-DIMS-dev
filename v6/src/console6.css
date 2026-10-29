@@ -529,22 +529,34 @@
 }
 
 .lg6-brand{
-  background:#F8FAFC;
-  color:#0F172A;
+  position:relative; isolation:isolate; overflow:hidden;
+  background:
+    radial-gradient(620px 420px at 12% 12%, rgba(96,165,250,.24), transparent 62%),
+    radial-gradient(480px 360px at 92% 88%, rgba(233,199,101,.10), transparent 58%),
+    linear-gradient(152deg, #0B1E42 0%, #123A7A 56%, #1E3A8A 100%);
+  color:#F8FAFC;
   padding:clamp(18px,2.4vh,30px) clamp(24px,3.2vw,44px);
   display:flex; flex-direction:column; justify-content:space-between; gap:10px;
-  border-right:1px solid #E2E8F0;
-  overflow:hidden;
+  border-right:1px solid rgba(96,165,250,.24);
+  box-shadow:inset -1px 0 rgba(255,255,255,.08);
+}
+.lg6-brand::after{
+  content:""; position:absolute; z-index:-1; width:min(42vw,500px); aspect-ratio:1;
+  right:-28%; bottom:-54%; border:1px solid rgba(191,219,254,.14); border-radius:50%;
+  box-shadow:0 0 0 32px rgba(191,219,254,.035), 0 0 0 68px rgba(191,219,254,.025);
+  pointer-events:none;
 }
 html[data-wmode="dark"] .lg6-brand{
-  background:linear-gradient(170deg, #09162D 0%, #0D2042 58%, #081326 100%);
+  background:
+    radial-gradient(620px 420px at 12% 12%, rgba(96,165,250,.2), transparent 62%),
+    linear-gradient(152deg, #07152E 0%, #0D2857 56%, #17366D 100%);
   color:#F8FAFC;
-  border-right-color:rgba(148,197,255,.16);
+  border-right-color:rgba(148,197,255,.2);
 }
-.lg6-logo{ width:40px; height:40px; border-radius:10px; background:#fff; padding:4px; object-fit:contain; flex:0 0 auto; border:1px solid #E2E8F0; box-shadow:0 1px 3px rgba(15,23,42,.06); }
+.lg6-logo{ width:40px; height:40px; border-radius:10px; background:#fff; padding:4px; object-fit:contain; flex:0 0 auto; border:1px solid rgba(255,255,255,.45); box-shadow:0 5px 16px rgba(2,8,23,.22); }
 .lg6-brand h1{ font-size:clamp(24px,2.4vw,32px); line-height:1.1; letter-spacing:-.03em; margin:0 0 10px; font-weight:800; color:inherit; }
-.lg6-brand h1 em{ font-style:normal; color:#1E3A8A; }
-html[data-wmode="dark"] .lg6-brand h1 em{ color:#93C5FD; }
+.lg6-brand h1 em{ font-style:normal; color:#BFDBFE; }
+html[data-wmode="dark"] .lg6-brand h1 em{ color:#DBEAFE; }
 
 /* Cross-Departmental Teamwork Photography Showcase right under H1 */
 .lg6-showcase{ margin:0 0 10px; }
@@ -584,10 +596,10 @@ html[data-wmode="dark"] .lg6-photo-frame{ border-color:rgba(148,197,255,.22); bo
 html[data-wmode="dark"] .lg6-thumb{ background:rgba(15,32,65,.78); border-color:rgba(148,197,255,.18); color:#CBD5E1; }
 html[data-wmode="dark"] .lg6-thumb.on{ border-color:#60A5FA; background:rgba(96,165,250,.18); color:#FFFFFF; }
 
-.lg6-copy{ margin:0; color:#475569; font-size:12.8px; line-height:1.58; max-width:52ch; }
-.lg6-brand-foot{ font-size:11.5px; color:#64748B; border-top:1px solid #E2E8F0; padding-top:9px; }
-html[data-wmode="dark"] .lg6-copy{ color:#D5DFEE; }
-html[data-wmode="dark"] .lg6-brand-foot{ color:#9FB2CE; border-top-color:rgba(255,255,255,.12); }
+.lg6-copy{ margin:0; color:#DBEAFE; font-size:12.8px; line-height:1.58; max-width:52ch; }
+.lg6-brand-foot{ font-size:11.5px; color:#BFDBFE; border-top:1px solid rgba(191,219,254,.22); padding-top:9px; }
+html[data-wmode="dark"] .lg6-copy{ color:#DBEAFE; }
+html[data-wmode="dark"] .lg6-brand-foot{ color:#BFDBFE; border-top-color:rgba(255,255,255,.16); }
 
 /* Portrait tablet / mobile compact teamwork header */
 .lg6-mobile-hero{ display:none; }
@@ -595,28 +607,33 @@ html[data-wmode="dark"] .lg6-brand-foot{ color:#9FB2CE; border-top-color:rgba(25
   .lg6-mobile-hero{
     display:flex; align-items:center; gap:12px; width:min(452px,100%);
     padding:10px 12px; border-radius:12px; margin-bottom:10px;
-    background:#FFFFFF; color:#0F172A;
-    border:1px solid #E2E8F0;
-    box-shadow:0 1px 3px rgba(15,23,42,.04);
+    background:linear-gradient(135deg,#EFF6FF 0%,#FFFFFF 76%); color:#0F172A;
+    border:1px solid #C7D7F2;
+    box-shadow:0 4px 14px rgba(30,58,138,.08), inset 0 1px rgba(255,255,255,.9);
   }
-  .lg6-mobile-hero img{ width:60px; height:44px; border-radius:8px; object-fit:cover; flex:0 0 auto; border:1px solid #E2E8F0; }
+  .lg6-mobile-hero img{ width:60px; height:44px; border-radius:8px; object-fit:cover; flex:0 0 auto; border:1px solid #C7D7F2; }
   .lg6-mobile-hero-txt b{ font-size:14px; line-height:1.25; display:block; color:#0F172A; }
   .lg6-mobile-hero-txt em{ font-style:normal; color:#1E3A8A; }
 }
 
 .lg6-panel{ display:flex; flex-direction:column; align-items:center; justify-content:center;
   padding:clamp(10px,1.8vh,22px) clamp(14px,2.5vw,28px); overflow:hidden;
-  background:#FFFFFF;
-  --surface:#FFFFFF; --surface-2:#F8FAFC; --field:#FFFFFF; --field-line:#CBD5E1;
-  --border:#E2E8F0; --border-strong:#CBD5E1; --line:#E2E8F0; --line-2:#F1F5F9;
+  background:
+    radial-gradient(680px 480px at 96% 2%,rgba(30,58,138,.09),transparent 62%),
+    linear-gradient(145deg,#EFF6FF 0%,#FFFFFF 44%,#F8FAFC 100%);
+  --surface:#FFFFFF; --surface-2:#F3F7FD; --field:#FFFFFF; --field-line:#B8C9E6;
+  --border:#D8E3F3; --border-strong:#B8C9E6; --line:#D8E3F3; --line-2:#EAF0F8;
   --text:#0F172A; --text-2:#334155; --text-3:#64748B;
   --ink:#0F172A; --ink-2:#334155; --ink-3:#475569; --muted:#64748B; --muted-2:#64748B;
-  --accent:#1E3A8A; --accent-fg:#1E3A8A; --accent-ink:#FFFFFF; --accent-soft:#EFF6FF;
+  --accent:#1E3A8A; --accent-fg:#1E3A8A; --accent-ink:#FFFFFF; --accent-soft:#EAF2FF;
   --action:#1E3A8A; --action-2:#1D4ED8; --action-ink:#FFFFFF;
   color:#0F172A; }
+html[data-wmode="dark"] .lg6-panel{
+  background:radial-gradient(680px 480px at 96% 2%,rgba(96,165,250,.12),transparent 62%),linear-gradient(145deg,#0B1933 0%,#111C31 50%,#0F172A 100%);
+}
 .lg6-panel.wide .lg6-card{ max-width:650px; }
-.lg6-card{ width:min(452px,100%); background:#FFFFFF; color:#0F172A; border:1px solid #E2E8F0;
-  border-radius:16px; padding:22px 24px; box-shadow:0 1px 3px rgba(15,23,42,.04), 0 14px 36px -10px rgba(15,23,42,.08); }
+.lg6-card{ width:min(452px,100%); background:#FFFFFF; color:#0F172A; border:1px solid #C9D8EE;
+  border-radius:16px; padding:22px 24px; box-shadow:0 2px 5px rgba(15,23,42,.04), 0 18px 42px -14px rgba(30,58,138,.18), inset 0 1px rgba(255,255,255,.9); }
 .lg6-head{ display:flex; align-items:center; gap:11px; }
 .lg6-mark{ width:38px; height:38px; border-radius:10px; object-fit:contain; background:#fff; padding:3px;
   border:1px solid var(--border); flex:0 0 auto; }

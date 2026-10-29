@@ -1026,6 +1026,9 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.9.2', date:'2026-10-29', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
+      summary:'Restored the Heritage Sapphire blue sign-in identity with deep sapphire brand panel, subtle radial depth, and blue-white access console while preserving readable white sign-in forms.',
+      changes:['Deep sapphire gradient and radial depth on desktop sign-in brand panel','Blue-white sign-in canvas, refined card shadows and mobile sign-in treatment','Preserved accessible white sign-in form controls and Foundation White role consoles'] },
     { tag:'v6.9.1', date:'2026-10-29', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
       summary:'Write-once non-expiring KV shard architecture + automatic Shard 2 self-healing recovery, Heritage Sapphire blue front-door landing page & layered topology graphic restored, and Quiet Precision white workspace consoles.',
       changes:['Write-once immutable KV shard keys + automatic degraded shard self-healing','Lightweight manifest-head login/logout commits (zero shard rewrites)','Restored Heritage Sapphire blue front/landing page & layered radial-beam topology graphic','Preserved Quiet Precision Foundation White signed-in workspace consoles'] },
