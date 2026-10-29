@@ -124,7 +124,13 @@ const SYNC = {
   async login(username, password, device){
     clearTimeout(this._timer);
     this.stopPolling();
-    const loginPayload = JSON.stringify({username, password, device: device || String(navigator.userAgent||'').slice(0,120)});
+    const cryptoApi = typeof globalThis !== 'undefined' && globalThis.crypto;
+    let loginAttemptId = '';
+    try{ loginAttemptId = cryptoApi && cryptoApi.randomUUID ? cryptoApi.randomUUID() : ''; }catch(_e){}
+    if(!loginAttemptId){
+      try{ const bytes = new Uint8Array(24); cryptoApi.getRandomValues(bytes); loginAttemptId = Array.from(bytes, b=>b.toString(16).padStart(2,'0')).join(''); }catch(_e){ loginAttemptId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`; }
+    }
+    const loginPayload = JSON.stringify({username, password, device: device || String(navigator.userAgent||'').slice(0,120), loginAttemptId});
     let r = null;
     let netErr = null;
     for(let attempt=0; attempt<2; attempt++){

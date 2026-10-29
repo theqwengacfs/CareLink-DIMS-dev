@@ -183,7 +183,7 @@ test('6. Kisumu Head Office & Homa Bay County Admin workflows (Daily PAYG, Weekl
   asRole('countyadmin', 'kisumu');
   for (const t of ['overview', 'daily_weekly', 'monthly_stat', 'opex_reports', 'annual']) {
     const h = String(run(`contentFor('adminops', {tab:'${t}'}, AUTH.user)`));
-    ok(`Kisumu Head Office Admin renders adminops tab '${t}'`, h.includes('County &amp; Head Office Admin Operations'));
+    ok(`Kisumu Head Office Admin renders adminops tab '${t}'`, h.includes('Admin Operations &amp; Statutory'));
   }
   const statHtml = String(run(`contentFor('adminops', {tab:'monthly_stat'}, AUTH.user)`));
   for (const body of ['SHIF', 'PAYE', 'KRA', 'NSSF', 'Water', 'Garbage', 'Electricity', 'Rent', 'Salaries']) {

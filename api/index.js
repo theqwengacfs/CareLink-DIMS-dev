@@ -648,6 +648,103 @@ async function deleteKvKey(key) {
   return false;
 }
 
+/* Atomic Redis commands back the per-account online session lease. These
+   commands deliberately use the writable primary, never a read replica. */
+async function runKvCommand(args, timeoutMs = 10000) {
+  const candidates = kvCandidates({ allowReadOnlyFallback: false });
+  const tcpCandidates = redisTcpCandidates();
+  if (!candidates.length && !tcpCandidates.length) requireKv();
+  let lastErr = null;
+  for (const kv of candidates) {
+    try {
+      const response = await fetchKvWithRetry(kv.url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${kv.token}`, 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'upstash-redis-js/1.34.0' },
+        body: JSON.stringify(args),
+      }, timeoutMs);
+      const { payload, rawText } = await parseKvHttpResponse(response);
+      const errMsg = payload && payload.error ? String(payload.error) : '';
+      if (!response.ok || errMsg) {
+        lastErr = classifyKvFailure('write', response.status, errMsg || rawText, hostLabelOf(kv.url));
+        continue;
+      }
+      if (!payload || !Object.prototype.hasOwnProperty.call(payload, 'result')) {
+        lastErr = new CloudStorageError('kv_invalid_response', 'CareLink KV returned an invalid atomic-command response.');
+        continue;
+      }
+      if (!kv.readOnly) _pinnedKvIndex = Math.max(_pinnedKvIndex, candidates.indexOf(kv));
+      return payload.result;
+    } catch (err) {
+      lastErr = err instanceof CloudStorageError ? err : new CloudStorageError('kv_unavailable', 'CareLink could not reach the mandatory KV store.');
+    }
+  }
+  for (const tcpCfg of tcpCandidates) {
+    try { return await execRedisTcpCommand(tcpCfg, args, timeoutMs); }
+    catch (err) { if (!lastErr) lastErr = classifyKvFailure('write', 503, String((err && err.message) || ''), tcpCfg.host); }
+  }
+  throw lastErr || new CloudStorageError('kv_write_failed', 'CareLink KV refused an atomic session command.');
+}
+
+const SESSION_LEASE_SECONDS = IDLE_SECONDS + 60;
+const SESSION_LEASE_RENEW_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('EXPIRE', KEYS[1], ARGV[2]) else return 0 end";
+const SESSION_LEASE_RELEASE_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end";
+
+function sessionLeaseKey(username) {
+  const canonical = String(username || '').trim().toLowerCase();
+  const digest = crypto.createHash('sha256').update(canonical).digest('hex').slice(0, 40);
+  return `carelink_active_session_v1_${digest}`;
+}
+
+function loginSessionId(username, attemptId) {
+  const attempt = String(attemptId || '').trim();
+  if (/^[A-Za-z0-9_-]{8,128}$/.test(attempt)) {
+    return crypto.createHmac('sha256', sessionSigningSecret())
+      .update(`carelink-login-attempt-v1:${String(username || '').toLowerCase()}:${attempt}`)
+      .digest('base64url');
+  }
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+async function reserveLoginSession(username, sessionId) {
+  const key = sessionLeaseKey(username);
+  const result = await runKvCommand(['SET', key, sessionId, 'NX', 'EX', String(SESSION_LEASE_SECONDS)]);
+  if (result === 'OK') return true;
+  /* A retried login request is idempotent when it carries the same unpredictable
+     client attempt ID; all other concurrent login attempts remain blocked. */
+  return (await runKvCommand(['GET', key])) === sessionId;
+}
+
+async function renewSessionLease(username, sessionId) {
+  if (!sessionId) return false;
+  return Number(await runKvCommand([
+    'EVAL', SESSION_LEASE_RENEW_LUA, '1', sessionLeaseKey(username), sessionId, String(SESSION_LEASE_SECONDS),
+  ])) === 1;
+}
+
+async function releaseSessionLease(username, sessionId) {
+  if (!sessionId) return false;
+  return Number(await runKvCommand([
+    'EVAL', SESSION_LEASE_RELEASE_LUA, '1', sessionLeaseKey(username), sessionId,
+  ])) === 1;
+}
+
+async function ensureSessionLease(sess) {
+  /* Upgrade a pre-lease signed token safely: only the first live legacy client
+     can claim the account, and all subsequent clients must present its lease. */
+  const sessionId = sess.sessionId || crypto.createHash('sha256').update(sess.token).digest('base64url');
+  if (!sess.sessionId) {
+    const acquired = await runKvCommand([
+      'SET', sessionLeaseKey(sess.username), sessionId, 'NX', 'EX', String(SESSION_LEASE_SECONDS),
+    ]);
+    if (acquired !== 'OK') {
+      const current = await runKvCommand(['GET', sessionLeaseKey(sess.username)]);
+      if (current !== sessionId) return null;
+    }
+  }
+  if (!await renewSessionLease(sess.username, sessionId)) return null;
+  return sessionId;
+}
+
 function serializeCloudState(state) {
   const raw = JSON.stringify(state);
   if (Buffer.byteLength(raw) <= CLOUD_COMPRESS_THRESHOLD) return raw;
@@ -1456,12 +1553,13 @@ function sessionSigningSecret() {
   return crypto.createHash('sha256').update(`carelink-sess-v1:${(kv && kv.token) || 'local'}:${CLOUD_KEY}`).digest();
 }
 
-function mintSignedSessionToken(cred, username) {
+function mintSignedSessionToken(cred, username, sessionId) {
   const payload = {
     u: String(username || '').toLowerCase(),
     uid: cred.id || `u-${username}`,
     r: cred.roleId || 'staff',
     c: cred.countyId || 'kisumu',
+    ...(sessionId ? { sid: sessionId } : {}),
     iat: Math.floor(Date.now() / 1000),
     n: crypto.randomBytes(9).toString('base64url'),
   };
@@ -1520,6 +1618,7 @@ function getSession(state, req) {
     userId: (cred && cred.id) || verified.uid,
     roleId: (cred && cred.roleId) || verified.r,
     countyId: (cred && cred.countyId) || verified.c || 'kisumu',
+    sessionId: verified.sid || null,
     createdAt: new Date(verified.iat * 1000).toISOString(),
     lastSeen: nowISO(),
   };
@@ -2321,7 +2420,15 @@ async function handleRequest(req, res) {
         || ((rawId === 'system.admin' || rawId === 'chief.admin') ? demoUsers.find((u) => u && u.roleId === 'chief') : null);
       if (demoMatch) {
         const demoUname = String(demoMatch.username || rawId).toLowerCase();
-        const demoToken = mintSignedSessionToken({ id: demoMatch.id, roleId: demoMatch.roleId || 'staff', countyId: demoMatch.countyId || 'kisumu' }, demoUname);
+        const demoSessionId = loginSessionId(demoUname, body.loginAttemptId);
+        let demoReserved = false;
+        try { demoReserved = await reserveLoginSession(demoUname, demoSessionId); }
+        catch { return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' }); }
+        if (!demoReserved) return sendJson(res, 409, {
+          ok: false, code: 'session_active', retryAfterSeconds: SESSION_LEASE_SECONDS,
+          error: `This account already has an active online session on another device or browser. Sign out there first. If that device is unavailable, wait up to ${Math.ceil(SESSION_LEASE_SECONDS / 60)} minutes for the idle session to expire.`,
+        });
+        const demoToken = mintSignedSessionToken({ id: demoMatch.id, roleId: demoMatch.roleId || 'staff', countyId: demoMatch.countyId || 'kisumu' }, demoUname, demoSessionId);
         const cleanDemoUser = sanitizeDbForClient({ users: [{ ...demoMatch, status: 'active', active: true, mustChange: false }] }).users[0];
         return sendJson(res, 200, {
           ok: true,
@@ -2378,7 +2485,8 @@ async function handleRequest(req, res) {
       }
       await saveCloudAuthMetadata(state);
     }
-    const token = mintSignedSessionToken(cred, username);
+    const sessionId = loginSessionId(username, body.loginAttemptId);
+    const token = mintSignedSessionToken(cred, username, sessionId);
     const dbUsers = (state.db && Array.isArray(state.db.users)) ? state.db.users : [];
     const dbMatch = dbUsers.find((u) => String(u.username).toLowerCase() === username)
       || (cred.roleId === 'chief' ? dbUsers.find((u) => u && u.roleId === 'chief') : null);
@@ -2398,7 +2506,7 @@ async function handleRequest(req, res) {
     }).users[0];
     /* Include non-paged initial state directly in the login response when under
        512 KB total so post-setup Chief sign-in adopts Primary state in a single
-       <150 ms round-trip with zero KV write contention or Read-Replica lag.
+       <150 ms round-trip; the per-account session lease is acquired atomically before returning.
        Skip expensive JSON serialisation immediately when sharded head or large
        patient/visit collections already prove the state exceeds 512 KB. */
     let inlineState = null;
@@ -2425,6 +2533,13 @@ async function handleRequest(req, res) {
         }
       }
     }
+    let sessionReserved = false;
+    try { sessionReserved = await reserveLoginSession(username, sessionId); }
+    catch { return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' }); }
+    if (!sessionReserved) return sendJson(res, 409, {
+      ok: false, code: 'session_active', retryAfterSeconds: SESSION_LEASE_SECONDS,
+      error: `This account already has an active online session on another device or browser. Sign out there first. If that device is unavailable, wait up to ${Math.ceil(SESSION_LEASE_SECONDS / 60)} minutes for the idle session to expire.`,
+    });
     return sendJson(res, 200, {
       ok: true,
       token,
@@ -2452,6 +2567,22 @@ async function handleRequest(req, res) {
         appendServerAudit(state, sess.userId || sess.username, 'auth.logout', 'user', sess.userId || sess.username, 'Signed out from online database');
       }
       await saveCloudAuthMetadata(state);
+      try { await releaseSessionLease(sess.username, sess.sessionId || crypto.createHash('sha256').update(sess.token).digest('base64url')); } catch { /* lease expires automatically if KV is temporarily unavailable */ }
+    }
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (route === 'auth/unlock' && method === 'POST') {
+    const sess = getSession(state, req);
+    if (!sess) return sendJson(res, 401, { ok: false, error: 'This session has expired. Sign in again.' });
+    let sessionId;
+    try { sessionId = await ensureSessionLease(sess); }
+    catch { return sendJson(res, 503, { ok: false, error: 'Online session security could not be verified.' }); }
+    if (!sessionId) return sendJson(res, 401, { ok: false, error: 'This account is active in another session. Sign in again after that session ends.' });
+    const body = await readJsonBody(req);
+    const cred = (state.creds || {})[sess.username];
+    if (!cred || !verifyPassword(String(body.password || ''), cred.salt, cred.digest)) {
+      return sendJson(res, 401, { ok: false, error: 'Incorrect password.' });
     }
     return sendJson(res, 200, { ok: true });
   }
@@ -2459,6 +2590,10 @@ async function handleRequest(req, res) {
   if (route === 'session/beat' && method === 'POST') {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Session expired' });
+    let sessionId;
+    try { sessionId = await ensureSessionLease(sess); }
+    catch { return sendJson(res, 503, { ok: false, error: 'Online session security could not be verified.' }); }
+    if (!sessionId) return sendJson(res, 401, { ok: false, error: 'This account is active in another session. Sign in again after that session ends.' });
     /* Stateless HMAC tokens slide their idle window by returning a refreshed
        signed token without rewriting the multi-megabyte database every 10s. */
     if (state.sessions && Object.prototype.hasOwnProperty.call(state.sessions, sess.token)) {
@@ -2477,7 +2612,7 @@ async function handleRequest(req, res) {
       roleId: sess.roleId,
       countyId: sess.countyId || 'kisumu',
     };
-    const refreshedToken = mintSignedSessionToken(cred, sess.username);
+    const refreshedToken = mintSignedSessionToken(cred, sess.username, sessionId);
     return sendJson(res, 200, { ok: true, expiresIn: IDLE_SECONDS, token: refreshedToken });
   }
 

@@ -429,15 +429,13 @@ const AUTH = {
     if(local.ok) return local;
     if(!this.user || typeof SYNC === 'undefined' || !SYNC.available()) return local;
     try{
-      const r = await SYNC._json('api/auth/login', {
+      const r = await SYNC._json('api/auth/unlock', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ username: this.user.username, password: String(password||'') }),
-        skipAuthHeader: true,
+        body: JSON.stringify({ password: String(password||'') }),
         timeoutMs: 12000
       });
-      if(r && r.ok && r.body && r.body.token){
-        SYNC.storeToken(r.body.token);
+      if(r && r.ok && r.body && r.body.ok){
         this._rememberVerifier(this.user, String(password||''));
         this.touch();
         if(typeof SESSION !== 'undefined' && SESSION.touch) SESSION.touch();

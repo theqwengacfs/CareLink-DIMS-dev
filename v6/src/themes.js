@@ -146,6 +146,24 @@ function deptPaletteFor(user){
   return DEPT_PALETTES[key] || DEPT_PALETTES.exec;
 }
 
+/* Personal multi-colour schemes tint navigation, workspace metrics and card edges,
+   while leaving Foundation White surfaces and status colours untouched. */
+const CONSOLE_COLOR_SCHEMES = [
+  { id:'department', name:'Department signature', description:'Keep the role and department identity.', colors:null },
+  { id:'sapphire', name:'Heritage Sapphire', description:'Classic blue with teal, amber and violet accents.', colors:['#1E3A8A','#2563EB','#0F766E','#A16207','#6D28D9','#166534'] },
+  { id:'lake', name:'Lake & sky', description:'Lake teal, sky blue and clear indigo.', colors:['#0F766E','#0369A1','#1D4ED8','#0E7490','#854D0E','#6D28D9'] },
+  { id:'forest', name:'Forest & fern', description:'Evergreen with green-teal, clay and blue highlights.', colors:['#14532D','#047857','#0F766E','#92400E','#1E40AF','#6D28D9'] },
+  { id:'orchid', name:'Orchid & plum', description:'Violet, berry and plum, balanced with teal.', colors:['#581C87','#7E22CE','#9D174D','#0F766E','#1D4ED8','#92400E'] },
+  { id:'harvest', name:'Harvest & clay', description:'Warm terracotta with indigo and lake accents.', colors:['#7C2D12','#9A3412','#0F766E','#4338CA','#1E3A8A','#854D0E'] },
+  { id:'graphite', name:'Graphite & teal', description:'Slate neutrals with crisp blue and teal.', colors:['#1E293B','#475569','#0F766E','#1D4ED8','#7C2D12','#6D28D9'] },
+  { id:'citrus', name:'Citrus & ink', description:'Leaf, amber, ink blue and vibrant purple.', colors:['#365314','#854D0E','#0F766E','#1E40AF','#7E22CE','#9D174D'] }
+];
+function consoleSchemeColors(id, deptPalette=DEPT_PALETTES.exec){
+  const scheme = CONSOLE_COLOR_SCHEMES.find(s=>s.id===id) || CONSOLE_COLOR_SCHEMES[0];
+  if(scheme.colors) return scheme.colors;
+  return [deptPalette.c1, deptPalette.c2, deptPalette.c3, '#1D4ED8', '#A16207', '#6D28D9'];
+}
+
 /* ---------------- Creative studio ----------------
    Personal, validated choices layered on top of a theme. Every colour that
    results is passed through the same contrast correction, so no combination
@@ -192,6 +210,7 @@ const STUDIO = {
   tabStyle: { label:'Tab & pill style', def:'pill', opts:[ {v:'pill',l:'Filled pill'}, {v:'boxed',l:'Framed card'}, {v:'underline',l:'Clean bar'} ] },
   borderWeight:{ label:'Box & table borders', def:'crisp', opts:[ {v:'crisp',l:'Crisp standard'}, {v:'bold',l:'High-contrast 1.5px'}, {v:'heavy',l:'Ledger 2px'} ] },
   tableStripe:{ label:'Table row shading', def:'subtle', opts:[ {v:'subtle',l:'Zebra rows'}, {v:'clean',l:'Pure white'}, {v:'ruled',l:'Ruled ledger'} ] },
+  colorScheme:{ label:'Console colour scheme', def:'department', opts:CONSOLE_COLOR_SCHEMES.map(s=>({v:s.id,l:s.name})) },
   accentPick:{ label:'Accent colour', def:'', opts:[
     {v:'',l:'Theme or department'},
     {v:'#C8102E',l:'Crimson'}, {v:'#1F3864',l:'Navy'}, {v:'#B45309',l:'Ochre'},
@@ -351,6 +370,7 @@ const WTHEME = {
     const mine = DB.db.personalPrefs[user.id] = DB.db.personalPrefs[user.id] || {};
     mine.uiEpoch = 691;
     Object.keys(pre.p).forEach(k=>{ mine[k] = pre.p[k]; });
+    if(!Object.prototype.hasOwnProperty.call(pre.p,'colorScheme')) mine.colorScheme = 'department';
     if(!('touch' in pre.p) && mine.touch==='large' && pre.id!=='sun') { /* a preset never takes away a comfort setting the person chose */ }
     DB.save();
     return { ok:true, preset:pre };
@@ -462,8 +482,22 @@ const WTHEME = {
     }
     const st = user? WTHEME.studio(user) : null;
     const dp = deptPaletteFor(user);
-    const vars = WTHEME.vars(theme, dept, st && st.accentPick);
+    const schemeId = (st && st.colorScheme) || STUDIO.colorScheme.def;
+    const schemeColors = consoleSchemeColors(schemeId, dp);
+    const schemeAccent = (st && st.accentPick) || (schemeId !== 'department' ? schemeColors[0] : '');
+    const vars = WTHEME.vars(theme, dept, schemeAccent);
     Object.keys(vars).forEach(k=>set(k, vars[k]));
+    const schemeInk = schemeColors.map(color=>{
+      let safe = color, tries = 0;
+      const target = theme.t.surface;
+      const direction = theme.mode === 'dark' ? '#FFFFFF' : '#000000';
+      while(WTC.contrast(safe, target) < 4.6 && tries++ < 48) safe = WTC.mix(safe, direction, 0.055);
+      return safe;
+    });
+    schemeInk.forEach((color, i)=>{
+      set(`--console-c${i+1}`, color);
+      set(`--console-soft-${i+1}`, WTC.mix(theme.t.surface, color, 0.055));
+    });
     set('--dept-c1', dp.c1); set('--dept-c2', dp.c2); set('--dept-c3', dp.c3); set('--dept-badge', dp.badge);
     set('--dept-soft', WTC.mix(theme.t.surface, dp.c2, theme.mode==='dark'? 0.24 : 0.11));
     set('--dept-line', WTC.mix(theme.t.surface, dp.c2, theme.mode==='dark'? 0.42 : 0.28));
@@ -480,6 +514,7 @@ const WTHEME = {
     attr('data-tabstyle', (st&&st.tabStyle)||'pill');
     attr('data-borders', (st&&st.borderWeight)||'crisp');
     attr('data-tstripe', (st&&st.tableStripe)||'subtle');
+    attr('data-colorscheme', user ? schemeId : 'public');
     attr('data-dept', (user && roleObj(user.roleId) && roleObj(user.roleId).dept) || 'exec');
     attr('data-wt', theme.id); attr('data-wmode', theme.mode);
     if(root.style) root.style.colorScheme = theme.mode;
@@ -559,6 +594,7 @@ const WTHEME = {
     STUDIO_KEYS.forEach(k=>{
       if(cfg[k]!==undefined && STUDIO[k].opts.some(o=>o.v===cfg[k])) mine[k] = cfg[k];
     });
+    if(cfg.colorScheme===undefined) mine.colorScheme = 'department';
     mine.uiEpoch = 691;
     mine.visualPackId = pack.id;
     DB.save();

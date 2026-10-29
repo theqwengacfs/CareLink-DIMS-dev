@@ -51,6 +51,25 @@ global.fetch = async (input, init = {}) => {
     kv.delete(key);
     return kvResponse({ result: 1 });
   }
+  if (url.pathname === '/' && init.method === 'POST') {
+    const command = JSON.parse(rawBody);
+    const [op, ...args] = command;
+    if (op === 'SET') {
+      const [key, value, ...options] = args;
+      if (options.includes('NX') && kv.has(key)) return kvResponse({ result: null });
+      kv.set(key, String(value));
+      return kvResponse({ result: 'OK' });
+    }
+    if (op === 'GET') return kvResponse({ result: kv.has(args[0]) ? kv.get(args[0]) : null });
+    if (op === 'EVAL') {
+      const script = args[0]; const keyCount = Number(args[1]) || 0;
+      const key = args[2]; const value = args[2 + keyCount];
+      if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
+      if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
+      if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }
+    }
+    throw new Error(`Unexpected Redis command: ${op}`);
+  }
   throw new Error(`Unexpected KV request: ${url.pathname}`);
 };
 
@@ -234,6 +253,8 @@ global.fetch = async (input, init = {}) => {
     body: JSON.stringify({ username: 'nurse.extra@lomamo.org', password: customTempPw }),
   });
   assert.equal(emailLoginRes.ok, true, 'Official email login must succeed for newly provisioned staff');
+  const emailLoginOut = await apiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${(await emailLoginRes.json()).token}` }, body: '{}' });
+  assert.equal(emailLoginOut.ok, true, 'Release the email-login session before later ACT activation of the same account');
 
   /* Sign in as caregiver.nyalenda on Tablet A, complete first-login password change, verify RBAC & 3,333 patients */
   await tabletA.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaEntry.tempPassword })}))`);
@@ -299,14 +320,22 @@ global.fetch = async (input, init = {}) => {
   assert.equal(tabletA.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Personal theme must survive SYNC.pullFull()');
   assert.equal(tabletA.run('WTHEME.studio(AUTH.user).font'), 'editorial', 'Personal studio font must survive SYNC.pullFull()');
 
-  /* Sign in as the SAME caregiver.nyalenda on a brand-new PC B -> personal theme & font sync from Cloud! */
+  /* A second device cannot sign in concurrently; after an explicit hand-off,
+     the same account can continue on PC B and retain its cloud preferences. */
   const pcCaregiverB = makeHostedClient('pc');
   await pcCaregiverB.run('boot()');
   await pcCaregiverB.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaPrivPw })}))`);
-  assert.equal(pcCaregiverB.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Cloud personalPrefs must sync harbour theme to PC B');
+  assert.equal(pcCaregiverB.run('AUTH.user'), null, 'A second device must not open the account while Tablet A holds its active session');
+  assert.match(pcCaregiverB.run('LOGIN6.error'), /active online session/i, 'The sign-in screen must explain the single-session restriction');
+  await tabletA.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
+  await pcCaregiverB.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaPrivPw })}))`);
+  assert.equal(pcCaregiverB.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Cloud personalPrefs must sync harbour theme to PC B after hand-off');
   assert.equal(pcCaregiverB.run('WTHEME.studio(AUTH.user).font'), 'editorial', 'Cloud personalPrefs must sync editorial font to PC B');
   assert.equal(pcCaregiverB.run('DB.db.personalPrefs[AUTH.user.id].textScale'), 110, 'Cloud personalPrefs must sync textScale to PC B');
   assert.equal(pcCaregiverB.run('DB.db.patients.length'), 3333, 'PC B must also load all 3,333 patients');
+  await pcCaregiverB.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
+  await tabletA.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaPrivPw })}))`);
+  assert.equal(tabletA.run('AUTH.user && AUTH.user.username'), 'caregiver.nyalenda', 'Tablet A can regain its session after the explicit hand-off back');
 
   /* Install a Custom Visual Pack with a custom dark theme on Chief Admin PC -> rehydrates on Tablet A via SYNC.tick()! */
   const customPackRes = pcAdmin.run(`WTHEME.installCustomPack(AUTH.user, JSON.stringify({
@@ -381,6 +410,7 @@ global.fetch = async (input, init = {}) => {
   assert.equal(freshBrowser.run('AUTH.mustChange'), false, 'ACT-redeemed account must have mustChange cleared');
 
   const emgNewPw = 'Solar#Peak2027!Safe8';
+  await tabletA.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
   const recBrowser = makeHostedClient('pc');
   await recBrowser.run('boot()');
   await recBrowser.run(`FORMS.emergency6(__fd(${JSON.stringify({

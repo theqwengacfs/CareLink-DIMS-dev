@@ -25,6 +25,25 @@ globalThis.fetch = async (input, init = {}) => {
     kv.set('carelink_cloud_v66', serialized);
     return response({ result: 'OK' });
   }
+  if (url.pathname === '/' && init.method === 'POST') {
+    if (failWrites) return response({ error: 'write unavailable' }, 503);
+    const [op, ...args] = JSON.parse(init.body);
+    if (op === 'SET') {
+      const [key, value, ...options] = args;
+      if (options.includes('NX') && kv.has(key)) return response({ result: null });
+      kv.set(key, String(value));
+      return response({ result: 'OK' });
+    }
+    if (op === 'GET') return response({ result: kv.has(args[0]) ? kv.get(args[0]) : null });
+    if (op === 'EVAL') {
+      const script = args[0]; const keyCount = Number(args[1]) || 0;
+      const key = args[2]; const value = args[2 + keyCount];
+      if (kv.get(key) !== String(value)) return response({ result: 0 });
+      if (/EXPIRE/.test(script)) return response({ result: 1 });
+      if (/DEL/.test(script)) { kv.delete(key); return response({ result: 1 }); }
+    }
+    throw new Error(`Unexpected Redis command: ${op}`);
+  }
   throw new Error(`Unexpected KV request: ${url.pathname}`);
 };
 
@@ -149,6 +168,7 @@ await check('public setup cannot self-declare global activation', async () => {
 });
 
 let chiefToken = '';
+let staffToken = '';
 await check('demo bootstrap is locked once the installation is commissioned', async () => {
   const before = kv.get('carelink_cloud_v66');
   const r = await call('public/demo-bootstrap', {
@@ -217,9 +237,15 @@ await check('globally issued staff credentials work from a fresh online session'
     body: { current: 'TempStaff#2026!', password: 'PrivateStaff#2027!' },
   });
   assert.equal(changed.status, 200, JSON.stringify(changed.body));
+  const concurrent = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', device: 'pc-test' } });
+  assert.equal(concurrent.status, 409, 'A second device must not establish a simultaneous account session');
+  assert.equal(concurrent.body.code, 'session_active');
+  const signout = await call('auth/logout', { method: 'POST', token: first.body.token });
+  assert.equal(signout.status, 200);
   const second = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', device: 'pc-test' } });
   assert.equal(second.status, 200, JSON.stringify(second.body));
   assert.equal(second.body.mustChange, false);
+  staffToken = second.body.token;
 });
 
 await check('repeated activation preserves private staff passwords instead of issuing a false replacement sheet', async () => {
@@ -236,11 +262,46 @@ await check('repeated activation preserves private staff passwords instead of is
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.issued.length, 0);
   assert.deepEqual(r.body.preserved, ['staff.one']);
+  const denied = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
+  assert.equal(denied.status, 409, 'Reissued temp credentials must not let a second device bypass the active session');
+  const signedOut = await call('auth/logout', { method: 'POST', token: staffToken });
+  assert.equal(signedOut.status, 200);
   const login = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
   assert.equal(login.status, 200, JSON.stringify(login.body));
   assert.equal(login.body.mustChange, false);
+  staffToken = login.body.token;
   const state = await call('state', { token: chiefToken });
   assert.equal(state.body.db.users.find((u) => u.username === 'staff.one').mustChange, false);
+});
+
+await check('parallel account sign-ins create one atomic winner and one active-session denial', async () => {
+  const previousLogout = await call('auth/logout', { method: 'POST', token: staffToken });
+  assert.equal(previousLogout.status, 200);
+  const [a, b] = await Promise.all([
+    call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: 'parallel-device-a-2026' } }),
+    call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: 'parallel-device-b-2026' } }),
+  ]);
+  const outcomes = [a, b].sort((x, y) => x.status - y.status);
+  assert.equal(outcomes[0].status, 200, 'Exactly one parallel login must acquire the lease');
+  assert.equal(outcomes[1].status, 409, 'The competing parallel login must be refused');
+  assert.equal(outcomes[1].body.code, 'session_active');
+  const winner = outcomes[0];
+  const beat = await call('session/beat', { method: 'POST', token: winner.body.token });
+  assert.equal(beat.status, 200, JSON.stringify(beat.body));
+  assert.ok(beat.body.token, 'Heartbeat must refresh a token while retaining its stable account lease');
+  const other = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
+  assert.equal(other.status, 409, 'Heartbeat renewal must keep the second-device lock active');
+  const released = await call('auth/logout', { method: 'POST', token: beat.body.token });
+  assert.equal(released.status, 200);
+  const attempt = 'replayed-network-attempt-2026';
+  const original = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: attempt } });
+  const retry = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: attempt } });
+  assert.equal(original.status, 200);
+  assert.equal(retry.status, 200, 'A retried request with its original random attempt ID can recover a lost response');
+  const unrelated = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
+  assert.equal(unrelated.status, 409, 'A separate login attempt remains blocked even while an idempotent retry is accepted');
+  const retryLogout = await call('auth/logout', { method: 'POST', token: retry.body.token });
+  assert.equal(retryLogout.status, 200);
 });
 
 await check('demo bootstrap is permanently refused after global activation', async () => {

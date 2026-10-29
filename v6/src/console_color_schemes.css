@@ -1,0 +1,105 @@
+/* Coordinated multi-colour accents across signed-in workspace cards and tabs.
+   This layer never changes the selected theme's surface or status semantics. */
+.console-scheme-grid{
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%;
+}
+.console-scheme-choice{
+  display:grid; grid-template-columns:1fr; gap:6px; min-width:0; min-height:86px; padding:9px 10px;
+  text-align:left; color:var(--ink); background:var(--surface); border:1px solid var(--line);
+  border-radius:11px; cursor:pointer; transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease;
+}
+.console-scheme-choice:hover{transform:translateY(-1px);border-color:var(--accent);box-shadow:0 4px 12px rgba(15,23,42,.08);}
+.console-scheme-choice.is-selected{border:2px solid var(--accent);padding:8px 9px;background:color-mix(in srgb,var(--accent) 4%,var(--surface));box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 10%,transparent);}
+.console-scheme-choice:focus-visible{outline:3px solid #38BDF8;outline-offset:2px;}
+.console-scheme-choice>b{font-size:11px;line-height:1.2;color:var(--ink);}
+.console-scheme-choice>small{font-size:9.5px;line-height:1.35;color:var(--muted);}
+.console-scheme-swatches{display:flex;width:100%;height:9px;overflow:hidden;border-radius:999px;}
+.console-scheme-swatches i{flex:1;background:var(--swatch);}
+
+/* The screenshot's executive quick-metric boxes and equivalent role-console
+   shortcuts receive a coordinated tint and color marker, not status colors. */
+.ws67-qcard:not(.is-alert){
+  --console-q-accent:var(--console-c1);
+  border-top:3px solid var(--console-q-accent) !important;
+  background:color-mix(in srgb,var(--console-q-accent) 5%,var(--surface)) !important;
+}
+.ws67-qcard:not(.is-alert):nth-child(6n+2){--console-q-accent:var(--console-c2);}
+.ws67-qcard:not(.is-alert):nth-child(6n+3){--console-q-accent:var(--console-c3);}
+.ws67-qcard:not(.is-alert):nth-child(6n+4){--console-q-accent:var(--console-c4);}
+.ws67-qcard:not(.is-alert):nth-child(6n+5){--console-q-accent:var(--console-c5);}
+.ws67-qcard:not(.is-alert):nth-child(6n){--console-q-accent:var(--console-c6);}
+.ws67-qcard:not(.is-alert) .ws67-qnum{color:var(--console-q-accent);}
+.ws67-qcard:not(.is-alert) .ws67-qlbl svg{color:var(--console-q-accent);}
+.ws67-qcard:not(.is-alert):hover{background:color-mix(in srgb,var(--console-q-accent) 10%,var(--surface)) !important;}
+
+/* Color rails distinguish neutral KPI boxes while green/amber/red/blue KPI
+   classes continue to communicate their established operational meaning. */
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="tinted"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info),
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="outlined"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info){
+  border-inline-start:4px solid var(--console-kpi-accent,var(--console-c1)) !important;
+}
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="tinted"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n+2),
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="outlined"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n+2){--console-kpi-accent:var(--console-c2);}
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="tinted"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n+3),
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="outlined"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n+3){--console-kpi-accent:var(--console-c3);}
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="tinted"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n+4),
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="outlined"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n+4){--console-kpi-accent:var(--console-c4);}
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="tinted"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n+5),
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="outlined"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n+5){--console-kpi-accent:var(--console-c5);}
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="tinted"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n),
+html[data-colorscheme]:not([data-colorscheme="public"])[data-kpistyle="outlined"] .grid>.kpi:not(.ok):not(.warn):not(.crit):not(.info):nth-child(6n){--console-kpi-accent:var(--console-c6);}
+
+/* Tabs remain recognizable; inactive outlines carry subtle palette tints and
+   active/focused tabs follow the scheme's contrast-corrected primary accent. */
+html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on){
+  border-color:color-mix(in srgb,var(--console-tab-accent,var(--console-c1)) 24%,var(--line)) !important;
+}
+html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on):nth-child(6n+2){--console-tab-accent:var(--console-c2);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on):nth-child(6n+3){--console-tab-accent:var(--console-c3);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on):nth-child(6n+4){--console-tab-accent:var(--console-c4);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on):nth-child(6n+5){--console-tab-accent:var(--console-c5);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on):nth-child(6n){--console-tab-accent:var(--console-c6);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on):hover{border-color:var(--console-tab-accent,var(--console-c1)) !important;color:var(--console-tab-accent,var(--console-c1)) !important;}
+html[data-colorscheme]:not([data-colorscheme="public"]) .ctx-rtab:not(.on){border-color:color-mix(in srgb,var(--console-c2) 34%,var(--line)) !important;}
+html[data-colorscheme]:not([data-colorscheme="public"]) .ctx-rtab:not(.on):hover{border-color:var(--console-c1) !important;background:color-mix(in srgb,var(--console-c1) 8%,var(--surface)) !important;color:var(--console-c1) !important;}
+html[data-colorscheme]:not([data-colorscheme="public"]) .ctx-rtab.on{background:var(--accent) !important;border-color:var(--accent) !important;color:var(--accent-ink,#FFFFFF) !important;}
+
+/* Light accent rails on the large module cards used by the decongested decks. */
+.ws67-primary-slot:nth-child(6n+1)>.card{border-top:3px solid var(--console-c1);}
+.ws67-primary-slot:nth-child(6n+2)>.card{border-top:3px solid var(--console-c2);}
+.ws67-primary-slot:nth-child(6n+3)>.card{border-top:3px solid var(--console-c3);}
+.ws67-primary-slot:nth-child(6n+4)>.card{border-top:3px solid var(--console-c4);}
+.ws67-secondary-drawer .ws67-mod-stage>.card{border-top:3px solid var(--console-c1);}
+@media(max-width:960px){.console-scheme-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:420px){.console-scheme-grid{grid-template-columns:1fr;}}
+
+/* Clearer, professionally restrained tab distinctions for high-density
+   executive, registry, development and finance workspaces. */
+html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on){
+  background:color-mix(in srgb,var(--console-tab-accent,var(--console-c1)) 3%,var(--surface));
+  box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--console-tab-accent,var(--console-c1)) 42%,transparent);
+}
+html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on):focus-visible{
+  outline:3px solid color-mix(in srgb,var(--console-c1) 66%,#38BDF8); outline-offset:2px;
+}
+
+/* Finance's five work areas carry the selected Admin Ops reporting palette;
+   paid/due/critical labels and their status colours remain untouched. */
+.aops-section-tab:not(.is-current):nth-child(5n+1) .aops-section-index{color:var(--aops-c1);background:color-mix(in srgb,var(--aops-c1) 12%,#FFFFFF);}
+.aops-section-tab:not(.is-current):nth-child(5n+2) .aops-section-index{color:var(--aops-c2);background:color-mix(in srgb,var(--aops-c2) 12%,#FFFFFF);}
+.aops-section-tab:not(.is-current):nth-child(5n+3) .aops-section-index{color:var(--aops-c3);background:color-mix(in srgb,var(--aops-c3) 12%,#FFFFFF);}
+.aops-section-tab:not(.is-current):nth-child(5n+4) .aops-section-index{color:var(--aops-c4);background:color-mix(in srgb,var(--aops-c4) 12%,#FFFFFF);}
+.aops-section-tab:not(.is-current):nth-child(5n) .aops-section-index{color:var(--aops-c5);background:color-mix(in srgb,var(--aops-c5) 12%,#FFFFFF);}
+.aops-section-tab:not(.is-current):nth-child(5n+1){border-color:color-mix(in srgb,var(--aops-c1) 22%,#E1E7EF);}
+.aops-section-tab:not(.is-current):nth-child(5n+2){border-color:color-mix(in srgb,var(--aops-c2) 22%,#E1E7EF);}
+.aops-section-tab:not(.is-current):nth-child(5n+3){border-color:color-mix(in srgb,var(--aops-c3) 22%,#E1E7EF);}
+.aops-section-tab:not(.is-current):nth-child(5n+4){border-color:color-mix(in srgb,var(--aops-c4) 22%,#E1E7EF);}
+.aops-section-tab:not(.is-current):nth-child(5n){border-color:color-mix(in srgb,var(--aops-c5) 22%,#E1E7EF);}
+.aops-section-tab:not(.is-current):hover{background:color-mix(in srgb,var(--aops-tab-accent,var(--aops-c1)) 5%,#FFFFFF);}
+.aops-section-tab:nth-child(5n+1){--aops-tab-accent:var(--aops-c1);}
+.aops-section-tab:nth-child(5n+2){--aops-tab-accent:var(--aops-c2);}
+.aops-section-tab:nth-child(5n+3){--aops-tab-accent:var(--aops-c3);}
+.aops-section-tab:nth-child(5n+4){--aops-tab-accent:var(--aops-c4);}
+.aops-section-tab:nth-child(5n){--aops-tab-accent:var(--aops-c5);}
+.aops-section-tab:not(.is-current):hover .aops-section-index{color:#FFFFFF;background:var(--aops-tab-accent);}
+.aops-section-tab.is-current{border-color:color-mix(in srgb,var(--aops-c1) 42%,#D9E3EF);box-shadow:0 2px 7px color-mix(in srgb,var(--aops-c1) 12%,transparent);}

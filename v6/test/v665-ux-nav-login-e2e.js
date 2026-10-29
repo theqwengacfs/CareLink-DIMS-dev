@@ -79,6 +79,25 @@ global.fetch = async (input, init = {}) => {
     kv.delete(key);
     return kvResponse({ result: 1 });
   }
+  if (url.pathname === '/' && init.method === 'POST') {
+    const command = JSON.parse(rawBody);
+    const [op, ...args] = command;
+    if (op === 'SET') {
+      const [key, value, ...options] = args;
+      if (options.includes('NX') && kv.has(key)) return kvResponse({ result: null });
+      kv.set(key, String(value));
+      return kvResponse({ result: 'OK' });
+    }
+    if (op === 'GET') return kvResponse({ result: kv.has(args[0]) ? kv.get(args[0]) : null });
+    if (op === 'EVAL') {
+      const script = args[0]; const keyCount = Number(args[1]) || 0;
+      const key = args[2]; const value = args[2 + keyCount];
+      if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
+      if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
+      if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }
+    }
+    throw new Error(`Unexpected Redis command: ${op}`);
+  }
   throw new Error('Unexpected KV path: ' + url.pathname);
 };
 
@@ -276,11 +295,13 @@ function ok(name, cond, detail = '') {
   const authOnly = await rawApiFetch('api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'system.admin', password: chiefPrivPw })
+    body: JSON.stringify({ username: cgCred.username, password: cgCred.tempPassword })
   });
   const authBody = await authOnly.json();
   ok('POST /api/auth/login authenticates from sharded manifest head with ZERO shard reads',
     authOnly.ok === true && Boolean(authBody.token) && shardGets === 0, `shardGets=${shardGets}`);
+  const authOnlyLogout = await rawApiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${authBody.token}` }, body: '{}' });
+  ok('Direct API login lease releases cleanly before testing a fresh client', authOnlyLogout.status === 200);
 
   /* 4b. Verify fresh browser client logs in via 2-part fastPack (zero 16-collection page walk, zero onlineWarning) */
   const fastRequests = [];
@@ -290,13 +311,14 @@ function ok(name, cond, detail = '') {
   });
   await fastTablet.run('boot()');
   fastRequests.length = 0;
-  const fastLoginRes = JSON.parse(await fastTablet.run(`AUTH.loginOnline('system.admin', ${JSON.stringify(chiefPrivPw)}).then(r => JSON.stringify({
+  const fastLoginRes = JSON.parse(await fastTablet.run(`AUTH.loginOnline(${JSON.stringify(cgCred.username)}, ${JSON.stringify(cgCred.tempPassword)}).then(r => JSON.stringify({
     ok: r.ok, warn: r.onlineWarning || '', syncState: SYNC.state, patients: DB.db.patients.length
   }))`));
   const pageWalkCalls = fastRequests.filter(u => u.includes('api/state/collection'));
   ok('Fresh client login loads all 3,333 patients via fastPack with zero collection-page walk and zero onlineWarning',
     fastLoginRes.ok === true && fastLoginRes.warn === '' && fastLoginRes.patients === 3333 && pageWalkCalls.length === 0,
     JSON.stringify({ fastLoginRes, fastRequests }));
+  await fastTablet.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
 
   /* 4c. Verify pagedCollections fallback tolerates concurrent tablet write incrementing rev mid-pull with ZERO onlineWarning */
   let injectedMidPullWrite = false;
@@ -315,7 +337,7 @@ function ok(name, cond, detail = '') {
   }, false);
   await pagedPc.run('boot()');
   const pagedLoginRes = JSON.parse(await pagedPc.run(`(async () => {
-    const r = await AUTH.loginOnline('system.admin', ${JSON.stringify(chiefPrivPw)});
+    const r = await AUTH.loginOnline(${JSON.stringify(cgCred.username)}, ${JSON.stringify(cgCred.tempPassword)});
     if (SYNC._pushPromise) await SYNC._pushPromise;
     return JSON.stringify({
       ok: r.ok, warn: r.onlineWarning || '', syncState: SYNC.state, patients: DB.db.patients.length,
@@ -331,7 +353,7 @@ function ok(name, cond, detail = '') {
   /* 5. Zero-Shard Polling, Exact Upstash Error Diagnostics, Multi-KV Failover & Red Error Toasts */
   shardGets = 0;
   const pollUnchanged = await rawApiFetch(`api/state?since=${pagedPc.run('SYNC.rev')}`, {
-    headers: { 'x-carelink-session': authBody.token }
+    headers: { 'x-carelink-session': pagedPc.run('SYNC.sessionToken') }
   });
   const pollUnchangedBody = await pollUnchanged.json();
   ok('GET /api/state?since=<currentRev> answers unchanged:true from manifest head with ZERO shard reads',
@@ -347,12 +369,13 @@ function ok(name, cond, detail = '') {
   await pcAdmin.run('SYNC.push()');
   shardGets = 0;
   const pollDelta = await rawApiFetch(`api/state?since=${prevRevBeforePatch}`, {
-    headers: { 'x-carelink-session': authBody.token }
+    headers: { 'x-carelink-session': pagedPc.run('SYNC.sessionToken') }
   });
   const pollDeltaBody = await pollDelta.json();
   ok('GET /api/state?since=<prevRev> serves incremental delta patches from manifest head with ZERO shard reads',
     pollDelta.ok === true && Array.isArray(pollDeltaBody.patches) && pollDeltaBody.patches.length > 0 && shardGets === 0,
     `shardGets=${shardGets}`);
+  await pcAdmin.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
 
   /* Verify exact Upstash quota diagnostic message & Retry Cloud KV Connection UI (not Reset Setup) */
   kvRefusalOverride = { status: 400, error: 'ERR max daily request limit exceeded. Limit: 10000, Usage: 10000.' };
