@@ -188,17 +188,18 @@
   border:1.5px solid rgba(8,19,38,.45); flex:0 0 auto;
 }
 
-/* Clean architectural buttons across dark & light landing themes */
+/* High-contrast golden-amber & deep-depth buttons on dark/Heritage Sapphire landing front door */
 .ld .ld-btn-arch{
-  background:rgba(255,255,255,.10) !important;
-  color:#F8FAFC !important;
-  border:1px solid rgba(255,255,255,.22) !important;
-  box-shadow:none !important;
-  font-weight:600 !important;
+  background:linear-gradient(180deg, #F5C451 0%, #D99B1E 100%) !important;
+  color:#081326 !important;
+  border:1px solid rgba(255,255,255,.38) !important;
+  box-shadow:0 8px 20px rgba(3,8,20,.45), inset 0 1px 0 rgba(255,255,255,.45) !important;
+  font-weight:800 !important;
 }
 .ld .ld-btn-arch:hover{
-  background:rgba(255,255,255,.18) !important;
-  color:#FFFFFF !important;
+  background:linear-gradient(180deg, #FCD34D 0%, #EAB308 100%) !important;
+  color:#050D1C !important;
+  transform:translateY(-1px);
 }
 .ld[data-mode="light"] .ld-btn-arch{
   background:#FFFFFF !important;
@@ -213,20 +214,19 @@
   color:#0F172A !important;
 }
 
-/* Primary & Secondary Landing CTAs — calm executive sapphire/slate in light mode */
+/* High-contrast primary & secondary landing buttons with layered depth */
 .ld .ld-btn-primary{
-  background:#1E3A8A !important;
+  background:linear-gradient(180deg, #DF1E3C 0%, #B30F29 100%) !important;
   color:#FFFFFF !important;
-  border:1px solid #1E3A8A !important;
-  box-shadow:0 1px 2px rgba(15,23,42,.08), 0 4px 14px rgba(30,58,138,.20) !important;
-  font-weight:600;
+  border:1px solid rgba(255,255,255,.20) !important;
+  box-shadow:0 8px 20px rgba(3,8,20,.55), inset 0 1px 0 rgba(255,255,255,.22) !important;
+  font-weight:700;
 }
 .ld .ld-btn-primary:hover{
-  background:#1D4ED8 !important;
-  border-color:#1D4ED8 !important;
+  background:linear-gradient(180deg, #EA2846 0%, #C41430 100%) !important;
   color:#FFFFFF !important;
   transform:translateY(-1px);
-  box-shadow:0 6px 18px rgba(29,78,216,.24) !important;
+  box-shadow:0 12px 26px rgba(3,8,20,.68), inset 0 1px 0 rgba(255,255,255,.3) !important;
 }
 .ld[data-mode="light"] .ld-btn-primary{
   background:#0F172A !important;
@@ -239,16 +239,17 @@
   border-color:#1E3A8A !important;
 }
 .ld .ld-btn-secondary{
-  background:rgba(15,31,64,.88) !important;
+  background:rgba(15,31,64,.94) !important;
   color:#F8FAFC !important;
-  border:1px solid rgba(148,197,255,.28) !important;
-  box-shadow:none !important;
-  font-weight:600;
+  border:1.5px solid rgba(233,199,101,.50) !important;
+  box-shadow:0 6px 16px rgba(3,8,20,.42) !important;
+  font-weight:700;
 }
 .ld .ld-btn-secondary:hover{
-  background:rgba(24,47,94,.96) !important;
-  color:#FFFFFF !important;
-  border-color:rgba(148,197,255,.5) !important;
+  background:rgba(24,47,94,.98) !important;
+  color:#FDE68A !important;
+  border-color:#F5C451 !important;
+  transform:translateY(-1px);
 }
 .ld[data-mode="light"] .ld .ld-btn-secondary,
 .ld[data-mode="light"] .ld-btn-secondary{

@@ -1026,6 +1026,9 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.9.1', date:'2026-10-29', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
+      summary:'Write-once non-expiring KV shard architecture + automatic Shard 2 self-healing recovery, Heritage Sapphire blue front-door landing page & layered topology graphic restored, and Quiet Precision white workspace consoles.',
+      changes:['Write-once immutable KV shard keys + automatic degraded shard self-healing','Lightweight manifest-head login/logout commits (zero shard rewrites)','Restored Heritage Sapphire blue front/landing page & layered radial-beam topology graphic','Preserved Quiet Precision Foundation White signed-in workspace consoles'] },
     { tag:'v6.9.0', date:'2026-10-29', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
       summary:'Quiet Precision Architectural White Redesign: Monochrome + Single Sapphire Palette, Clean Light Landing Architecture Diagram, Zero Colored Stripes/Rainbow KPIs, Single-Tier Console Header, Automatic uiEpoch=690 Legacy Cache Reset, and Streamlined 29-Role Consoles.' },
     { tag:'v6.8.0', date:'2026-10-29', channel:'Production', schema:63, author:'CareLink OS Core Engineering',

@@ -46,21 +46,22 @@ const { makeCtx } = require('./dom');
     };
   })())`));
 
-  ok('APP.version is 6.9.0', themeAudit.appVersion === '6.9.0', themeAudit.appVersion);
-  ok('Global Landing Default is Foundation White (clinic, mode=light, accent=#1E3A8A)',
-    themeAudit.defaultLandingId === 'clinic' &&
-    themeAudit.firstLanding.id === 'clinic' &&
-    themeAudit.firstLanding.mode === 'light' &&
-    themeAudit.resolvedLanding.id === 'clinic' &&
-    themeAudit.landingHtml.includes('data-theme="clinic" data-mode="light"') &&
-    !themeAudit.landingHtml.includes('fill="#0B1933"'));
+  ok('APP.version is 6.9.1', themeAudit.appVersion === '6.9.1', themeAudit.appVersion);
+  ok('Global Landing Default is Heritage Sapphire (deep blue with dimensional topology)',
+    themeAudit.defaultLandingId === 'heritage' &&
+    themeAudit.firstLanding.id === 'heritage' &&
+    themeAudit.firstLanding.mode === 'dark' &&
+    themeAudit.resolvedLanding.id === 'heritage' &&
+    themeAudit.landingHtml.includes('data-theme="heritage" data-mode="dark"') &&
+    themeAudit.landingHtml.includes('linearGradient id="beamGrad"') &&
+    themeAudit.landingHtml.includes('fill="#0B1933"'));
 
   const epochAudit = JSON.parse(run(`JSON.stringify((() => {
     const u = DB.db.users.find(x => x.username === 'director');
-    /* Simulate a legacy pre-690 Upstash KV / localStorage state */
+    /* Simulate a pre-691 theme migration from the old white-front-door release */
     delete DB.db.settings.uiEpoch;
     DB.db.settings.landingTheme = 'spectrum';
-    DB.db.settings.landingThemeExplicit = true;
+    DB.db.settings.landingThemeExplicit = false;
     DB.db.settings.consoleTheme = 'classic';
     DB.db.personalPrefs[u.id] = { wtheme: 'night', bannerStyle: 'spectrum', kpiStyle: 'vivid', textScale: 110 };
     DB.migrate();
@@ -69,16 +70,24 @@ const { makeCtx } = require('./dom');
       landingAfter: landingTheme().id,
       resolvedWtheme: WTHEME.resolveId(u),
       studioAfter: WTHEME.studio(u),
-      keptTextScale: DB.db.personalPrefs[u.id].textScale
+      keptTextScale: DB.db.personalPrefs[u.id].textScale,
+      explicitChoice: (() => {
+        DB.db.settings.uiEpoch = 690;
+        DB.db.settings.landingTheme = 'canopy';
+        DB.db.settings.landingThemeExplicit = true;
+        DB.migrate();
+        return landingTheme().id;
+      })()
     };
   })())`));
-  ok('Legacy pre-690 cloud/browser preferences auto-migrate to clean Foundation White while preserving accessibility textScale',
-    epochAudit.uiEpoch === 690 &&
-    epochAudit.landingAfter === 'clinic' &&
+  ok('Legacy pre-691 cloud/browser preferences migrate to Heritage Sapphire while preserving Foundation White workspace and accessibility textScale',
+    epochAudit.uiEpoch === 691 &&
+    epochAudit.landingAfter === 'heritage' &&
     epochAudit.resolvedWtheme === 'foundation' &&
     epochAudit.studioAfter.bannerStyle === 'glass' &&
     epochAudit.studioAfter.kpiStyle === 'tinted' &&
-    epochAudit.keptTextScale === 110,
+    epochAudit.keptTextScale === 110 &&
+    epochAudit.explicitChoice === 'canopy',
     JSON.stringify(epochAudit));
   ok('Global Workspace Default is Luminous Foundation White across surface, bar & sidebar chrome',
     themeAudit.wtDefault === 'foundation' &&

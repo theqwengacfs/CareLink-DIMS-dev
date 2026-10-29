@@ -88,7 +88,7 @@ const DB = {
         care:{ capacity:12, handoverHour:19 },
         notifications:{ mondayReport:true, overdueReviews:true, pendingApprovals:true, incidents:true, weeklyDigest:false },
         accessibility:{ reducedMotion:false, highContrast:false },
-        landingTheme:'clinic', consoleTheme:'foundation', workspaceTheme:'foundation', uiEpoch:690,
+        landingTheme:'heritage', consoleTheme:'foundation', workspaceTheme:'foundation', uiEpoch:691,
         sync:{ mode:'auto', live:true, liveMs:500 }
       },
       users:[], roles:[], patients:[], visits:[], pdcas:[], requests:[], transactions:[],
@@ -139,7 +139,7 @@ const DB = {
     try{
       if(!this.db) return;
       const snap = {
-        uiEpoch: 690,
+        uiEpoch: 691,
         personalPrefs: this.db.personalPrefs || {},
         landingTheme: this.db.settings && this.db.settings.landingTheme,
         landingThemeExplicit: Boolean(this.db.settings && this.db.settings.landingThemeExplicit),
@@ -224,21 +224,25 @@ const DB = {
       this.db.meta.migratedAt = new Date().toISOString();
       this.db.meta.migratedFrom = was;
     }
-    /* One-time v6.9.0 visual architecture reset: upgrades legacy pre-690 dark/spectrum/crimson
-       cached settings to clean Foundation White while preserving any choice made on >=690. */
-    if(this.db.settings && prevUiEpoch < 690){
-      this.db.settings.uiEpoch = 690;
-      this.db.settings.landingTheme = 'clinic';
-      delete this.db.settings.landingThemeExplicit;
-      this.db.settings.consoleTheme = 'foundation';
-      this.db.settings.workspaceTheme = 'foundation';
-      delete this.db.settings.consoleThemeExplicit;
+    /* v6.9.1 visual architecture migration: restores Heritage Sapphire blue front door
+       while keeping signed-in workspaces on clean Foundation White by default. */
+    if(this.db.settings && prevUiEpoch < 691){
+      this.db.settings.uiEpoch = 691;
+      if(!this.db.settings.landingThemeExplicit){
+        this.db.settings.landingTheme = 'heritage';
+        delete this.db.settings.landingThemeExplicit;
+      }
+      if(prevUiEpoch < 690){
+        this.db.settings.consoleTheme = 'foundation';
+        this.db.settings.workspaceTheme = 'foundation';
+        delete this.db.settings.consoleThemeExplicit;
+      }
     }
     if(this.db.personalPrefs && typeof this.db.personalPrefs === 'object'){
       for(const p of Object.values(this.db.personalPrefs)){
         if(p && typeof p === 'object' && Number(p.uiEpoch || 0) < 690){
           ['wtheme','bannerStyle','kpiStyle','backdrop','hero','accentPick','cards','tabStyle','borderWeight'].forEach(k=>{ delete p[k]; });
-          p.uiEpoch = 690;
+          p.uiEpoch = 691;
         }
       }
     }
