@@ -691,8 +691,231 @@ const CLOUD_SHARD_SIZE = 700 * 1024; /* safely under Upstash Free Tier 1 MB comm
 let _decodedCache = null; /* { cacheKey, rawJson, state } — verified against live KV manifest/envelope on every request */
 let _shardedCapUrl = '';  /* KV URL confirmed to enforce <1 MB single-key command limit */
 
-function cloudShardKey(index, rev = 0) {
+function cloudShardKey(index, rev = 0, writeNonce = '') {
+  if (writeNonce) return `${CLOUD_KEY}_w${rev}_${writeNonce}_s${index}`;
   return rev > 0 ? `${CLOUD_KEY}_r${rev}_s${index}` : `${CLOUD_KEY}_shard_${index}`;
+}
+
+function replayHeadDeltasOnDb(db, deltas) {
+  if (!db || typeof db !== 'object' || !Array.isArray(deltas)) return;
+  for (const d of deltas) {
+    const patches = d && Array.isArray(d.patches) ? d.patches : [];
+    for (const p of patches) {
+      if (!p || typeof p !== 'object' || !p.c || FORBIDDEN_KEYS.has(p.c)) continue;
+      if (p.c === 'personalPrefs' && p.id && !FORBIDDEN_KEYS.has(p.id)) {
+        db.personalPrefs = db.personalPrefs && typeof db.personalPrefs === 'object' ? db.personalPrefs : {};
+        db.personalPrefs[p.id] = { ...(db.personalPrefs[p.id] || {}), ...(p.set && typeof p.set === 'object' ? p.set : {}) };
+        continue;
+      }
+      if (p.c === 'settings' && p.set && p.set.value && typeof p.set.value === 'object') {
+        db.settings = { ...(db.settings || {}), ...p.set.value };
+        continue;
+      }
+      if (p.c === 'audit' && p.set && typeof p.set === 'object') {
+        db.audit = Array.isArray(db.audit) ? db.audit : [];
+        if (!db.audit.some((a) => a && a.hash === p.set.hash && a.seq === p.set.seq)) {
+          db.audit.push({ ...p.set });
+        }
+        continue;
+      }
+      if (!/^[a-zA-Z][a-zA-Z0-9_]{0,48}$/.test(p.c)) continue;
+      if (!Array.isArray(db[p.c])) db[p.c] = [];
+      const col = db[p.c];
+      const idx = col.findIndex((r) => r && r.id === p.id);
+      if (p.del) {
+        if (idx >= 0) col.splice(idx, 1);
+      } else if (idx < 0 && p.id) {
+        const rec = { ...(p.set && typeof p.set === 'object' ? p.set : {}), id: p.id };
+        if (p.c === 'users') { delete rec.hash; delete rec.salt; }
+        col.push(rec);
+      } else if (idx >= 0 && p.set && typeof p.set === 'object') {
+        for (const [k, v] of Object.entries(p.set)) {
+          if (FORBIDDEN_KEYS.has(k) || (p.c === 'users' && (k === 'hash' || k === 'salt'))) continue;
+          if (v === null) delete col[idx][k];
+          else col[idx][k] = v;
+        }
+      }
+    }
+  }
+}
+
+function mergeHeadAudit(state, entries) {
+  if (!state || !Array.isArray(entries)) return;
+  state.audit = Array.isArray(state.audit) ? state.audit : [];
+  state.db = state.db && typeof state.db === 'object' ? state.db : {};
+  state.db.audit = Array.isArray(state.db.audit) ? state.db.audit : [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (!state.audit.some((a) => a && a.hash === entry.hash)) state.audit.push(entry);
+    if (!state.db.audit.some((a) => a && a.hash === entry.hash)) state.db.audit.push(entry);
+  }
+  if (state.audit.length > 5000) state.audit.splice(0, state.audit.length - 5000);
+  if (state.db.audit.length > 5000) state.db.audit.splice(0, state.db.audit.length - 5000);
+}
+
+function overlayAuthoritativeHead(state, head, manifestRev = 0, manifestSaved = null) {
+  if (!head || typeof head !== 'object') return state;
+  if (typeof head.setup === 'boolean') state.setup = head.setup;
+  if (typeof head.globallyActivated === 'boolean') state.globallyActivated = head.globallyActivated;
+  if (head.org && typeof head.org === 'object') state.org = head.org;
+  if (head.creds && typeof head.creds === 'object' && !Array.isArray(head.creds)) state.creds = head.creds;
+  if (head.sessions && typeof head.sessions === 'object' && !Array.isArray(head.sessions)) state.sessions = head.sessions;
+  if (head.revokedSessions && typeof head.revokedSessions === 'object' && !Array.isArray(head.revokedSessions)) state.revokedSessions = head.revokedSessions;
+  if (head.loginFailures && typeof head.loginFailures === 'object' && !Array.isArray(head.loginFailures)) state.loginFailures = head.loginFailures;
+  const baseRev = Number(state.rev) || 0;
+  const targetRev = Math.max(baseRev, Number(manifestRev) || 0, Number(head.rev) || 0);
+  if (Array.isArray(head.deltas) && head.deltas.length) {
+    const newer = head.deltas.filter((d) => d && Number(d.rev) > baseRev);
+    if (newer.length && state.db && typeof state.db === 'object') {
+      replayHeadDeltasOnDb(state.db, newer);
+      state.deltas = [...(Array.isArray(state.deltas) ? state.deltas : []), ...newer].slice(-60);
+    }
+  }
+  state.rev = targetRev;
+  if (manifestSaved || head.saved) state.saved = manifestSaved || head.saved;
+  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.9.1' }, users: [], audit: [] };
+  if (Array.isArray(head.users) && head.users.length) {
+    state.db.users = Array.isArray(state.db.users) ? state.db.users : [];
+    for (const hu of head.users) {
+      if (!hu || typeof hu !== 'object') continue;
+      const uname = String(hu.username || '').toLowerCase();
+      const idx = state.db.users.findIndex(
+        (u) => u && ((hu.id && u.id === hu.id) || (uname && String(u.username || '').toLowerCase() === uname)),
+      );
+      if (idx >= 0) {
+        state.db.users[idx] = { ...state.db.users[idx], ...hu };
+        delete state.db.users[idx].hash;
+        delete state.db.users[idx].salt;
+      } else {
+        const cleanHu = { ...hu };
+        delete cleanHu.hash;
+        delete cleanHu.salt;
+        state.db.users.push(cleanHu);
+      }
+    }
+  }
+  state.db.settings = {
+    ...(state.db.settings || {}),
+    ...(head.landingTheme ? { landingTheme: head.landingTheme } : {}),
+    ...(head.consoleTheme ? { consoleTheme: head.consoleTheme } : {}),
+    ...(head.uiEpoch ? { uiEpoch: Number(head.uiEpoch) } : {}),
+    globallyActivated: Boolean(state.globallyActivated),
+    ...(state.setup ? { onboarding: { complete: true, step: 4 }, hostSetupComplete: true } : {}),
+  };
+  mergeHeadAudit(state, head.audit);
+  state.db.meta = {
+    ...(state.db.meta || {}),
+    globallyActivated: Boolean(state.globallyActivated),
+    demoDisabled: Boolean(state.globallyActivated),
+    productionMode: Boolean(state.globallyActivated),
+    ...(head.demoMode && !state.globallyActivated ? { demoMode: true } : {}),
+  };
+  return state;
+}
+
+function recoverySnapshotMatchesHead(state, head) {
+  if (!state || !state.db || !head) return false;
+  for (const name of ['patients', 'visits', 'pdcas']) {
+    const expectedDigest = head.collectionDigests && head.collectionDigests[name];
+    if (expectedDigest) {
+      const collection = Array.isArray(state.db[name]) ? state.db[name] : [];
+      if (sha256Hex(JSON.stringify(collection)) !== expectedDigest) return false;
+    }
+    const expectedCount = head.collectionCounts && Number(head.collectionCounts[name]);
+    if (Number.isFinite(expectedCount) && expectedCount >= 0) {
+      const collection = Array.isArray(state.db[name]) ? state.db[name] : [];
+      if (collection.length !== expectedCount) return false;
+    }
+  }
+  const expectedMasterDigest = head.referenceMasterDigest;
+  if (expectedMasterDigest) {
+    const actualMasterDigest = state.db.meta && state.db.meta.referenceMaster && state.db.meta.referenceMaster.digest;
+    if (actualMasterDigest !== expectedMasterDigest) return false;
+  }
+  return true;
+}
+
+function tryDecodeShardParts(parts) {
+  if (!Array.isArray(parts) || !parts.length) return null;
+  if (!parts.every((p) => typeof p === 'string' && p.length > 0)) return null;
+  try {
+    const rawJson = decodeCompressedEnvelopeToRaw(parts.join(''));
+    const parsedObj = JSON.parse(rawJson);
+    return normalizeStore(parsedObj);
+  } catch {
+    return null;
+  }
+}
+
+async function recoverShardedCloudState(unwrapped, currentParts) {
+  const count = Number(unwrapped.shardCount) || 0;
+  const manifestRev = Number(unwrapped.rev) || 0;
+  const head = unwrapped.head && typeof unwrapped.head === 'object' ? unwrapped.head : null;
+
+  const prepareCandidate = (parts, sourceKeys) => {
+    const candidate = tryDecodeShardParts(parts);
+    if (!candidate) return null;
+    overlayAuthoritativeHead(candidate, head, manifestRev, unwrapped.saved);
+    if (!recoverySnapshotMatchesHead(candidate, head)) return null;
+    Object.defineProperty(candidate, '_activeShardKeys', { value: Array.isArray(sourceKeys) ? sourceKeys : [], enumerable: false, configurable: true });
+    return candidate;
+  };
+
+  /* Stage 1A: If current shard keys form a valid compressed state despite stale
+     SHA metadata, adopt only after authoritative collection digests match. */
+  let recovered = prepareCandidate(currentParts, Array.isArray(unwrapped.shardKeys) ? unwrapped.shardKeys : []);
+
+  /* Stage 1B: Probe intact previous/adjacent shard sets still present in KV
+     (prevShardKeys recorded on manifest, rev-1, rev-2, rev+1, or un-revisioned). */
+  if (!recovered) {
+    const candidateKeySets = [];
+    if (Array.isArray(unwrapped.prevShardKeys) && unwrapped.prevShardKeys.length > 0) {
+      candidateKeySets.push(unwrapped.prevShardKeys);
+    }
+    const probeRevs = [];
+    if (manifestRev > 1) probeRevs.push(manifestRev - 1);
+    if (manifestRev > 2) probeRevs.push(manifestRev - 2);
+    if (manifestRev >= 1) probeRevs.push(manifestRev + 1);
+    for (const r of probeRevs) {
+      for (const c of [count, count - 1, count + 1]) {
+        if (c >= 1 && c <= 64) {
+          candidateKeySets.push(Array.from({ length: c }, (_, idx) => cloudShardKey(idx, r)));
+        }
+      }
+    }
+    candidateKeySets.push(Array.from({ length: count }, (_, idx) => cloudShardKey(idx, 0)));
+
+    for (const keys of candidateKeySets) {
+      try {
+        const candParts = await Promise.all(keys.map((k) => readKvString(k)));
+        const decoded = prepareCandidate(candParts, keys);
+        if (decoded) {
+          recovered = decoded;
+          break;
+        }
+      } catch { /* try next candidate set */ }
+    }
+  }
+
+  /* Never substitute a bundled demo/reference database for an unrecoverable
+     production shard set. If no intact stored snapshot exists, fail closed and
+     preserve the manifest and online records exactly as they are. */
+  if (!recovered) return null;
+
+  overlayAuthoritativeHead(recovered, head, manifestRev, unwrapped.saved);
+  recovered.rev = Math.max(Number(recovered.rev) || 0, manifestRev) + 1;
+  appendServerAudit(
+    recovered,
+    'system',
+    'kv.shard_recovered',
+    'storage',
+    'cloud-kv-sharded',
+    `Automatically healed degraded KV shard set from authoritative manifest state (rev ${manifestRev} -> ${recovered.rev}).`,
+  );
+  try {
+    await saveCloudState(recovered);
+  } catch { /* if using read-only fallback token, still serve recovered state */ }
+  return recovered;
 }
 
 function decodeCompressedEnvelopeToRaw(dataB64) {
@@ -742,7 +965,8 @@ function buildStateHead(state) {
     rev: state.rev || 0,
     saved: state.saved,
     org: state.org,
-    landingTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.landingTheme) || 'clinic',
+    landingTheme: (state.db && state.db.settings && (Number(state.db.settings.uiEpoch || 0) >= 691 || state.db.settings.landingThemeExplicit) && state.db.settings.landingTheme) || 'heritage',
+    landingThemeExplicit: Boolean(state.db && state.db.settings && state.db.settings.landingThemeExplicit),
     consoleTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.consoleTheme) || 'foundation',
     uiEpoch: Number((state.db && state.db.settings && state.db.settings.uiEpoch) || 0),
     hasLargeCollections: Boolean(
@@ -750,10 +974,22 @@ function buildStateHead(state) {
       (state.db && Array.isArray(state.db.visits) && state.db.visits.length > 800) ||
       (state.db && Array.isArray(state.db.pdcas) && state.db.pdcas.length > 800)
     ),
+    collectionCounts: {
+      patients: (state.db && Array.isArray(state.db.patients)) ? state.db.patients.length : 0,
+      visits: (state.db && Array.isArray(state.db.visits)) ? state.db.visits.length : 0,
+      pdcas: (state.db && Array.isArray(state.db.pdcas)) ? state.db.pdcas.length : 0,
+    },
+    collectionDigests: {
+      patients: sha256Hex(JSON.stringify((state.db && Array.isArray(state.db.patients)) ? state.db.patients : [])),
+      visits: sha256Hex(JSON.stringify((state.db && Array.isArray(state.db.visits)) ? state.db.visits : [])),
+      pdcas: sha256Hex(JSON.stringify((state.db && Array.isArray(state.db.pdcas)) ? state.db.pdcas : [])),
+    },
+    referenceMasterDigest: state.db && state.db.meta && state.db.meta.referenceMaster && state.db.meta.referenceMaster.digest || null,
     creds: state.creds || {},
     loginFailures: state.loginFailures || {},
     sessions: state.sessions || {},
     revokedSessions: state.revokedSessions || {},
+    audit: (Array.isArray(state.audit) ? state.audit : []).slice(-100),
     users: compactUsers,
     ...(() => {
       const allDeltas = Array.isArray(state.deltas) ? state.deltas : [];
@@ -823,38 +1059,42 @@ async function loadCloudHead() {
     }
     if (unwrapped.head && typeof unwrapped.head === 'object') {
       const h = unwrapped.head;
-      return {
-        driver: 'cloud-kv-redis',
-        state: {
-          setup: Boolean(h.setup),
-          globallyActivated: Boolean(h.globallyActivated),
-          rev: Number(unwrapped.rev || h.rev) || 0,
-          saved: unwrapped.saved || h.saved || null,
-          org: h.org || null,
-          creds: h.creds || {},
-          loginFailures: h.loginFailures || {},
-          sessions: h.sessions || {},
-          revokedSessions: h.revokedSessions || {},
-          db: {
-            users: Array.isArray(h.users) ? h.users : [],
-            settings: {
-              landingTheme: (Number(h.uiEpoch || 0) >= 690 && h.landingTheme) ? h.landingTheme : 'clinic',
-              consoleTheme: (Number(h.uiEpoch || 0) >= 690 && h.consoleTheme) ? h.consoleTheme : 'foundation',
-              uiEpoch: Number(h.uiEpoch || 0),
-              globallyActivated: Boolean(h.globallyActivated),
-              onboarding: { complete: Boolean(h.setup), step: 4 },
-            },
-            meta: {
-              demoMode: Boolean(h.demoMode),
-              globallyActivated: Boolean(h.globallyActivated),
-            },
+      const headState = {
+        setup: Boolean(h.setup),
+        globallyActivated: Boolean(h.globallyActivated),
+        rev: Number(unwrapped.rev || h.rev) || 0,
+        saved: unwrapped.saved || h.saved || null,
+        org: h.org || null,
+        creds: h.creds || {},
+        loginFailures: h.loginFailures || {},
+        sessions: h.sessions || {},
+        revokedSessions: h.revokedSessions || {},
+        audit: Array.isArray(h.audit) ? h.audit : [],
+        db: {
+          users: Array.isArray(h.users) ? h.users : [],
+          audit: Array.isArray(h.audit) ? h.audit : [],
+          settings: {
+            landingTheme: ((Number(h.uiEpoch || 0) >= 691 || h.landingThemeExplicit) && h.landingTheme) ? h.landingTheme : 'heritage',
+            landingThemeExplicit: Boolean(h.landingThemeExplicit),
+            consoleTheme: (Number(h.uiEpoch || 0) >= 690 && h.consoleTheme) ? h.consoleTheme : 'foundation',
+            uiEpoch: Number(h.uiEpoch || 0),
+            globallyActivated: Boolean(h.globallyActivated),
+            onboarding: { complete: Boolean(h.setup), step: 4 },
           },
-          _headOnly: true,
-          _hasLargeCollections: Boolean(h.hasLargeCollections),
-          deltas: Array.isArray(h.deltas) ? h.deltas : [],
-          _headDeltasTruncated: h.deltasComplete === false,
+          meta: {
+            demoMode: Boolean(h.demoMode),
+            globallyActivated: Boolean(h.globallyActivated),
+          },
         },
+        _headOnly: true,
+        _hasLargeCollections: Boolean(h.hasLargeCollections),
+        deltas: Array.isArray(h.deltas) ? h.deltas : [],
+        _headDeltasTruncated: h.deltasComplete === false,
       };
+      Object.defineProperty(headState, '_shardedManifest', { value: unwrapped, enumerable: false, configurable: true });
+      Object.defineProperty(headState, '_activeShardKeys', { value: Array.isArray(unwrapped.shardKeys) ? unwrapped.shardKeys : [], enumerable: false, configurable: true });
+      Object.defineProperty(headState, '_prevShardKeys', { value: Array.isArray(unwrapped.prevShardKeys) ? unwrapped.prevShardKeys : [], enumerable: false, configurable: true });
+      return { driver: 'cloud-kv-redis', state: headState };
     }
   }
   if (unwrapped && unwrapped.format === CLOUD_GZIP_FORMAT && unwrapped.head && typeof unwrapped.head === 'object') {
@@ -871,10 +1111,13 @@ async function loadCloudHead() {
         loginFailures: h.loginFailures || {},
         sessions: h.sessions || {},
         revokedSessions: h.revokedSessions || {},
+        audit: Array.isArray(h.audit) ? h.audit : [],
         db: {
           users: Array.isArray(h.users) ? h.users : [],
+          audit: Array.isArray(h.audit) ? h.audit : [],
           settings: {
-            landingTheme: (Number(h.uiEpoch || 0) >= 690 && h.landingTheme) ? h.landingTheme : 'clinic',
+            landingTheme: ((Number(h.uiEpoch || 0) >= 691 || h.landingThemeExplicit) && h.landingTheme) ? h.landingTheme : 'heritage',
+            landingThemeExplicit: Boolean(h.landingThemeExplicit),
             consoleTheme: (Number(h.uiEpoch || 0) >= 690 && h.consoleTheme) ? h.consoleTheme : 'foundation',
             uiEpoch: Number(h.uiEpoch || 0),
             globallyActivated: Boolean(h.globallyActivated),
@@ -919,30 +1162,70 @@ async function loadCloudState({ readOnly = false } = {}) {
     const cacheKey = `sharded:${unwrapped.rev || 0}:${unwrapped.saved || ''}:${digests.join(',')}`;
     if (_decodedCache && _decodedCache.cacheKey === cacheKey) {
       if (readOnly && _decodedCache.state) {
-        return { state: _decodedCache.state, driver: 'cloud-kv-redis' };
+        const cached = _decodedCache.state;
+        if (unwrapped.head && typeof unwrapped.head === 'object') {
+          cached.loginFailures = unwrapped.head.loginFailures || cached.loginFailures || {};
+          cached.revokedSessions = unwrapped.head.revokedSessions || cached.revokedSessions || {};
+          cached.sessions = unwrapped.head.sessions || cached.sessions || {};
+          mergeHeadAudit(cached, unwrapped.head.audit);
+        }
+        Object.defineProperty(cached, '_shardedManifest', { value: unwrapped, enumerable: false, configurable: true });
+        Object.defineProperty(cached, '_activeShardKeys', { value: Array.isArray(unwrapped.shardKeys) ? unwrapped.shardKeys : [], enumerable: false, configurable: true });
+        Object.defineProperty(cached, '_prevShardKeys', { value: Array.isArray(unwrapped.prevShardKeys) ? unwrapped.prevShardKeys : [], enumerable: false, configurable: true });
+        return { state: cached, driver: 'cloud-kv-redis' };
       }
       if (_decodedCache.rawJson) {
-        return { state: normalizeStore(JSON.parse(_decodedCache.rawJson)), driver: 'cloud-kv-redis' };
+        const cloned = normalizeStore(JSON.parse(_decodedCache.rawJson));
+        if (unwrapped.head && typeof unwrapped.head === 'object') {
+          cloned.loginFailures = unwrapped.head.loginFailures || cloned.loginFailures || {};
+          cloned.revokedSessions = unwrapped.head.revokedSessions || cloned.revokedSessions || {};
+          cloned.sessions = unwrapped.head.sessions || cloned.sessions || {};
+        }
+        Object.defineProperty(cloned, '_shardedManifest', { value: unwrapped, enumerable: false, configurable: true });
+        Object.defineProperty(cloned, '_activeShardKeys', { value: Array.isArray(unwrapped.shardKeys) ? unwrapped.shardKeys : [], enumerable: false, configurable: true });
+        Object.defineProperty(cloned, '_prevShardKeys', { value: Array.isArray(unwrapped.prevShardKeys) ? unwrapped.prevShardKeys : [], enumerable: false, configurable: true });
+        return { state: cloned, driver: 'cloud-kv-redis' };
       }
     }
     const shardKeys = Array.isArray(unwrapped.shardKeys) && unwrapped.shardKeys.length === count
       ? unwrapped.shardKeys
       : Array.from({ length: count }, (_, idx) => cloudShardKey(idx));
     const parts = await Promise.all(shardKeys.map((k) => readKvString(k)));
+    let failedShardIdx = -1;
     for (let i = 0; i < count; i++) {
       if (typeof parts[i] !== 'string' || sha256Hex(parts[i]) !== digests[i]) {
-        throw new CloudStorageError('kv_invalid_state', `CareLink KV shard ${i + 1} failed integrity verification; the online database was not replaced.`);
+        failedShardIdx = i;
+        break;
       }
+    }
+    if (failedShardIdx >= 0) {
+      const recovered = await recoverShardedCloudState(unwrapped, parts);
+      if (recovered) {
+        return {
+          state: readOnly ? recovered : normalizeStore(JSON.parse(JSON.stringify(recovered))),
+          driver: 'cloud-kv-redis',
+        };
+      }
+      throw new CloudStorageError('kv_invalid_state', `CareLink KV shard ${failedShardIdx + 1} failed integrity verification; the online database was not replaced.`);
     }
     const rawJson = decodeCompressedEnvelopeToRaw(parts.join(''));
     let parsedObj;
     try { parsedObj = JSON.parse(rawJson); }
     catch { throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.'); }
     const normalized = normalizeStore(parsedObj);
+    if (unwrapped.head && typeof unwrapped.head === 'object') {
+      normalized.loginFailures = unwrapped.head.loginFailures || normalized.loginFailures || {};
+      normalized.revokedSessions = unwrapped.head.revokedSessions || normalized.revokedSessions || {};
+      normalized.sessions = unwrapped.head.sessions || normalized.sessions || {};
+      mergeHeadAudit(normalized, unwrapped.head.audit);
+    }
+    Object.defineProperty(normalized, '_shardedManifest', { value: unwrapped, enumerable: false, configurable: true });
+    Object.defineProperty(normalized, '_activeShardKeys', { value: shardKeys, enumerable: false, configurable: true });
+    Object.defineProperty(normalized, '_prevShardKeys', { value: Array.isArray(unwrapped.prevShardKeys) ? unwrapped.prevShardKeys : [], enumerable: false, configurable: true });
     _decodedCache = {
       cacheKey,
       rawJson,
-      state: readOnly ? normalized : normalizeStore(JSON.parse(rawJson)),
+      state: readOnly ? normalized : normalizeStore(rawJson ? JSON.parse(rawJson) : parsedObj),
     };
     return { state: normalized, driver: 'cloud-kv-redis' };
   }
@@ -1011,33 +1294,39 @@ async function saveCloudState(state) {
   }
 
   /* Automatic Upstash Free-Tier fallback: shard the gzip base64 payload into
-     revision-keyed 700 KB chunks written in parallel with SHA-256 verification
-     before committing the manifest key. Revision-keyed shards prevent torn reads
-     when a concurrent request reads the previous manifest revision. */
+     write-once non-expiring 700 KB chunks written in parallel before committing
+     the manifest key. Unique write nonces guarantee that concurrent or same-rev
+     saves NEVER overwrite active shard keys in place, and zero TTL ensures active
+     shards are never evicted by Redis volatile-lru or expired during quiet weeks. */
   let envelope = null;
   try { envelope = JSON.parse(serialized); } catch { envelope = null; }
   const b64 = envelope && envelope.format === CLOUD_GZIP_FORMAT && typeof envelope.data === 'string'
     ? envelope.data
     : zlib.gzipSync(Buffer.from(rawJson), { level: 6 }).toString('base64');
   const revTag = Number(state.rev) || 1;
+  const writeNonce = `${Date.now().toString(36)}${crypto.randomBytes(3).toString('hex')}`;
+  const prevShardKeys = Array.isArray(state._activeShardKeys) ? state._activeShardKeys : [];
+  const retiredShardKeys = Array.isArray(state._prevShardKeys) ? state._prevShardKeys : [];
   const shards = [];
   const shardKeys = [];
   const shardDigests = [];
   for (let offset = 0, idx = 0; offset < b64.length; offset += CLOUD_SHARD_SIZE, idx++) {
     const part = b64.slice(offset, offset + CLOUD_SHARD_SIZE);
     shards.push(part);
-    shardKeys.push(cloudShardKey(idx, revTag));
+    shardKeys.push(cloudShardKey(idx, revTag, writeNonce));
     shardDigests.push(sha256Hex(part));
   }
   await Promise.all(
-    shards.map((part, idx) => writeKvString(shardKeys[idx], part, { exSeconds: 7 * 86400 })),
+    shards.map((part, idx) => writeKvString(shardKeys[idx], part)),
   );
   const headObj = headSnapshot || buildStateHead(state);
+  const keepPrev = prevShardKeys.filter((k) => !shardKeys.includes(k)).slice(0, 16);
   let manifestPayload = JSON.stringify({
     format: CLOUD_SHARDED_FORMAT,
     shardCount: shards.length,
     shardKeys,
     shardDigests,
+    ...(keepPrev.length ? { prevShardKeys: keepPrev } : {}),
     saved: state.saved,
     rev: revTag,
     head: headObj,
@@ -1048,25 +1337,63 @@ async function saveCloudState(state) {
       shardCount: shards.length,
       shardKeys,
       shardDigests,
+      ...(keepPrev.length ? { prevShardKeys: keepPrev } : {}),
       saved: state.saved,
       rev: revTag,
       head: { ...headObj, users: [] },
     });
   }
   await writeKvString(CLOUD_KEY, manifestPayload);
+  Object.defineProperty(state, '_activeShardKeys', { value: shardKeys, enumerable: false, configurable: true });
+  Object.defineProperty(state, '_prevShardKeys', { value: keepPrev, enumerable: false, configurable: true });
   _decodedCache = {
     cacheKey: `sharded:${revTag}:${state.saved}:${shardDigests.join(',')}`,
     rawJson,
     state: normalizeStore(JSON.parse(rawJson)),
   };
-  /* Best-effort cleanup of superseded shards two revisions back (keep revTag - 1
-     intact so in-flight readers and lagging Read Replicas never see missing shards). */
+  /* Best-effort cleanup of retired shard keys from 2 writes ago (keep prevShardKeys
+     from 1 write ago intact so in-flight readers and lagging Read Replicas never race). */
+  const keysToDelete = new Set(retiredShardKeys.filter((k) => !shardKeys.includes(k) && !keepPrev.includes(k)));
   if (revTag > 2) {
     const oldRev = revTag - 2;
-    Promise.all(
-      Array.from({ length: shards.length + 2 }, (_, idx) => deleteKvKey(cloudShardKey(idx, oldRev))),
-    ).catch(() => {});
+    for (let idx = 0; idx < shards.length + 2; idx++) {
+      keysToDelete.add(cloudShardKey(idx, oldRev));
+    }
   }
+  if (keysToDelete.size > 0) {
+    Promise.all([...keysToDelete].map((k) => deleteKvKey(k))).catch(() => {});
+  }
+}
+
+async function saveCloudAuthMetadata(state) {
+  const mf = state && state._shardedManifest;
+  if (mf && mf.format === CLOUD_SHARDED_FORMAT && mf.head && typeof mf.head === 'object') {
+    const updatedHead = {
+      ...mf.head,
+      creds: state.creds || mf.head.creds || {},
+      loginFailures: state.loginFailures || {},
+      sessions: state.sessions || {},
+      revokedSessions: state.revokedSessions || {},
+      audit: (Array.isArray(state.audit) ? state.audit : Array.isArray(mf.head.audit) ? mf.head.audit : []).slice(-100),
+    };
+    const nextManifest = {
+      ...mf,
+      head: updatedHead,
+    };
+    await writeKvString(CLOUD_KEY, JSON.stringify(nextManifest));
+    Object.defineProperty(state, '_shardedManifest', { value: nextManifest, enumerable: false, configurable: true });
+    if (_decodedCache && _decodedCache.state) {
+      _decodedCache.state.loginFailures = updatedHead.loginFailures;
+      _decodedCache.state.sessions = updatedHead.sessions;
+      _decodedCache.state.revokedSessions = updatedHead.revokedSessions;
+      _decodedCache.state.audit = Array.isArray(_decodedCache.state.audit) ? _decodedCache.state.audit : [];
+      for (const entry of updatedHead.audit) {
+        if (entry && !_decodedCache.state.audit.some((a) => a && a.hash === entry.hash)) _decodedCache.state.audit.push(entry);
+      }
+    }
+    return;
+  }
+  await saveCloudState(state);
 }
 
 function appendServerAudit(state, actor, action, entity, entityId, detail, meta = {}) {
@@ -1680,7 +2007,7 @@ async function handleRequest(req, res) {
   const isHeadRoute = (
     ((route === 'health' || route === 'bootstrap' || route === 'rev' || route === 'session/whoami') && method === 'GET') ||
     (route === 'state' && method === 'GET' && sinceParam > 0) ||
-    ((route === 'auth/login' || route === 'session/beat') && method === 'POST')
+    ((route === 'auth/login' || route === 'auth/logout' || route === 'session/beat') && method === 'POST')
   );
   let { state, driver } = isHeadRoute
     ? await loadCloudHead()
@@ -1696,7 +2023,7 @@ async function handleRequest(req, res) {
     ));
     return sendJson(res, 200, {
       ok: true,
-      version: '6.9.0',
+      version: '6.9.1',
       cloud: true,
       onlineDatabase: true,
       mode: 'online-site-db',
@@ -1710,7 +2037,7 @@ async function handleRequest(req, res) {
       rev: state.rev || 0,
       saved: state.saved,
       org: state.org,
-      landingTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.landingTheme) || 'clinic',
+      landingTheme: (state.db && state.db.settings && (Number(state.db.settings.uiEpoch || 0) >= 691 || state.db.settings.landingThemeExplicit) && state.db.settings.landingTheme) || 'heritage',
       consoleTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.consoleTheme) || 'foundation',
       accounts: Object.keys(state.creds || {}).length,
       admins,
@@ -1771,7 +2098,7 @@ async function handleRequest(req, res) {
 
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
-    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.0' }, users: [], audit: [] });
+    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.1' }, users: [], audit: [] });
     const chiefEmail = admin.email || `${username}@${(body.org && body.org.emailDomain) || 'lomamo.example'}`;
     const chiefDisplayName = admin.name || 'Chief System Administrator';
     let chiefUserId = 'u-chief-admin';
@@ -2019,12 +2346,12 @@ async function handleRequest(req, res) {
       });
     }
     if (!cred || !verifyPassword(password, cred.salt, cred.digest)) {
-      if (state._headOnly) {
+      if (state._headOnly && !state._shardedManifest) {
         ({ state, driver } = await loadCloudState({ readOnly: false }));
       }
       recordLoginFailure(state, username || 'anonymous');
       appendServerAudit(state, username || 'anonymous', 'auth.failed', 'user', username, 'Online credential check failed');
-      await saveCloudState(state);
+      await saveCloudAuthMetadata(state);
       const preActHint = state.setup && !isGloballyActivated(state)
         ? 'Invalid username or password. Enter the Chief System Administrator password from Step 2 (both system.admin and chief.admin are accepted), or click "Reset 4-Step Setup & Set Fresh Password" below.'
         : 'Invalid username or password.';
@@ -2037,7 +2364,7 @@ async function handleRequest(req, res) {
       ),
     );
     if (hadPriorFailures) {
-      if (state._headOnly) {
+      if (state._headOnly && !state._shardedManifest) {
         ({ state, driver } = await loadCloudState({ readOnly: false }));
       }
       if (state.loginFailures) {
@@ -2045,9 +2372,11 @@ async function handleRequest(req, res) {
         if (rawId) delete state.loginFailures[rawId];
       }
       pruneSessions(state);
-      appendServerAudit(state, cred.id || username, 'auth.login', 'user', cred.id || username,
-        `Online sign-in verified after prior failure reset (${cred.mustChange ? 'first-login password change required' : 'personal password'})`);
-      await saveCloudState(state);
+      if (!state._shardedManifest) {
+        appendServerAudit(state, cred.id || username, 'auth.login', 'user', cred.id || username,
+          `Online sign-in verified after prior failure reset (${cred.mustChange ? 'first-login password change required' : 'personal password'})`);
+      }
+      await saveCloudAuthMetadata(state);
     }
     const token = mintSignedSessionToken(cred, username);
     const dbUsers = (state.db && Array.isArray(state.db.users)) ? state.db.users : [];
@@ -2112,12 +2441,17 @@ async function handleRequest(req, res) {
   if (route === 'auth/logout' && method === 'POST') {
     const sess = getSession(state, req);
     if (sess) {
+      if (state._headOnly && !state._shardedManifest) {
+        ({ state, driver } = await loadCloudState({ readOnly: false }));
+      }
       if (state.sessions) delete state.sessions[sess.token];
       state.revokedSessions = state.revokedSessions || {};
       pruneSessions(state);
       state.revokedSessions[sess.token] = Date.now();
-      appendServerAudit(state, sess.userId || sess.username, 'auth.logout', 'user', sess.userId || sess.username, 'Signed out from online database');
-      await saveCloudState(state);
+      if (!state._shardedManifest) {
+        appendServerAudit(state, sess.userId || sess.username, 'auth.logout', 'user', sess.userId || sess.username, 'Signed out from online database');
+      }
+      await saveCloudAuthMetadata(state);
     }
     return sendJson(res, 200, { ok: true });
   }
@@ -2643,7 +2977,7 @@ async function handleRequest(req, res) {
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to write to the online database.' });
     const body = await readJsonBody(req);
     const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
-    state.db = state.db || { meta: { schema: 6, version: '6.9.0' } };
+    state.db = state.db || { meta: { schema: 6, version: '6.9.1' } };
     const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
     const applied = [];
     const rejected = [];
@@ -3001,6 +3335,13 @@ async function handleRequest(req, res) {
 /* Convert storage/configuration failures into an explicit unavailable response.
    Most importantly, a failed KV read/write must never be reported as a successful
    online save or silently diverted to an ephemeral local copy. */
+export function __resetCloudCachesForTests() {
+  _decodedCache = null;
+  _manifestReadCache = null;
+  _manifestReadInflight = null;
+  _clientFastPackRing = [];
+}
+
 export default async function handler(req, res) {
   try {
     return await handleRequest(req, res);

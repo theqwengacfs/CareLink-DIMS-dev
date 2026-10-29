@@ -196,8 +196,8 @@ async function activateFullDemoDataset(){
 
 /* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar, zero duplicate tabs) */
 function renderLanding6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#1E3A8A' };
-  const isLight = (th.mode || 'light') === 'light';
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
+  const isLight = (th.mode || 'dark') === 'light';
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const facts = [
     { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
@@ -205,17 +205,86 @@ function renderLanding6(){
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10), l:'Ministry Areas' },
     { n: DEPARTMENTS.length, l:'Department Consoles' }
   ];
-  const nodeFill = isLight ? '#FFFFFF' : '#0F1B33';
-  const nodeStroke = isLight ? '#CBD5E1' : '#334155';
-  const nodeText = isLight ? '#0F172A' : '#F1F5F9';
-  const ringStroke = isLight ? '#E2E8F0' : 'rgba(148,197,255,0.22)';
-  const innerRing = isLight ? '#CBD5E1' : 'rgba(148,197,255,0.34)';
-  const spokeStroke = isLight ? '#CBD5E1' : 'rgba(148,197,255,0.36)';
-  const hubFill = isLight ? '#0F172A' : '#1E3A8A';
-  const hubStroke = isLight ? '#1E3A8A' : '#60A5FA';
-  const hubSub = isLight ? '#93C5FD' : '#BFDBFE';
 
-  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'light')}" style="--accent:${esc(th.accent||'#1E3A8A')}">
+  const sceneSvg = isLight ? `
+            <svg viewBox="0 0 460 224" class="ld-scene-svg">
+              <defs>
+                <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#1E3A8A" stop-opacity="0.08"/>
+                  <stop offset="65%" stop-color="#0EA5E9" stop-opacity="0.03"/>
+                  <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
+              <circle cx="230" cy="112" r="82" fill="none" stroke="#E2E8F0" stroke-width="1.2" stroke-dasharray="5 5"/>
+              <circle cx="230" cy="112" r="55" fill="none" stroke="#CBD5E1" stroke-width="1.2"/>
+              <g stroke="#CBD5E1" stroke-width="1.3">
+                <line x1="230" y1="112" x2="230" y2="24"/>
+                <line x1="230" y1="112" x2="324" y2="52"/>
+                <line x1="230" y1="112" x2="354" y2="112"/>
+                <line x1="230" y1="112" x2="322" y2="174"/>
+                <line x1="230" y1="112" x2="230" y2="200"/>
+                <line x1="230" y1="112" x2="138" y2="174"/>
+                <line x1="230" y1="112" x2="106" y2="112"/>
+                <line x1="230" y1="112" x2="136" y2="52"/>
+              </g>
+              ${[
+                [230,24,'Field Care','#1E3A8A'], [324,52,'Hospital','#0F766E'],
+                [354,112,'M&E / DHIS','#1D4ED8'], [322,174,'Finance','#047857'],
+                [230,200,'Homestay','#334155'], [138,174,'Media & IT','#475569'],
+                [106,112,'HR & Leave','#0369A1'], [136,52,'Transport','#0F766E']
+              ].map(([x,y,lbl,col])=>`<g>
+                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.1"/>
+                <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
+                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#0F172A">${lbl}</text>
+              </g>`).join('')}
+              <circle cx="230" cy="112" r="34" fill="#0F172A" stroke="#1E3A8A" stroke-width="1.8"/>
+              <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
+              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#93C5FD" letter-spacing="0.5">OS · C-DIMS</text>
+            </svg>` : `
+            <svg viewBox="0 0 460 224" class="ld-scene-svg">
+              <defs>
+                <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#F5C451" stop-opacity="0.34"/>
+                  <stop offset="60%" stop-color="#38BDF8" stop-opacity="0.12"/>
+                  <stop offset="100%" stop-color="#0B1933" stop-opacity="0"/>
+                </radialGradient>
+                <linearGradient id="beamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.75"/>
+                  <stop offset="50%" stop-color="#F5C451" stop-opacity="0.85"/>
+                  <stop offset="100%" stop-color="#34D399" stop-opacity="0.75"/>
+                </linearGradient>
+              </defs>
+              <path d="M-10,184 C75,156 120,206 205,178 C290,150 355,188 470,152" fill="none" stroke="rgba(56,189,248,0.16)" stroke-width="1.4"/>
+              <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
+              <circle cx="230" cy="112" r="82" fill="none" stroke="rgba(148,197,255,0.22)" stroke-width="1.2" stroke-dasharray="5 5"/>
+              <circle cx="230" cy="112" r="55" fill="none" stroke="rgba(245,196,81,0.34)" stroke-width="1.4"/>
+              <g stroke="url(#beamGrad)" stroke-width="1.4" opacity="0.76">
+                <line x1="230" y1="112" x2="230" y2="24"/>
+                <line x1="230" y1="112" x2="324" y2="52"/>
+                <line x1="230" y1="112" x2="354" y2="112"/>
+                <line x1="230" y1="112" x2="322" y2="174"/>
+                <line x1="230" y1="112" x2="230" y2="200"/>
+                <line x1="230" y1="112" x2="138" y2="174"/>
+                <line x1="230" y1="112" x2="106" y2="112"/>
+                <line x1="230" y1="112" x2="136" y2="52"/>
+              </g>
+              ${[
+                [230,24,'Field Care','#38BDF8'], [324,52,'Hospital','#2DD4BF'],
+                [354,112,'M&E / DHIS','#A78BFA'], [322,174,'Finance','#FBBF24'],
+                [230,200,'Homestay','#F472B6'], [138,174,'Media & IT','#FB923C'],
+                [106,112,'HR & Leave','#34D399'], [136,52,'Transport','#60A5FA']
+              ].map(([x,y,lbl,col])=>`<g>
+                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#0B1933" stroke="${col}" stroke-width="1.3"/>
+                <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
+                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#F1F5F9">${lbl}</text>
+              </g>`).join('')}
+              <circle cx="230" cy="112" r="34" fill="#0E2248" stroke="#F5C451" stroke-width="2"/>
+              <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
+              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#F5C451" letter-spacing="0.5">OS · C-DIMS</text>
+            </svg>`;
+
+  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#E9C765')}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -228,8 +297,8 @@ function renderLanding6(){
         </div>
       </div>
       <nav class="row ld-nav" aria-label="Public and institutional navigation" style="gap:8px;flex-wrap:wrap">
-        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture">${ic('layers',14)} Platform Architecture &amp; Departments</button>
-        <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('globe',14)} Public Impact Portal</button>
+        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> Platform Architecture &amp; Departments Working Together</button>
+        <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Public Impact Portal</button>
         ${!isActivated ? `<button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request Access</button>` : ''}
       </nav>
     </header>
@@ -237,73 +306,27 @@ function renderLanding6(){
     <div class="ld-container ld-front-main">
       <section class="ld-hero ld-hero-tight">
         <div class="ld-hero-copy">
-          <div class="ld-eyebrow"><span class="ld-eyebrow-dot"></span> LOMAMO Foundation Kenya · Clinical &amp; Household Operations</div>
+          <div class="ld-eyebrow">${ic('heart',14)} LOMAMO Foundation Kenya · Loving Hands Management &amp; Medical Organization</div>
           <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
           <div class="ld-subhead">One Foundation. One Operating System.</div>
-          <p class="ld-lede">CareLink unites clinical care, field ministry, hospital referrals, pharmacy stewardship, finance, human resources, ethical media governance and partner oversight in one least-privilege operating system across Kisumu and Homa Bay.</p>
+          <p class="ld-lede">CareLink unites clinical care, field ministry, hospital referrals, finance, human resources, media governance and partner oversight in one least-privilege operating system across Kisumu and Homa Bay.</p>
           <div class="row ld-cta-row" style="align-items:center">
-            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',16)} Sign in to CareLink Console ${ic('chevron',16)}</button>
+            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff Sign In · My CareLink Console ${ic('chevron',16)}</button>
           </div>
           <div class="ld-assure">
-            <span>${ic('database',14)} Shared cloud-synchronised database</span>
-            <span>${ic('wifi',14)} Responsive PC &amp; tablet workspaces</span>
-            <span>${ic('shieldcheck',14)} SHA-256 tamper-evident audit chain</span>
-            <span>${ic('check',14)} 29 role- &amp; scope-specific consoles</span>
+            <span>${ic('database',14)} Shared live online database</span>
+            <span>${ic('wifi',14)} Zero-scroll PC &amp; tablet consoles</span>
+            <span>${ic('shieldcheck',14)} SHA-256 tamper-evident audit</span>
+            <span>${ic('sparkles',14)} Role-scoped workflows &amp; QA</span>
           </div>
         </div>
 
         <div class="ld-hero-art" aria-hidden="true">
           <div class="ld-canvas-card ld-canvas-tight">
-            <div class="ld-canvas-head">
-              <span class="ld-canvas-title">System Topology · Least-Privilege Departmental Mesh</span>
-              <span class="ld-canvas-live"><i></i> Governed</span>
-            </div>
-            <svg viewBox="0 0 460 220" class="ld-scene-svg">
-              <defs>
-                <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#1E3A8A" stop-opacity="${isLight?'0.07':'0.28'}"/>
-                  <stop offset="65%" stop-color="#0EA5E9" stop-opacity="${isLight?'0.03':'0.10'}"/>
-                  <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
-                </radialGradient>
-              </defs>
-              <circle cx="230" cy="110" r="92" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="110" r="82" fill="none" stroke="${ringStroke}" stroke-width="1"/>
-              <circle cx="230" cy="110" r="54" fill="none" stroke="${innerRing}" stroke-width="1" stroke-dasharray="3 3"/>
-              <g stroke="${spokeStroke}" stroke-width="1.2">
-                <line x1="230" y1="110" x2="230" y2="24"/>
-                <line x1="230" y1="110" x2="328" y2="50"/>
-                <line x1="230" y1="110" x2="358" y2="110"/>
-                <line x1="230" y1="110" x2="328" y2="170"/>
-                <line x1="230" y1="110" x2="230" y2="196"/>
-                <line x1="230" y1="110" x2="132" y2="170"/>
-                <line x1="230" y1="110" x2="102" y2="110"/>
-                <line x1="230" y1="110" x2="132" y2="50"/>
-              </g>
-              ${[
-                [230,24,'Field Care','#1E3A8A'], [328,50,'Hospital','#0F766E'],
-                [358,110,'M&E / DHIS2','#1D4ED8'], [328,170,'Finance','#047857'],
-                [230,196,'Homestay','#334155'], [132,170,'Ethical Media','#475569'],
-                [102,110,'HR & People','#0369A1'], [132,50,'Pharmacy','#0F766E']
-              ].map(([x,y,lbl,col])=>`<g>
-                <rect x="${x-42}" y="${y-11.5}" width="84" height="23" rx="7" fill="${nodeFill}" stroke="${nodeStroke}" stroke-width="1"/>
-                <circle cx="${x-30}" cy="${y}" r="3" fill="${col}"/>
-                <text x="${x+5}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="650" fill="${nodeText}">${lbl}</text>
-              </g>`).join('')}
-              <circle cx="230" cy="110" r="33" fill="${hubFill}" stroke="${hubStroke}" stroke-width="1.5"/>
-              <text x="230" y="107" text-anchor="middle" font-size="11.8" font-weight="750" fill="#FFFFFF" letter-spacing="0.3">CareLink</text>
-              <text x="230" y="120" text-anchor="middle" font-size="7.8" font-weight="600" fill="${hubSub}" letter-spacing="0.5">C-DIMS OS</text>
-            </svg>
+            ${sceneSvg}
 
             <div class="ld-facts">
               ${facts.map(f=>`<div class="ld-fact"><b>${num(f.n)}</b><span>${esc(f.l)}</span></div>`).join('')}
-            </div>
-            <div class="ld-team-row">
-              <div class="ld-team-avs">
-                <img src="${carelinkPhoto('united_hands')}" alt="">
-                <img src="${carelinkPhoto('field_table')}" alt="">
-                <img src="${carelinkPhoto('roundtable_forms')}" alt="">
-              </div>
-              <span>Departments Working Together · Clinical, Field, Finance &amp; Governance</span>
             </div>
           </div>
         </div>
@@ -323,7 +346,7 @@ function renderLanding6(){
 
 /* ------------------------------------------------------------ dedicated architecture & departments page */
 function renderArchitecture6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#1E3A8A' };
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
   const departments = DEPARTMENTS.slice(0, 10);
   const dept = d => `<div class="ld-dept" style="--c:${d.accent}">
       <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.short)}</span></div>`;

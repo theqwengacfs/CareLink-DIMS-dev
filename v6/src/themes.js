@@ -340,7 +340,7 @@ const WTHEME = {
     if(!STUDIO[key].opts.some(o=>o.v===value)) return { ok:false, msg:'That choice is not available.' };
     DB.db.personalPrefs = DB.db.personalPrefs || {};
     DB.db.personalPrefs[user.id] = DB.db.personalPrefs[user.id] || {};
-    DB.db.personalPrefs[user.id].uiEpoch = 690;
+    DB.db.personalPrefs[user.id].uiEpoch = 691;
     DB.db.personalPrefs[user.id][key] = value; DB.save();
     return { ok:true };
   },
@@ -349,7 +349,7 @@ const WTHEME = {
     if(!user || !pre) return { ok:false, msg:'That preset does not exist.' };
     DB.db.personalPrefs = DB.db.personalPrefs || {};
     const mine = DB.db.personalPrefs[user.id] = DB.db.personalPrefs[user.id] || {};
-    mine.uiEpoch = 690;
+    mine.uiEpoch = 691;
     Object.keys(pre.p).forEach(k=>{ mine[k] = pre.p[k]; });
     if(!('touch' in pre.p) && mine.touch==='large' && pre.id!=='sun') { /* a preset never takes away a comfort setting the person chose */ }
     DB.save();
@@ -515,7 +515,7 @@ const WTHEME = {
     if(id!==WT_AUTO && !WTHEME.byId(id)) return { ok:false, msg:'That theme is not available.' };
     DB.db.personalPrefs = DB.db.personalPrefs || {};
     DB.db.personalPrefs[user.id] = DB.db.personalPrefs[user.id] || {};
-    DB.db.personalPrefs[user.id].uiEpoch = 690;
+    DB.db.personalPrefs[user.id].uiEpoch = 691;
     DB.db.personalPrefs[user.id][WTHEME.PREF] = id;
     DB.save();
     return { ok:true };
@@ -526,7 +526,7 @@ const WTHEME = {
     if(!user || !RBAC.has(user,'system.config')) return { ok:false, msg:'Your role may not change the organisation default.' };
     if(id!==WT_AUTO && !WTHEME.byId(id)) return { ok:false, msg:'That theme is not available.' };
     const before = WTHEME.orgDefault();
-    DB.db.settings.uiEpoch = 690;
+    DB.db.settings.uiEpoch = 691;
     DB.db.settings.consoleTheme = id;
     /* Marked as an explicit choice, so the device rule (a tablet opens in
        Harbour Dusk) steps aside for a decision somebody actually made. */
@@ -559,7 +559,7 @@ const WTHEME = {
     STUDIO_KEYS.forEach(k=>{
       if(cfg[k]!==undefined && STUDIO[k].opts.some(o=>o.v===cfg[k])) mine[k] = cfg[k];
     });
-    mine.uiEpoch = 690;
+    mine.uiEpoch = 691;
     mine.visualPackId = pack.id;
     DB.save();
     WTHEME.apply(user);

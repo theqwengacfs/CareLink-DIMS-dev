@@ -5,6 +5,7 @@
    4. Automatic Upstash Free-Tier (<1 MB per command) sharded KV fallback & paged Tablet reconstruction
    5. Intact manual CSV Master Import (`IMPORTER`) after Cloud Auto-Feed */
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const { makeCtx } = require('./dom');
 
 process.env.KV_REST_API_URL = 'https://kv-upstash-real.test';
@@ -18,6 +19,7 @@ const staleReadsRemaining = new Map();
 let enforceOneMegabyteFreeTierCap = false;
 let simulateReadReplicaLag = false;
 let maxShardWriteBytes = 0;
+let shardWritesWithTtl = 0;
 let kvSetCounter = 0;
 
 function kvResponse(body, status = 200) {
@@ -52,6 +54,7 @@ global.fetch = async (input, init = {}) => {
     }
     if (enforceOneMegabyteFreeTierCap) {
       maxShardWriteBytes = Math.max(maxShardWriteBytes, bodyBytes);
+      if (/_w[^/]+_s\d+$/.test(key) && url.searchParams.has('EX')) shardWritesWithTtl++;
     }
     kvSetCounter++;
     if (kv.has(key)) kvPrev.set(key, kv.get(key));
@@ -72,7 +75,7 @@ global.fetch = async (input, init = {}) => {
 };
 
 (async () => {
-  const { default: handler } = await import('../../api/index.js');
+  const { default: handler, __resetCloudCachesForTests } = await import('../../api/index.js');
 
   async function apiFetch(url, opts = {}) {
     const headers = { host: 'carelink.test' };
@@ -198,6 +201,32 @@ global.fetch = async (input, init = {}) => {
   const tabletLogin = await tablet.run(`AUTH.loginOnline(${JSON.stringify(staff.username)}, ${JSON.stringify(staff.tempPassword)}, 'tablet')`);
   assert.equal(tabletLogin.ok, true, JSON.stringify(tabletLogin));
   assert.equal(tablet.run('DB.db.patients.length'), 3333, 'Fresh tablet pulls full 3,333-patient cloud state from sharded Upstash KV even under replica lag');
+  assert.equal(shardWritesWithTtl, 0, 'New immutable shard writes must not use Redis TTLs that can expire/evict active records');
+
+  /* Corrupt the active shard 2, then verify recovery from the retained prior
+     complete shard snapshot, preserving every real cloud record and repairing KV. */
+  simulateReadReplicaLag = false;
+  const activeManifestRaw = kv.get('carelink_cloud_v66');
+  const activeManifest = JSON.parse(JSON.parse(activeManifestRaw));
+  assert.ok(Array.isArray(activeManifest.prevShardKeys) && activeManifest.prevShardKeys.length > 0,
+    'Each sharded manifest retains its previous immutable snapshot for safe recovery');
+  const activeShard2Key = activeManifest.shardKeys[1];
+  assert.ok(activeShard2Key, 'Large CareLink data set must have a second active shard');
+  kv.set(activeShard2Key, 'corrupted-shard-2');
+  __resetCloudCachesForTests(); /* emulate a fresh serverless instance with no trusted in-memory snapshot */
+  const repairedRead = await apiFetch('api/state', {
+    headers: { Authorization: `Bearer ${tablet.run('SYNC.sessionToken')}` },
+  });
+  assert.equal(repairedRead.status, 200, 'A valid previous full snapshot must automatically recover a corrupted active shard');
+  const repairedManifest = JSON.parse(JSON.parse(kv.get('carelink_cloud_v66')));
+  assert.notEqual(repairedManifest.shardKeys[1], activeShard2Key, 'Recovery must publish fresh immutable shard keys');
+  assert.equal(repairedManifest.head.globallyActivated, true, 'Recovery must preserve Global System Activation from authoritative head metadata');
+  assert.equal(repairedManifest.head.hasLargeCollections, true, 'Recovery must preserve large live database metadata');
+  const repairedShard = JSON.parse(kv.get(repairedManifest.shardKeys[1]));
+  assert.equal(crypto.createHash('sha256').update(repairedShard).digest('hex'), repairedManifest.shardDigests[1],
+    'Repaired shard 2 must match its committed SHA-256 digest');
+  assert.equal(tablet.run('DB.db.patients.length'), 3333, 'Shard repair must not replace/remove the live patient registry');
+
 
   /* 6. Regression proof for "Verifying..." hang prevention:
         - Buffer req.body + readableEnded=true empty stream never hang readJsonBody
@@ -371,6 +400,27 @@ global.fetch = async (input, init = {}) => {
     assert.equal(aliasClient.run('Boolean(DB.db.settings.onboarding && DB.db.settings.onboarding.complete)'), true,
       'Setup and login must mark onboarding.complete = true so authenticated users never bounce back to onboarding');
   }
+
+  /* If neither active nor retained snapshots decode, preserve the manifest and
+     refuse to substitute the bundled demo reference dataset for live records. */
+  const irrecoverableManifest = {
+    format: 'carelink-cloud-gzip-sharded-v1',
+    shardCount: 1,
+    shardKeys: ['carelink_cloud_v66_unrecoverable_s0'],
+    shardDigests: [crypto.createHash('sha256').update('expected-data').digest('hex')],
+    rev: 999,
+    saved: new Date().toISOString(),
+    head: { setup: true, globallyActivated: true, hasLargeCollections: true, creds: {}, users: [] },
+  };
+  kv.set(irrecoverableManifest.shardKeys[0], 'tampered-data');
+  const irrecoverableRaw = JSON.stringify(irrecoverableManifest);
+  kv.set('carelink_cloud_v66', JSON.stringify(irrecoverableRaw));
+  const safeFailure = await apiFetch('api/state');
+  assert.equal(safeFailure.status, 503, 'Unrecoverable shard corruption must fail closed');
+  assert.match((await safeFailure.json()).error || '', /shard 1 failed integrity verification/i);
+  assert.equal(kv.get('carelink_cloud_v66'), JSON.stringify(irrecoverableRaw),
+    'Unrecoverable integrity failure must leave the original online manifest untouched');
+
 
   console.log('kv-recovery-and-autofeed: real Upstash verbatim KV + reset-first-run + 3,333-patient zero-file Cloud Auto-Feed + Free-Tier <1 MiB KV sharding + Verifying-hang prevention + 0ms boot/alias/path fixes + intact Master Import passed');
 })().catch((err) => {

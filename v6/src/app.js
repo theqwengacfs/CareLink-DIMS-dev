@@ -809,7 +809,7 @@ const ACTIONS = {
     const t = LANDING_THEMES.find(x=>x.id===d.id);
     if(!t) return toast('Unknown theme','The selected theme is not available. The default remains in use.','err');
     const before = DB.db.settings.landingTheme||DEFAULT_THEME;
-    DB.db.settings.uiEpoch = 690;
+    DB.db.settings.uiEpoch = 691;
     DB.db.settings.landingTheme = t.id;
     DB.db.settings.landingThemeExplicit = true;
     AUDIT.append({actor:AUTH.user.id,action:'landing.theme_changed',entity:'setting',entityId:'landingTheme',

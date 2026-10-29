@@ -113,12 +113,12 @@ function ok(name, cond, detail = '') {
     defaults.foundation && defaults.foundation.name === 'Foundation White' &&
     defaults.foundation.mode === 'light' && defaults.foundation.t.surface === '#FFFFFF');
   const console6CssRaw = fs.readFileSync(path.join(REPO, 'v6', 'src', 'console6.css'), 'utf8');
-  ok('Default landing theme is Luminous Foundation White (clinic, light mode, #FFFFFF surface + #1E3A8A accent)',
-    defaults.landingDefault && defaults.landingDefault.id === 'clinic' &&
-    defaults.landingDefault.name === 'Foundation White' &&
-    defaults.landingDefault.mode === 'light' &&
-    defaults.landingDefault.accent === '#1E3A8A' &&
-    /\.ld\[data-theme="clinic"\][\s\S]*?#FFFFFF/.test(console6CssRaw));
+  ok('Default landing theme is Heritage Sapphire blue with layered topology depth',
+    defaults.landingDefault && defaults.landingDefault.id === 'heritage' &&
+    defaults.landingDefault.name === 'Heritage Sapphire' &&
+    defaults.landingDefault.mode === 'dark' &&
+    defaults.landingDefault.accent === '#E9C765' &&
+    /\.ld\[data-theme="heritage"\][\s\S]*?linear-gradient/.test(console6CssRaw));
   ok('30 workspace themes (including 10 new themes) pass 100% of contrast audits',
     defaults.wthemeCount === 30 && defaults.auditFails === 0,
     `count=${defaults.wthemeCount}, auditFails=${defaults.auditFails}`);
