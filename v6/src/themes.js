@@ -23,9 +23,9 @@ const WT_TOKENS = {
 };
 
 const WTHEMES = [
-  { id:'foundation', name:'Foundation White', mode:'light', accent:'dept', brand:'#1E3A8A', gold:'#9A6700',
-    blurb:'Luminous architectural pure white with specular glass sheen, crisp obsidian typography and subtle jewel accents. Global default.',
-    t:{ bg:'#F7F9FC', surface:'#FFFFFF', surface2:'#F1F5FA', ink:'#0F172A', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#DCE4EE', line2:'#E8EEF6', bar:'#FFFFFF', chrome:'#FFFFFF', chrome2:'#F1F5FA', chromeInk:'#0F172A', chromeMuted:'#475569', chromeLine:'#E2E8F0', action:'#1E3A8A', action2:'#1D4ED8', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'foundation', name:'Foundation White', mode:'light', accent:'#1E3A8A', brand:'#0F172A', gold:'#9A6700',
+    blurb:'Pure architectural white surfaces on a calm cool-slate canvas with crisp slate typography and refined sapphire accents. Global default.',
+    t:{ bg:'#F8FAFC', surface:'#FFFFFF', surface2:'#F1F5F9', ink:'#0F172A', ink2:'#334155', ink3:'#475569', muted:'#475569', line:'#E2E8F0', line2:'#F1F5F9', bar:'#FFFFFF', chrome:'#FFFFFF', chrome2:'#F1F5F9', chromeInk:'#0F172A', chromeMuted:'#475569', chromeLine:'#E2E8F0', action:'#1E3A8A', action2:'#1D4ED8', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#ECFDF5', warn:'#8A5200', warnBg:'#FFFBEB', crit:'#B91C1C', critBg:'#FEF2F2', info:'#1D4ED8', infoBg:'#EFF6FF' } },
   { id:'classic', name:'Daylight White', mode:'light', accent:'dept', brand:'#1F3864', gold:'#9A6700',
     blurb:'The classic console look on crisp white paper with your department colour.',
     t:{ bg:'#F4F6FA', surface:'#FFFFFF', surface2:'#F1F4F8', ink:'#0F172A', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#16294A', chrome2:'#21386A', chromeInk:'#EEF2F9', chromeMuted:'#B8C8DF', chromeLine:'#2B4472', action:'#C8102E', action2:'#B80D28', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E7F6EF', warn:'#9A5B00', warnBg:'#FFF4E0', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#EAF0FF' } },
@@ -83,9 +83,9 @@ const WTHEMES = [
   { id:'amethyst', name:'Royal amethyst', mode:'dark', accent:'#A855F7', brand:'#D8B4FE', gold:'#FBBF24',
     blurb:'Deep executive violet-obsidian paired with crisp lavender and gold glow.',
     t:{ bg:'#130D21', surface:'#1D1533', surface2:'#261C42', ink:'#F2ECFF', ink2:'#D9CEF2', ink3:'#ACA0CA', muted:'#B1A5CE', line:'#372A5C', line2:'#2D224C', bar:'#18112B', chrome:'#0D0818', chrome2:'#1D1533', chromeInk:'#F2ECFF', chromeMuted:'#C4B5FD', chromeLine:'#332656', action:'#7E22CE', action2:'#9333EA', actionInk:'#FFFFFF', ok:'#5FD3A0', okBg:'#13362C', warn:'#F4BF4F', warnBg:'#3A2B0E', crit:'#FF8A94', critBg:'#3E1820', info:'#93C5FD', infoBg:'#1A2C52' } },
-  { id:'alabaster', name:'Alabaster pure white', mode:'light', accent:'dept', brand:'#0F172A', gold:'#9A6700',
-    blurb:'Pure gallery-white workspace and sidebar with razor-sharp slate borders and maximum text clarity.',
-    t:{ bg:'#FFFFFF', surface:'#FFFFFF', surface2:'#F4F6F9', ink:'#090D16', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#CBD5E1', line2:'#E2E8F0', bar:'#FFFFFF', chrome:'#FFFFFF', chrome2:'#F1F5F9', chromeInk:'#090D16', chromeMuted:'#475569', chromeLine:'#CBD5E1', action:'#1D4ED8', action2:'#1E40AF', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F7EF', warn:'#8A5200', warnBg:'#FFF3D6', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
+  { id:'alabaster', name:'Alabaster pure white', mode:'light', accent:'#0F172A', brand:'#0F172A', gold:'#9A6700',
+    blurb:'Pure gallery-white workspace and sidebar with monochrome slate-black primary actions and razor-sharp hairlines.',
+    t:{ bg:'#FFFFFF', surface:'#FFFFFF', surface2:'#F4F6F9', ink:'#090D16', ink2:'#1E293B', ink3:'#475569', muted:'#475569', line:'#E2E8F0', line2:'#F1F5F9', bar:'#FFFFFF', chrome:'#FFFFFF', chrome2:'#F1F5F9', chromeInk:'#090D16', chromeMuted:'#475569', chromeLine:'#E2E8F0', action:'#0F172A', action2:'#1E293B', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#ECFDF5', warn:'#8A5200', warnBg:'#FFFBEB', crit:'#B91C1C', critBg:'#FEF2F2', info:'#1D4ED8', infoBg:'#EFF6FF' } },
   { id:'vellum', name:'Linen & slate white', mode:'light', accent:'#0F766E', brand:'#0F5257', gold:'#9A6700',
     blurb:'Soft architectural stone-white paper with crisp charcoal type and deep mineral teal.',
     t:{ bg:'#F7F7F5', surface:'#FFFFFF', surface2:'#F0F0EC', ink:'#141413', ink2:'#292826', ink3:'#52504C', muted:'#52504C', line:'#D4D2CA', line2:'#E5E4DE', bar:'#FFFFFF', chrome:'#142826', chrome2:'#1D3B38', chromeInk:'#F7FAF9', chromeMuted:'#B8D8D4', chromeLine:'#2B5652', action:'#0F766E', action2:'#115E59', actionInk:'#FFFFFF', ok:'#0F7B4F', okBg:'#E6F6EE', warn:'#8A5200', warnBg:'#FFF2D9', crit:'#B00020', critBg:'#FDECEE', info:'#1D4ED8', infoBg:'#E8F0FE' } },
@@ -340,6 +340,7 @@ const WTHEME = {
     if(!STUDIO[key].opts.some(o=>o.v===value)) return { ok:false, msg:'That choice is not available.' };
     DB.db.personalPrefs = DB.db.personalPrefs || {};
     DB.db.personalPrefs[user.id] = DB.db.personalPrefs[user.id] || {};
+    DB.db.personalPrefs[user.id].uiEpoch = 690;
     DB.db.personalPrefs[user.id][key] = value; DB.save();
     return { ok:true };
   },
@@ -348,6 +349,7 @@ const WTHEME = {
     if(!user || !pre) return { ok:false, msg:'That preset does not exist.' };
     DB.db.personalPrefs = DB.db.personalPrefs || {};
     const mine = DB.db.personalPrefs[user.id] = DB.db.personalPrefs[user.id] || {};
+    mine.uiEpoch = 690;
     Object.keys(pre.p).forEach(k=>{ mine[k] = pre.p[k]; });
     if(!('touch' in pre.p) && mine.touch==='large' && pre.id!=='sun') { /* a preset never takes away a comfort setting the person chose */ }
     DB.save();
@@ -369,7 +371,7 @@ const WTHEME = {
   /* Corrected accent colours for one theme and one department colour. */
   accents(theme, deptAccent, override){
     const t = theme.t, dark = theme.mode==='dark';
-    const base = (override && /^#[0-9A-Fa-f]{6}$/.test(override)) ? override : ((theme.accent && theme.accent!=='dept') ? theme.accent : (deptAccent||'#C8102E'));
+    const base = (override && /^#[0-9A-Fa-f]{6}$/.test(override)) ? override : ((theme.accent && theme.accent!=='dept') ? theme.accent : (deptAccent||'#1E3A8A'));
     /* fill: darken until white text reaches 4.5:1 (dark themes lift very dark fills so they do not vanish) */
     let fill = base;
     if(dark && WTC.contrast(fill, t.surface) < 3) fill = WTC.mix(fill,'#FFFFFF',0.35);
@@ -452,11 +454,11 @@ const WTHEME = {
     const id = user? WTHEME.resolveId(user) : 'foundation';
     const theme = WTHEME.byId(id) || WTHEME.byId('foundation');
     WTHEME._active = theme;
-    let dept = '#C8102E';
+    let dept = '#1E3A8A';
     if(user){
       const role = roleObj(user.roleId);
       const mode = WTHEME.accentModeFor(user);
-      dept = (mode==='department' && role)? (deptObj(role.dept)?.accent || role.accent || '#C8102E') : '#C8102E';
+      dept = (mode==='department' && role)? (deptObj(role.dept)?.accent || role.accent || '#1E3A8A') : '#1E3A8A';
     }
     const st = user? WTHEME.studio(user) : null;
     const dp = deptPaletteFor(user);
@@ -513,6 +515,7 @@ const WTHEME = {
     if(id!==WT_AUTO && !WTHEME.byId(id)) return { ok:false, msg:'That theme is not available.' };
     DB.db.personalPrefs = DB.db.personalPrefs || {};
     DB.db.personalPrefs[user.id] = DB.db.personalPrefs[user.id] || {};
+    DB.db.personalPrefs[user.id].uiEpoch = 690;
     DB.db.personalPrefs[user.id][WTHEME.PREF] = id;
     DB.save();
     return { ok:true };
@@ -523,6 +526,7 @@ const WTHEME = {
     if(!user || !RBAC.has(user,'system.config')) return { ok:false, msg:'Your role may not change the organisation default.' };
     if(id!==WT_AUTO && !WTHEME.byId(id)) return { ok:false, msg:'That theme is not available.' };
     const before = WTHEME.orgDefault();
+    DB.db.settings.uiEpoch = 690;
     DB.db.settings.consoleTheme = id;
     /* Marked as an explicit choice, so the device rule (a tablet opens in
        Harbour Dusk) steps aside for a decision somebody actually made. */
@@ -555,6 +559,7 @@ const WTHEME = {
     STUDIO_KEYS.forEach(k=>{
       if(cfg[k]!==undefined && STUDIO[k].opts.some(o=>o.v===cfg[k])) mine[k] = cfg[k];
     });
+    mine.uiEpoch = 690;
     mine.visualPackId = pack.id;
     DB.save();
     WTHEME.apply(user);

@@ -719,12 +719,6 @@ const ROLE_CONSOLES_68 = {
     const scopeTxt = this.scopeBadge(user);
     const tilesHtml = (spec.tiles || []).map(t => this.tile(user, t)).filter(Boolean).join('');
     return `<section class="rc68-shell no-print" style="--rc-c:${esc(spec.color || '#1E3A8A')};margin-bottom:18px" aria-label="Role-specific operational launchpad">
-      <div class="rc68-ribbon">
-        <div class="rc68-ribbon-left">
-          <span class="rc68-badge">${ic('layers', 12)} ${esc(spec.code)}</span>
-          <span class="rc68-scope"><b>${esc(spec.headline)}</b> · ${esc(scopeTxt)}</span>
-        </div>
-      </div>
       ${tilesHtml ? `<div class="rc68-launchpad">${tilesHtml}</div>` : ''}
       ${spec.workbenchHtml ? `<div class="card" style="margin-bottom:0">
         <div class="card-h"><div class="spread"><h3>${esc(spec.workbenchTitle || 'Operational Pulse')}</h3><span class="xs muted">${esc(scopeTxt)}</span></div></div>

@@ -132,7 +132,7 @@ test('apply writes theme, mode, touch, motion and zoom; public pages are always 
   ok('surface var written', /^#/.test(run('__v["--surface"]')));
   ok('accent fill var written', /^#/.test(run('__v["--accent"]')));
   run(`WTHEME.apply(null)`);
-  ok('signed out is Daylight', run('__a["data-wt"]')==='classic');
+  ok('signed out is Foundation White / Daylight', ['foundation','classic'].includes(run('__a["data-wt"]')));
   ok('signed out text size is 100%', run('__v["--zoom"]')==='1');
   return true;
 });

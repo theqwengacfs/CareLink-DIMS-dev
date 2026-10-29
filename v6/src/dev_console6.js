@@ -1026,7 +1026,9 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
-    { tag:'v6.8.0', date:'2026-10-29', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
+    { tag:'v6.9.0', date:'2026-10-29', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
+      summary:'Quiet Precision Architectural White Redesign: Monochrome + Single Sapphire Palette, Clean Light Landing Architecture Diagram, Zero Colored Stripes/Rainbow KPIs, Single-Tier Console Header, Automatic uiEpoch=690 Legacy Cache Reset, and Streamlined 29-Role Consoles.' },
+    { tag:'v6.8.0', date:'2026-10-29', channel:'Production', schema:63, author:'CareLink OS Core Engineering',
       summary:'Global Luminous Pearl-White Default Theme (Landing, Sign-In, Glass Command Topbar, White Chrome & Specular Top-Bar KPIs), 100% Elimination of Hardcoded White-Fill Visibility Bugs Across All 30 Themes, Decongested Shell & Compact 2x2 Sidebar Dock, and 29 Bespoke Departmental & Geographic-Scope Console Workbenches.' },
     { tag:'v6.7.0', date:'2026-10-27', channel:'Production', schema:63, author:'CareLink OS Core Engineering',
       summary:'Strategic Plan (2027–2031) Live Alignment (7× Caseload Scale-Up to 3,703 Active, Sub-County Sequence & Alumni Network), 9-Part Confidentiality & Ethical Storytelling Policy (22-Point Pre-Pub Gate & 5-Layer Consent) + Kenya DPA (2019) HIV/Health Safeguards, Decongested 6-Archetype Departmental Consoles, 100% Zero White-Out Text/Tabs, 5-Tier Banner Typography & Seamless Online-Safe Account Switching.' },
