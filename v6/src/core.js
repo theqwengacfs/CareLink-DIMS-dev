@@ -248,7 +248,7 @@ const DB = {
     }
   },
   save(){
-    if(!this.db) return;
+    if(!this.db || (typeof DEMO_PREVIEW!=='undefined' && DEMO_PREVIEW.active)) return;
     this.db.meta.saved = todayISO();
     this.db.meta.localEditedAt = new Date().toISOString();
     this.persistState();

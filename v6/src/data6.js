@@ -831,8 +831,13 @@ function seedOfficial(db, now, opts={}){
       given = sex==='F' ? pick(KENYAN_GIVEN_F) : pick(KENYAN_GIVEN_M);
       surname = pick(KENYAN_SURNAMES);
     }
-    const age = (i % 4 === 0) ? (1 + (i % 17)) : int(18, 84);
-    const ageMonths = age < 5 ? (age * 12 + (i % 11)) : (age * 12);
+    /* Complete synthetic register spans every age from 5 through 75 without
+       generating under-fives whose growth references require a distinct protocol. */
+    const age = i % 4 === 0 ? 5 + (i % 13) : (i===2 ? 18 : 18 + ((i - 1) % 58));
+    /* Keep the seeded stream position stable where the former adult-age draw
+       consumed one random value; names and unrelated fixture data stay fixed. */
+    if(i % 4 !== 0) rnd();
+    const ageMonths = age * 12;
     const dobDate = new Date(T.getTime() - (age*365 + int(10, 340))*DAY);
     const dob = iso(dobDate).slice(0, 10);
     const planned = tail ? 240 : pick(PROGRAM_DURATION_DEFAULT);
@@ -936,7 +941,7 @@ function seedOfficial(db, now, opts={}){
     const hadHomestay = (i % 14 === 3);
 
     const pObj = {
-      id:pid, code:'LOM-'+area.id.slice(0,3).toUpperCase()+'-'+String(10000+i),
+      id:pid, code:'CL-'+area.id.toUpperCase()+'-'+intakeDate.replace(/-/g,'')+'-'+String(i).padStart(5,'0'),
       name:given+' '+surname, sex, age, ageMonths, dob, nationalId,
       sha:'SHA-KE-' + String(100000 + i),
       phone,

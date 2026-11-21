@@ -8,6 +8,39 @@ const APPX = {
   get user(){ return AUTH.user; }
 };
 
+/* Public board preview is deliberately a separate, ephemeral synthetic DB.
+   It never adopts hosted data, persists edits, syncs, or authenticates a user. */
+const DEMO_PREVIEW = {
+  active:false, savedDb:null, savedUser:null, savedSession:null,
+  enter(){
+    if(this.active || AUTH.user || AUTH.online) return;
+    if(typeof seedOfficial!=='function') return;
+    this.savedDb = DB.db;
+    this.savedUser = AUTH.user; this.savedSession = AUTH.session;
+    const isolated = DB.blank();
+    seedOfficial(isolated, new Date(), {patients:3333, mustChange:false});
+    isolated.meta = Object.assign(isolated.meta||{}, {label:'Isolated synthetic board preview', demoPreview:true, demoSeeded:true, seeded:'official'});
+    DB.db = isolated; DB._vIdx=null;
+    const user = (isolated.users||[]).find(u=>u.roleId==='director' && u.status==='active')
+      || (isolated.users||[]).find(u=>u.roleId==='chief' && u.status==='active')
+      || (isolated.users||[]).find(u=>u.status==='active');
+    if(!user){ DB.db=this.savedDb; return; }
+    this.active=true;
+    AUTH.user=user; AUTH.session={started:todayISO(),last:Date.now(),token:'local-read-only-demo'};
+    AUTH.mustChange=false; AUTH.online=false;
+    APPX.screen='app'; APPX.view='home'; APPX.params={}; APPX.aiOpen=false; APPX.dirty=false;
+    render(); window.scrollTo(0,0);
+  },
+  exit(){
+    if(!this.active) return;
+    this.active=false; DB.db=this.savedDb; DB._vIdx=null;
+    AUTH.user=this.savedUser; AUTH.session=this.savedSession; AUTH.mustChange=false;
+    this.savedDb=null; this.savedUser=null; this.savedSession=null;
+    APPX.screen='landing'; APPX.view='home'; APPX.params={}; APPX.aiOpen=false; APPX.dirty=false;
+    render(); window.scrollTo(0,0);
+  }
+};
+
 /* ---------------- Boot ---------------- */
 /* ---------------- Inactivity ----------------
    Three hundred seconds (five minutes) without genuine activity ends the session. The browser runs
@@ -534,7 +567,9 @@ function workspaceHeroBanner(view, user){
   const isGlobalAct = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const overrideBar = (typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.bannerHTML) ? SILENT_OVERRIDE.bannerHTML() : '';
   const globalActBar = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.globalActivationBannerHTML) ? PROD_SETUP.globalActivationBannerHTML(user) : '';
-  const demoBar = (!isGlobalAct && typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '';
+  const demoBar = DEMO_PREVIEW.active
+    ? `<div class="alert info" style="margin:10px 16px;border:1px solid #93C5FD"><span>${ic('shield',15)}</span><div style="flex:1"><b>BOARD PREVIEW · SYNTHETIC DATA · READ ONLY</b><span class="small">Isolated in this browser. No hosted records, account login, edits, uploads or sync are used.</span></div><button class="btn btn-xs btn-ghost" data-act="demo-preview-exit">Exit preview</button></div>`
+    : ((!isGlobalAct && typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '');
   const coeditBar = (typeof DUALCHECK!=='undefined' && DUALCHECK.bannerHTML) ? DUALCHECK.bannerHTML(user) : '';
   const urgentCountyBar = (typeof COUNTY_URGENT_QUEUE!=='undefined' && COUNTY_URGENT_QUEUE.bannerHTML) ? COUNTY_URGENT_QUEUE.bannerHTML(user, view) : '';
   const dpaBar = (typeof CARELINK_GOVERNANCE!=='undefined' && CARELINK_GOVERNANCE.dpaBannerHTML) ? CARELINK_GOVERNANCE.dpaBannerHTML(view, user) : '';
@@ -692,6 +727,16 @@ function duplicatePress(act){
   return false;
 }
 function onClick(e){
+  if(DEMO_PREVIEW.active){
+    const previewAction = e.target.closest('[data-act]');
+    if(!previewAction) return;
+    const safe = new Set(['go','page','open-patient','patient-tab','nav-group','nav-close','nav-rail','nav-autofold','toggle-nav','open-console-map','close-modal','demo-preview-exit']);
+    if(!safe.has(previewAction.dataset.act)){
+      e.preventDefault(); e.stopImmediatePropagation();
+      if(typeof toast==='function') toast('Read-only board preview','Changes, submissions and account actions are disabled. This preview uses synthetic data only.','info');
+      return;
+    }
+  }
   if(e && e.target && e.target.closest && e.target.closest('#content') && typeof NAVP!=='undefined' && NAVP.foldForWorkspace){
     NAVP.foldForWorkspace('content-click');
   }
@@ -711,6 +756,7 @@ function onClick(e){
   finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
 }
 function onSubmit(e){
+  if(DEMO_PREVIEW.active){ e.preventDefault(); if(typeof toast==='function') toast('Read-only board preview','Form submissions are disabled in the isolated synthetic preview.','info'); return; }
   const f = e && e.target && e.target.closest ? e.target.closest('[data-form]') : null;
   if(!f) return;
   e.preventDefault();
@@ -721,6 +767,10 @@ function onSubmit(e){
 }
 function onChange(e){
   const el = e.target;
+  if(DEMO_PREVIEW.active && !el.dataset.filter){
+    e.preventDefault(); if(typeof toast==='function') toast('Read-only board preview','Settings and record fields cannot be changed in this preview.','info');
+    return;
+  }
   if(el.dataset.filter){
     const params = {...APPX.params, [el.dataset.filter]: el.value};
     delete params.page;
@@ -792,6 +842,8 @@ function draftBanner(formId){
 }
 
 const ACTIONS = {
+  'demo-preview-enter':()=>DEMO_PREVIEW.enter(),
+  'demo-preview-exit':()=>DEMO_PREVIEW.exit(),
   'page':(d)=>{ if(d.skip) return; go('patients',{...APPX.params,page:d.page}); },
   'save-draft':(d)=>{ const fid=d.draftid||d.form; const f=document.querySelector('form[data-form="'+fid+'"]'); if(!f) return;
     saveDraft(fid, f); toast('Draft saved','Held on this device only. It has not been submitted.','ok'); },
@@ -2902,7 +2954,7 @@ const FORMS = {
 /* ---------------- AI dock ---------------- */
 function renderAIDock(){
   let dock = $('.ai-dock');
-  if(!AUTH.user){ if(dock) dock.remove(); return; }
+  if(DEMO_PREVIEW.active || !AUTH.user){ if(dock) dock.remove(); return; }
   if(!dock){ dock=document.createElement('div'); dock.className='ai-dock'; document.body.appendChild(dock); }
   if(!RBAC.has(AUTH.user,'ai.use')){ dock.innerHTML=''; return; }
   const prof = AI.profileFor ? AI.profileFor(AUTH.user, APPX.view) : { title:'LOMAMO C-DIMS Assistant', badge:'Console AI', summary:'', chips:[] };

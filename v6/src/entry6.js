@@ -312,6 +312,7 @@ function renderLanding6(){
           <p class="ld-lede">CareLink unites clinical care, field ministry, hospital referrals, finance, human resources, media governance and partner oversight in one least-privilege operating system across Kisumu and Homa Bay.</p>
           <div class="row ld-cta-row" style="align-items:center">
             <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff Sign In · My CareLink Console ${ic('chevron',16)}</button>
+            <button class="btn ld-btn-secondary" data-act="demo-preview-enter" aria-label="Browse the isolated read-only synthetic board preview">${ic('eye',16)} Browse synthetic board demo · no account</button>
           </div>
           <div class="ld-assure">
             <span>${ic('database',14)} Shared live online database</span>
