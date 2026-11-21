@@ -101,5 +101,20 @@ ok('The Vite/Vercel/Lovable bundle includes the workspace palette and Admin Ops 
   publicBundle.includes('.aops-section-tab:not(.is-current):nth-child(5n+1) .aops-section-index') &&
   publicBundle.includes('.console-scheme-choice'));
 
+const originalDb = run('DB.db'); ctx.__restoreDb = originalDb;
+run(`DB.db=DB.blank(); DB.db.settings.globallyActivated=true;
+  DB.db.users=[
+    {id:'chief1',name:'Chief Example',username:'chief.admin',email:'chief.admin@lomamo.example',roleId:'chief',status:'active',demo:false},
+    {id:'staff1',name:'Field Example',username:'field.staff',email:'field.staff@lomamo.example',roleId:'caregiver',status:'active',demo:false},
+    {id:'demo1',name:'Synthetic',username:'synthetic',email:'synthetic@example.invalid',roleId:'caregiver',status:'active',demo:true}
+  ]; AUTH.user={id:'chief1',username:'chief.admin',roleId:'chief'};
+  download=(filename,content,mime)=>{globalThis.__directory={filename,content,mime};};
+  PROD_SETUP.downloadRoleDirectory();`);
+const directory = run('globalThis.__directory');
+ok('Chief can download post-activation text directory with active official role identities but no passwords or demo identities',
+  directory && directory.filename.endsWith('.txt') && directory.content.includes('chief.admin@lomamo.example') &&
+  directory.content.includes('field.staff') && directory.content.toLowerCase().includes('caregiver') &&
+  !directory.content.includes('synthetic') && !/TempSetup|LOMAMO2026|Password:/i.test(directory.content));
+run('DB.db=globalThis.__restoreDb || DB.db');
 console.log(`\n${pass}/${pass + fail} CareLink workspace presentation checks passed`);
 if (fail) process.exit(1);

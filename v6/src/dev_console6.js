@@ -508,7 +508,8 @@ const PROD_SETUP = {
             <span class="small">Official mode locked — all Demo &amp; first-run setup options have been permanently removed from Landing &amp; Sign-In. Individual staff activate their accounts on first login.</span>
           </div>
           <div class="row" style="gap:8px;flex-wrap:wrap">
-            ${this.ownsCredentialPack(user) ? `<button class="btn btn-xs btn-primary" data-act="dev-dl-credentials">${ic('download',12)} Download confidential credentials (${this.lastPack.count})</button>` : `<button class="btn btn-xs btn-ghost" data-act="open-global-activate">${ic('key',12)} Re-issue Unclaimed WhatsApp Sheet</button>`}
+            <button class="btn btn-xs btn-primary" data-act="dev-dl-role-directory">${ic('download',12)} Download role account directory (.txt)</button>
+            ${this.ownsCredentialPack(user) ? `<button class="btn btn-xs btn-ghost" data-act="dev-dl-credentials">${ic('key',12)} Download confidential credentials (${this.lastPack.count})</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -904,6 +905,29 @@ const PROD_SETUP = {
       <p class="footer">Credential handoff record only. Confirm the recipient’s identity before sharing. Pending or unconfirmed roster seats should be verified before credential delivery.</p>
       </body></html>`;
     download('CareLink-Confidential-Account-Provisioning-' + todayISO().slice(0, 10) + '.html', document, 'text/html;charset=utf-8');
+  },
+
+  downloadRoleDirectory() {
+    const actor = AUTH && AUTH.user;
+    if(!actor || actor.roleId !== 'chief') return toast('Restricted', 'Only the Chief System Administrator may export the account directory.', 'err');
+    if(!this.isGloballyActivated()) return toast('Commissioning required', 'The role account directory is available only after global activation.', 'warn');
+    const users = ((DB.db && DB.db.users) || []).filter(u => u && u.status === 'active' && !u.demo);
+    const lines = [
+      'CARELINK C-DIMS — COMMISSIONED ROLE ACCOUNT DIRECTORY',
+      'Confidential staff directory. No passwords or patient information are included.',
+      'Generated: ' + todayISO(),
+      'Accounts: ' + users.length,
+      '='.repeat(64),
+      ...users.map((u,i) => {
+        const role = roleObj(u.roleId);
+        return `${String(i+1).padStart(3,'0')}. ${String(u.name || u.jobTitle || u.username).replace(/[\r\n]+/g,' ').trim()}\n` +
+          `     Role: ${String((role && role.name) || u.roleId || 'Staff').replace(/[\r\n]+/g,' ')}\n` +
+          `     Official email: ${String(u.email || '').replace(/[\r\n]+/g,' ')}\n` +
+          `     Username: ${String(u.username || '').replace(/[\r\n]+/g,' ')}\n`;
+      })
+    ].join('\n');
+    download('CareLink-Commissioned-Role-Account-Directory-' + todayISO() + '.txt', lines, 'text/plain;charset=utf-8');
+    toast('Directory downloaded', `${users.length} active role accounts listed. No passwords are included.`, 'ok');
   },
 
   downloadCSV() {
@@ -1475,6 +1499,7 @@ Object.assign(ACTIONS, {
     if (pack) { toast('SMS Credential Pack Generated', `${pack.count} unique strong passwords ready for SMS export.`, 'ok'); render(); }
   },
   'dev-dl-credentials': () => PROD_SETUP.downloadCredentialDocument(),
+  'dev-dl-role-directory': () => PROD_SETUP.downloadRoleDirectory(),
   'dev-dl-sms-csv': () => PROD_SETUP.downloadCSV(),
   'dev-dl-sms-txt': () => PROD_SETUP.downloadSMSText(),
   'dl-whatsapp-txt': () => PROD_SETUP.downloadWhatsappTxt(),

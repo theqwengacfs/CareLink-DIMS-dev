@@ -128,7 +128,7 @@ global.fetch = async (input, init = {}) => {
   assert.match(console6Css, /font-size:\s*16px\s*!important/, 'Tablet login inputs must set 16px font-size to prevent iOS/iPadOS auto-zoom');
 
   /* ------------------------------------------------------------------
-     2. Pre-Commissioning Hosted Demo Login (`LOMAMO2026`) on Scrubbed DB
+     2. Pre-Commissioning Anonymous Demo Paths Stay Closed
      ------------------------------------------------------------------ */
   const evalSeeder = makeHostedClient('pc');
   evalSeeder.run('DB.load(); DB.seedOfficial({ patients: 24, mustChange: false });');
@@ -137,14 +137,14 @@ global.fetch = async (input, init = {}) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ db: DB.db })
   })`);
-  assert.equal(bootRes.ok, true, 'Fresh evaluation host must accept demo-bootstrap');
+  assert.equal(bootRes.ok, false, 'Fresh host must reject anonymous demo-bootstrap');
 
   const evalTablet = makeHostedClient('tablet');
   await evalTablet.run('(async () => { DB.load(); APPX.screen = "login"; APPX.host = await hostProbe(); SYNC.server = APPX.host; })()');
-  /* Even before local demo users have hashes, hosted quick-login authenticates online with LOMAMO2026 */
+  /* The old role quick-login action must never authenticate against a hosted synthetic database. */
   await evalTablet.run('ACTIONS["quick-login"]({ u: "director" })');
-  assert.equal(evalTablet.run('AUTH.user && AUTH.user.username'), 'director', 'Hosted tablet quick-login must sign in to demo evaluation installation');
-  assert.equal(evalTablet.run('DB.db.patients.length'), 24, 'Hosted tablet demo login must pull demo patients');
+  assert.equal(evalTablet.run('AUTH.user'), null, 'Hosted anonymous demo quick-login must remain unauthenticated');
+  assert.equal(evalTablet.run('DB.db.patients.length'), 0, 'Rejected anonymous bootstrap must not install a synthetic register');
 
   /* Reset evaluation host cleanly so we can run official 4-step commissioning */
   kv.clear();

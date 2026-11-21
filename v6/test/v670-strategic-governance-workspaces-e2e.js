@@ -255,8 +255,8 @@ function ok(name, cond, detail = '') {
     uxAudit.partnerHomesOk === true);
   ok('Console workspace layout switcher (Decongested Deck / Focused Tabs / Expanded Stack) switches cleanly per user',
     uxAudit.layoutSwitchOk === true && uxAudit.innerHasCtxAndDpa === true);
-  ok('All 30 workspace themes pass 100% of contrast pairs including Text Box Field Ink & Tab Bar Ink (0 whitened-out pairs)',
-    uxAudit.themeCount === 30 && uxAudit.contrastFailureCount === 0, `themes=${uxAudit.themeCount}, fails=${uxAudit.contrastFailureCount}`);
+  ok('All 45 workspace themes pass 100% of contrast pairs including Text Box Field Ink & Tab Bar Ink (0 whitened-out pairs)',
+    uxAudit.themeCount === 45 && uxAudit.contrastFailureCount === 0, `themes=${uxAudit.themeCount}, fails=${uxAudit.contrastFailureCount}`);
 
   /* Verify CSS white-out & 5-Tier Banner Hierarchy selectors in stylesheets */
   const cssCombined = ['styles.css', 'console6.css', 'audit6.css', 'carelink63.css']
@@ -315,30 +315,27 @@ function ok(name, cond, detail = '') {
     return c;
   }
 
-  /* 5a. Pre-commissioning Online Evaluation Mode: 1-click Account Switch rotates online sessionToken cleanly */
+  /* 5a. Pre-commissioning synthetic account switching remains unavailable */
   const evalClient = makeHostedClient();
   await evalClient.run('boot()');
   await evalClient.run(`(async () => {
     DB.seedDemo();
-    await SYNC._json('api/public/demo-bootstrap', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const denied = await SYNC._json('api/public/demo-bootstrap', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ db: DB.db })
     });
     APPX.host = await hostProbe();
+    return denied;
   })()`);
   await evalClient.run(`AUTH.loginOnline('chief.admin', 'LOMAMO2026')`);
   const evalTokenBefore = evalClient.run('SYNC.sessionToken');
   await evalClient.run(`ACCOUNT_SWITCHER.executeDemoSwitch({ u: 'director', v: 'home', asset: 'Country Director Console' })`);
   const switchedEval = JSON.parse(evalClient.run(`JSON.stringify({
-    username: AUTH.user && AUTH.user.username,
-    tokenAfter: SYNC.sessionToken,
-    screen: APPX.screen,
-    view: APPX.view
+    username: AUTH.user && AUTH.user.username, tokenAfter: SYNC.sessionToken,
+    screen: APPX.screen, view: APPX.view
   })`));
-  ok('Evaluation-mode 1-click Account Switch rotates online sessionToken & opens target role console smoothly',
-    switchedEval.username === 'director' && Boolean(switchedEval.tokenAfter) && switchedEval.tokenAfter !== evalTokenBefore && switchedEval.screen === 'app',
-    JSON.stringify(switchedEval));
+  ok('Pre-commissioning demo login and one-click role switching remain closed',
+    !switchedEval.username && !switchedEval.tokenAfter && evalTokenBefore == null, JSON.stringify(switchedEval));
 
   /* Now commission 4-step production setup on fresh KV */
   kv.clear();

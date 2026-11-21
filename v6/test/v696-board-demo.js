@@ -8,7 +8,8 @@ function ok(name, condition){
 }
 
 run(`DB.db=DB.blank(); DB.db.meta.label='pre-existing local state'; DB.save();`);
-ok('Public landing page exposes the no-account synthetic demo entry', run(`renderLanding().includes('demo-preview-enter') && renderLanding().includes('no account')`));
+ok('Public landing page has no anonymous demo entry and exposes Chief System Administrator commissioning',
+  !run(`renderLanding().includes('demo-preview-enter') || renderLanding().includes('no account')`) && run(`renderLanding().includes('First-run System Commissioning')`));
 const original = run('DB.db');
 const before = ctx.localStorage.getItem('lomamo_carelink_dims_v66');
 const beforePrefs = ctx.localStorage.getItem('carelink.prefs.v6');

@@ -2736,55 +2736,11 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, globallyActivated: true, rev: state.rev, issued, preserved });
   }
 
-  /* 3. Demo bootstrap is an evaluation-only, pre-commissioning operation.
-     It is deliberately not a general public "replace the database" endpoint:
-     once a live installation exists, and permanently after global activation,
-     the request is refused before parsing or writing the supplied document. */
+  /* Anonymous demo provisioning is disabled: first-run is reserved for
+     chief-admin commissioning, then role accounts are issued securely. */
   if (route === 'public/demo-bootstrap' && method === 'POST') {
-    if (isGloballyActivated(state)) {
-      return sendJson(res, 403, {
-        ok: false,
-        code: 'demo_bootstrap_locked',
-        reason: 'globally_activated',
-        globallyActivated: true,
-        error: 'Demonstration bootstrap is permanently disabled after global activation.',
-      });
-    }
-    const commissioned = Boolean(state.setup || Object.keys(state.creds || {}).length);
-    const hasNonDemoRevision = Boolean(state.rev && state.db && !isDemoDatabase(state));
-    if (commissioned || hasNonDemoRevision) {
-      return sendJson(res, 409, {
-        ok: false,
-        code: 'demo_bootstrap_locked',
-        reason: 'live_installation',
-        error: 'Demonstration bootstrap is locked because this online installation already contains a commissioned or non-demo database.',
-      });
-    }
-    const body = await readJsonBody(req);
-    if (!body || !body.db || typeof body.db !== 'object' || Array.isArray(body.db)) {
-      return sendJson(res, 400, { ok: false, error: 'A demonstration database document is required.' });
-    }
-    const demoDb = sanitizeDbForClient(body.db);
-    /* Do not allow a demo document to smuggle activation/setup markers into the
-       public bootstrap path. */
-    demoDb.settings = {
-      ...(demoDb.settings || {}),
-      globallyActivated: false,
-      awaitingGlobalActivation: false,
-    };
-    demoDb.meta = {
-      ...(demoDb.meta || {}),
-      globallyActivated: false,
-      demoDisabled: false,
-      productionMode: false,
-      demoMode: true,
-    };
-    state.db = demoDb;
-    state.setup = false;
-    state.globallyActivated = false;
-    state.rev = (state.rev || 0) + 1;
-    await saveCloudState(state);
-    return sendJson(res, 200, { ok: true, rev: state.rev, demo: true });
+    return sendJson(res, 403, { ok: false, code: 'demo_bootstrap_disabled',
+      error: 'Anonymous demonstration bootstrap is disabled. Commission the system first, then issue authorized role accounts.' });
   }
 
   /* 4. Authentication & DPA First-Login Password Replacement */
@@ -2803,36 +2759,6 @@ async function handleRequest(req, res) {
       const chiefs = Object.values(state.creds || {}).filter((c) => c && c.roleId === 'chief');
       if (chiefs.length === 1 && (chiefs[0].username === 'chief.admin' || chiefs[0].username === 'system.admin')) {
         cred = chiefs[0];
-      }
-    }
-    /* Pre-commissioning synthetic evaluation Demo sign-in (strictly disabled
-       as soon as setup is commissioned or globally activated). */
-    if (!cred && !state.setup && !isGloballyActivated(state) && isDemoDatabase(state) && password === 'LOMAMO2026') {
-      const demoUsers = (state.db && Array.isArray(state.db.users)) ? state.db.users : [];
-      const demoMatch = demoUsers.find((u) => u && (String(u.username || '').toLowerCase() === rawId || String(u.email || '').toLowerCase() === rawId))
-        || ((rawId === 'system.admin' || rawId === 'chief.admin') ? demoUsers.find((u) => u && u.roleId === 'chief') : null);
-      if (demoMatch) {
-        const demoUname = String(demoMatch.username || rawId).toLowerCase();
-        const demoSessionId = loginSessionId(demoUname, body.loginAttemptId);
-        let demoReserved = false;
-        try { demoReserved = await reserveLoginSession(demoUname, demoSessionId); }
-        catch { return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' }); }
-        if (!demoReserved) return sendJson(res, 409, {
-          ok: false, code: 'session_active', retryAfterSeconds: SESSION_LEASE_SECONDS,
-          error: `This account already has an active online session on another device or browser. Sign out there first. If that device is unavailable, wait up to ${Math.ceil(SESSION_LEASE_SECONDS / 60)} minutes for the idle session to expire.`,
-        });
-        const demoToken = mintSignedSessionToken({ id: demoMatch.id, roleId: demoMatch.roleId || 'staff', countyId: demoMatch.countyId || 'kisumu' }, demoUname, demoSessionId);
-        const cleanDemoUser = sanitizeDbForClient({ users: [{ ...demoMatch, status: 'active', active: true, mustChange: false }] }).users[0];
-        return sendJson(res, 200, {
-          ok: true,
-          token: demoToken,
-          rev: state.rev || 0,
-          saved: state.saved,
-          user: cleanDemoUser,
-          username: demoUname,
-          mustChange: false,
-          idleSeconds: IDLE_SECONDS,
-        });
       }
     }
     const username = clipString(cred ? cred.username : rawId, 120);

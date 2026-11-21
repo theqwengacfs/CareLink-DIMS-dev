@@ -175,17 +175,17 @@ await check('repeated bad logins lock the account', async () => {
   assert.equal(good.status, 429, 'correct password must not bypass an active lockout');
 });
 
-await check('demo bootstrap works only on a fresh evaluation installation', async () => {
+await check('anonymous demo bootstrap is refused on a fresh installation', async () => {
   kv.clear();
   const r = await call('public/demo-bootstrap', {
     method: 'POST',
     body: { db: { meta: { demoSeeded: '2026-10-24T00:00:00.000Z' }, settings: {}, users: [], patients: [] } },
   });
-  assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.equal(r.body.demo, true);
-  const health = await call('health');
-  assert.equal(health.body.setup, false);
-  assert.equal(health.body.globallyActivated, false);
+  assert.equal(r.status, 403, JSON.stringify(r.body));
+  assert.equal(r.body.code, 'demo_bootstrap_disabled');
+  assert.equal(kv.has('carelink_cloud_v66'), false, 'rejected anonymous demo request must not write KV');
+  const demoLogin = await call('auth/login', { method: 'POST', body: { username: 'director', password: 'LOMAMO2026' } });
+  assert.equal(demoLogin.status, 401, 'the legacy shared demo password cannot authenticate before commissioning');
 });
 
 await check('public setup cannot self-declare global activation', async () => {
@@ -237,14 +237,14 @@ await check('public setup cannot self-declare global activation', async () => {
 let chiefToken = '';
 let staffToken = '';
 let caregiverToken = '';
-await check('demo bootstrap is locked once the installation is commissioned', async () => {
+await check('anonymous demo bootstrap remains disabled once the installation is commissioned', async () => {
   const before = kv.get('carelink_cloud_v66');
   const r = await call('public/demo-bootstrap', {
     method: 'POST',
     body: { db: { meta: { demoSeeded: 'replacement' }, users: [], patients: [] } },
   });
-  assert.equal(r.status, 409);
-  assert.equal(r.body.code, 'demo_bootstrap_locked');
+  assert.equal(r.status, 403);
+  assert.equal(r.body.code, 'demo_bootstrap_disabled');
   assert.equal(kv.get('carelink_cloud_v66'), before, 'a refused demo request must not write KV');
   const login = await call('auth/login', { method: 'POST', body: { username: 'chief.admin', password: ADMIN_PW } });
   assert.equal(login.status, 200, JSON.stringify(login.body));
@@ -541,14 +541,14 @@ await check('parallel account sign-ins create one atomic winner and one active-s
   assert.equal(retryLogout.status, 200);
 });
 
-await check('demo bootstrap is permanently refused after global activation', async () => {
+await check('anonymous demo bootstrap is permanently refused after global activation', async () => {
   const before = kv.get('carelink_cloud_v66');
   const r = await call('public/demo-bootstrap', {
     method: 'POST',
     body: { db: { meta: { demoSeeded: 'post-activation-demo' }, users: [], patients: [] } },
   });
   assert.equal(r.status, 403);
-  assert.equal(r.body.reason, 'globally_activated');
+  assert.equal(r.body.code, 'demo_bootstrap_disabled');
   assert.equal(kv.get('carelink_cloud_v66'), before);
   const setup = await call('setup', {
     method: 'POST',

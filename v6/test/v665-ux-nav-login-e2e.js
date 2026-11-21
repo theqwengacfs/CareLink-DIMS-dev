@@ -138,8 +138,8 @@ function ok(name, cond, detail = '') {
     defaults.landingDefault.mode === 'dark' &&
     defaults.landingDefault.accent === '#E9C765' &&
     /\.ld\[data-theme="heritage"\][\s\S]*?linear-gradient/.test(console6CssRaw));
-  ok('30 workspace themes (including 10 new themes) pass 100% of contrast audits',
-    defaults.wthemeCount === 30 && defaults.auditFails === 0,
+  ok('45 workspace themes (including 10 new themes) pass 100% of contrast audits',
+    defaults.wthemeCount === 45 && defaults.auditFails === 0,
     `count=${defaults.wthemeCount}, auditFails=${defaults.auditFails}`);
 
   const newThemeIds = ['alabaster','vellum','glacier','pearl','coral','marigold','indigo','sage','obsidian','ruby'];
@@ -578,42 +578,23 @@ function ok(name, cond, detail = '') {
   process.env.KV_REST_API_URL = origPrimaryUrl;
   process.env.KV_REST_API_TOKEN = origPrimaryTok;
 
-  /* 8d. Explicit Offline Device Console escape hatch when Cloud KV is down (!isActivated && !demoBlocked) */
+  /* 8d. No offline synthetic role shortcut before Chief System Administrator commissioning. */
   const offlineClient = makeHostedClient();
   const offlineBefore = JSON.parse(offlineClient.run(`JSON.stringify((()=>{
-    DB.load();
-    APPX.host = { ok: false, setup: false, globallyActivated: false };
+    DB.load(); APPX.host = { ok:false, setup:false, globallyActivated:false };
     LOGIN6.usernameDraft = 'director';
-    LOGIN6.error = 'The mandatory CareLink KV store refused the read on live.upstash.io (HTTP 403); no local fallback is used.';
+    LOGIN6.error = 'The mandatory CareLink KV store refused the read (HTTP 403); no local fallback is used.';
     const html = renderLogin6();
-    return {
-      syncAvailableBefore: SYNC.available(),
-      hasOfflineBtn: html.includes('data-act="login-offline-device-mode"'),
-      hasRetryBtn: html.includes('data-act="login-retry-kv"')
-    };
+    return { syncAvailable:SYNC.available(), hasOfflineBtn:html.includes('data-act="login-offline-device-mode"'),
+      hasRetryBtn:html.includes('data-act="login-retry-kv"'), patients:DB.db.patients.length };
   })())`));
-  ok('Unactivated Sign-In screen with Cloud KV HTTP 403 renders explicit Open Offline Console on This Device button',
-    offlineBefore.syncAvailableBefore === true && offlineBefore.hasOfflineBtn === true && offlineBefore.hasRetryBtn === true,
+  ok('Cloud KV failure keeps an uncommissioned installation fail-closed without an offline demo shortcut',
+    offlineBefore.syncAvailable === true && offlineBefore.hasOfflineBtn === false && offlineBefore.hasRetryBtn === true && offlineBefore.patients === 0,
     JSON.stringify(offlineBefore));
-
   await offlineClient.run(`ACTIONS['login-offline-device-mode']()`);
-  const offlineAfter = JSON.parse(offlineClient.run(`JSON.stringify({
-    syncAvailableAfter: SYNC.available(),
-    syncState: SYNC.state,
-    screen: APPX.screen,
-    roleId: AUTH.user && AUTH.user.roleId,
-    patients: DB.db && DB.db.patients && DB.db.patients.length
-  })`));
-  ok('Clicking Open Offline Console on This Device explicitly enters Offline/static mode with full 3,333-patient Director console & resets on logout',
-    offlineAfter.syncAvailableAfter === false &&
-    offlineAfter.syncState === 'device' &&
-    offlineAfter.screen === 'app' &&
-    offlineAfter.roleId === 'director' &&
-    offlineAfter.patients === 3333,
-    JSON.stringify(offlineAfter));
-  offlineClient.run(`ACTIONS.logout()`);
-  ok('Signing out of Offline Device Console restores SYNC.available() === true for online Cloud KV',
-    offlineClient.run(`SYNC.available()`) === true);
+  const offlineAfter = JSON.parse(offlineClient.run(`JSON.stringify({screen:APPX.screen,roleId:AUTH.user&&AUTH.user.roleId,patients:DB.db.patients.length})`));
+  ok('A stale offline-demo action cannot seed synthetic data or authenticate a role before setup',
+    offlineAfter.screen === 'landing' && offlineAfter.roleId === null && offlineAfter.patients === 0, JSON.stringify(offlineAfter));
 
   if (fails.length) {
     console.error('v665-ux-nav-login-e2e FAILED:\n  ✗ ' + fails.join('\n  ✗ '));

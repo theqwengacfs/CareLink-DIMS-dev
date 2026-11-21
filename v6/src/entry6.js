@@ -72,8 +72,10 @@ function commissionedEntryActive(){
   return !!(h && (h.commissioned === true || (h.setup && !h.demoMode)));
 }
 function demoEntryBlocked(){
-  return (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) ||
-    commissionedEntryActive() || hostedEntryPending();
+  /* No anonymous/shared-password demo identity is valid at any lifecycle
+     stage. Demo staff accounts must be explicitly issued through an
+     authenticated post-commissioning provisioning workflow. */
+  return true;
 }
 function passwordStrength(pw){
   let n = 0;
@@ -312,7 +314,7 @@ function renderLanding6(){
           <p class="ld-lede">CareLink unites clinical care, field ministry, hospital referrals, finance, human resources, media governance and partner oversight in one least-privilege operating system across Kisumu and Homa Bay.</p>
           <div class="row ld-cta-row" style="align-items:center">
             <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff Sign In · My CareLink Console ${ic('chevron',16)}</button>
-            <button class="btn ld-btn-secondary" data-act="demo-preview-enter" aria-label="Browse the isolated read-only synthetic board preview">${ic('eye',16)} Browse synthetic board demo · no account</button>
+            <button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>
           </div>
           <div class="ld-assure">
             <span>${ic('database',14)} Shared live online database</span>
@@ -522,11 +524,10 @@ function renderLogin6(){
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
     <div class="lg-links">
-      ${!demoBlocked ? `<button class="linkbtn" data-act="login-tab" data-tab="demo" type="button">Explore demo accounts (${num(uCount)})</button>` : ''}
       <button class="linkbtn" data-act="login-tab" data-tab="request" type="button">Request county account</button>
       <button class="linkbtn" data-act="login-tab" data-tab="forgot" type="button">Forgotten password?</button>
       <button class="linkbtn" data-act="open-dpa-statement" type="button">Kenya DPA (2019) Notice</button>
-      ${!demoBlocked ? `<button class="linkbtn" data-act="goto-onboard" type="button">First-run online setup</button>` : ''}
+      ${!isActivated && !commissionedEntryActive() ? `<button class="linkbtn" data-act="goto-onboard" type="button">First-run online setup</button>` : ''}
       ${!isActivated && commissionedEntryActive() ? `<button class="linkbtn" data-act="reset-first-run-fresh" type="button">Reset pre-activation setup</button>` : ''}
     </div>`;
 
@@ -550,23 +551,7 @@ function renderLogin6(){
     return ['director','chief.admin','program.admin','kisumu.admin','homabay.admin','mcm.kisumu','focal.kisumu','caregiver.nyalenda','finance.kisumu','procurement'].map(byU).filter(Boolean);
   })();
 
-  const demoTab = `
-    <div class="row" style="justify-content:space-between;gap:6px;margin-bottom:5px;flex-wrap:wrap">
-      <div class="lg-subpills">
-        ${demoGroups.map(g=>`<button type="button" class="lg-subpill ${LOGIN6.demoFilter===g.id?'on':''}" data-act="demo-filter" data-f="${g.id}">${esc(g.label)}</button>`).join('')}
-      </div>
-      <button type="button" class="btn btn-xs btn-soft" data-act="load-demo">${ic('refresh',12)} Reload 3,333-Patient Demo</button>
-    </div>
-    <div class="lg-demo-grid">
-      ${pickUsers.slice(0,10).map(u=>`<button type="button" class="lg-demo-item" data-act="quick-login" data-u="${esc(u.username)}">
-        <b>${esc(u.jobTitle || u.name)}</b>
-        <span>${esc(u.username)} · ${esc(countyName(u.countyId))}</span>
-      </button>`).join('')}
-    </div>
-    <div class="lg-links" style="margin-top:5px">
-      <span class="xs muted">Password for all demo accounts: <b class="mono">LOMAMO2026</b></span>
-      <button class="linkbtn" data-act="goto-onboard" type="button">Run 4-step host setup</button>
-    </div>`;
+
 
   const activate = `
     <p class="lg-note">Received a WhatsApp temporary password? Simply use the <b>Sign in</b> tab to activate immediately, or redeem a legacy ACT code below.</p>
@@ -612,7 +597,7 @@ function renderLogin6(){
       <button class="btn btn-ghost btn-block" type="submit">Redeem 24h Emergency Code</button>
     </form>`;
 
-  const body = (!demoBlocked && t==='demo') ? demoTab : t==='activate' ? activate : t==='request' ? request : t==='forgot' ? forgot : signIn;
+  const body = t==='activate' ? activate : t==='request' ? request : t==='forgot' ? forgot : signIn;
 
   return `<div class="lg6">
     <aside class="lg6-brand">
@@ -680,7 +665,6 @@ function renderLogin6(){
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
         <div class="lg-tabs" style="grid-template-columns:repeat(${demoBlocked?4:5},1fr)">
           ${tabBtn('signin','Sign in')}
-          ${!demoBlocked ? tabBtn('demo','Demo') : ''}
           ${tabBtn('activate','Activate')}
           ${tabBtn('request','Request')}
           ${tabBtn('forgot','Recover')}
@@ -848,7 +832,6 @@ function renderOnboarding6(){
       <div class="row" style="gap:8px;flex-wrap:wrap">
         ${step>1?`<button class="btn btn-ghost" data-act="ob-back" type="button">Back</button>`
                 :`<button class="btn btn-ghost" data-act="goto-landing" type="button">Front page</button>`}
-        ${!demoBlocked ? `<button class="btn btn-soft" data-act="load-demo" type="button">${ic('sparkles',15)} Load Full 3,333-Patient Demo</button>` : ''}
       </div>
       ${step===3 && ONB.hostSetup
         ? `<button class="btn btn-primary" data-act="ob-attach-signin" type="button">Go to sign-in ${ic('chevron',15)}</button>`
@@ -880,9 +863,9 @@ Object.assign(ACTIONS, {
   'goto-landing': () => { APPX.screen='landing'; LOGIN6.error=''; render(); window.scrollTo({top:0}); },
   'goto-architecture': () => { APPX.screen='architecture'; LOGIN6.error=''; render(); window.scrollTo({top:0}); },
   'goto-onboard': () => {
-    if (demoEntryBlocked()) {
+    if ((typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) || commissionedEntryActive()) {
       APPX.screen='login'; LOGIN6.tab='signin';
-      LOGIN6.notice = commissionedEntryActive() ? 'This shared online installation is already commissioned. Sign in with your issued account; first-run setup is not available on this client.' : '';
+      LOGIN6.notice = 'This shared online installation is already commissioned. Sign in with your issued account; first-run setup is not available on this client.';
       return render();
     }
     APPX.screen='onboard'; ONB.step=1; ONB.error='';
@@ -891,28 +874,11 @@ Object.assign(ACTIONS, {
   },
 
   /* Works everywhere (PC, Tablet, Onboarding, Sign-In, Settings) in one tap */
-  'load-demo': async () => {
-    if(demoEntryBlocked()){
-      LOGIN6.busy = false; ONB.busy = false; LOGIN6.tab = 'signin'; APPX.screen = 'login';
-      toast('Demonstration unavailable', commissionedEntryActive() ? 'This commissioned online installation does not accept demo bootstrap.' : 'Wait for the shared online source before loading evaluation data.', 'warn');
-      render();
-      return;
-    }
-    LOGIN6.busy = true; ONB.busy = true;
-    try{
-      const count = await activateFullDemoDataset();
-      LOGIN6.busy = false; ONB.busy = false;
-      APPX.screen = 'login';
-      LOGIN6.tab = 'demo';
-      LOGIN6.error = '';
-      LOGIN6.notice = `Loaded ${num(count)} patients, ${DB.db.users.length} accounts across all 10 ministry areas & all departments. Tap any role below or sign in with password LOMAMO2026.`;
-      toast('Demonstration dataset active', `${num(count)} patients and ${DB.db.users.length} staff accounts loaded across all departments.`, 'ok');
-      render();
-    }catch(e){
-      LOGIN6.busy = false; ONB.busy = false;
-      toast('Could not load dataset', e.message, 'err');
-      render();
-    }
+  'load-demo': () => {
+    LOGIN6.busy = false; ONB.busy = false; LOGIN6.tab = 'signin';
+    APPX.screen = 'login';
+    toast('Demonstration accounts unavailable', 'The Chief System Administrator must commission this installation before any role accounts are issued.', 'info');
+    render();
   },
 
   'ob-seed': d => {
@@ -1264,9 +1230,6 @@ Object.assign(FORMS, {
            device-local account or an automatic demo installation. */
         const hostUnprovisioned = !APPX.host || !APPX.host.setup;
         const isGloballyActive = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
-        if(!(DB.db && DB.db.users && DB.db.users.length) && !isGloballyActive && (res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned)){
-          await activateFullDemoDataset();
-        }
         const localCandidate = (DB.db && Array.isArray(DB.db.users))
           ? DB.db.users.find(x => x.username.toLowerCase()===username || String(x.email||'').toLowerCase()===username || ((username==='system.admin'||username==='chief.admin') && x.roleId==='chief'))
           : null;

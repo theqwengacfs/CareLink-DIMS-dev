@@ -292,6 +292,29 @@ const WTC = {
   contrast(a,b){ let x=WTC.lum(a), y=WTC.lum(b); if(x<y){ const t=x; x=y; y=t; } return (x+0.05)/(y+0.05); }
 };
 
+/* Fifteen additional institutional themes. Their palette families are
+   deliberately distinct; all use the contrast-audited Foundation surface
+   tokens and high-luminance-contrast chrome/action inks. */
+const ADDITIONAL_THEME_PALETTES = [
+  ['harbor','Harbour Teal','#115E59'], ['acacia','Acacia Green','#166534'],
+  ['mauve','Mauve Ledger','#6B21A8'], ['copper','Copper Coast','#9A3412'],
+  ['sapphire','Lake Sapphire','#1E40AF'], ['baobab','Baobab Bark','#713F12'],
+  ['orchid','Orchid Bloom','#86198F'], ['mangrove','Mangrove Shade','#065F46'],
+  ['amberstone','Amberstone Ledger','#713F0D'], ['slate','Slate Executive','#334155'],
+  ['garnet','Garnet Governance','#9F1239'], ['lagoon','Lagoon Blue','#075985'],
+  ['olive','Olive Grove','#3F6212'], ['mulberry','Mulberry Archive','#581C87'],
+  ['ironwood','Ironwood Charcoal','#374151']
+];
+for(const [id,name,color] of ADDITIONAL_THEME_PALETTES){
+  const base = WTHEMES.find(t=>t.id==='foundation');
+  const tokens = Object.assign({}, base.t, {
+    chrome:color, chrome2:color, chromeInk:'#FFFFFF', chromeMuted:'#FFFFFF',
+    chromeLine:color, action:color, action2:color, actionInk:'#FFFFFF'
+  });
+  WTHEMES.push({ id, name, mode:'light', accent:color, brand:color, gold:'#9A6700',
+    blurb:`${name}: a distinct CareLink palette on Foundation high-clarity surfaces.`, t:tokens });
+}
+
 const WTHEME = {
   list: WTHEMES,
   PREF: 'wtheme',
@@ -411,9 +434,37 @@ const WTHEME = {
     return { fill, fillInk, fg, soft };
   },
 
+  /* Runtime contrast monitor: inspect text-on-surface/chrome pairs and move
+     only failing foreground tokens toward whichever neutral endpoint gives
+     the strongest contrast. The original saved theme remains untouched. */
+  correctContrastTokens(theme){
+    const t = Object.assign({}, theme.t), changed = [];
+    const specs = [
+      ['ink',['bg','surface'],4.5], ['ink2',['surface'],4.5], ['ink3',['surface'],3],
+      ['muted',['bg','surface'],4.5], ['chromeInk',['chrome'],4.5],
+      ['chromeMuted',['chrome'],4.5], ['actionInk',['action'],4.5]
+    ];
+    for(const [fg, backgrounds, minimum] of specs){
+      const bgs = backgrounds.map(k=>t[k]).filter(Boolean);
+      if(!t[fg] || !bgs.length) continue;
+      const score = color => Math.min(...bgs.map(bg=>WTC.contrast(color,bg)));
+      if(score(t[fg]) >= minimum) continue;
+      const endpoints = ['#000000','#FFFFFF'].sort((a,b)=>score(b)-score(a));
+      let safe = t[fg], best = safe;
+      for(const endpoint of endpoints){
+        let candidate = safe;
+        for(let i=0;i<40 && score(candidate)<minimum;i++) candidate=WTC.mix(candidate,endpoint,0.08);
+        if(score(candidate)>score(best)) best=candidate;
+        if(score(candidate)>=minimum){ best=candidate; break; }
+      }
+      t[fg]=best; changed.push({token:fg, from:theme.t[fg], to:best, ratio:Math.round(score(best)*100)/100});
+    }
+    return {tokens:t, changed};
+  },
+
   /* Every CSS custom property for a theme, as {name: value}. */
   vars(theme, deptAccent, override){
-    const t = theme.t, dark = theme.mode==='dark', hc = theme.id==='contrast';
+    const t = WTHEME.correctContrastTokens(theme).tokens, dark = theme.mode==='dark', hc = theme.id==='contrast';
     const v = {};
     Object.keys(WT_TOKENS).forEach(k=>{ v[WT_TOKENS[k]] = t[k]; });
     const a = WTHEME.accents(theme, deptAccent, override);

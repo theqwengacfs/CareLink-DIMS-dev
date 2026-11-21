@@ -401,7 +401,7 @@ test('PC & Tablet front-door parity, 10-area active dataset, 1-click Hospital Ca
   const loginHtml = run(`renderLogin6()`);
   ok('Sign-In page shows Cross-Departmental Teamwork showcase under One Foundation. One Operating System.',
     /One Operating System[\s\S]{0,260}lg6-showcase[\s\S]{0,400}data:image\/jpeg;base64/.test(loginHtml));
-  ok('Sign-In page includes interactive Demo account quick-switch tab', /data-tab="demo"/.test(loginHtml));
+  ok('Sign-In page has no pre-commissioning demo account tab or shared demo password', !/data-tab="demo"|LOMAMO2026/.test(loginHtml));
 
   /* 3. Non-hyphenated justified typography check in console6.css */
   const fs = require('fs'), path = require('path');
@@ -625,20 +625,16 @@ test('CARELINK LATEST PROMPTS full verification: 100% 3,333-patient multi-level 
   ok('Chief System Administrator console & KHIS/DHIS (interop) contain ZERO photos or photo captions',
     noConsolePhotos.bannerEmpty === true && noConsolePhotos.chiefHasPhoto === false && noConsolePhotos.interopHasPhoto === false && noConsolePhotos.dualHasPhoto === false, JSON.stringify(noConsolePhotos));
 
-  /* 6. Demo Console Authorised-Account Switch Prompt + Banner */
+  /* 6. Pre-commissioning demo account switching is denied */
   const demoSwitchCheck = run(`(()=>{
     const cg = DB.db.users.find(u => u.username === 'caregiver.nyalenda');
     AUTH.user = cg;
     ACTIONS['prompt-switch-account']({ u:'pharmacy.kisumu', v:'pharmacy', asset:'Pharmacy FEFO Stock & Dispensing Console' });
-    const modalOpen = modalStack.length > 0 && JSON.stringify(modalStack[modalStack.length-1]).toLowerCase().includes('authorised account');
     ACTIONS['confirm-switch-account']({ u:'pharmacy.kisumu', v:'pharmacy', asset:'Pharmacy FEFO Stock & Dispensing Console' });
-    const banner = DEMO_SWITCH.bannerHTML();
-    const switchedRole = AUTH.user && AUTH.user.username;
-    ACTIONS['dismiss-switch-banner']({});
-    return { modalOpen, switchedRole, hasBanner: /demo-view-bar/.test(banner) && /Pharmacy/.test(banner) };
+    return { switchedRole: AUTH.user && AUTH.user.username, banner: DEMO_SWITCH.bannerHTML() };
   })()`);
-  ok('Demo Console switch prompt notifies user clearly before switching and displays authorised-account banner',
-    demoSwitchCheck.modalOpen === true && demoSwitchCheck.switchedRole === 'pharmacy.kisumu' && demoSwitchCheck.hasBanner === true, JSON.stringify(demoSwitchCheck));
+  ok('Pre-commissioning demo role-switch actions cannot authenticate another synthetic account',
+    demoSwitchCheck.switchedRole === 'caregiver.nyalenda' && !/demo-view-bar/.test(demoSwitchCheck.banner), JSON.stringify(demoSwitchCheck));
 
   /* 7. Strict Role-Contextual Left Navigation & Role-Specific Settings + 20 Themes + 15+ Dept Palettes + Vivid KPIs & Hero Quick Tabs */
   const uiPolish = run(`(()=>{

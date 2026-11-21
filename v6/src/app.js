@@ -393,15 +393,6 @@ function renderLoginLegacy(){
         <div class="field"><label for="p">Password</label><input class="input" id="p" name="password" type="password" autocomplete="current-password" placeholder="••••••••••" required></div>
         <button class="btn btn-primary btn-block" type="submit">Sign in ${ic('chevron',16)}</button>
       </form>
-      <div class="demo-users">
-        <h4>Demonstration accounts · password <span class="kbd">LOMAMO2026</span></h4>
-        <div class="demo-grid">
-          ${demo.map(u=>`<button class="demo-chip" data-act="quick-login" data-u="${u.username}">
-            <b>${esc(u.jobTitle||u.name)}</b><span>${esc(u.username)}${u.countyId?' · '+esc(countyName(u.countyId)):''}</span></button>`).join('')}
-        </div>
-        <div class="note" style="margin-top:12px">${ic('info',14)}<span>These are synthetic demonstration accounts. No real staff, patient or financial records are loaded.</span></div>
-      </div>
-      <div class="login-first">Evaluating the system? <a data-act="load-demo">Load the demonstration dataset</a> to replace the records held in this browser with synthetic data for training and evaluation.</div>
     </div></div>
   </div>`;
 }
@@ -437,7 +428,6 @@ function renderOnboardingLegacy(){
     </div>
     <div class="row">
       <button class="btn btn-primary" data-act="onboard-start">Begin setup ${ic('chevron',15)}</button>
-      <button class="btn btn-ghost" data-act="load-demo">${ic('sparkles',15)} Load demonstration dataset</button>
     </div>
     <div class="note" style="margin-top:16px">${ic('info',14)}<span>The demonstration dataset is synthetic and clearly labelled. It is intended for evaluation, training and acceptance testing only.</span></div>`);
   if(step===2) return wrap(`
@@ -452,7 +442,7 @@ function renderOnboardingLegacy(){
         <div class="field"><label>Confirm password</label><input class="input" type="password" name="password2" required></div>
       </div>
       <div class="row"><button class="btn btn-primary" type="submit">Create account ${ic('chevron',15)}</button>
-      <button class="btn btn-ghost" data-act="load-demo">Use demonstration data instead</button></div>
+    </div>
     </form>`);
   return wrap(`
     <div class="xs muted" style="letter-spacing:.14em;text-transform:uppercase">Step 2 of 2</div>
@@ -862,7 +852,7 @@ const ACTIONS = {
       ],users),footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>`});
   },
   'demo-role-switch':(d)=>{ if(!DEMO_PREVIEW.switchRole(d.id)) toast('Role unavailable','Choose an active synthetic role from this preview.','warn'); else toast('Demo role switched','This remains an unauthenticated, read-only synthetic view.','info'); },
-  'demo-preview-enter':()=>DEMO_PREVIEW.enter(),
+  'demo-preview-enter':()=>toast('Setup required','A Chief System Administrator must commission CareLink before role accounts are issued.','info'),
   'demo-preview-exit':()=>DEMO_PREVIEW.exit(),
   'page':(d)=>{ if(d.skip) return; go('patients',{...APPX.params,page:d.page}); },
   'save-draft':(d)=>{ const fid=d.draftid||d.form; const f=document.querySelector('form[data-form="'+fid+'"]'); if(!f) return;
