@@ -124,8 +124,15 @@ function openConditionRecord(patientId){
           <option value="follow_up">Requires follow-up</option>
         </select>
         <div class="hint">${mayConfirm?'You may confirm a diagnosis. The confirmation is signed with your name.':'Only a clinician may confirm or document a diagnosis. Record what you observed as suspected.'}</div></div>
+      ${RBAC.has(AUTH.user,'condition.sensitive')?`<fieldset class="card" style="padding:12px;margin:10px 0"><legend class="bold">Restricted clinical detail</legend>
+        <div class="field"><label>TB subtype (if applicable)</label><select class="input" name="tbType"><option value="">Not recorded</option><option>Pulmonary TB</option><option>Extra-pulmonary TB</option></select></div>
+        <div class="grid g2"><div class="field"><label>Treatment started</label><input class="input" type="date" name="treatmentStartedAt"></div><div class="field"><label>Expected completion</label><input class="input" type="date" name="expectedCompletionAt"></div></div>
+        <div class="field"><label>Treatment history / follow-up</label><textarea class="input" name="treatmentHistory" rows="2" maxlength="600"></textarea></div>
+        <div class="field"><label>Documented cancer type (if applicable)</label><input class="input" name="cancerType" maxlength="100"></div>
+      </fieldset>`:''}
+      ${mayConfirm?`<div class="field"><label>Anaemia classification (if applicable)</label><select class="input" name="anaemiaSeverity"><option value="">Not assessed</option><option>Severe</option><option>Moderate</option><option>Mild</option><option>Normal</option><option>Healthy</option></select></div>`:''}
       <div class="field"><label for="cdNote">Note</label>
-        <textarea class="input" id="cdNote" name="note" rows="3" placeholder="Evidence, referral or observation. Not a diagnosis."></textarea></div>
+        <textarea class="input" id="cdNote" name="note" rows="3" maxlength="500" placeholder="Evidence, referral or observation. Avoid unnecessary identifiers."></textarea></div>
       <div class="row" style="justify-content:flex-end"><button type="button" class="btn btn-ghost" data-act="close-modal">Cancel</button>
         <button class="btn btn-primary" type="submit">Record condition</button></div>
     </form>`});
@@ -133,7 +140,8 @@ function openConditionRecord(patientId){
 
 function submitConditionRecord(d){
   const r = COND.record(AUTH.user, { patientId:d.get('patientId'), key:d.get('key'),
-    status:d.get('status'), note:d.get('note') });
+    status:d.get('status'), note:d.get('note'), details:{tbType:d.get('tbType'),treatmentStartedAt:d.get('treatmentStartedAt'),
+      expectedCompletionAt:d.get('expectedCompletionAt'),treatmentHistory:d.get('treatmentHistory'),cancerType:d.get('cancerType'),severity:d.get('anaemiaSeverity')} });
   if(!r.ok) return toast('Not recorded', r.msg, 'err');
   closeModal(); toast('Condition recorded', r.row.sensitive?'Marked sensitive. Visible only to authorised clinical roles.':'Recorded against your name.','ok');
   render();

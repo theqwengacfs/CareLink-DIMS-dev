@@ -91,12 +91,12 @@ const DB = {
         landingTheme:'heritage', consoleTheme:'foundation', workspaceTheme:'foundation', uiEpoch:691,
         sync:{ mode:'auto', live:true, liveMs:500 }
       },
-      users:[], roles:[], patients:[], visits:[], pdcas:[], requests:[], transactions:[],
+      users:[], roles:[], patients:[], visits:[], pdcas:[], pdcaDiscussions:[], requests:[], transactions:[],
       documents:[], supportIssues:[], encounters:[], concerns:[], referralEntities:[],
       budgets:[], targets:[], employees:[], leaveRequests:[], welfareActs:[], contributions:[],
       vehicles:[], trips:[], kbDocs:[], accountRequests:[], approvals:[], notifications:[],
       reports:[], audit:[], imports:[], backups:[], securityTests:[],
-      patientConditions:[], careBeds:[], careResidents:[], careLogs:[], careIncidents:[],
+      patientConditions:[], pdcaDiscussions:[], careBeds:[], careResidents:[], careLogs:[], careIncidents:[],
       delegations:[], personalPrefs:{}, drafts:{}, workPlans:[],
       messages:[], publications:[], stakeholders:[], enquiries:[], mediaProjects:[],
       clinicalRx:[], stockLots:[], stockMoves:[], formRecords:[], omahaPlans:[],
@@ -136,6 +136,7 @@ const DB = {
 
   PREFS_KEY: 'carelink.prefs.v6',
   saveLocalPrefs(){
+    if(typeof DEMO_PREVIEW!=='undefined' && DEMO_PREVIEW.active) return;
     try{
       if(!this.db) return;
       const snap = {
@@ -162,7 +163,7 @@ const DB = {
     }catch(_e){ return null; }
   },
   persistState(){
-    if(!this.db) return;
+    if(!this.db || (typeof DEMO_PREVIEW!=='undefined' && DEMO_PREVIEW.active)) return;
     this.saveLocalPrefs();
     const hostedLarge = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() && SYNC.sessionToken &&
       Array.isArray(this.db.patients) && this.db.patients.length > 500;
@@ -880,8 +881,12 @@ function transition(kind, id, action, user, payload={}){
     detail:`${cfg.label}: ${cfg.labels[before]} → ${cfg.labels[t.to]}`,
     before, after:t.to, reason:payload.reason||payload.note||'' });
 
-  notify(kind==='patient'? rec.caregiverId : (kind==='request'? rec.requestedBy : rec.requestedBy),
-    `${cfg.label} update`, `#${rec.code||rec.no||rec.id} - ${cfg.labels[t.to]}`, 'info');
+  if(kind==='patient' && action==='recommend_discharge'){
+    notifyPatientCareTeam(rec,'Discharge readiness review','An authorised staff member recommended a discharge-readiness review. Check the scoped patient record and hard-copy discharge protocol.','info');
+  } else {
+    notify(kind==='patient'? rec.caregiverId : (kind==='request'? rec.requestedBy : rec.requestedBy),
+      `${cfg.label} update`, `#${rec.code||rec.no||rec.id} - ${cfg.labels[t.to]}`, 'info');
+  }
 
   DB.save();
   return {ok:true, rec, msg:`${t.label}: ${cfg.labels[t.to]}`};
@@ -912,6 +917,18 @@ function notify(userId, title, body, kind='info', link){
   if(!userId) return;
   DB.db.notifications.unshift({ id:uid('n'), userId, title, body, kind, link, read:false, at:todayISO() });
   if(DB.db.notifications.length>400) DB.db.notifications.length=400;
+}
+function notifyPatientCareTeam(patient, title, body, kind='warn', excludeUserId=null){
+  if(!patient || !DB.db) return 0;
+  const ids=new Set([patient.caregiverId].filter(Boolean));
+  (DB.db.users||[]).forEach(u=>{
+    if(u.status!=='active') return;
+    if(u.roleId==='mcm' && u.countyId===patient.countyId) ids.add(u.id);
+    if(u.roleId==='coordinator' && (u.areaIds||[]).includes(patient.areaId)) ids.add(u.id);
+  });
+  ids.delete(excludeUserId);
+  ids.forEach(id=>notify(id,title,body,kind,'patient:'+patient.id));
+  return ids.size;
 }
 
 const APPROVALS = {

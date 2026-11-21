@@ -170,7 +170,8 @@ function renderCareIncidents(user){
 /* ------------------------------------------------------------------ */
 function renderConditions(user){
   const canAgg = RBAC.has(user,'condition.aggregate')||RBAC.has(user,'condition.sensitive');
-  if(!canAgg) return deniedPanel('condition.aggregate');
+  const canDetails = RBAC.has(user,'condition.view');
+  if(!canAgg && !canDetails) return deniedPanel('condition.view');
   const counties = COUNTIES.filter(c=>isGlobal(user)||c.id===user.countyId);
   const countyId = APPX.params.countyId || (isGlobal(user)?'all':user.countyId);
   const agg = COND.aggregate(user,{countyId});
@@ -178,28 +179,35 @@ function renderConditions(user){
 
   const withCond = new Set((DB.db.patientConditions||[]).map(c=>c.patientId));
   const coverage = patients.length? Math.round(100*patients.filter(p=>withCond.has(p.id)).length/patients.length):0;
+  const canAnthro=RBAC.has(user,'patient.view.clinical');
+  const profileRows=canDetails?patients.flatMap(p=>COND.list(user,p.id).rows.map(c=>({patient:p,condition:c}))):[];
+  const profileTable=table([
+    {label:'Patient',render:x=>`<button class="linkbtn cellname" data-act="open-patient" data-id="${esc(x.patient.id)}">${esc(x.patient.name)}</button><span class="sm">${esc(x.patient.code)} · ${esc(areaName(x.patient.areaId))}</span>`},
+    {label:'Condition / subtype',render:x=>`${esc(x.condition.label)}${x.condition.sensitive?' '+badge('Sensitive','b-warn'):''}${x.condition.details?.tbType?`<div class="xs muted">${esc(x.condition.details.tbType)}</div>`:''}${x.condition.details?.cancerType?`<div class="xs muted">${esc(x.condition.details.cancerType)}</div>`:''}${x.condition.details?.hivStatus?`<div class="xs muted">${esc(x.condition.details.hivStatus)}</div>`:''}`},
+    {label:'Status / severity',render:x=>`${badge(titleCase(x.condition.status),'b-neutral')}${x.condition.details?.severity||x.condition.details?.anaemiaSeverity?`<div class="xs">${esc(x.condition.details.severity||x.condition.details.anaemiaSeverity)}</div>`:''}`},
+    {label:'Treatment dates & history',render:x=>{const d=x.condition.details||{};const history=d.tbTreatmentHistory||[];const note=d.treatmentHistory||'';return d.treatmentStartedAt||d.expectedCompletionAt||history.length||note?`<div class="xs">${d.treatmentStartedAt?`Started: ${esc(d.treatmentStartedAt)}<br>`:''}${d.expectedCompletionAt?`Expected completion: ${esc(d.expectedCompletionAt)}<br>`:''}${history.length?esc(history.map(h=>`${h.date} ${h.event}`).join(' · ')):esc(note)}</div>`:'-' }},
+    {label:'BMI / MUAC',render:x=>canAnthro?`${x.condition.details?.bmi||x.patient.clinical?.bmi||'-'} · ${x.condition.details?.muacCm||x.patient.clinical?.muacCm||'-'} cm`:'Restricted'}
+  ],profileRows,{emptyMsg:'No condition records are visible in your current scope and clearance.'});
 
-  return `${pageHead('Condition register','Recorded conditions across the patients you may see, with small-group suppression applied.',
-      `<select class="input input-sm" data-set="cond-county" style="width:auto">
+  return `${pageHead('Condition register','Scoped disease profiles with role- and clearance-based clinical detail.',
+      `<select class="input input-sm" data-filter="countyId" data-view="conditions" style="width:auto">
         ${isGlobal(user)?`<option value="all" ${countyId==='all'?'selected':''}>Both counties</option>`:''}
         ${counties.map(c=>`<option value="${c.id}" ${countyId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
       </select>`)}
-    <div class="grid g4" style="margin-bottom:16px">
+    ${canAgg?`<div class="grid g4" style="margin-bottom:16px">
       ${kpi('Patients in scope', patients.length, 'Verified register', '', 'users')}
       ${kpi('With a recorded condition', patients.filter(p=>withCond.has(p.id)).length, coverage+'% coverage', coverage<80?'warn':'ok', 'clipboard')}
       ${kpi('Conditions recorded', agg.rows.reduce((a,r)=>a+(r.n||0),0), 'Excludes withheld categories', '', 'layers')}
       ${kpi('Small groups suppressed', agg.suppressed, 'Fewer than five patients', '', 'shield')}
-    </div>
-    <div class="grid g2">
-      ${card('Distribution', chartRows({ rows:agg.rows.map(r=>({label:r.label, value:r.n===null?5:r.n})), unit:'patients',
-        title:'Recorded conditions' }), {sub: agg.note || 'Counts are of patients, not episodes. A patient with two conditions appears twice.'})}
-      ${card('Register', table([
+    </div><div class="grid g2">
+      ${card('Distribution', chartRows({ rows:agg.rows.map(r=>({label:r.label, value:r.n===null?5:r.n})), unit:'patients',title:'Recorded conditions' }), {sub: agg.note || 'Counts are of patients, not episodes. A patient with two conditions appears twice.'})}
+      ${card('Aggregate register', table([
         {label:'Condition', render:r=>`${esc(r.label)}${r.sensitive?' '+badge('Sensitive','b-warn'):''}`},
         {label:'Classification', render:r=>esc((COND.def(r.key)||{}).cls||'-')},
         {label:'Patients', cls:'right', render:r=>r.n===null?`<span class="small muted">${esc(r.band)}</span>`:`<b>${r.n}</b>`}
       ], agg.rows), {sub:'Sensitive categories are only counted for roles with explicit authority.'})}
-    </div>
-    ${!agg.maySeeSensitive? `<div class="note" style="margin-top:14px">${ic('shield',14)}<span>HIV, tuberculosis, co-infection, cancer and cryptococcal meningitis are withheld from this view. They are not zero; they are not shown.</span></div>`:''}
+    </div>${!agg.maySeeSensitive?`<div class="note" style="margin-top:14px">${ic('shield',14)}<span>Sensitive HIV/TB, cancer and related clinical categories are withheld from aggregate reporting for this role.</span></div>`:''}`:''}
+    ${canDetails?card('Scoped disease profiles',profileTable,{sub:'Named records are limited to your authorised patient scope. Sensitive diagnoses and treatment detail are withheld unless your role has explicit sensitive-data clearance.'}):''}
   `;
 }
 

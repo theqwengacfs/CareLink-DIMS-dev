@@ -965,6 +965,15 @@ function seedOfficial(db, now, opts={}){
         conditionCategory: condCat,
         hivStatus: /HIV/i.test(diag) ? 'Positive - on ART' : 'Negative / counselled',
         tbScreen: /TB/i.test(diag) ? 'Confirmed - on anti-TB therapy' : 'Negative on symptom screen',
+        tbType: /TB/i.test(diag) ? (i % 2 === 0 ? 'Extra-pulmonary TB' : 'Pulmonary TB') : '',
+        tbTreatmentStartedAt: /TB/i.test(diag) ? intakeDate : '',
+        tbExpectedCompletionAt: /TB/i.test(diag) ? iso(new Date(intake.getTime()+180*DAY)).slice(0,10) : '',
+        tbTreatmentHistory: /TB/i.test(diag) ? [
+          {date:intakeDate,event:'Treatment initiation recorded',phase:'Intensive phase'},
+          {date:iso(new Date(intake.getTime()+30*DAY)).slice(0,10),event:'Scheduled clinical follow-up',phase:'Continuation review'}
+        ] : [],
+        cancerType: /cancer|kaposi/i.test(diag) ? diag : '',
+        anaemiaSeverity: i % 11 === 0 ? ['Mild','Moderate','Severe'][i % 3] : 'Not assessed',
         art: /HIV/i.test(diag),
         baselineWeightKg: baseWt,
         weightKg: currWt,
@@ -1138,10 +1147,19 @@ function seedOfficial(db, now, opts={}){
     /* 100% OF ALL 3,333 PATIENTS: Confirmed Condition Register + Household Support + Verified Document */
     patientConditions.push({
       id:'cond-'+pid, patientId:pid, countyId:area.countyId, areaId:area.id,
-      category:condCat, label:diag, sensitive:/HIV|TB/i.test(diag), status:'confirmed',
+      key:/HIV.*TB|TB.*HIV/i.test(diag)?'hiv_tb':(/HIV/i.test(diag)?'hiv':(/TB/i.test(diag)?'tb':(/cancer|kaposi/i.test(diag)?'cancer':(/wound/i.test(diag)?'wound':(/malnutrition/i.test(diag)?'malnutrition':(/malaria/i.test(diag)?'malaria':(/pneumonia/i.test(diag)?'pneumonia':'other'))))))),
+      category:condCat, label:diag, sensitive:/HIV|TB|cancer|kaposi|Cryptococcal/i.test(diag), status:'confirmed',
+      details:{tbType:pObj.clinical.tbType,treatmentStartedAt:pObj.clinical.tbTreatmentStartedAt,expectedCompletionAt:pObj.clinical.tbExpectedCompletionAt,
+        tbTreatmentHistory:pObj.clinical.tbTreatmentHistory,cancerType:pObj.clinical.cancerType,hivStatus:pObj.clinical.hivStatus,anaemiaSeverity:pObj.clinical.anaemiaSeverity==='Not assessed'?'':pObj.clinical.anaemiaSeverity,
+        bmi:pObj.clinical.bmi,muacCm:pObj.clinical.muacCm},
       recordedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu', recordedAt:intakeIso,
       confirmedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu', confirmedAt:intakeIso, demo:true
     });
+    if(i % 11 === 0){
+      patientConditions.push({id:'cond-an-'+pid,patientId:pid,countyId:area.countyId,areaId:area.id,key:'anaemia',category:'haematology',label:'Anaemia',sensitive:false,status:'confirmed',
+        details:{severity:pObj.clinical.anaemiaSeverity},recordedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu',recordedAt:intakeIso,
+        confirmedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu',confirmedAt:intakeIso,demo:true});
+    }
     const supAmt = 1400 + (i % 6) * 450;
     const supItem = pick(['Enriched nutrition food bag','Normal household food bag','Hygiene & clean-water pack','Child school uniform & books','Emergency medical transport support']);
     const supDate = iso(new Date(intake.getTime() + 14 * DAY)).slice(0, 10);
