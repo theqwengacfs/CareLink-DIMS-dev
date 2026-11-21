@@ -36,6 +36,25 @@ globalThis.fetch = async (input, init = {}) => {
     kv.delete(key);
     return kvResponse({ result: 1 });
   }
+  if (url.pathname === '/' && init.method === 'POST') {
+    const command = JSON.parse(String(init.body || '[]'));
+    const [op, ...args] = command;
+    if (op === 'SET') {
+      const [key, value, ...options] = args;
+      if (options.includes('NX') && kv.has(key)) return kvResponse({ result: null });
+      kv.set(key, String(value));
+      return kvResponse({ result: 'OK' });
+    }
+    if (op === 'GET') return kvResponse({ result: kv.has(args[0]) ? kv.get(args[0]) : null });
+    if (op === 'EVAL') {
+      const script = args[0]; const keyCount = Number(args[1]) || 0;
+      const key = args[2]; const value = args[2 + keyCount];
+      if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
+      if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
+      if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }
+    }
+    throw new Error(`Unexpected Redis command: ${op}`);
+  }
   throw new Error(`Unexpected KV request: ${url.pathname}`);
 };
 process.env.KV_REST_API_URL = 'https://kv.test';
@@ -119,7 +138,12 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
   const pack = await pc.run('PROD_SETUP.activateSystemGlobally({})');
   assert.ok(pack && pack.count > 0, 'global activation must follow the completed reference import');
-  const staff = pack.rows[0];
+  const staff = pack.rows.find((r) => r.username === 'caregiver.nyalenda');
+  assert.ok(staff, 'a scoped ministry-area caregiver must be provisioned');
+  const expectedPatients = JSON.parse(pc.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda').map(p=>p.id))`));
+  const expectedPatientIds = new Set(expectedPatients);
+  const expectedVisitCount = Number(pc.run(`DB.db.visits.filter(v=>${JSON.stringify([...expectedPatientIds])}.includes(String(v.patientId))).length`));
+  assert.ok(expectedPatients.length > 0 && expectedPatients.length < 3333, 'test caregiver scope must be a strict subset of the reference master');
 
   const tablet = client();
   tablet.run('SYNC.queue = () => {}; DB.load();');
@@ -128,8 +152,9 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   assert.equal(health.globallyActivated, true);
   const tabletLogin = await tablet.run(`AUTH.loginOnline(${JSON.stringify(staff.username)}, ${JSON.stringify(staff.tempPassword)}, 'tablet')`);
   assert.equal(tabletLogin.ok, true, JSON.stringify(tabletLogin));
-  assert.equal(tablet.run('DB.db.patients.length'), 3333, 'fresh tablet must reconstruct every paged patient');
-  assert.equal(tablet.run('DB.db.visits.length'), 44995, 'fresh tablet must reconstruct every paged visit');
+  assert.equal(tablet.run('DB.db.patients.length'), expectedPatients.length, 'fresh tablet receives only its authorized ministry-area patients');
+  assert.deepEqual(JSON.parse(tablet.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), expectedPatients, 'out-of-area patient records must not be present on the device');
+  assert.equal(tablet.run('DB.db.visits.length'), expectedVisitCount, 'fresh tablet receives only visits linked to its authorized patients');
   assert.equal(tablet.run('DB.db.settings.globallyActivated'), true);
   const loginHtml = tablet.run(`(()=>{ AUTH.logout(); APPX.screen='login'; LOGIN6.tab='demo'; return renderLogin6(); })()`);
   assert.ok(!/data-tab="demo"|data-act="load-demo"|First-run online setup|Live host setup/i.test(loginHtml));

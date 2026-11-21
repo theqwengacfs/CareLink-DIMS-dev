@@ -54,7 +54,7 @@ function check(name, condition) {
 
   run(`(()=>{ APPX.host={setup:false,globallyActivated:false}; SYNC.server=null; LOGIN6.tab='signin'; })()`);
   const evaluationLogin = String(run('renderLogin6()'));
-  check('pre-activation evaluation mode still exposes the demo tab (control)', evaluationLogin.includes('data-tab="demo"'));
+  check('pre-activation evaluation mode also keeps the demo tab hidden until commissioned accounts are issued', !evaluationLogin.includes('data-tab="demo"'));
 
   console.log(`one-live-source UI: ${passed} checks passed`);
 })().catch((err) => {

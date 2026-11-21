@@ -17,6 +17,24 @@ globalThis.fetch = async (input, init = {}) => {
     kv.set('carelink_cloud_v66', serialized);
     return kvResponse({ result: 'OK' });
   }
+  if (url.pathname === '/' && init.method === 'POST') {
+    const [op, ...args] = JSON.parse(String(init.body || '[]'));
+    if (op === 'SET') {
+      const [key, value, ...options] = args;
+      if (options.includes('NX') && kv.has(key)) return kvResponse({ result: null });
+      kv.set(key, String(value));
+      return kvResponse({ result: 'OK' });
+    }
+    if (op === 'GET') return kvResponse({ result: kv.has(args[0]) ? kv.get(args[0]) : null });
+    if (op === 'EVAL') {
+      const script = args[0]; const keyCount = Number(args[1]) || 0;
+      const key = args[2]; const value = args[2 + keyCount];
+      if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
+      if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
+      if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }
+    }
+    throw new Error(`Unexpected Redis command: ${op}`);
+  }
   throw new Error(`Unexpected KV request: ${url.pathname}`);
 };
 process.env.KV_REST_API_URL = 'https://kv.test';

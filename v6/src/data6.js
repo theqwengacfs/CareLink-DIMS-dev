@@ -31,7 +31,8 @@ Object.assign(CAPS, {
   'dq.manage':         { g:'Data & indicators', l:'Resolve data-quality exceptions', sensitive:true },
   'pmi.merge':         { g:'Patients', l:'Merge duplicate patient identities', sensitive:true },
   'presence.view':     { g:'System', l:'See who is on the network and where' },
-  'weather.view':      { g:'System', l:'Open the field weather board' }
+  'weather.view':      { g:'System', l:'Open the field weather board' },
+  'meeting.manage':    { g:'Meetings & calendar', l:'Schedule governed audio/video meetings and manage invitees', sensitive:true }
 });
 
 /* ---------------- 2. Departments added in v6 (15 total LOMAMO departments) ---------------- */
@@ -98,7 +99,7 @@ const V6_ROLE_GRANTS = {
   director:     ['exec.agenda','exec.manage','credit.view','credit.manage','dq.manage','message.use'],
   program:      ['exec.agenda','exec.manage','credit.view','library.read'],
   countyadmin:  ['inventory.view','inventory.manage','intern.view','intern.manage','ohs.view','ohs.manage','dq.manage','pmi.merge','presence.view','message.use'],
-  assistant:    ['inventory.view','dq.manage','pmi.merge','message.use'],
+  assistant:    ['inventory.view','dq.manage','pmi.merge','message.use','meeting.manage'],
   coordinator:  ['credit.view','weather.view','pmi.merge','message.use'],
   caregiver:    ['credit.view','weather.view','message.use'],
   chw:          ['credit.view','weather.view','message.use'],
@@ -107,7 +108,7 @@ const V6_ROLE_GRANTS = {
   nurse:        ['library.read','credit.view','message.use'],
   /* The media department holds the office equipment register: it owns the
      asset labels, the count sheets and the movement ledger. */
-  mediahead:    ['library.read','library.manage','library.borrow','inventory.view','inventory.manage','message.use'],
+  mediahead:    ['library.read','library.manage','library.borrow','inventory.view','inventory.manage','message.use','meeting.manage'],
   finance:      ['credit.view','message.use'],
   procurement:  ['inventory.view','inventory.manage','message.use'],
   me:           ['indicator.manage','dq.manage','library.read','message.use'],
@@ -161,8 +162,8 @@ const OFFICIAL_ROSTER = [
   { name:'Programme Office Assistant (seat to be confirmed)', username:'program.assistant', roleId:'program.assistant', countyId:'kisumu', areas:[], dept:'exec', job:'Program Administrator Assistant', unconfirmed:true },
 
   /* Chief Administration - Kisumu Admin is also the Chief Admin */
-  { name:'Moses Otieno',                   username:'chief.admin',         roleId:'chief',             countyId:'kisumu',  areas:[], dept:'admin',    job:'Chief Administrator (Kisumu Admin & Chief Admin)' },
-  { name:'Moses Otieno',                   username:'kisumu.admin',        roleId:'countyadmin',       countyId:'kisumu',  areas:[], dept:'admin',    job:'County Office Administrator (Kisumu) - held concurrently with Chief Admin' },
+  { name:'Daniel Naphtaly Ombija',         username:'chief.admin',         roleId:'chief',             countyId:'kisumu',  areas:[], dept:'admin',    job:'Chief System Administrator, LOMAMO Foundation' },
+  { name:'Moses Otieno',                   username:'kisumu.admin',        roleId:'countyadmin',       countyId:'kisumu',  areas:[], dept:'admin',    job:'County Office Administrator (Kisumu)' },
   { name:'Julie Oguta',                    username:'kisumu.assistant',    roleId:'assistant',         countyId:'kisumu',  areas:[], dept:'admin',    job:'Chief Admin Assistant / Kisumu Admin Assistant' },
   { name:'Oscar Lubalo',                   username:'homabay.admin',       roleId:'countyadmin',       countyId:'homabay', areas:[], dept:'admin',    job:'County Office Administrator (Homa Bay)' },
   { name:'Homa Bay Admin Assistant (seat to be confirmed)', username:'homabay.assistant', roleId:'assistant', countyId:'homabay', areas:[], dept:'admin', job:'Administrative Assistant (Homa Bay)', unconfirmed:true },
@@ -424,9 +425,8 @@ function enrichV6Collections(db, T){
       id:'u-intl-data', name:'Clara Wanjiku Mwangi', username:'intl.data', roleId:'intldata',
       countyId:'kisumu', areaIds:[], departmentId:'intldata', jobTitle:'International Data & Global Verification Lead',
       reportsTo:'u-chief', status:'active', active:true, mustChange:false, provisioned:true, demo:true,
-      salt, hash:strongHash('LOMAMO2026', salt), /* The address uses the .example TLD reserved by RFC 2606: it cannot be a
-         real mailbox, so a seeded seat never points mail at a person. */
-      email:'intl.data@lomamo.example', phone:'0700000010',
+      salt, hash:strongHash('LOMAMO2026', salt), /* Mock login alias only; no email delivery is configured. */
+      email:'intl.data@lomamofoundation.org', phone:'0700000010',
       createdBy:'u-chief', created:ago(180), lastLogin:ago(1)
     });
   }
@@ -513,10 +513,10 @@ function enrichV6Collections(db, T){
   if(!Array.isArray(db.accountRequests) || db.accountRequests.length < 2){
     db.accountRequests = [
       { id:'acr-seed-1', at:ago(1), name:'Beatrice Akinyi Ochieng', roleId:'caregiver', countyId:'kisumu', assignedCountyId:'kisumu',
-        assignedAdminUsername:'kisumu.admin', urgent:true, contact:'0700201104', email:'beatrice.akinyi@lomamo.example',
+        assignedAdminUsername:'kisumu.admin', urgent:true, contact:'0700201104', email:'beatrice.akinyi@lomamofoundation.org',
         reason:'Newly assigned Nyalenda Cluster B field caregiver — requires mobile tablet sign-in before Monday area briefing.', status:'open', demo:true },
       { id:'acr-seed-2', at:ago(2), name:'Samuel Odhiambo Otieno', roleId:'assistant', countyId:'homabay', assignedCountyId:'homabay',
-        assignedAdminUsername:'homabay.admin', urgent:true, contact:'0700201198', email:'samuel.otieno@lomamo.example',
+        assignedAdminUsername:'homabay.admin', urgent:true, contact:'0700201198', email:'samuel.otieno@lomamofoundation.org',
         reason:'Homa Bay County Office hard-copy intake filing desk support — requires verified County Office account.', status:'open', demo:true }
     ];
   }
@@ -728,7 +728,7 @@ function seedOfficial(db, now, opts={}){
       reportsTo:r.roleId==='president'||r.username==='chief.admin'?null:'u-chief-admin',
       status:'active', active:true, mustChange:mustChangeFlag, provisioned:true, demo:true,
       salt, hash:strongHash('LOMAMO2026', salt),
-      email:r.username+'@lomamo.example', phone:'0700' + String(300000 + (i*13799) % 99999).padStart(6,'0'),
+      email:r.username+'@lomamofoundation.org', phone:'0700' + String(300000 + (i*13799) % 99999).padStart(6,'0'),
       createdBy:'u-chief-admin', created:iso(new Date(T.getTime()-420*DAY)), lastLogin:iso(new Date(T.getTime()-(i%7)*DAY)),
       execTeam:EXEC_DEFAULT.includes(r.username),
       /* Administration's own scheduling data, carried on the account so the
@@ -831,8 +831,13 @@ function seedOfficial(db, now, opts={}){
       given = sex==='F' ? pick(KENYAN_GIVEN_F) : pick(KENYAN_GIVEN_M);
       surname = pick(KENYAN_SURNAMES);
     }
-    const age = (i % 4 === 0) ? (1 + (i % 17)) : int(18, 84);
-    const ageMonths = age < 5 ? (age * 12 + (i % 11)) : (age * 12);
+    /* Complete synthetic register spans every age from 5 through 75 without
+       generating under-fives whose growth references require a distinct protocol. */
+    const age = i % 4 === 0 ? 5 + (i % 13) : (i===2 ? 18 : 18 + ((i - 1) % 58));
+    /* Keep the seeded stream position stable where the former adult-age draw
+       consumed one random value; names and unrelated fixture data stay fixed. */
+    if(i % 4 !== 0) rnd();
+    const ageMonths = age * 12;
     const dobDate = new Date(T.getTime() - (age*365 + int(10, 340))*DAY);
     const dob = iso(dobDate).slice(0, 10);
     const planned = tail ? 240 : pick(PROGRAM_DURATION_DEFAULT);
@@ -936,7 +941,7 @@ function seedOfficial(db, now, opts={}){
     const hadHomestay = (i % 14 === 3);
 
     const pObj = {
-      id:pid, code:'LOM-'+area.id.slice(0,3).toUpperCase()+'-'+String(10000+i),
+      id:pid, code:'CL-'+area.id.toUpperCase()+'-'+intakeDate.replace(/-/g,'')+'-'+String(i).padStart(5,'0'),
       name:given+' '+surname, sex, age, ageMonths, dob, nationalId,
       sha:'SHA-KE-' + String(100000 + i),
       phone,
@@ -960,6 +965,15 @@ function seedOfficial(db, now, opts={}){
         conditionCategory: condCat,
         hivStatus: /HIV/i.test(diag) ? 'Positive - on ART' : 'Negative / counselled',
         tbScreen: /TB/i.test(diag) ? 'Confirmed - on anti-TB therapy' : 'Negative on symptom screen',
+        tbType: /TB/i.test(diag) ? (i % 2 === 0 ? 'Extra-pulmonary TB' : 'Pulmonary TB') : '',
+        tbTreatmentStartedAt: /TB/i.test(diag) ? intakeDate : '',
+        tbExpectedCompletionAt: /TB/i.test(diag) ? iso(new Date(intake.getTime()+180*DAY)).slice(0,10) : '',
+        tbTreatmentHistory: /TB/i.test(diag) ? [
+          {date:intakeDate,event:'Treatment initiation recorded',phase:'Intensive phase'},
+          {date:iso(new Date(intake.getTime()+30*DAY)).slice(0,10),event:'Scheduled clinical follow-up',phase:'Continuation review'}
+        ] : [],
+        cancerType: /cancer|kaposi/i.test(diag) ? diag : '',
+        anaemiaSeverity: i % 11 === 0 ? ['Mild','Moderate','Severe'][i % 3] : 'Not assessed',
         art: /HIV/i.test(diag),
         baselineWeightKg: baseWt,
         weightKg: currWt,
@@ -1133,10 +1147,19 @@ function seedOfficial(db, now, opts={}){
     /* 100% OF ALL 3,333 PATIENTS: Confirmed Condition Register + Household Support + Verified Document */
     patientConditions.push({
       id:'cond-'+pid, patientId:pid, countyId:area.countyId, areaId:area.id,
-      category:condCat, label:diag, sensitive:/HIV|TB/i.test(diag), status:'confirmed',
+      key:/HIV.*TB|TB.*HIV/i.test(diag)?'hiv_tb':(/HIV/i.test(diag)?'hiv':(/TB/i.test(diag)?'tb':(/cancer|kaposi/i.test(diag)?'cancer':(/wound/i.test(diag)?'wound':(/malnutrition/i.test(diag)?'malnutrition':(/malaria/i.test(diag)?'malaria':(/pneumonia/i.test(diag)?'pneumonia':'other'))))))),
+      category:condCat, label:diag, sensitive:/HIV|TB|cancer|kaposi|Cryptococcal/i.test(diag), status:'confirmed',
+      details:{tbType:pObj.clinical.tbType,treatmentStartedAt:pObj.clinical.tbTreatmentStartedAt,expectedCompletionAt:pObj.clinical.tbExpectedCompletionAt,
+        tbTreatmentHistory:pObj.clinical.tbTreatmentHistory,cancerType:pObj.clinical.cancerType,hivStatus:pObj.clinical.hivStatus,anaemiaSeverity:pObj.clinical.anaemiaSeverity==='Not assessed'?'':pObj.clinical.anaemiaSeverity,
+        bmi:pObj.clinical.bmi,muacCm:pObj.clinical.muacCm},
       recordedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu', recordedAt:intakeIso,
       confirmedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu', confirmedAt:intakeIso, demo:true
     });
+    if(i % 11 === 0){
+      patientConditions.push({id:'cond-an-'+pid,patientId:pid,countyId:area.countyId,areaId:area.id,key:'anaemia',category:'haematology',label:'Anaemia',sensitive:false,status:'confirmed',
+        details:{severity:pObj.clinical.anaemiaSeverity},recordedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu',recordedAt:intakeIso,
+        confirmedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu',confirmedAt:intakeIso,demo:true});
+    }
     const supAmt = 1400 + (i % 6) * 450;
     const supItem = pick(['Enriched nutrition food bag','Normal household food bag','Hygiene & clean-water pack','Child school uniform & books','Emergency medical transport support']);
     const supDate = iso(new Date(intake.getTime() + 14 * DAY)).slice(0, 10);

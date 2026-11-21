@@ -883,6 +883,7 @@ function patientClinical(user,p){
           RBAC.has(user,'condition.record')?`<button class="btn btn-sm btn-ghost" data-act="condition-record" data-id="${p.id}">Record a condition</button>`:'');
         return table([
           {label:'Condition', render:x=>`${esc(x.label)}${x.sensitive?' '+badge('Sensitive','b-warn'):''}<div class="xs muted">${fmtDate(x.recordedAt)} · ${esc(userName(x.recordedBy))}</div>`},
+          {label:'Clinical detail',render:x=>{const d=x.details||{};const items=[d.tbType,d.cancerType,d.hivStatus,d.severity||d.anaemiaSeverity,d.treatmentStartedAt?`Started ${d.treatmentStartedAt}`:'',d.expectedCompletionAt?`Expected ${d.expectedCompletionAt}`:'',d.bmi?`BMI ${d.bmi}`:'',d.muacCm?`MUAC ${d.muacCm} cm`:''].filter(Boolean);return `<span class="xs">${items.length?esc(items.join(' · ')):'-'}</span>`}},
           {label:'Status', render:x=>badge(CONDITION_STATUS[x.status]||x.status, x.status==='confirmed'?'b-ok':x.status==='suspected'?'b-warn':'b-neutral')},
           {label:'', cls:'act', render:x=>!x.confirmedBy && RBAC.has(user,'condition.confirm')
             ? `<button class="btn btn-xs btn-ghost" data-act="condition-confirm" data-id="${x.id}">Confirm</button>`
@@ -1037,6 +1038,10 @@ function patientPdca(user,p){
       {label:'Stage',render:x=>badge(x.stage, x.stage==='Act'?'b-ok':'b-info')},
       {label:'Due',render:x=>`${fmtDate(x.due)} ${new Date(x.due)<new Date()&&x.status==='open'?badge('overdue','b-crit'):''}`},
       {label:'Status',render:x=>badge(titleCase(x.status), x.status==='open'?'b-warn':'b-ok')},
+      {label:'Discussion',render:x=>x.reviewedAt && PDCAX.discussion(user,x.id).allowed
+        ? `<button class="btn btn-xs btn-ghost" data-act="pdca-thread-open" data-id="${esc(x.id)}">Open secure thread</button>`
+        : (PDCAX.canReviewDiscussion(user,x)?`<button class="btn btn-xs btn-primary" data-act="pdca-review-comment" data-id="${esc(x.id)}">Review &amp; comment</button>`
+        : (x.owner===user.id?`<span class="xs muted">Awaiting MCM review</span>`:''))},
       {label:'',cls:'act',render:x=>RBAC.has(user,'pdca.review')||x.owner===user.id?`<button class="btn btn-xs btn-ghost" data-act="open-pdca" data-id="${x.id}">Open</button>`:''}
     ], cycles, {empty:emptyState('No PDCA cycle','Create a Plan-Do-Check-Act cycle to structure follow-up.','repeat')}),
       {actions:RBAC.has(user,'pdca.create')?`<button class="btn btn-xs btn-primary" data-act="new-pdca" data-patient="${p.id}">${ic('plus',12)} New cycle</button>`:''})}`;

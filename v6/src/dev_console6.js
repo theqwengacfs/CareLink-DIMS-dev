@@ -35,7 +35,24 @@ const PROD_SETUP = {
 
   defaultEmailDomain() {
     const cfg = DB.db && DB.db.settings && DB.db.settings.org && DB.db.settings.org.emailDomain;
-    return String(cfg || 'lomamo.example').replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
+    return String(cfg || 'lomamofoundation.org').replace(/^@+/, '').trim().toLowerCase() || 'lomamofoundation.org';
+  },
+
+  ownsCredentialPack(actor = (typeof AUTH !== 'undefined' ? AUTH.user : null)) {
+    const pack = this.lastPack;
+    return Boolean(actor && actor.roleId === 'chief' && pack &&
+      String(actor.username || '').toLowerCase() === String(pack.chiefUsername || '').toLowerCase());
+  },
+
+  requireCredentialPackAccess() {
+    if (this.ownsCredentialPack()) return true;
+    toast('Confidential credentials restricted', 'Only the Chief System Administrator who generated this pack may view, copy or export it.', 'err');
+    return false;
+  },
+
+  clearCredentialPack() {
+    this.lastPack = null;
+    this.lastWhatsappSheet = '';
   },
 
   /* Step 4 completion of 4-Step Online Setup:
@@ -47,7 +64,7 @@ const PROD_SETUP = {
     if(hosted && seedMode !== 'empty'){
       throw new Error('Live Vercel setup must start with an empty patient register. After setup, use Master data import before global activation to upload the complete 3,333-patient reference master in verified chunks; the full package exceeds Vercel\'s 4.5 MB Function request limit.');
     }
-    const domain = String(emailDomain || 'lomamo.example').replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
+    const domain = String(emailDomain || 'lomamofoundation.org').replace(/^@+/, '').trim().toLowerCase() || 'lomamofoundation.org';
     const portal = String(loginUrl || portalUrl || this.defaultPortalUrl()).trim();
     const chiefUser = String(chiefUsername || 'chief.admin').trim().toLowerCase();
     const chiefFull = String(chiefName || 'Chief System Administrator').trim();
@@ -211,7 +228,7 @@ const PROD_SETUP = {
       toast('Chief System Administrator Only', 'Only the Chief System Administrator can Activate System Globally.', 'err');
       return null;
     }
-    const domain = String(opts.emailDomain || this.defaultEmailDomain()).replace(/^@+/, '').trim().toLowerCase() || 'lomamo.example';
+    const domain = String(opts.emailDomain || this.defaultEmailDomain()).replace(/^@+/, '').trim().toLowerCase() || 'lomamofoundation.org';
     const portalUrl = String(opts.loginUrl || opts.portalUrl || this.defaultPortalUrl()).trim();
     const roster = (typeof OFFICIAL_ROSTER !== 'undefined' && Array.isArray(OFFICIAL_ROSTER)) ? OFFICIAL_ROSTER : [];
     const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
@@ -302,7 +319,7 @@ const PROD_SETUP = {
           `*${cleanName}*\n` +
           `• Seat / Role: ${jobTitle} (${countyLabel})\n` +
           `• Portal URL: ${portalUrl}\n` +
-          `• Username: \`${uname}\`  |  Official Email: \`${officialEmail}\`\n` +
+          `• Username: \`${uname}\`  |  Mock Email Alias: \`${officialEmail}\`\n` +
           `• Temporary Password: \`${tempPassword}\`\n` +
           `• Activation: Sign in at the Portal URL and set your private 12+ character password to activate your account.`,
         smsText: `CareLink C-DIMS (${portalUrl}): ${cleanName} | Username: ${uname} | Email: ${officialEmail} | Temp Password: ${tempPassword} — Sign in & change password to activate your account.`
@@ -429,7 +446,7 @@ const PROD_SETUP = {
       `Date: ${new Date().toISOString().slice(0, 10)}`,
       ``,
       `*HOW EACH STAFF MEMBER ACTIVATES THEIR ACCOUNT:*`,
-      `1. Open ${portalUrl} and sign in on the Official Sign-In screen using your *Username* (or *Official Email*) and *Temporary Password* below.`,
+      `1. Open ${portalUrl} and sign in on the Official Sign-In screen using your *Username* (or *Mock Email Alias*) and *Temporary Password* below.`,
       `2. CareLink immediately prompts you to set your own private 12+ character password known ONLY to you.`,
       `3. Once saved, your individual account status becomes *Activated* automatically.`,
       `4. Forgot password or new county staff? Use *Request / Recover* on Sign-In (routed urgently to your County Office Admin).`,
@@ -461,12 +478,14 @@ const PROD_SETUP = {
   },
 
   downloadWhatsappTxt() {
+    if (!this.requireCredentialPackAccess()) return;
     const p = this.lastPack;
     if (!p || !p.rows.length) return toast('Activate System Globally first', 'Generate the organogram WhatsApp credential sheet first.', 'warn');
     download('CareLink-Official-WhatsApp-Activation-Sheet-' + todayISO().slice(0, 10) + '.txt', p.whatsappText || this.lastWhatsappSheet, 'text/plain;charset=utf-8');
   },
 
   async copyWhatsappSheet() {
+    if (!this.requireCredentialPackAccess()) return;
     const txt = (this.lastPack && this.lastPack.whatsappText) || this.lastWhatsappSheet;
     if (!txt) return toast('No WhatsApp sheet in memory', 'Click Activate System Globally first.', 'warn');
     try {
@@ -489,9 +508,8 @@ const PROD_SETUP = {
             <span class="small">Official mode locked — all Demo &amp; first-run setup options have been permanently removed from Landing &amp; Sign-In. Individual staff activate their accounts on first login.</span>
           </div>
           <div class="row" style="gap:8px;flex-wrap:wrap">
-            ${this.lastPack ? `<button class="btn btn-xs btn-primary" data-act="copy-whatsapp-pack">${ic('send',12)} Copy WhatsApp Sheet (${this.lastPack.count})</button>
-              <button class="btn btn-xs btn-ghost" data-act="dl-whatsapp-txt">${ic('download',12)} WhatsApp .TXT</button>
-              <button class="btn btn-xs btn-ghost" data-act="dev-dl-sms-csv">${ic('download',12)} Master .CSV</button>` : `<button class="btn btn-xs btn-ghost" data-act="open-global-activate">${ic('key',12)} Re-issue Unclaimed WhatsApp Sheet</button>`}
+            <button class="btn btn-xs btn-primary" data-act="dev-dl-role-directory">${ic('download',12)} Download role account directory (.txt)</button>
+            ${this.ownsCredentialPack(user) ? `<button class="btn btn-xs btn-ghost" data-act="dev-dl-credentials">${ic('key',12)} Download confidential credentials (${this.lastPack.count})</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -530,9 +548,9 @@ const PROD_SETUP = {
       wide: true,
       body: `<form id="globalActivateForm">
         <div class="grid g2" style="gap:12px;margin-bottom:12px">
-          <div class="field"><label>Official Staff Email Domain *</label>
+          <div class="field"><label>Mock Staff Email Domain *</label>
             <input class="input mono" name="emailDomain" value="${esc(this.defaultEmailDomain())}" placeholder="e.g. lomamofoundation.org" required>
-            <div class="hint">Every organogram seat receives <code>username@domain</code> alongside their username.</div>
+            <div class="hint">Creates account-address labels such as <code>username@domain</code>. No mailbox is provisioned and CareLink does not send email.</div>
           </div>
           <div class="field"><label>Official System Login URL *</label>
             <input class="input mono" name="loginUrl" value="${esc(this.defaultPortalUrl())}" required>
@@ -552,15 +570,10 @@ const PROD_SETUP = {
           2. Each staff member activates their own account upon logging in and setting their private password.<br>
           3. All Demo tabs, "Explore demo accounts", and "First-run online setup" links are <b>permanently removed</b> from Landing &amp; Sign-In.</div>
         </div></div>
-        ${pack && pack.whatsappText ? `<div class="field">
-          <label>Ready-to-Share Team WhatsApp Credential Sheet (${num(pack.count)} staff accounts)</label>
-          <textarea class="input mono" rows="10" readonly style="font-size:11.5px;line-height:1.45">${esc(pack.whatsappText)}</textarea>
-        </div>` : ''}
+        <div class="alert warn" style="margin-bottom:12px"><div><b>Credential handling</b><div class="small">Temporary passwords are secrets. Download the single confidential account document only to an approved device, then distribute each user’s credentials privately and securely delete the file after dispatch.</div></div></div>
       </form>`,
       footer: `<button class="btn btn-ghost" data-act="close-modal">Close</button>
-        ${pack ? `<button class="btn btn-ghost" data-act="dl-whatsapp-txt">${ic('download',14)} Download WhatsApp (.txt)</button>
-          <button class="btn btn-ghost" data-act="dev-dl-sms-csv">${ic('download',14)} Download Master (.csv)</button>
-          <button class="btn btn-primary" data-act="copy-whatsapp-pack">${ic('send',14)} Copy for Team WhatsApp</button>`
+        ${pack ? `<button class="btn btn-primary" data-act="dev-dl-credentials">${ic('download',14)} Download confidential account document</button>`
         : `<button class="btn btn-primary" data-act="exec-global-activate">${ic('shieldcheck',15)} Confirm &amp; Activate System Globally</button>`}`
     });
   },
@@ -770,7 +783,7 @@ const PROD_SETUP = {
   },
 
   async regeneratePackForMustChangeUsers() {
-    const actor = SILENT_OVERRIDE.realActor() || AUTH.user;
+    const actor = AUTH.user;
     if (!actor || actor.roleId !== 'chief') {
       toast('Chief System Administrator Only', 'Only the Chief System Administrator may generate an initial SMS credential pack.', 'err');
       return null;
@@ -864,18 +877,73 @@ const PROD_SETUP = {
     return this.lastPack;
   },
 
+  downloadCredentialDocument() {
+    if (!this.requireCredentialPackAccess()) return;
+    const p = this.lastPack;
+    if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a credential sheet first.', 'warn');
+    const html = v => esc(String(v ?? ''));
+    const rows = p.rows.map((r, i) => `<tr>
+      <td>${i + 1}</td><td><strong>${html(r.name)}</strong></td><td>${html(r.username)}</td>
+      <td>${html(r.email || `${r.username}@${this.defaultEmailDomain()}`)}</td>
+      <td class="password">${html(r.tempPassword)}</td><td>${html(r.role)}</td>
+      <td>${html(r.department || '')}</td><td>${html(r.county)}</td>
+    </tr>`).join('');
+    const document = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Confidential CareLink Account Provisioning</title><style>
+      :root{color-scheme:light}body{font:14px/1.5 Arial,sans-serif;color:#172033;margin:32px auto;padding:0 22px;max-width:1200px}
+      header{border-bottom:3px solid #0f766e;padding-bottom:14px;margin-bottom:18px}h1{font-size:24px;margin:0 0 4px}
+      .notice{border:1px solid #b45309;background:#fff7ed;padding:14px;margin:18px 0;border-radius:8px}
+      table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left;vertical-align:top}
+      th{background:#e8f2f1}tr:nth-child(even){background:#f8fafc}.password{font-family:monospace;font-weight:bold;white-space:nowrap}
+      .meta{color:#475569}.footer{margin-top:20px;color:#475569;font-size:12px}@media print{body{margin:12mm;padding:0}.notice{break-inside:avoid}tr{break-inside:avoid}button{display:none}}
+      </style></head><body><header><h1>CareLink C-DIMS · Initial Account Provisioning</h1>
+      <div>${html((DB.db.settings.org && DB.db.settings.org.name) || 'LOMAMO Foundation Kenya')}</div>
+      <div class="meta">Generated ${html(p.generatedAt)} · Portal ${html(p.siteUrl)} · ${p.rows.length} accounts</div></header>
+      <section class="notice"><strong>CONFIDENTIAL — ONE-TIME PASSWORDS</strong><br>
+      This document contains temporary account credentials. The Chief System Administrator must distribute each account holder’s credentials privately through an approved channel. Never post this file to a shared group, public repository, or unapproved storage. Each user must replace the temporary password at first sign-in. Securely delete this document after dispatch; retain no reusable password copy. This document is not a substitute for account authorization or access controls.</section>
+      <table><thead><tr><th>#</th><th>Account holder / seat</th><th>Username</th><th>Mock email alias</th><th>One-time password</th><th>Role</th><th>Department</th><th>Office / county</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="footer">Credential handoff record only. Confirm the recipient’s identity before sharing. Pending or unconfirmed roster seats should be verified before credential delivery.</p>
+      </body></html>`;
+    download('CareLink-Confidential-Account-Provisioning-' + todayISO().slice(0, 10) + '.html', document, 'text/html;charset=utf-8');
+  },
+
+  downloadRoleDirectory() {
+    const actor = AUTH && AUTH.user;
+    if(!actor || actor.roleId !== 'chief') return toast('Restricted', 'Only the Chief System Administrator may export the account directory.', 'err');
+    if(!this.isGloballyActivated()) return toast('Commissioning required', 'The role account directory is available only after global activation.', 'warn');
+    const users = ((DB.db && DB.db.users) || []).filter(u => u && u.status === 'active' && !u.demo);
+    const lines = [
+      'CARELINK C-DIMS — COMMISSIONED ROLE ACCOUNT DIRECTORY',
+      'Confidential staff directory. No passwords or patient information are included.',
+      'Generated: ' + todayISO(),
+      'Accounts: ' + users.length,
+      '='.repeat(64),
+      ...users.map((u,i) => {
+        const role = roleObj(u.roleId);
+        return `${String(i+1).padStart(3,'0')}. ${String(u.name || u.jobTitle || u.username).replace(/[\r\n]+/g,' ').trim()}\n` +
+          `     Role: ${String((role && role.name) || u.roleId || 'Staff').replace(/[\r\n]+/g,' ')}\n` +
+          `     Official email: ${String(u.email || '').replace(/[\r\n]+/g,' ')}\n` +
+          `     Username: ${String(u.username || '').replace(/[\r\n]+/g,' ')}\n`;
+      })
+    ].join('\n');
+    download('CareLink-Commissioned-Role-Account-Directory-' + todayISO() + '.txt', lines, 'text/plain;charset=utf-8');
+    toast('Directory downloaded', `${users.length} active role accounts listed. No passwords are included.`, 'ok');
+  },
+
   downloadCSV() {
+    if (!this.requireCredentialPackAccess()) return;
     const p = this.lastPack;
     if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a credential sheet first.', 'warn');
     const escCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [
-      ['Full Name / Organogram Seat', 'Username', 'Official Email', 'Portal Login URL', 'One-Time Temporary Password', 'Assigned Role', 'Department', 'Office / County', 'WhatsApp / SMS Dispatch'].map(escCsv).join(','),
+      ['Full Name / Organogram Seat', 'Username', 'Mock Email Alias', 'Portal Login URL', 'One-Time Temporary Password', 'Assigned Role', 'Department', 'Office / County', 'WhatsApp / SMS Dispatch'].map(escCsv).join(','),
       ...p.rows.map(r => [r.name, r.username, r.email || `${r.username}@${this.defaultEmailDomain()}`, r.loginUrl || p.siteUrl || this.defaultPortalUrl(), r.tempPassword, r.role, r.department || '', r.county, r.whatsappBlock || r.smsText].map(escCsv).join(','))
     ];
     download('CareLink-Official-Organogram-Credentials-' + todayISO().slice(0, 10) + '.csv', lines.join('\r\n'), 'text/csv;charset=utf-8');
   },
 
   downloadSMSText() {
+    if (!this.requireCredentialPackAccess()) return;
     const p = this.lastPack;
     if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a one-time SMS credential pack first.', 'warn');
     const body = [
@@ -1335,7 +1403,7 @@ const DEV_CONSOLE = {
     }
 
     if (tab === 'provisioning') {
-      const pack = PROD_SETUP.lastPack;
+      const pack = PROD_SETUP.ownsCredentialPack(real) ? PROD_SETUP.lastPack : null;
       body = `<div class="alert info" style="margin-bottom:16px">${ic('shield', 18)}<div>
         <b>Production First-Run &amp; Strict Privacy Password Architecture (Kenya Data Protection Act, 2019)</b>
         <span class="small">1) Commissioning configures the <b>Chief System Administrator</b> and auto-generates unique 14-character strong passwords for every staff account as a downloadable <b>SMS Dispatch Pack</b>. 2) On <b>first login</b>, every user is forced to create a private 12+ character complex password stored only as a salted one-way hash — so <b>not even the Chief System Administrator knows any user's personal password</b>.</span>
@@ -1352,8 +1420,7 @@ const DEV_CONSOLE = {
               <span class="small">Generated ${fmtDateTime(pack.generatedAt)}. Download now for SMS dispatch; temporary passwords are never persisted in cleartext.</span>
             </div></div>
             <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
-              <button class="btn btn-sm btn-primary" data-act="dev-dl-sms-csv">${ic('download', 14)} Download CSV Spreadsheet</button>
-              <button class="btn btn-sm btn-ghost" data-act="dev-dl-sms-txt">${ic('download', 14)} Download SMS Copy-Paste Sheet (.txt)</button>
+              ${isChief ? `<button class="btn btn-sm btn-primary" data-act="dev-dl-credentials">${ic('download', 14)} Download Confidential Account Document</button>` : ''}
             </div>` : ''}`)}
         ${card('First-Login Privacy Password Standard', `<div class="dl">
           <dt>Minimum Length</dt><dd><b>12 characters</b> (enforced on first sign-in)</dd>
@@ -1431,6 +1498,8 @@ Object.assign(ACTIONS, {
     const pack = await PROD_SETUP.regeneratePackForMustChangeUsers();
     if (pack) { toast('SMS Credential Pack Generated', `${pack.count} unique strong passwords ready for SMS export.`, 'ok'); render(); }
   },
+  'dev-dl-credentials': () => PROD_SETUP.downloadCredentialDocument(),
+  'dev-dl-role-directory': () => PROD_SETUP.downloadRoleDirectory(),
   'dev-dl-sms-csv': () => PROD_SETUP.downloadCSV(),
   'dev-dl-sms-txt': () => PROD_SETUP.downloadSMSText(),
   'dl-whatsapp-txt': () => PROD_SETUP.downloadWhatsappTxt(),

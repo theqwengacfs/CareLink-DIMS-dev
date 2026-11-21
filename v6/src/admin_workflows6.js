@@ -29,6 +29,20 @@ const ADMIN_OPS_STATE = {
   monthFilter: new Date().toISOString().slice(0, 7)
 };
 
+/* Cohesive reporting variants for this user's operational presentation.
+   Every palette preserves the same category mapping while changing presentation. */
+const ADMIN_OPS_PALETTES = [
+  { id:'sapphire', name:'Sapphire', colors:['#1E3A8A','#2563EB','#0F766E','#A16207','#166534','#6D28D9'] },
+  { id:'lake', name:'Lake & sky', colors:['#115E59','#0891B2','#1D4ED8','#A16207','#15803D','#7C3AED'] },
+  { id:'forest', name:'Forest', colors:['#14532D','#0E7490','#C2410C','#7C3AED','#A16207','#1E3A8A'] },
+  { id:'earth', name:'Clay & slate', colors:['#7C2D12','#0F766E','#334155','#A16207','#6D28D9','#1D4ED8'] }
+];
+
+function adminOpsPaletteFor(user) {
+  const prefs = DB.db && DB.db.personalPrefs && user && DB.db.personalPrefs[user.id];
+  return ADMIN_OPS_PALETTES.find(p => p.id === (prefs && prefs.adminOpsPalette)) || ADMIN_OPS_PALETTES[0];
+}
+
 const ADMIN_OPS = {
   STATUTORY_BODIES: [
     { id: 'SHIF', name: 'SHIF (Social Health Insurance Fund)', authority: 'Social Health Authority (SHA)', rule: 'Due on or before 9th of every month' },
@@ -194,6 +208,14 @@ const ADMIN_OPS = {
     const canKenyaHQ = this.canPrepareKenyaReport(user);
     const globalView = this.isGlobalViewer(user);
     const tblMode = (typeof isChartTableMode === 'function' && isChartTableMode());
+    const activePalette = adminOpsPaletteFor(user);
+    const paletteVars = activePalette.colors.map((color, i) => `--aops-c${i + 1}:${color}`).join(';');
+    const palettePicker = `<div class="aops-palette-picker" role="group" aria-label="Operational display colour palette">
+      <span class="aops-palette-caption">Data colours</span>
+      ${ADMIN_OPS_PALETTES.map(p => `<button type="button" class="aops-palette-choice ${p.id === activePalette.id ? 'is-active' : ''}" data-act="adminops-palette" data-palette="${p.id}" aria-label="Use ${esc(p.name)} palette" aria-pressed="${p.id === activePalette.id}" title="${esc(p.name)}">
+        <span class="aops-palette-swatch" aria-hidden="true">${p.colors.map(c => `<i style="--swatch:${c}"></i>`).join('')}</span><span>${esc(p.name)}</span>
+      </button>`).join('')}
+    </div>`;
 
     const payg = this.scopedList(user, 'adminOpsPayg');
     const suppliers = this.scopedList(user, 'adminOpsSuppliers');
@@ -215,74 +237,92 @@ const ADMIN_OPS = {
 
     const pendingStat = statutory.filter(s => s.status !== 'paid');
     const cd = this.statutoryCountdown();
-
-    const tabs = [
-      ['overview', 'Command Overview'],
-      ['daily_weekly', 'Daily PAYG, Transport & Weekly Suppliers'],
-      ['monthly_stat', '9th Statutory (SHIF·PAYE·KRA·NSSF) & Bills'],
-      ['opex_reports', 'Operational Expenses & Kenya Reports'],
-      ['annual', 'Annual Budgeting & Filing of Societies']
+    const mixSegments = [
+      { label:'Daily patient Pay-As-You-Go', short:'Patient support', value:totPayg, budget:Math.max(totPayg * 1.18, 85000), color:activePalette.colors[0], tab:'daily_weekly' },
+      { label:'Daily staff transport', short:'Staff transport', value:totTransport, budget:Math.max(totTransport * 1.15, 65000), color:activePalette.colors[1], tab:'daily_weekly' },
+      { label:'Weekly supplier payments', short:'Supplier settlements', value:totSuppliers, budget:Math.max(totSuppliers * 1.12, 240000), color:activePalette.colors[2], tab:'daily_weekly' },
+      { label:'9th statutory remittances', short:'Statutory', value:totStat, budget:Math.max(totStat * 1.05, 195000), color:activePalette.colors[3], tab:'monthly_stat' },
+      { label:'Monthly utilities, rent & salaries', short:'Utilities & bills', value:totUtil, budget:Math.max(totUtil * 1.08, 420000), color:activePalette.colors[4], tab:'monthly_stat' },
+      { label:'Operational Expenses', short:'OpEx & reports', value:totOpEx, budget:Math.max(totOpEx * 1.10, 310000), color:activePalette.colors[5], tab:'opex_reports' }
     ];
+    const totalIndicativeEnvelope = mixSegments.reduce((n, m) => n + m.budget, 0);
+    const totalSpent = mixSegments.reduce((n, m) => n + m.value, 0);
+    const scheduledPayments = suppliers.filter(x => x.status !== 'paid').length +
+      transport.filter(x => x.status !== 'paid').length + payg.filter(x => x.status !== 'paid').length;
 
-    const headerActions = `<div class="row" style="gap:8px;flex-wrap:wrap">
-      ${globalView ? `<select class="input" style="width:auto" aria-label="Filter county office" onchange="ACTIONS['adminops-county']({county:this.value})">
-        <option value="all" ${ADMIN_OPS_STATE.countyFilter === 'all' ? 'selected' : ''}>All Offices (Kisumu HQ & Homa Bay)</option>
-        ${COUNTIES.map(c => `<option value="${c.id}" ${ADMIN_OPS_STATE.countyFilter === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
-      </select>` : ''}
-      <button class="btn btn-sm ${tblMode ? 'btn-primary' : 'btn-ghost'}" data-act="toggle-chart-table-mode">${ic('columns', 14)} ${tblMode ? 'Charts & tables' : 'Tables only'}</button>
-      ${canEdit ? `<button class="btn btn-sm btn-primary" data-act="adminops-modal" data-kind="payg">${ic('plus', 14)} Daily PAYG Expense</button>` : ''}
-    </div>`;
-
-    const statutoryBanner = `<div class="alert ${pendingStat.length && cd.state !== 'upcoming' ? 'crit' : pendingStat.length ? 'warn' : 'ok'}" style="margin-bottom:14px">
-      ${ic(pendingStat.length ? 'alert' : 'check', 18)}
-      <div style="flex:1">
-        <b>9th of Every Month Government Statutory Deadline (SHIF · PAYE · KRA · NSSF): ${esc(cd.label)}</b>
-        <span class="small">${pendingStat.length ? `${pendingStat.length} statutory obligation(s) awaiting remittance slip confirmation.` : 'All scoped statutory remittances for the current period are marked paid with slip references.'}
-        Homa Bay monthly financial reports for Kenya are prepared by <b>Head Office Admin in Kisumu</b>.</span>
+    const headerActions = `<div class="aops-commandbar">
+      <div class="aops-scope-control">
+        ${globalView ? `<label class="aops-scope-label" for="adminopsOffice">Office scope</label><select class="input aops-office-select" id="adminopsOffice" aria-label="Filter county office" onchange="ACTIONS['adminops-county']({county:this.value})">
+          <option value="all" ${ADMIN_OPS_STATE.countyFilter === 'all' ? 'selected' : ''}>Kisumu HQ & Homa Bay</option>
+          ${COUNTIES.map(c => `<option value="${esc(c.id)}" ${ADMIN_OPS_STATE.countyFilter === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+        </select>` : `<span class="aops-office-static">${esc(countyName(user.countyId))} office</span>`}
       </div>
-      <button class="btn btn-xs btn-primary" data-act="adminops-tab" data-tab="monthly_stat">Open 9th Statutory Desk</button>
+      ${palettePicker}
+      <div class="aops-command-actions">
+        <button class="btn btn-sm ${tblMode ? 'btn-primary' : 'btn-ghost'}" data-act="toggle-chart-table-mode" title="${tblMode ? 'Show charts and tables' : 'Show tables only'}">${ic('columns', 14)} ${tblMode ? 'Charts & tables' : 'Tables only'}</button>
+        ${canEdit ? `<button class="btn btn-sm btn-primary" data-act="adminops-modal" data-kind="payg">${ic('plus', 14)} Record expense</button>` : ''}
+      </div>
     </div>`;
 
-    const kpiRow = `<div class="grid g4" style="margin-bottom:16px">
-      ${kpi('Daily PAYG & Staff Transport', money(totPayg + totTransport), `PAYG ${money(totPayg)} · Transport ${money(totTransport)}`, 'info', 'wallet')}
-      ${kpi('Weekly Supplier Payments', money(totSuppliers), `${num(suppliers.length)} weekly supplier schedule(s)`, '', 'package')}
-      ${kpi('9th Statutory & Monthly Bills', money(totStat + totUtil), `${pendingStat.length ? pendingStat.length + ' statutory open' : 'SHIF/PAYE/KRA/NSSF current'}`, pendingStat.length ? 'warn' : 'ok', 'shieldcheck')}
-      ${kpi('Operational Expenses', money(totOpEx), 'Operational & Admin wages + Monthly financial reports', 'ok', 'layers')}
+    const statutoryBanner = `<div class="aops-deadline ${pendingStat.length ? 'is-pending' : 'is-clear'}" role="status">
+      <div class="aops-deadline-icon">${ic(pendingStat.length ? 'alert' : 'check', 18)}</div>
+      <div class="aops-deadline-copy"><span class="aops-eyebrow">Statutory compliance · 9th of each month</span>
+        <b>${esc(cd.label)}</b>
+        <p>${pendingStat.length ? `${pendingStat.length} obligation(s) awaiting remittance-slip confirmation.` : 'All scoped SHIF, PAYE, KRA and NSSF remittances are recorded with slip references.'} Homa Bay reports for Kenya are prepared by Kisumu Head Office Admin.</p>
+      </div>
+      <button class="btn btn-sm" data-act="adminops-tab" data-tab="monthly_stat">Open statutory register ${ic('arrowright', 14)}</button>
     </div>`;
 
-    const tabNav = `<div class="tabs" role="tablist" style="margin-bottom:16px">
-      ${tabs.map(([id, label]) => `<button class="tab ${tab === id ? 'active' : ''}" role="tab" data-act="adminops-tab" data-tab="${id}">${esc(label)}</button>`).join('')}
+    const kpiItems = [
+      { label:'Recorded outflow', value:money(totalSpent), detail:`Across ${num(payg.length + transport.length + suppliers.length + statutory.length + utilities.length + opex.length)} records`, color:'--aops-c1', tab:'overview' },
+      { label:'Indicative category envelope', value:money(totalIndicativeEnvelope), detail:`${pct(totalSpent, totalIndicativeEnvelope)}% vs indicative baseline`, color:'--aops-c2', tab:'overview' },
+      { label:'Statutory obligations', value:`${num(pendingStat.length)} open`, detail:pendingStat.length ? 'Across scoped register' : 'No open items in scoped register', color:'--aops-c4', tab:'monthly_stat' },
+      { label:'Payments to reconcile', value:num(scheduledPayments), detail:'Scheduled / unpaid transactions', color:'--aops-c3', tab:'daily_weekly' }
+    ];
+    const kpiRow = `<div class="aops-summary-grid" aria-label="Scoped operations summary">
+      ${kpiItems.map((m, i) => `<button type="button" class="aops-summary-card" data-act="adminops-tab" data-tab="${m.tab}" style="--metric-color:var(${m.color})">
+        <span class="aops-summary-top"><i>${String(i + 1).padStart(2,'0')}</i><span>${esc(m.label)}</span></span>
+        <strong>${esc(String(m.value))}</strong><small>${esc(m.detail)}</small>
+      </button>`).join('')}
     </div>`;
+
+    const navLabels = [
+      ['overview','Position','Budget & compliance'],
+      ['daily_weekly','Daily & weekly','PAYG · transport · suppliers'],
+      ['monthly_stat','Statutory & bills','SHIF · PAYE · KRA · NSSF'],
+      ['opex_reports','Operational Expenses','Wages · reports · Kenya'],
+      ['annual','Annual governance','Budgets · societies']
+    ];
+    const tabNav = `<nav class="aops-section-nav" role="tablist" aria-label="Administration work areas">
+      ${navLabels.map(([id, label, hint], i) => `<button type="button" id="aops-tab-${id}" class="aops-section-tab ${tab === id ? 'is-current' : ''}" role="tab" aria-controls="aopsPanel" aria-selected="${tab === id}" data-act="adminops-tab" data-tab="${id}">
+        <span class="aops-section-index">0${i + 1}</span><span class="aops-section-label">${esc(label)}</span><span class="aops-section-hint">${esc(hint)}</span>
+      </button>`).join('')}
+    </nav>`;
 
     let body = '';
 
     if (tab === 'overview') {
-      const mixSegments = [
-        { label: 'Daily Patient Pay-As-You-Go', value: totPayg, budget: Math.max(totPayg * 1.18, 85000), color: '#0E7490' },
-        { label: 'Daily Staff Transport', value: totTransport, budget: Math.max(totTransport * 1.15, 65000), color: '#0284C7' },
-        { label: 'Weekly Supplier Payments', value: totSuppliers, budget: Math.max(totSuppliers * 1.12, 240000), color: '#D97706' },
-        { label: '9th Statutory (SHIF, PAYE, KRA, NSSF)', value: totStat, budget: Math.max(totStat * 1.05, 195000), color: '#7C3AED' },
-        { label: 'Monthly Utilities, Rent & Salaries', value: totUtil, budget: Math.max(totUtil * 1.08, 420000), color: '#1F3864' },
-        { label: 'Operational Expenses (Wages & Reports)', value: totOpEx, budget: Math.max(totOpEx * 1.10, 310000), color: '#0F7B4F' }
-      ];
-      body = (typeof budgetVsActualBoard === 'function' ? `<div style="margin-bottom:16px">${card('Admin Expenditure Against Monthly Operational Budget',
+      body = (typeof budgetVsActualBoard === 'function' ? `<div class="aops-budget-board">${card('Indicative monthly category envelope',
         budgetVsActualBoard(mixSegments.map(m => ({ label: m.label, budget: Math.round(m.budget), spent: Math.round(m.value), color: m.color })), {
-          periodLabel: 'Current Monthly Admin Cadence'
-        }), { sub: 'Approved monthly operational ceiling vs actual disbursements across daily, weekly, 9th statutory & Operational Expenses.' })}</div>` : '')
-      + `<div class="grid g2" style="margin-bottom:16px">
-        ${card('Admin Disbursement Mix by Workflow Cadence', chartDonut(mixSegments, {
-          title: 'Disbursements by operational cadence',
+          periodLabel: 'Illustrative category baseline', budgetLabel: 'INDICATIVE ESTIMATE',
+          comparisonLabel: 'Recorded outflow vs indicative category estimates',
+          budgetColumnLabel: 'Indicative estimate', totalLabel: 'Total indicative estimate'
+        }), { sub: 'Outflow aggregates the scoped register and is not period-filtered. Baselines are illustrative—not approved appropriations; confirm ceilings against the approved budget. Zero-activity categories remain visible for planning.' })}</div>` : '')
+      + `<div class="aops-analysis-grid">
+        ${card('Disbursement composition', chartDonut(mixSegments, {
+          title: 'Disbursements by operational category',
           fmt: v => money(v),
-          centerLabel: 'TOTAL SCOPED',
-          centerValue: money(totPayg + totTransport + totSuppliers + totStat + totUtil + totOpEx)
-        }), { sub: 'Symmetrical cadence share across daily, weekly, and monthly admin workflows (zero slice-overlay text).' })}
-        ${card('Operational Cadence Comparison', chartRows({
+          centerLabel: 'RECORDED OUTFLOW',
+          centerValue: money(totalSpent)
+        }), { sub: totalSpent ? 'Share of recorded spend by operational category.' : 'No outflow is recorded yet. Budget envelopes above remain visible for planning.' })}
+        ${card('Category comparison', chartRows({
           rows: mixSegments,
+          colours: mixSegments.map(m => m.color),
           fmt: v => money(v),
-          title: 'Expenditure by administrative workflow',
-          labelHead: 'Workflow cadence',
+          title: 'Expenditure by administrative category',
+          labelHead: 'Operational category',
           valueHead: 'Amount (KES)'
-        }), { sub: 'Every line links directly to its dedicated workflow sheet above.' })}
+        }), { sub: 'Category colours remain consistent across views; select a palette above for presentation.' })}
       </div>`
       + `<div class="grid g3">
         ${card('Daily & Weekly Operations', `<div class="dl">
@@ -437,8 +477,8 @@ const ADMIN_OPS = {
         ${card('Annual Budget vs YTD Actuals', chartGrouped({
           labels: annualBudgets.map(b => b.category.split(' (')[0].slice(0, 16)),
           series: [
-            { label: 'Annual Budget', values: annualBudgets.map(b => Math.round(b.annualAmount)), color: '#1F3864' },
-            { label: 'YTD Actual', values: annualBudgets.map(b => Math.round(b.ytdActual)), color: '#0F7B4F' }
+            { label: 'Annual Budget', values: annualBudgets.map(b => Math.round(b.annualAmount)), color: activePalette.colors[0] },
+            { label: 'YTD Actual', values: annualBudgets.map(b => Math.round(b.ytdActual)), color: activePalette.colors[1] }
           ],
           fmt: v => money(v),
           title: 'Annual budget vs YTD actual expenditure',
@@ -446,7 +486,7 @@ const ADMIN_OPS = {
           height: 235
         }), { sub: `Consolidated Annual Budget: ${money(totAnnual)} · YTD Spend: ${money(totYtd)} (${pct(totYtd, totAnnual)}% utilised)` })}
         ${card('Annual Budget Allocation Share', chartDonut(
-          annualBudgets.map((b, i) => ({ label: b.category.split(' (')[0], value: b.annualAmount, color: CHART_PALETTE[i % CHART_PALETTE.length] })),
+          annualBudgets.map((b, i) => ({ label: b.category.split(' (')[0], value: b.annualAmount, color: activePalette.colors[i % activePalette.colors.length] })),
           { title: 'Annual budget allocation', fmt: v => money(v), centerLabel: 'ANNUAL BUDGET', centerValue: money(totAnnual) }
         ), { sub: 'Symmetrical annual allocation across Kisumu Head Office & Homa Bay County.' })}
       </div>`
@@ -478,11 +518,11 @@ const ADMIN_OPS = {
           actions: canEdit ? `<button class="btn btn-xs btn-primary" data-act="adminops-modal" data-kind="society">${ic('plus', 12)} Add Society / License Filing</button>` : '' })}</div>`;
     }
 
-    return pageHead(
-      'County & Head Office Admin Operations',
-      'Daily Pay-As-You-Go patient expenses & daily staff transport · Weekly supplier payments · Monthly 9th statutory (SHIF, PAYE, KRA, NSSF), utilities & Operational Expenses (with Homa Bay reports for Kenya prepared by Kisumu Head Office) · Annual budgeting & Filing of Societies.',
+    return `<main class="aops-workspace" style="${paletteVars}" aria-label="Admin Operations and statutory workspace">` + pageHead(
+      'Admin Operations & Statutory',
+      'Finance, compliance and governance · Kisumu Head Office and Homa Bay County',
       headerActions
-    ) + statutoryBanner + kpiRow + tabNav + body;
+    ) + statutoryBanner + kpiRow + tabNav + `<section id="aopsPanel" class="aops-workspace-content" role="tabpanel" aria-labelledby="aops-tab-${esc(tab)}" tabindex="0">${body}</section></main>`;
   },
 
   openEntryModal(kind) {
@@ -594,6 +634,16 @@ Object.assign(ACTIONS, {
   },
   'adminops-tab': (d) => { ADMIN_OPS_STATE.tab = d.tab || 'overview'; render(); },
   'adminops-county': (d) => { ADMIN_OPS_STATE.countyFilter = d.county || 'all'; render(); },
+  'adminops-palette': (d) => {
+    const user = AUTH.user;
+    const palette = ADMIN_OPS_PALETTES.find(p => p.id === d.palette);
+    if (!user || !palette || !ADMIN_OPS.canAccess(user)) return;
+    DB.db.personalPrefs = DB.db.personalPrefs || {};
+    DB.db.personalPrefs[user.id] = DB.db.personalPrefs[user.id] || {};
+    DB.db.personalPrefs[user.id].adminOpsPalette = palette.id;
+    DB.save();
+    render();
+  },
   'adminops-modal': (d) => ADMIN_OPS.openEntryModal(d.kind),
   'adminops-save': () => {
     const f = $('#adminOpsForm'); if (!f) return;

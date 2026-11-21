@@ -71,6 +71,25 @@ global.fetch = async (input, init = {}) => {
     kv.delete(key);
     return kvResponse({ result: 1 });
   }
+  if (url.pathname === '/' && init.method === 'POST') {
+    const command = JSON.parse(rawBody);
+    const [op, ...args] = command;
+    if (op === 'SET') {
+      const [key, value, ...options] = args;
+      if (options.includes('NX') && kv.has(key)) return kvResponse({ result: null });
+      kv.set(key, String(value));
+      return kvResponse({ result: 'OK' });
+    }
+    if (op === 'GET') return kvResponse({ result: kv.has(args[0]) ? kv.get(args[0]) : null });
+    if (op === 'EVAL') {
+      const script = args[0]; const keyCount = Number(args[1]) || 0;
+      const key = args[2]; const value = args[2 + keyCount];
+      if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
+      if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
+      if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }
+    }
+    throw new Error(`Unexpected Redis command: ${op}`);
+  }
   throw new Error(`Unexpected KV request: ${url.pathname}`);
 };
 
@@ -191,7 +210,11 @@ global.fetch = async (input, init = {}) => {
 
   /* Turn off replica lag before synchronous single-call health probe on fresh tablet, then re-enable for tablet login! */
   simulateReadReplicaLag = false;
-  const staff = pack.rows[0];
+  const staff = pack.rows.find((r) => r.username === 'caregiver.nyalenda');
+  assert.ok(staff, 'a ministry-area clinical account must be available for scoped reconstruction');
+  const expectedPatientIds = JSON.parse(pc.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda' && !String(p.id).startsWith('imp')).map(p=>p.id))`));
+  assert.ok(expectedPatientIds.length > 0 && expectedPatientIds.length < 3334, 'caregiver receives a scoped subset, not the full database');
+  const expectedVisitCount = Number(pc.run(`DB.db.visits.filter(v=>${JSON.stringify(expectedPatientIds)}.includes(String(v.patientId))).length`));
   const tablet = client();
   tablet.run('SYNC.queue = () => {}; DB.load();');
   const health = await tablet.run('hostProbe()');
@@ -200,7 +223,10 @@ global.fetch = async (input, init = {}) => {
   simulateReadReplicaLag = true;
   const tabletLogin = await tablet.run(`AUTH.loginOnline(${JSON.stringify(staff.username)}, ${JSON.stringify(staff.tempPassword)}, 'tablet')`);
   assert.equal(tabletLogin.ok, true, JSON.stringify(tabletLogin));
-  assert.equal(tablet.run('DB.db.patients.length'), 3333, 'Fresh tablet pulls full 3,333-patient cloud state from sharded Upstash KV even under replica lag');
+  const actualPatientIds = JSON.parse(tablet.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`));
+  assert.equal(tablet.run('DB.db.patients.length'), expectedPatientIds.length, `Fresh tablet pulls only its assigned-area patients under replica lag (expected ${expectedPatientIds.length}, actual ${actualPatientIds.length}; missing ${expectedPatientIds.filter(id=>!actualPatientIds.includes(id)).slice(0,3).join(',')})`);
+  assert.deepEqual(JSON.parse(tablet.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), expectedPatientIds, 'no cross-area patient records are reconstructed on the tablet');
+  assert.equal(tablet.run('DB.db.visits.length'), expectedVisitCount, 'only assigned-area visit records are reconstructed');
   assert.equal(shardWritesWithTtl, 0, 'New immutable shard writes must not use Redis TTLs that can expire/evict active records');
 
   /* Corrupt the active shard 2, then verify recovery from the retained prior
@@ -225,12 +251,12 @@ global.fetch = async (input, init = {}) => {
   const repairedShard = JSON.parse(kv.get(repairedManifest.shardKeys[1]));
   assert.equal(crypto.createHash('sha256').update(repairedShard).digest('hex'), repairedManifest.shardDigests[1],
     'Repaired shard 2 must match its committed SHA-256 digest');
-  assert.equal(tablet.run('DB.db.patients.length'), 3333, 'Shard repair must not replace/remove the live patient registry');
+  assert.equal(tablet.run('DB.db.patients.length'), expectedPatientIds.length, 'Shard repair leaves the already-authorized patient subset intact on the tablet');
 
 
   /* 6. Regression proof for "Verifying..." hang prevention:
         - Buffer req.body + readableEnded=true empty stream never hang readJsonBody
-        - Login & heartbeat perform ZERO KV writes on healthy/stateless sessions
+        - Login acquires one atomic account lease; heartbeat renews it without rewriting the database
         - Transient network drop on login retries automatically and succeeds
         - Persistent network/timeout error resets LOGIN6.busy = false (never stuck on Verifying...)
         - Overlapping logout + fresh sharded login never triggers 503 torn shard reads */
@@ -254,13 +280,16 @@ global.fetch = async (input, init = {}) => {
   assert.equal(beatEmptyStream.body.ok, true);
   assert.equal(kvSetCounter, setsBeforeBeat, 'Stateless session heartbeat must perform zero KV writes');
 
+  const secondStaff = pack.rows.find((r) => r.username === 'caregiver.nairobird');
+  assert.ok(secondStaff, 'Activation must issue a second, distinct scoped caregiver for isolated login tests');
+  const secondAreaPatientIds = JSON.parse(pc.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && ['nairobird','nyahera'].includes(p.areaId)).map(p=>p.id))`));
   const setsBeforeLogin = kvSetCounter;
   const bufferLogin = await (async () => {
     const req = {
       url: '/api/auth/login',
       method: 'POST',
       headers: { host: 'carelink.test', 'content-type': 'application/json' },
-      body: Buffer.from(JSON.stringify({ username: staff.username, password: staff.tempPassword }), 'utf8'),
+      body: Buffer.from(JSON.stringify({ username: secondStaff.username, password: secondStaff.tempPassword }), 'utf8'),
       readableEnded: true,
       on() {},
     };
@@ -271,7 +300,9 @@ global.fetch = async (input, init = {}) => {
   })();
   assert.equal(bufferLogin.status, 200, 'Buffer req.body on /api/auth/login must parse cleanly');
   assert.equal(bufferLogin.body.ok, true);
-  assert.equal(kvSetCounter, setsBeforeLogin, 'Healthy /api/auth/login must perform zero KV writes');
+  assert.equal(kvSetCounter, setsBeforeLogin, 'Login must not rewrite the large cloud manifest; its small session lease uses an atomic Redis command');
+  const bufferLogout = await apiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${bufferLogin.body.token}` }, body: '{}' });
+  assert.equal(bufferLogout.status, 200, 'The isolated API login must be releasable before retry tests');
 
   /* Transient first-attempt drop on login recovers automatically, and LOGIN6.busy resets to false */
   let dropFirstLogin = true;
@@ -288,11 +319,13 @@ global.fetch = async (input, init = {}) => {
     },
   });
   flakyLaptop.run(`APPX.host = ${JSON.stringify(health)}; SYNC.server = APPX.host;`);
-  flakyLaptop.ctx.__form = { username: staff.username, password: staff.tempPassword };
+  flakyLaptop.ctx.__form = { username: secondStaff.username, password: secondStaff.tempPassword };
   await flakyLaptop.run('FORMS.login6(new FormData())');
   assert.equal(flakyLaptop.run('LOGIN6.busy'), false, 'LOGIN6.busy must clear after recovered login');
   assert.equal(flakyLaptop.run('APPX.screen'), 'app', 'Transient login drop must recover automatically via retry');
-  assert.equal(flakyLaptop.run('DB.db.patients.length'), 3333);
+  assert.equal(flakyLaptop.run('DB.db.patients.length'), secondAreaPatientIds.length);
+  assert.deepEqual(JSON.parse(flakyLaptop.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), secondAreaPatientIds);
+  await apiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${flakyLaptop.run('SYNC.sessionToken')}` }, body: '{}' });
 
   /* Persistent outage resets LOGIN6.busy = false (never stuck on "Verifying...") */
   const offlineHosted = makeCtx({
@@ -302,7 +335,7 @@ global.fetch = async (input, init = {}) => {
     fetch: async () => { throw new Error('The shared online service timed out while responding.'); },
   });
   offlineHosted.run(`APPX.host = ${JSON.stringify(health)}; SYNC.server = APPX.host;`);
-  offlineHosted.ctx.__form = { username: staff.username, password: staff.tempPassword };
+  offlineHosted.ctx.__form = { username: secondStaff.username, password: secondStaff.tempPassword };
   await offlineHosted.run('FORMS.login6(new FormData())');
   assert.equal(offlineHosted.run('LOGIN6.busy'), false, 'LOGIN6.busy must never remain stuck on Verifying...');
   assert.ok(!/Verifying\.\.\./.test(offlineHosted.run('renderLogin6()')), 'Rendered Sign-In button must not stay on Verifying...');

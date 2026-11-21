@@ -8,6 +8,47 @@ const APPX = {
   get user(){ return AUTH.user; }
 };
 
+/* Public board preview is deliberately a separate, ephemeral synthetic DB.
+   It never adopts hosted data, persists edits, syncs, or authenticates a user. */
+const DEMO_PREVIEW = {
+  active:false, savedDb:null, savedUser:null, savedSession:null,
+  enter(){
+    if(this.active || AUTH.user || AUTH.online) return;
+    if(typeof seedOfficial!=='function') return;
+    this.savedDb = DB.db;
+    this.savedUser = AUTH.user; this.savedSession = AUTH.session;
+    const isolated = DB.blank();
+    seedOfficial(isolated, new Date(), {patients:3333, mustChange:false});
+    isolated.meta = Object.assign(isolated.meta||{}, {label:'Isolated synthetic board preview', demoPreview:true, demoSeeded:true, seeded:'official'});
+    DB.db = isolated; DB._vIdx=null;
+    const user = (isolated.users||[]).find(u=>u.roleId==='director' && u.status==='active')
+      || (isolated.users||[]).find(u=>u.roleId==='chief' && u.status==='active')
+      || (isolated.users||[]).find(u=>u.status==='active');
+    if(!user){ DB.db=this.savedDb; return; }
+    this.active=true;
+    AUTH.user=user; AUTH.session={started:todayISO(),last:Date.now(),token:'local-read-only-demo'};
+    AUTH.mustChange=false; AUTH.online=false;
+    APPX.screen='app'; APPX.view='home'; APPX.params={}; APPX.aiOpen=false; APPX.dirty=false;
+    render(); window.scrollTo(0,0);
+  },
+  switchRole(userId){
+    if(!this.active) return false;
+    const user=(DB.db.users||[]).find(u=>u.id===userId&&u.demo===true&&u.status==='active');
+    if(!user) return false;
+    AUTH.user=user; AUTH.session={started:todayISO(),last:Date.now(),token:'local-read-only-demo'};
+    APPX.view='home'; APPX.params={}; APPX.navOpen=false; render();
+    return true;
+  },
+  exit(){
+    if(!this.active) return;
+    this.active=false; DB.db=this.savedDb; DB._vIdx=null;
+    AUTH.user=this.savedUser; AUTH.session=this.savedSession; AUTH.mustChange=false;
+    this.savedDb=null; this.savedUser=null; this.savedSession=null;
+    APPX.screen='landing'; APPX.view='home'; APPX.params={}; APPX.aiOpen=false; APPX.dirty=false;
+    render(); window.scrollTo(0,0);
+  }
+};
+
 /* ---------------- Boot ---------------- */
 /* ---------------- Inactivity ----------------
    Three hundred seconds (five minutes) without genuine activity ends the session. The browser runs
@@ -352,15 +393,6 @@ function renderLoginLegacy(){
         <div class="field"><label for="p">Password</label><input class="input" id="p" name="password" type="password" autocomplete="current-password" placeholder="••••••••••" required></div>
         <button class="btn btn-primary btn-block" type="submit">Sign in ${ic('chevron',16)}</button>
       </form>
-      <div class="demo-users">
-        <h4>Demonstration accounts · password <span class="kbd">LOMAMO2026</span></h4>
-        <div class="demo-grid">
-          ${demo.map(u=>`<button class="demo-chip" data-act="quick-login" data-u="${u.username}">
-            <b>${esc(u.jobTitle||u.name)}</b><span>${esc(u.username)}${u.countyId?' · '+esc(countyName(u.countyId)):''}</span></button>`).join('')}
-        </div>
-        <div class="note" style="margin-top:12px">${ic('info',14)}<span>These are synthetic demonstration accounts. No real staff, patient or financial records are loaded.</span></div>
-      </div>
-      <div class="login-first">Evaluating the system? <a data-act="load-demo">Load the demonstration dataset</a> to replace the records held in this browser with synthetic data for training and evaluation.</div>
     </div></div>
   </div>`;
 }
@@ -396,7 +428,6 @@ function renderOnboardingLegacy(){
     </div>
     <div class="row">
       <button class="btn btn-primary" data-act="onboard-start">Begin setup ${ic('chevron',15)}</button>
-      <button class="btn btn-ghost" data-act="load-demo">${ic('sparkles',15)} Load demonstration dataset</button>
     </div>
     <div class="note" style="margin-top:16px">${ic('info',14)}<span>The demonstration dataset is synthetic and clearly labelled. It is intended for evaluation, training and acceptance testing only.</span></div>`);
   if(step===2) return wrap(`
@@ -411,7 +442,7 @@ function renderOnboardingLegacy(){
         <div class="field"><label>Confirm password</label><input class="input" type="password" name="password2" required></div>
       </div>
       <div class="row"><button class="btn btn-primary" type="submit">Create account ${ic('chevron',15)}</button>
-      <button class="btn btn-ghost" data-act="load-demo">Use demonstration data instead</button></div>
+    </div>
     </form>`);
   return wrap(`
     <div class="xs muted" style="letter-spacing:.14em;text-transform:uppercase">Step 2 of 2</div>
@@ -460,6 +491,7 @@ function renderShell(){
       <div class="cb-id">
         <div class="cb-k"><span class="cb-os-tag">CareLink</span><span class="cb-county-tag">${esc(countyDisp)}</span></div>
         <h1><span class="cb-console-name">${esc(role.consoleTitle||((role.name||'Staff')+' Console'))}</span>${APPX.view!=='home'?`<span class="cb-title-sep"> / </span><span class="cb-view-name">${esc(crumb.title)}</span>`:''}</h1>
+        <div class="xs muted" title="Fixed office role: ${esc(role.name||user.roleId)} · Current role holder: ${esc(user.name)}">Role holder: ${esc(user.displayName||user.name)}</div>
       </div>
       <div class="cb-quick no-print" role="navigation" aria-label="Quick console shortcuts">
         ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
@@ -471,7 +503,7 @@ function renderShell(){
         <button class="btn btn-xs btn-ghost no-print tb-ai-label" data-act="toggle-ai" title="Open ${esc(aiProf.title||'Console AI')}">${ic('sparkles',14)} <span>${esc(aiProf.badge||'Console AI')}</span></button>
         <button class="icon-btn tb-ai-icon no-print" data-act="toggle-ai" aria-label="Open ${esc(aiProf.title||'Console AI')}" title="${esc(aiProf.title||'Console AI')}">${ic('sparkles',18)}</button>
         <button class="icon-btn tb-theme no-print" data-act="wtheme-open" aria-label="Themes, Fonts & Visual Packs" title="Themes, Fonts & Visual Packs">${ic('palette',18)}</button>
-        <button class="icon-btn no-print" data-act="open-switch-account" aria-label="Switch account" title="Switch Account / Role Console">${ic('users',18)}</button>
+        <button class="icon-btn no-print" data-act="${DEMO_PREVIEW.active?'demo-role-picker':'open-switch-account'}" aria-label="${DEMO_PREVIEW.active?'Switch read-only demo role':'Switch account'}" title="${DEMO_PREVIEW.active?'Explore another read-only synthetic role console':'Switch Account / Role Console'}">${ic('users',18)}</button>
         <button class="icon-btn no-print" data-act="open-notifications" aria-label="Notifications" title="Notifications">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
         <button class="me-btn" data-act="toggle-user-menu" aria-label="Your account" title="${esc(user.name)} · ${esc(role.name||'')}">
           ${avatarFor(user.name, dept.accent, user.photo)}
@@ -534,7 +566,9 @@ function workspaceHeroBanner(view, user){
   const isGlobalAct = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const overrideBar = (typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.bannerHTML) ? SILENT_OVERRIDE.bannerHTML() : '';
   const globalActBar = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.globalActivationBannerHTML) ? PROD_SETUP.globalActivationBannerHTML(user) : '';
-  const demoBar = (!isGlobalAct && typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '';
+  const demoBar = DEMO_PREVIEW.active
+    ? `<div class="alert info" style="margin:10px 16px;border:1px solid #93C5FD"><span>${ic('shield',15)}</span><div style="flex:1"><b>BOARD PREVIEW · SYNTHETIC DATA · READ ONLY</b><span class="small">Isolated in this browser. No hosted records, account login, edits, uploads or sync are used.</span></div><button class="btn btn-xs btn-ghost" data-act="demo-preview-exit">Exit preview</button></div>`
+    : ((!isGlobalAct && typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '');
   const coeditBar = (typeof DUALCHECK!=='undefined' && DUALCHECK.bannerHTML) ? DUALCHECK.bannerHTML(user) : '';
   const urgentCountyBar = (typeof COUNTY_URGENT_QUEUE!=='undefined' && COUNTY_URGENT_QUEUE.bannerHTML) ? COUNTY_URGENT_QUEUE.bannerHTML(user, view) : '';
   const dpaBar = (typeof CARELINK_GOVERNANCE!=='undefined' && CARELINK_GOVERNANCE.dpaBannerHTML) ? CARELINK_GOVERNANCE.dpaBannerHTML(view, user) : '';
@@ -692,6 +726,16 @@ function duplicatePress(act){
   return false;
 }
 function onClick(e){
+  if(DEMO_PREVIEW.active){
+    const previewAction = e.target.closest('[data-act]');
+    if(!previewAction) return;
+    const safe = new Set(['go','page','open-patient','patient-tab','nav-group','nav-close','nav-rail','nav-autofold','toggle-nav','open-console-map','close-modal','demo-preview-exit','demo-role-picker','demo-role-switch']);
+    if(!safe.has(previewAction.dataset.act)){
+      e.preventDefault(); e.stopImmediatePropagation();
+      if(typeof toast==='function') toast('Read-only board preview','Changes, submissions and account actions are disabled. This preview uses synthetic data only.','info');
+      return;
+    }
+  }
   if(e && e.target && e.target.closest && e.target.closest('#content') && typeof NAVP!=='undefined' && NAVP.foldForWorkspace){
     NAVP.foldForWorkspace('content-click');
   }
@@ -711,6 +755,7 @@ function onClick(e){
   finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
 }
 function onSubmit(e){
+  if(DEMO_PREVIEW.active){ e.preventDefault(); if(typeof toast==='function') toast('Read-only board preview','Form submissions are disabled in the isolated synthetic preview.','info'); return; }
   const f = e && e.target && e.target.closest ? e.target.closest('[data-form]') : null;
   if(!f) return;
   e.preventDefault();
@@ -721,6 +766,10 @@ function onSubmit(e){
 }
 function onChange(e){
   const el = e.target;
+  if(DEMO_PREVIEW.active && !el.dataset.filter){
+    e.preventDefault(); if(typeof toast==='function') toast('Read-only board preview','Settings and record fields cannot be changed in this preview.','info');
+    return;
+  }
   if(el.dataset.filter){
     const params = {...APPX.params, [el.dataset.filter]: el.value};
     delete params.page;
@@ -792,6 +841,19 @@ function draftBanner(formId){
 }
 
 const ACTIONS = {
+  'demo-role-picker':()=>{
+    if(!DEMO_PREVIEW.active) return;
+    const users=(DB.db.users||[]).filter(u=>u.demo===true&&u.status==='active').sort((a,b)=>String(roleObj(a.roleId)?.name||a.roleId).localeCompare(String(roleObj(b.roleId)?.name||b.roleId))||String(a.name).localeCompare(String(b.name)));
+    openModal({title:'Explore synthetic role consoles',sub:'Switches only the local demonstration viewpoint. Every account is synthetic; every action remains read-only.',wide:true,
+      body:table([{label:'Office role',render:u=>`<b>${esc(roleObj(u.roleId)?.consoleTitle||roleObj(u.roleId)?.name||u.roleId)}</b><span class="sm">${esc(u.jobTitle||'')}</span>`},
+        {label:'Current holder (synthetic)',render:u=>esc(u.name)},
+        {label:'Scope',render:u=>`${esc(u.countyId?countyName(u.countyId):'Head Office')}${u.areaIds?.length?` · ${esc(u.areaIds.map(areaName).join(', '))}`:''}`},
+        {label:'',cls:'act',render:u=>`<button class="btn btn-xs ${u.id===AUTH.user.id?'btn-primary':'btn-ghost'}" data-act="demo-role-switch" data-id="${esc(u.id)}">${u.id===AUTH.user.id?'Current role':'Explore'}</button>`}
+      ],users),footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>`});
+  },
+  'demo-role-switch':(d)=>{ if(!DEMO_PREVIEW.switchRole(d.id)) toast('Role unavailable','Choose an active synthetic role from this preview.','warn'); else toast('Demo role switched','This remains an unauthenticated, read-only synthetic view.','info'); },
+  'demo-preview-enter':()=>toast('Setup required','A Chief System Administrator must commission CareLink before role accounts are issued.','info'),
+  'demo-preview-exit':()=>DEMO_PREVIEW.exit(),
   'page':(d)=>{ if(d.skip) return; go('patients',{...APPX.params,page:d.page}); },
   'save-draft':(d)=>{ const fid=d.draftid||d.form; const f=document.querySelector('form[data-form="'+fid+'"]'); if(!f) return;
     saveDraft(fid, f); toast('Draft saved','Held on this device only. It has not been submitted.','ok'); },
@@ -1578,6 +1640,34 @@ function workflowActionsUI(){ return {
       DB.save(); toast('Referral entity verified',e.name,'ok'); render();
     },'Verify entity');
   },
+  'pdca-review-comment':(d)=>{
+    const x=(DB.db.pdcas||[]).find(y=>y.id===d.id);
+    if(!x || !PDCAX.canReviewDiscussion(AUTH.user,x)) return toast('Not permitted','Only the scoped Medical Case Manager may review this caregiver PDCA.','err');
+    openModal({title:'Review caregiver PDCA',sub:'Your clinical review and comment will open a formal, audited correction thread with this caregiver.',body:`
+      <form data-form="pdca-review" id="pdcaReviewForm"><input type="hidden" name="pdcaId" value="${esc(x.id)}">
+        <div class="field"><label>Review comment *</label><textarea class="input" name="comment" rows="5" minlength="8" maxlength="1200" required placeholder="Describe the review, required corrections, or follow-up questions."></textarea><div class="hint">8–1,200 characters. Do not include unnecessary identifiers or unrelated sensitive details.</div></div>
+      </form>`,footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-pdca-review">Complete review &amp; open thread</button>`});
+  },
+  'pdca-thread-open':(d)=>{
+    const x=(DB.db.pdcas||[]).find(y=>y.id===d.id); const thread=PDCAX.discussion(AUTH.user,d.id);
+    if(!x || !thread.allowed) return toast('Not permitted','This PDCA discussion is restricted to its assigned caregiver and reviewing case manager.','err');
+    openModal({title:'Secure PDCA correction thread',sub:`${esc(x.plan||'Care-plan cycle')} · Reviewed ${fmtDateTime(x.reviewedAt)}`,wide:true,body:`
+      <div class="alert info" style="margin-bottom:12px">${ic('shield',15)}<div><b>Audited case-specific discussion</b><span class="small">Only the assigned caregiver and reviewing Medical Case Manager can read or reply. Messages are retained with this PDCA.</span></div></div>
+      <div class="col" style="gap:10px;max-height:44vh;overflow:auto">${thread.rows.map(m=>`<div class="card"><div class="card-b"><div class="spread"><b>${esc(userName(m.senderId))}</b><span class="xs muted">${fmtDateTime(m.at)}${m.kind==='mcm_review'?' · MCM review':''}</span></div><div class="small" style="white-space:pre-wrap;margin-top:7px">${esc(m.text)}</div></div></div>`).join('')||emptyState('No discussion messages','The reviewing MCM comment will appear here.','message')}</div>
+      <form data-form="pdca-reply" id="pdcaReplyForm" style="margin-top:14px"><input type="hidden" name="pdcaId" value="${esc(x.id)}"><div class="field"><label>Reply *</label><textarea class="input" name="comment" rows="3" minlength="2" maxlength="1200" required placeholder="Corrections or follow-up concerning this PDCA only."></textarea></div></form>`,footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button><button class="btn btn-primary" data-act="submit-pdca-reply">Send audited reply</button>`});
+  },
+  'submit-pdca-review':()=>{
+    const f=$('#pdcaReviewForm'); if(!f) return;
+    const d=new FormData(f); const r=PDCAX.reviewAndComment(AUTH.user,d.get('pdcaId'),d.get('comment'));
+    if(!r.ok) return toast('Review not recorded',r.msg,'err');
+    closeModal(); render(); toast('PDCA review recorded','The assigned caregiver can now respond in the secured correction thread.','ok');
+  },
+  'submit-pdca-reply':()=>{
+    const f=$('#pdcaReplyForm'); if(!f) return;
+    const d=new FormData(f); const r=PDCAX.replyDiscussion(AUTH.user,d.get('pdcaId'),d.get('comment'));
+    if(!r.ok) return toast('Reply not sent',r.msg,'err');
+    closeModal(); render(); toast('Reply recorded','Your message was added to the audited PDCA thread.','ok');
+  },
   'open-pdca':(d)=>{
     const x=DB.db.pdcas.find(y=>y.id===d.id);
     openModal({title:'PDCA cycle', sub:`${esc(x.plan)}`, body:`
@@ -1747,7 +1837,7 @@ function clinicalActions(){ return {
     if(v.weight&&p?.clinical) p.clinical.weightKg=v.weight;
     if(d.get('escalate')&&p){
       DB.db.concerns.push({id:uid('cn'),patientId:p.id,type:'field_escalation',level:'clinical',opened:todayISO(),detail:v.notes,by:AUTH.user.id,status:'open',demo:true});
-      notify(DB.db.users.find(u=>u.roleId==='mcm')?.id,'Clinical concern escalated',p.name+' - '+v.notes.slice(0,60),'warn');
+      notifyPatientCareTeam(p,'Clinical concern needs review','A caregiver escalated a clinical concern. Review the scoped patient record; the concern text is not repeated in this notification.','warn',AUTH.user.id);
     }
     AUDIT.append({actor:AUTH.user.id,action:'visit.recorded',entity:'patient',entityId:v.patientId,detail:`${titleCase(v.type)} visit · ${titleCase(v.outcome)}`});
     DB.save(); closeModal(); toast('Visit recorded', v.outcome==='not_found'?'Marked as not found at home.':'Visit saved.','ok'); render();
@@ -2777,6 +2867,8 @@ const FORMS = {
   'delegation-issue':(d)=>submitDelegationIssue(d),
   'pdca-complete':(d)=>submitPdcaComplete(d),
   'pdca-extension':(d)=>submitPdcaExtension(d),
+  'pdca-review':()=>ACTIONS['submit-pdca-review'](),
+  'pdca-reply':()=>ACTIONS['submit-pdca-reply'](),
   'workplan':()=>ACTIONS['submit-workplan']({}),
   'message':(d)=>{
     const thread=d.get('thread'); const text=String(d.get('text')||'').trim();
@@ -2902,7 +2994,7 @@ const FORMS = {
 /* ---------------- AI dock ---------------- */
 function renderAIDock(){
   let dock = $('.ai-dock');
-  if(!AUTH.user){ if(dock) dock.remove(); return; }
+  if(DEMO_PREVIEW.active || !AUTH.user){ if(dock) dock.remove(); return; }
   if(!dock){ dock=document.createElement('div'); dock.className='ai-dock'; document.body.appendChild(dock); }
   if(!RBAC.has(AUTH.user,'ai.use')){ dock.innerHTML=''; return; }
   const prof = AI.profileFor ? AI.profileFor(AUTH.user, APPX.view) : { title:'LOMAMO C-DIMS Assistant', badge:'Console AI', summary:'', chips:[] };
@@ -3076,6 +3168,62 @@ document.addEventListener('click',(e)=>{
    they had been typed above. */
 Object.assign(ACTIONS, FORMS_ACTIONS);
 Object.assign(FORMS, FORMS_FORMS);
+Object.assign(ACTIONS, {
+  'calendar-new-meeting': () => openCalendarMeetingForm(),
+  'calendar-join-meeting': (d) => {
+    const meeting = (DB.db.calendarEvents || []).find(e => e.id === d.id && e.kind === 'meeting');
+    if (!meeting || !(meeting.visibleTo || []).includes(AUTH.user.id) && !canManageCalendarMeetings(AUTH.user))
+      return toast('Meeting unavailable', 'This invite is not visible to your account.', 'err');
+    try {
+      const url = new URL(meeting.meetingUrl);
+      if (url.protocol !== 'https:') throw new Error('HTTPS required');
+      AUDIT.append({ actor:AUTH.user.id, action:'meeting.join_link_opened', entity:'calendar_event', entityId:meeting.id,
+        detail:`Opened ${meeting.mode || 'audio/video'} meeting link for ${meeting.title}` });
+      DB.save();
+      const opened = window.open(url.href, '_blank', 'noopener,noreferrer');
+      if (!opened) toast('Meeting link ready', 'Your browser blocked the new tab; allow pop-ups for the approved meeting provider.', 'warn');
+    } catch (_e) { toast('Meeting link rejected', 'Only a valid HTTPS meeting provider URL can be opened.', 'err'); }
+  },
+});
+Object.assign(FORMS, {
+  'calendar-meeting-create': (d) => {
+    const user = AUTH.user;
+    if (!canManageCalendarMeetings(user)) return toast('Not permitted', 'Only Media and County Admin Assistant accounts may schedule meetings.', 'err');
+    const title = String(d.get('title') || '').trim().slice(0, 120);
+    const mode = String(d.get('mode') || 'video');
+    const localAt = String(d.get('at') || '').trim();
+    const duration = Number(d.get('duration') || 30);
+    const agenda = String(d.get('agenda') || '').trim().slice(0, 1000);
+    if (!title || !localAt || ![15,30,45,60,90,120].includes(duration)) return toast('Check meeting details', 'Title, start time and duration are required.', 'err');
+    if (d.get('confidentiality') !== 'on' || d.get('approvedProvider') !== 'on')
+      return toast('Acknowledgements required', 'Confirm confidentiality/data protection and an approved provider before scheduling.', 'err');
+    const urlText = String(d.get('meetingUrl') || '').trim();
+    let meetingUrl;
+    try { const u = new URL(urlText); if (u.protocol !== 'https:' || u.username || u.password) throw new Error(); meetingUrl = u.href; }
+    catch (_e) { return toast('Provider URL invalid', 'Use an approved HTTPS audio/video meeting URL.', 'err'); }
+    const parsed = new Date(`${localAt}:00+03:00`);
+    if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) return toast('Start time must be in the future', 'Enter a future Nairobi time.', 'err');
+    const usernames = [...new Set(String(d.get('invitees') || '').split(/[\s,;]+/).map(x=>x.trim().toLowerCase()).filter(Boolean))];
+    if (!usernames.length || usernames.length > 20) return toast('Invite 1–20 staff', 'Use active CareLink usernames separated by commas or lines.', 'err');
+    const users = DB.db.users || [];
+    const invitees = usernames.map(name => users.find(u=>String(u.username||'').toLowerCase()===name));
+    if (invitees.some(u=>!u || u.active===false || u.status==='inactive')) return toast('Invitee not found', 'Every invitee must be an existing active CareLink account.', 'err');
+    const participants = [...new Set([user.id, ...invitees.map(u=>u.id)])];
+    DB.db.calendarEvents = DB.db.calendarEvents || [];
+    const event = {
+      id:uid('meet'), at:parsed.toISOString(), endAt:new Date(parsed.getTime()+duration*60000).toISOString(),
+      title, kind:'meeting', mode:mode==='audio'?'audio':'video', meetingUrl, agenda,
+      detail:`${mode==='audio'?'Audio':'Video'} meeting · ${duration} minutes · ${participants.length} attendees`,
+      createdBy:user.id, createdAt:new Date().toISOString(), participantUserIds:participants, visibleTo:participants,
+      status:'scheduled', governance:{ confidentialityAcknowledged:true, approvedProviderAcknowledged:true,
+        policy:'LOMAMO confidentiality, data-protection, safeguarding and ethical-storytelling requirements', acknowledgedBy:user.id, acknowledgedAt:new Date().toISOString() },
+    };
+    DB.db.calendarEvents.push(event);
+    AUDIT.append({actor:user.id, action:'meeting.scheduled', entity:'calendar_event', entityId:event.id,
+      detail:`Scheduled ${event.mode} meeting '${title}' for ${event.at}; ${participants.length} participants; provider approval and confidentiality acknowledgements recorded.`});
+    DB.save(); closeModal(true); toast('Meeting scheduled', 'Invited staff can see the private event in their CareLink calendar.', 'ok'); go('calendar');
+  },
+});
 if(typeof registerCountyUrgentActions === 'function') registerCountyUrgentActions();
 
 /* ---------------- Start ---------------- */

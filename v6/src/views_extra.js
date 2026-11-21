@@ -5,6 +5,41 @@
    ============================================================ */
 
 /* ---------------- Calendar ---------------- */
+function canManageCalendarMeetings(user){
+  return Boolean(user && RBAC.has(user, 'meeting.manage'));
+}
+
+function openCalendarMeetingForm(){
+  const user = AUTH.user;
+  if (!canManageCalendarMeetings(user)) return toast('Meeting scheduling restricted', 'Only Media and County Admin Assistant accounts may schedule governed meetings.', 'err');
+  const attendeeHints = (DB.db.users || []).filter(u => u.active !== false && u.status !== 'inactive' && u.id !== user.id)
+    .map(u => `<option value="${esc(u.username)}">${esc(u.name)} · ${esc((roleObj(u.roleId)||{}).name||u.roleId)}</option>`).join('');
+  openModal({
+    title:'Schedule an audited audio/video meeting',
+    sub:'Media and County Administration scheduling · invite-only calendar event',
+    wide:true,
+    body:`<form data-form="calendar-meeting-create">
+      <div class="alert info"><div><b>Approved meeting service required</b><div class="small">CareLink records the schedule, invitees and audit trail. The call opens in the approved meeting provider you supply; CareLink does not record calls. Do not include patient names, diagnoses, CCC/PSC identifiers or case details in the title, invite or external call.</div></div></div>
+      <div class="grid g2">
+        <div class="field"><label>Meeting title *</label><input class="input" name="title" maxlength="120" required placeholder="Department coordination meeting"></div>
+        <div class="field"><label>Call type *</label><select class="input" name="mode" required><option value="video">Video meeting</option><option value="audio">Audio meeting</option></select></div>
+        <div class="field"><label>Start time (Nairobi time) *</label><input class="input" type="datetime-local" name="at" required></div>
+        <div class="field"><label>Duration *</label><select class="input" name="duration"><option>15</option><option selected>30</option><option>45</option><option>60</option><option>90</option><option>120</option></select></div>
+        <div class="field" style="grid-column:1/-1"><label>Approved provider meeting URL (HTTPS) *</label><input class="input mono" type="url" name="meetingUrl" required placeholder="https://approved-provider.example/meeting-room"><div class="hint">Only an HTTPS provider URL is accepted. Never paste a patient-specific clinical record link.</div></div>
+        <div class="field" style="grid-column:1/-1"><label>Invitee usernames (comma or line separated) *</label><textarea class="input" name="invitees" rows="3" list="meeting-usernames" required placeholder="county.assistant, media.head"></textarea><datalist id="meeting-usernames">${attendeeHints}</datalist></div>
+        <div class="field" style="grid-column:1/-1"><label>Agenda (no patient-identifiable information)</label><textarea class="input" name="agenda" rows="3" maxlength="1000" placeholder="Operational agenda only"></textarea></div>
+      </div>
+      <div class="col" style="gap:9px;margin-top:12px">
+        <label class="row small" style="align-items:flex-start;gap:9px"><input type="checkbox" name="confidentiality" required><span>I acknowledge confidentiality, data-protection, safeguarding and ethical-storytelling requirements and will not place patient-identifiable or clinical information in this meeting, its invitation, or the external call.</span></label>
+        <label class="row small" style="align-items:flex-start;gap:9px"><input type="checkbox" name="approvedProvider" required><span>I confirm the selected audio/video service has been approved for this meeting by LOMAMO governance and will be used lawfully under applicable law and internal policy. This confirmation is an operational attestation, not a declaration of statutory compliance by CareLink.</span></label>
+      </div>
+    </form>`,
+    footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" type="submit" form="calendarMeetingForm">Schedule meeting</button>`
+  });
+  const form = document.querySelector('.modal-b form[data-form="calendar-meeting-create"]');
+  if (form) form.id = 'calendarMeetingForm';
+}
+
 function calendarEvents(user){
   const ev = [];
   const mine = p => repo.patient(user, p.id);
@@ -29,8 +64,11 @@ function calendarEvents(user){
   (DB.db.publications||[]).filter(p=>['scheduled','approved'].includes(p.status)&&p.scheduledAt).forEach(p=>{
     if(RBAC.has(user,'media.view')) ev.push({ at:p.scheduledAt, kind:'media', title:'Publication - '+p.title, detail:titleCase(p.status), tone:'info' });
   });
-  (DB.db.calendarEvents||[]).filter(e=>e.visibleTo==='all'||(e.visibleTo||[]).includes(user.id)).forEach(e=>{
-    ev.push({ at:e.at, kind:e.kind||'event', title:e.title, detail:e.detail||'', tone:'info' });
+  const meetingManager = canManageCalendarMeetings(user);
+  (DB.db.calendarEvents||[]).filter(e=>e.visibleTo==='all'||(e.visibleTo||[]).includes(user.id)||
+    (meetingManager && e.kind==='meeting')).forEach(e=>{
+    ev.push({ at:e.at, kind:e.kind||'event', title:e.title, detail:e.detail||'', tone:'info',
+      meetingId:e.kind==='meeting'?e.id:null, mode:e.mode||'', joinUrl:e.kind==='meeting'?e.meetingUrl:'' });
   });
   return ev.filter(e=>e.at).sort((a,b)=>new Date(a.at)-new Date(b.at));
 }
@@ -58,8 +96,9 @@ function renderCalendar(user, params={}){
   }
   const prev = new Date(yy, mm-2, 1), next = new Date(yy, mm, 1);
   const label = first.toLocaleString('en-GB',{month:'long',year:'numeric'});
-  return pageHead('Calendar','Visits, appointments, leave, plan deadlines and approved publications, from the records themselves.',
-    `<div class="seg"><button data-act="go" data-v="calendar" data-month="${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}">Previous</button>
+  return pageHead('Calendar','Visits, appointments, leave, plan deadlines, approved publications and invite-only department meetings.',
+    `${canManageCalendarMeetings(user)?`<button class="btn btn-sm btn-primary" data-act="calendar-new-meeting">${ic('calendar',14)} Schedule audio/video meeting</button>`:''}
+    <div class="seg"><button data-act="go" data-v="calendar" data-month="${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}">Previous</button>
       <button class="on">${esc(label)}</button>
       <button data-act="go" data-v="calendar" data-month="${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}">Next</button></div>`)
   + `<div class="grid g4" style="margin-bottom:16px">
@@ -72,7 +111,7 @@ function renderCalendar(user, params={}){
       ${card('Month', `<div class="cal-grid">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="cal-h">${d}</div>`).join('')}${cells.join('')}</div>`)}
       ${card('Next up', `<div class="col" style="gap:8px">${upcoming.length? upcoming.map(e=>`<div class="cal-row">
           <div class="cal-date"><b>${new Date(e.at).getDate()}</b><span>${new Date(e.at).toLocaleString('en-GB',{month:'short'})}</span></div>
-          <div><b style="font-size:13px">${esc(e.title)}</b><div class="xs muted">${esc(e.detail||'')}</div></div>
+          <div><b style="font-size:13px">${esc(e.title)}</b><div class="xs muted">${esc(e.detail||'')}</div>${e.joinUrl?`<button class="btn btn-xs btn-primary" style="margin-top:6px" data-act="calendar-join-meeting" data-id="${esc(e.meetingId)}">Join ${e.mode==='audio'?'audio':'video'} meeting</button>`:''}</div>
           <span class="cal-kind ${e.tone}">${esc(titleCase(e.kind))}</span></div>`).join('') : `<p class="small muted">Nothing scheduled in the coming days.</p>`}</div>`,
         {sub:'Sensitive events show a reference and area, never a clinical detail.'})}
     </div>`;

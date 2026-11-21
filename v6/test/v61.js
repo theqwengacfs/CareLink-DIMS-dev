@@ -50,7 +50,7 @@ test('Administration\'s own staff list is loaded, seat by seat', ()=>{
     susan:m['chw.nyalenda']?.name, iscah:m['chw.manyatta.iscah']?.name, millicent:m['chw.manyatta.millicent']?.name
   }; })()`);
   ok('Director is Martin Mito Chamah', named.director==='Martin Mito Chamah', named.director);
-  ok('Chief Admin / Kisumu Admin is Moses Otieno', named.chief==='Moses Otieno' && named.ksmAdmin==='Moses Otieno', named.chief+'/'+named.ksmAdmin);
+  ok('Chief System Administrator is Daniel Naphtaly Ombija; Kisumu Admin is Moses Otieno', named.chief==='Daniel Naphtaly Ombija' && named.ksmAdmin==='Moses Otieno', named.chief+'/'+named.ksmAdmin);
   ok('Chief Admin Assistant is Julie Oguta', named.assistant==='Julie Oguta', named.assistant);
   ok('Internal Operations Manager is Irene Otieno', named.ops==='Irene Otieno', named.ops);
   ok('Homa Bay Admin is Oscar Lubalo', named.hbAdmin==='Oscar Lubalo', named.hbAdmin);

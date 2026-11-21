@@ -512,10 +512,19 @@ function studioHtml(user){
     `<button class="${st[key]===o.v?'on':''}" data-act="studio-set" data-key="${key}" data-value="${esc(o.v)}" aria-pressed="${st[key]===o.v}">${esc(o.l)}</button>`).join('')}</div>`;
   const dots = `<div class="st-sw" role="group" aria-label="Accent colour">${STUDIO.accentPick.opts.map(o=>
     `<button class="st-dot ${o.v===''?'none':''} ${st.accentPick===o.v?'on':''}" ${o.v?`style="background:${o.v}"`:''} data-act="studio-set" data-key="accentPick" data-value="${esc(o.v)}" aria-pressed="${st.accentPick===o.v}" aria-label="${esc(o.l)}" title="${esc(o.l)}">${st.accentPick===o.v?'\u2713':''}</button>`).join('')}</div>`;
-  return `<p class="small muted" style="margin:0 0 12px">Mix your own workspace look. Presets apply complete combinations in one click, and every colour pair is automatically checked for WCAG high-contrast legibility.</p>
+  const schemeChoices = `<div class="console-scheme-grid" role="group" aria-label="Console colour schemes">${CONSOLE_COLOR_SCHEMES.map(s=>{
+    const colors = consoleSchemeColors(s.id, deptPaletteFor(user));
+    const selected = st.colorScheme === s.id;
+    return `<button type="button" class="console-scheme-choice ${selected?'is-selected':''}" data-act="studio-set" data-key="colorScheme" data-value="${s.id}" aria-pressed="${selected}" aria-label="${esc(s.name)} colour scheme">
+      <span class="console-scheme-swatches" aria-hidden="true">${colors.map(c=>`<i style="--swatch:${c}"></i>`).join('')}</span>
+      <b>${esc(s.name)}</b><small>${esc(s.description)}</small>
+    </button>`;
+  }).join('')}</div>`;
+  return `<p class="small muted" style="margin:0 0 12px">Mix your own workspace look. Presets apply complete combinations in one click, and every colour pair is automatically checked for WCAG high-contrast legibility. Console schemes colour navigation, metric boxes and card accents while keeping white surfaces and status meanings intact.</p>
     <div class="st-grid">${STUDIO_PRESETS.map(p=>`<button class="st-pre" data-act="studio-preset" data-id="${p.id}"><b>${esc(p.name)}</b><span>${esc(p.blurb)}</span></button>`).join('')}
       <button class="st-pre" data-act="studio-preset" data-id="random"><b>${ic('sparkle',14)} Surprise me</b><span>A random theme and combination. Try it, then reset if you do not like it.</span></button></div>
     <div style="margin-top:14px">
+    ${settingRow('Console colour scheme','Choose a coordinated palette for workspace cards, KPI boxes, navigation tabs and highlights.', schemeChoices)}
     ${settingRow('Accent colour','Overrides the theme and department colour while preserving automatic 5:1 text contrast.', dots)}
     ${STUDIO.bannerStyle ? settingRow('Console top banner','Choose a full-spectrum multi-colour banner, deep duotone gradient or solid crest.', seg('bannerStyle')) : ''}
     ${STUDIO.tabStyle ? settingRow('Tab & pill style','Switch tabs between filled pills, framed cards or clean underline bars.', seg('tabStyle')) : ''}
@@ -545,7 +554,7 @@ function settingsAppearance(user){
   const dev = (typeof DEVICE!=='undefined')? DEVICE.profile() : null;
   const devDefault = (typeof DEVICE!=='undefined')? (WTHEME.byId(DEVICE.themeDefault())||{}).name : '';
   return `${card('Workspace theme', `
-      <p class="small muted" style="margin:0 0 12px">Twenty vibrant workspace themes paired with 15 departmental colour schemes. A theme changes colour and contrast only and never changes permissions, records, or status meaning.</p>
+      <p class="small muted" style="margin:0 0 12px">Choose from ${WTHEMES.length} workspace themes, ${CONSOLE_COLOR_SCHEMES.length} coordinated multi-colour console schemes, and per-component styles for tabs, metric boxes and borders. Appearance never changes permissions, records or status meaning.</p>
       ${dev?`<div class="note" style="margin-bottom:12px">${ic('package',15)}<span class="small">This device is a <b>${esc(dev.kind)}</b> (${esc(dev.name)}), so it opens in the standard <b>${esc(devDefault)}</b> theme across PC and tablets until you choose another theme or visual pack here. Field teams working in low light can switch to <b>Harbour Dusk</b> or <b>Night Ward</b> in one tap, and every pair is contrast-checked in the Visual &amp; accessibility audit.</span></div>`:''}
       ${wtGridHtml(user,'set-wtheme')}`)}
     ${card('Creative studio', studioHtml(user))}

@@ -18,7 +18,7 @@ const BACKUP = {
   /* Collections that carry records. Accounts, roles and the audit trail are
      deliberately excluded from a record restore: see the limitation note. */
   RECORD_KEYS: ['patients','visits','requests','encounters','transactions','budgets','documents',
-    'concerns','pdcas','referralEntities','employees','leaveRequests','welfareContributions',
+    'concerns','pdcas','pdcaDiscussions','referralEntities','employees','leaveRequests','welfareContributions',
     'welfareActivities','vehicles','trips','targets','accountRequests','patientConditions',
     'careBeds','careResidents','careLogs','careIncidents','delegations','reports','notifications'],
   REQUIRED: ['patients','visits','requests','transactions','settings','users','audit'],
@@ -89,6 +89,9 @@ const BACKUP = {
       [['visits','patientId'],['requests','patientId'],['documents','patientId'],['concerns','patientId'],['pdcas','patientId']]
         .forEach(([k,f])=>{ if(Array.isArray(db[k])) db[k].forEach(r=>{ if(r[f] && !pids.has(r[f])) orphans.push(`${k}:${r.id}`); }); });
       add('No record points at a patient that is not in the copy', orphans.length===0, orphans.length? `${orphans.length} orphaned records` : 'Referential integrity holds');
+      const pdcaIds=new Set((db.pdcas||[]).map(x=>x.id));
+      const orphanThreads=(db.pdcaDiscussions||[]).filter(x=>!pdcaIds.has(x.pdcaId)||!pids.has(x.patientId));
+      add('PDCA discussion messages point to an included cycle and patient',orphanThreads.length===0,orphanThreads.length?`${orphanThreads.length} orphaned thread messages`:'PDCA thread links hold');
 
       const counts = this.counts(db);
       const liveCounts = this.counts(DB.db);

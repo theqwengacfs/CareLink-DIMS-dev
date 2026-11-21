@@ -26,8 +26,8 @@ const cr=(a,b)=>{let x=lum(a),y=lum(b);if(x<y)[x,y]=[y,x];return (x+.05)/(y+.05)
 
 /* ---------------- 1. the theme table ---------------- */
 test('thirty vibrant themes, unique, each defining every token', ()=>{
-  ok('thirty themes', THEMES.length===30, THEMES.join(','));
-  ok('ids unique', new Set(THEMES).size===30);
+  ok('forty-five themes', THEMES.length===45, THEMES.join(','));
+  ok('ids unique', new Set(THEMES).size===45);
   const keys=J('Object.keys(WT_TOKENS)');
   THEMES.forEach(id=>{
     const t=J(`WTHEME.byId('${id}').t`);

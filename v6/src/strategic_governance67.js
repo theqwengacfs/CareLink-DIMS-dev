@@ -822,7 +822,7 @@ const WORKSPACE_LAYOUTS = {
           <div class="ws67-actions">
             ${ctx.actionsHtml || ''}
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="open-switch-account">${ic('users', 13)} Switch Account</button>
-            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="wtheme-open">${ic('palette', 13)} Themes &amp; Style</button>
+            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="wtheme-open" data-tab="studio">${ic('palette', 13)} Themes &amp; Style</button>
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="arrange-home">${ic('settings', 13)} Arrange</button>
           </div>
         </div>
@@ -932,7 +932,7 @@ const ACCOUNT_SWITCHER = {
             </div>
           </div>` : ''}
           <div class="field">
-            <label>Incoming Staff Username or Official Email *</label>
+            <label>Incoming Staff Username or Mock Email Alias *</label>
             <input class="input" id="sw-live-u" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. director, mcm.kisumu, caregiver.nyalenda">
           </div>
           <div class="field">

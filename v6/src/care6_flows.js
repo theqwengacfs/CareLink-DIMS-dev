@@ -560,6 +560,17 @@ const PAT_DISCHARGE = {
           </div>
         </div>
       </div>
+      <section class="cdims-physical-signatures" style="break-inside:avoid;margin-top:14px;border:1px solid #64748B;padding:14px">
+        <h3 style="font-size:14px">PATIENT ACKNOWLEDGEMENT &amp; PHYSICAL SIGNATURES</h3>
+        <p><b>Print this page and obtain signatures in ink before discharge.</b> Explain the end-of-programme decision and continuing-care plan to the patient/guardian. Electronic approval and typed names do not replace physical signatures. Retain the signed original and an authorised scan.</p>
+        <div class="cdims-pdca-grid2">
+          <div>Patient / Parent / Legal Guardian name: ___________________________<br><br>Patient / Guardian signature · date: _________________________________</div>
+          <div>Caregiver name: _______________________________________________<br><br>Caregiver signature · date: _________________________________________</div>
+          <div>Medical Case Manager name: ___________________________________<br><br>MCM signature · date: ______________________________________________</div>
+          <div>Area Coordinator / County witness: _____________________________<br><br>Witness signature · date: ___________________________________________</div>
+        </div>
+        <small>Physical consent and assessment signatures remain in the hard-copy packet. CareLink does not capture a digital signature here.</small>
+      </section>
       ${d.advisory && d.advisory.flagged ? `<div class="alert ${d.advisory.severity==='high'?'a-crit':'a-warn'}" style="margin-top:10px">
         ${!standalone ? ic('alert',15) : ''}<div><b>Returning-Patient Watchlist Advisory (${d.advisory.severity==='high'?'High Policy Alert':'Caregiver Watch'}):</b> ${esc(d.advisory.category||'Advisory')} — ${esc(d.advisory.note||'')}</div>
       </div>` : ''}` : '';

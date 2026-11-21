@@ -153,13 +153,23 @@ const CONTRAST_PAIRS = [
 const VISUALX = {
   pairs(){ return CONTRAST_PAIRS; },
 
+  /* Detect failures and return the corrected runtime token set without
+     modifying the stored palette or a user's saved theme preference. */
+  contrastMonitor(themeId){
+    const theme = WTHEME.byId(themeId || WTHEME._active?.id || WT_DEFAULT);
+    if(!theme) return {ok:false, error:'Unknown theme'};
+    const correction = WTHEME.correctContrastTokens(theme);
+    const vars = WTHEME.vars(Object.assign({}, theme, {t:correction.tokens}), '#C8102E', '');
+    return {ok:true, themeId:theme.id, corrections:correction.changed, tokens:vars};
+  },
+
   /* Contrast of every theme token pair, for every theme in the system. */
   contrastAudit(){
     const out = [];
     (typeof WTHEMES!=='undefined'? WTHEMES : []).forEach(theme=>{
-      const t = theme.t;
-      const acc = WTHEME.accents(theme, '#C8102E', '');
-      const vars = WTHEME.vars(theme, '#C8102E', '');
+      const t = WTHEME.correctContrastTokens(theme).tokens;
+      const acc = WTHEME.accents(Object.assign({}, theme, {t}), '#C8102E', '');
+      const vars = WTHEME.vars(Object.assign({}, theme, {t}), '#C8102E', '');
       const rows = CONTRAST_PAIRS.map(p=>{
         let fg, bg;
         if(p.special==='accent'){ fg = acc.fg; bg = acc.soft; }

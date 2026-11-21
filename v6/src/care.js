@@ -20,10 +20,12 @@ const CONDITION_DEFS = [
   { key:'cancer',       label:'Cancer (documented type)',  cls:'Non-communicable',  sensitive:true  },
   { key:'wound',        label:'Wound care',                cls:'Surgical',          sensitive:false },
   { key:'crypto',       label:'Cryptococcal meningitis',   cls:'Infectious',        sensitive:true  },
-  { key:'diarrhoea',    label:'Diarrhoeal illness',        cls:'Infectious',        sensitive:false },
+  { key:'diarrhoea',    label:'Diarrhoeal illness',         cls:'Infectious',        sensitive:false },
+  { key:'other',        label:'Other recorded condition',   cls:'Other',              sensitive:false },
   { key:'malaria',      label:'Malaria',                   cls:'Infectious',        sensitive:false },
   { key:'pneumonia',    label:'Pneumonia',                 cls:'Respiratory',       sensitive:false },
   { key:'malnutrition', label:'Malnutrition',              cls:'Nutrition',         sensitive:false },
+  { key:'anaemia',      label:'Anaemia',                   cls:'Haematology',       sensitive:false },
   { key:'hypertension', label:'Hypertension',              cls:'Non-communicable',  sensitive:false },
   { key:'diabetes',     label:'Diabetes mellitus',         cls:'Non-communicable',  sensitive:false }
 ];
@@ -52,7 +54,7 @@ const COND = {
     return { rows, withheld: all.length - rows.length, allowed:true, maySeeSensitive };
   },
 
-  record(user, { patientId, key, status='suspected', note='' }){
+  record(user, { patientId, key, status='suspected', note='', details={} }){
     const p = repo.patient(user, patientId);
     if(!p) return { ok:false, msg:'Patient not found in your scope.' };
     if(!RBAC.can(user,'condition.record',{countyId:p.countyId,areaId:p.areaId}).ok)
@@ -62,7 +64,28 @@ const COND = {
     /* A diagnosis is not something a non-clinical role can assert. */
     if(['confirmed','documented'].includes(status) && !RBAC.has(user,'condition.confirm'))
       return { ok:false, msg:'Only a clinician may confirm or document a diagnosis. Record it as suspected and refer for review.' };
-    if(status==='suspected' && !['suspected'].includes(status)) return { ok:false, msg:'Invalid status.' };
+    if(!['suspected','documented','confirmed','historical','resolved','follow_up'].includes(status)) return { ok:false, msg:'Choose a valid condition status.' };
+    const safeDetails={};
+    if(def.key==='tb' || def.key==='hiv_tb'){
+      if(RBAC.has(user,'condition.sensitive')){
+        const subtype=String(details.tbType||'').trim();
+        if(subtype && !['Pulmonary TB','Extra-pulmonary TB'].includes(subtype)) return {ok:false,msg:'Choose a supported TB subtype.'};
+        const started=String(details.treatmentStartedAt||'').slice(0,10), expected=String(details.expectedCompletionAt||'').slice(0,10);
+        const validDate=s=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const dt=new Date(s+'T00:00:00Z'); return !isNaN(dt)&&dt.toISOString().slice(0,10)===s;};
+        if(started && !validDate(started)) return {ok:false,msg:'Treatment start must be a valid date.'};
+        if(expected && !validDate(expected)) return {ok:false,msg:'Expected completion must be a valid date.'};
+        if(started && started>todayISO().slice(0,10)) return {ok:false,msg:'Treatment start cannot be in the future.'};
+        if(started && expected && expected < started) return {ok:false,msg:'Expected completion cannot be before treatment starts.'};
+        Object.assign(safeDetails,{tbType:subtype,treatmentStartedAt:started,expectedCompletionAt:expected,
+          treatmentHistory:String(details.treatmentHistory||'').trim().slice(0,600)});
+      }
+    }
+    if(def.key==='cancer' && RBAC.has(user,'condition.sensitive')) safeDetails.cancerType=String(details.cancerType||'').trim().slice(0,100);
+    if(def.key==='anaemia' && RBAC.has(user,'condition.confirm')){
+      const severity=String(details.severity||'');
+      if(severity && !['Severe','Moderate','Mild','Normal','Healthy'].includes(severity)) return {ok:false,msg:'Choose a valid anaemia classification.'};
+      safeDetails.severity=severity;
+    }
 
     const row = {
       id:'pc-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6),
@@ -70,7 +93,7 @@ const COND = {
       sensitive:def.sensitive, recordedBy:user.id, recordedAt:new Date().toISOString(),
       confirmedBy:['confirmed','documented'].includes(status)?user.id:null,
       confirmedAt:['confirmed','documented'].includes(status)?new Date().toISOString():null,
-      note:String(note||'').slice(0,500), demo:false
+      note:String(note||'').slice(0,500), details:safeDetails, demo:false
     };
     DB.db.patientConditions.push(row);
     AUDIT.append({actor:user.id, action:'condition.recorded', entity:'patient', entityId:patientId,
@@ -109,14 +132,20 @@ const COND = {
     (DB.db.patientConditions||[]).forEach(c=>{
       if(!ids.has(c.patientId)) return;
       if(this.isSensitive(c) && !maySeeSensitive) return;
-      const k = c.key;
-      if(!counts.has(k)) counts.set(k, { key:k, label:c.label, sensitive:this.isSensitive(c), n:0 });
-      counts.get(k).n++;
+      const detail=c.details||{};
+      const variant=(c.key==='tb'||c.key==='hiv_tb')?(detail.tbType||'TB subtype not recorded')
+        :(c.key==='anaemia'?(detail.severity||detail.anaemiaSeverity||'Severity not recorded')
+        :(c.key==='cancer'?(detail.cancerType||c.label):''));
+      const label=variant?(c.key==='anaemia'?`Anaemia · ${variant}`:variant):c.label;
+      const k = `${c.key}|${variant}`;
+      if(!counts.has(k)) counts.set(k, { key:c.key, label, sensitive:this.isSensitive(c), ids:new Set() });
+      counts.get(k).ids.add(c.patientId);
     });
     let suppressed = 0;
     const rows = [...counts.values()].map(r=>{
-      if(r.n>0 && r.n<5){ suppressed++; return {...r, n:null, band:'Fewer than 5'}; }
-      return r;
+      const row={key:r.key,label:r.label,sensitive:r.sensitive,n:r.ids.size};
+      if(row.n>0 && row.n<5){ suppressed++; return {...row,n:null,band:'Fewer than 5'}; }
+      return row;
     }).sort((a,b)=>(b.n||0)-(a.n||0));
     return { allowed:true, rows, suppressed, maySeeSensitive,
       total: patients.length,
@@ -245,6 +274,60 @@ const PDCAX = {
       detail:'Extended case reviewed; justification recorded'});
     DB.save();
     return { ok:true, rec };
+  },
+
+  /* Only the assigned caregiver/case manager pair can see a cycle thread. */
+  discussionAccess(user, rec){
+    if(!user || !rec || rec.kind==='review' || rec.kind==='extension') return false;
+    const p=repo.patient(user,rec.patientId);
+    if(!p || !RBAC.patientVisible(user,p)) return false;
+    const assignedCaregiver = user.roleId==='caregiver' && (user.id===p.caregiverId || user.id===rec.owner);
+    const reviewedMcm = user.id===rec.reviewedBy && user.roleId==='mcm';
+    return assignedCaregiver || reviewedMcm;
+  },
+
+  canReviewDiscussion(user, rec){
+    if(!user || user.roleId!=='mcm' || !RBAC.has(user,'pdca.review')) return false;
+    const p=repo.patient(user,rec?.patientId);
+    if(!p || !RBAC.patientVisible(user,p)) return false;
+    const owner= userById(rec.owner);
+    return !!owner && owner.roleId==='caregiver' && !rec.reviewedAt;
+  },
+
+  discussion(user, pdcaId){
+    const rec=(DB.db.pdcas||[]).find(x=>x.id===pdcaId);
+    if(!rec || !rec.reviewedAt || !this.discussionAccess(user,rec)) return {allowed:false, rows:[]};
+    return {allowed:true, rows:(DB.db.pdcaDiscussions||[]).filter(m=>m.pdcaId===pdcaId)
+      .sort((a,b)=>String(a.at).localeCompare(String(b.at)))};
+  },
+
+  reviewAndComment(user, pdcaId, text){
+    const rec=(DB.db.pdcas||[]).find(x=>x.id===pdcaId);
+    if(!rec || !this.canReviewDiscussion(user,rec)) return {ok:false,msg:'Only the scoped Medical Case Manager may review a caregiver-owned PDCA.'};
+    const body=String(text||'').trim();
+    if(body.length<8 || body.length>1200) return {ok:false,msg:'Write a review comment of 8–1,200 characters.'};
+    rec.reviewedBy=user.id; rec.reviewedAt=todayISO(); rec.reviewComment=body;
+    const message={id:uid('pdm'),pdcaId,patientId:rec.patientId,senderId:user.id,at:rec.reviewedAt,text:body,kind:'mcm_review'};
+    DB.db.pdcaDiscussions=DB.db.pdcaDiscussions||[]; DB.db.pdcaDiscussions.push(message);
+    AUDIT.append({actor:user.id,action:'pdca.discussion.reviewed',entity:'pdca',entityId:rec.id,
+      detail:'Medical Case Manager reviewed the caregiver PDCA and opened a formal correction thread.'});
+    const p=repo.patient(user,rec.patientId);
+    if(p?.caregiverId) notify(p.caregiverId,'PDCA reviewed; response requested','Your Medical Case Manager reviewed a PDCA. Open the scoped patient record to read and respond to the correction thread.','info','pdca:'+rec.id);
+    DB.save(); return {ok:true,rec,message};
+  },
+
+  replyDiscussion(user, pdcaId, text){
+    const rec=(DB.db.pdcas||[]).find(x=>x.id===pdcaId);
+    if(!rec || !rec.reviewedAt || !this.discussionAccess(user,rec)) return {ok:false,msg:'This PDCA discussion is not available to your account.'};
+    const body=String(text||'').trim();
+    if(body.length<2 || body.length>1200) return {ok:false,msg:'Write a message of 2–1,200 characters.'};
+    const message={id:uid('pdm'),pdcaId,patientId:rec.patientId,senderId:user.id,at:todayISO(),text:body,kind:'reply'};
+    DB.db.pdcaDiscussions=DB.db.pdcaDiscussions||[]; DB.db.pdcaDiscussions.push(message);
+    AUDIT.append({actor:user.id,action:'pdca.discussion.reply',entity:'pdca',entityId:rec.id,
+      detail:'Formal PDCA correction/follow-up message recorded; content is held in the scoped discussion thread.'});
+    const p=repo.patient(user,rec.patientId); const otherId=user.id===rec.reviewedBy?p?.caregiverId:rec.reviewedBy;
+    if(otherId) notify(otherId,'PDCA discussion updated','A new message was added to your scoped PDCA correction thread. Open CareLink to review it.','info','pdca:'+rec.id);
+    DB.save(); return {ok:true,message};
   }
 };
 

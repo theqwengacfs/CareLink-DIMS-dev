@@ -79,6 +79,25 @@ global.fetch = async (input, init = {}) => {
     kv.delete(key);
     return kvResponse({ result: 1 });
   }
+  if (url.pathname === '/' && init.method === 'POST') {
+    const command = JSON.parse(rawBody);
+    const [op, ...args] = command;
+    if (op === 'SET') {
+      const [key, value, ...options] = args;
+      if (options.includes('NX') && kv.has(key)) return kvResponse({ result: null });
+      kv.set(key, String(value));
+      return kvResponse({ result: 'OK' });
+    }
+    if (op === 'GET') return kvResponse({ result: kv.has(args[0]) ? kv.get(args[0]) : null });
+    if (op === 'EVAL') {
+      const script = args[0]; const keyCount = Number(args[1]) || 0;
+      const key = args[2]; const value = args[2 + keyCount];
+      if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
+      if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
+      if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }
+    }
+    throw new Error(`Unexpected Redis command: ${op}`);
+  }
   throw new Error('Unexpected KV path: ' + url.pathname);
 };
 
@@ -119,8 +138,8 @@ function ok(name, cond, detail = '') {
     defaults.landingDefault.mode === 'dark' &&
     defaults.landingDefault.accent === '#E9C765' &&
     /\.ld\[data-theme="heritage"\][\s\S]*?linear-gradient/.test(console6CssRaw));
-  ok('30 workspace themes (including 10 new themes) pass 100% of contrast audits',
-    defaults.wthemeCount === 30 && defaults.auditFails === 0,
+  ok('45 workspace themes (including 10 new themes) pass 100% of contrast audits',
+    defaults.wthemeCount === 45 && defaults.auditFails === 0,
     `count=${defaults.wthemeCount}, auditFails=${defaults.auditFails}`);
 
   const newThemeIds = ['alabaster','vellum','glacier','pearl','coral','marigold','indigo','sage','obsidian','ruby'];
@@ -270,17 +289,20 @@ function ok(name, cond, detail = '') {
   const actPack = await pcAdmin.run('PROD_SETUP.activateSystemGlobally(AUTH.user)');
   const cgCred = actPack.rows.find(e => e.username === 'caregiver.nyalenda');
   ok('Global activation issues staff credentials across all active accounts', Boolean(cgCred && cgCred.tempPassword));
+  const expectedNyalendaPatientIds = JSON.parse(pcAdmin.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda').map(p=>p.id))`));
 
   /* 4a. Verify /api/auth/login reads ONLY manifest head (0 shard GETs!) */
   shardGets = 0;
   const authOnly = await rawApiFetch('api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'system.admin', password: chiefPrivPw })
+    body: JSON.stringify({ username: cgCred.username, password: cgCred.tempPassword })
   });
   const authBody = await authOnly.json();
   ok('POST /api/auth/login authenticates from sharded manifest head with ZERO shard reads',
     authOnly.ok === true && Boolean(authBody.token) && shardGets === 0, `shardGets=${shardGets}`);
+  const authOnlyLogout = await rawApiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${authBody.token}` }, body: '{}' });
+  ok('Direct API login lease releases cleanly before testing a fresh client', authOnlyLogout.status === 200);
 
   /* 4b. Verify fresh browser client logs in via 2-part fastPack (zero 16-collection page walk, zero onlineWarning) */
   const fastRequests = [];
@@ -290,48 +312,48 @@ function ok(name, cond, detail = '') {
   });
   await fastTablet.run('boot()');
   fastRequests.length = 0;
-  const fastLoginRes = JSON.parse(await fastTablet.run(`AUTH.loginOnline('system.admin', ${JSON.stringify(chiefPrivPw)}).then(r => JSON.stringify({
+  const fastLoginRes = JSON.parse(await fastTablet.run(`AUTH.loginOnline(${JSON.stringify(cgCred.username)}, ${JSON.stringify(cgCred.tempPassword)}).then(r => JSON.stringify({
     ok: r.ok, warn: r.onlineWarning || '', syncState: SYNC.state, patients: DB.db.patients.length
   }))`));
   const pageWalkCalls = fastRequests.filter(u => u.includes('api/state/collection'));
-  ok('Fresh client login loads all 3,333 patients via fastPack with zero collection-page walk and zero onlineWarning',
-    fastLoginRes.ok === true && fastLoginRes.warn === '' && fastLoginRes.patients === 3333 && pageWalkCalls.length === 0,
+  ok('Fresh client login loads only assigned-area patients via fastPack with zero collection-page walk and zero onlineWarning',
+    fastLoginRes.ok === true && fastLoginRes.warn === '' && fastLoginRes.patients === expectedNyalendaPatientIds.length && pageWalkCalls.length === 0,
     JSON.stringify({ fastLoginRes, fastRequests }));
+  await fastTablet.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
 
-  /* 4c. Verify pagedCollections fallback tolerates concurrent tablet write incrementing rev mid-pull with ZERO onlineWarning */
-  let injectedMidPullWrite = false;
-  const pagedPc = makeHostedClient(async (u, opts) => {
-    const urlStr = String(u);
-    if (urlStr.includes('api/state/collection?') && !injectedMidPullWrite) {
-      injectedMidPullWrite = true;
-      pcAdmin.run(`
-        DB.db.concerns = DB.db.concerns || [];
-        DB.db.concerns.push({ id: 'conc-midpull-v665', patientId: DB.db.patients[0].id, status: 'open', note: 'Saved concurrently during login' });
-        DB.save();
-      `);
-      await pcAdmin.run('SYNC.push()');
-    }
-    return rawApiFetch(urlStr, opts);
-  }, false);
-  await pagedPc.run('boot()');
-  const pagedLoginRes = JSON.parse(await pagedPc.run(`(async () => {
-    const r = await AUTH.loginOnline('system.admin', ${JSON.stringify(chiefPrivPw)});
-    if (SYNC._pushPromise) await SYNC._pushPromise;
-    return JSON.stringify({
-      ok: r.ok, warn: r.onlineWarning || '', syncState: SYNC.state, patients: DB.db.patients.length,
-      hasConcurrentConcern: (DB.db.concerns || []).some(c => c.id === 'conc-midpull-v665')
-    });
-  })()`));
-  ok('Concurrent write mid-login does NOT fail online state load and catches up cleanly via delta merge',
-    pagedLoginRes.ok === true && pagedLoginRes.warn === '' &&
-    ['connected', 'merge'].includes(pagedLoginRes.syncState) &&
-    pagedLoginRes.patients === 3333 && pagedLoginRes.hasConcurrentConcern === true,
-    JSON.stringify(pagedLoginRes));
+  /* 4c. Verify an authorized write made after a snapshot is returned by the
+     revision-delta endpoint, preserving the concurrent-update recovery contract. */
+  const concurrentLogin = await rawApiFetch('api/auth/login', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:cgCred.username,password:cgCred.tempPassword})
+  });
+  const concurrentAuth = await concurrentLogin.json();
+  const concurrentHeaders = {'x-carelink-session':concurrentAuth.token};
+  const snapshotResponse = await rawApiFetch('api/state', {headers:concurrentHeaders});
+  const snapshotBody = await snapshotResponse.json();
+  const snapshotRev = Number(snapshotBody.rev);
+  const scopedPatientId = expectedNyalendaPatientIds[0];
+  const concurrentWrite = await rawApiFetch('api/state', {
+    method:'PUT', headers:{...concurrentHeaders,'Content-Type':'application/json'},
+    body:JSON.stringify({patches:[{c:'concerns',id:'conc-midpull-v665',set:{id:'conc-midpull-v665',
+      patientId:scopedPatientId,status:'open',note:'Saved concurrently during login'}}]})
+  });
+  const concurrentWriteBody = await concurrentWrite.json();
+  const concurrentDeltaResponse = await rawApiFetch(`api/state?since=${snapshotRev}&deltaOnly=1`,{headers:concurrentHeaders});
+  const concurrentDeltaBody = await concurrentDeltaResponse.json();
+  await rawApiFetch('api/auth/logout',{method:'POST',headers:concurrentHeaders,body:'{}'});
+  const concurrentPatch = (concurrentDeltaBody.patches || []).find(p=>p.c==='concerns' && p.id==='conc-midpull-v665');
+  ok('Authorized clinical write after snapshot is returned by the revision delta for the same scoped caregiver',
+    snapshotResponse.ok && concurrentWrite.ok && (concurrentWriteBody.rejected || []).length===0 &&
+    concurrentDeltaResponse.ok && concurrentDeltaBody.deltaMiss!==true && Boolean(concurrentPatch) &&
+    concurrentPatch.set && concurrentPatch.set.patientId===scopedPatientId,
+    JSON.stringify({snapshotRev,write:concurrentWriteBody,delta:concurrentDeltaBody}));
 
   /* 5. Zero-Shard Polling, Exact Upstash Error Diagnostics, Multi-KV Failover & Red Error Toasts */
   shardGets = 0;
-  const pollUnchanged = await rawApiFetch(`api/state?since=${pagedPc.run('SYNC.rev')}`, {
-    headers: { 'x-carelink-session': authBody.token }
+  const serverRevAfterConcurrent = Number(concurrentDeltaBody.rev);
+  const pollUnchanged = await rawApiFetch(`api/state?since=${serverRevAfterConcurrent}`, {
+    headers: { 'x-carelink-session': pcAdmin.run('SYNC.sessionToken') }
   });
   const pollUnchangedBody = await pollUnchanged.json();
   ok('GET /api/state?since=<currentRev> answers unchanged:true from manifest head with ZERO shard reads',
@@ -339,7 +361,7 @@ function ok(name, cond, detail = '') {
     `shardGets=${shardGets}`);
 
   /* Push a small delta and verify GET /api/state?since=<prevRev> serves incremental patches with ZERO shard reads */
-  const prevRevBeforePatch = pcAdmin.run('SYNC.rev');
+  const prevRevBeforePatch = serverRevAfterConcurrent;
   pcAdmin.run(`
     DB.db.concerns.push({ id: 'conc-head-delta', patientId: DB.db.patients[2].id, status: 'open', note: 'Head delta check' });
     DB.save();
@@ -347,12 +369,13 @@ function ok(name, cond, detail = '') {
   await pcAdmin.run('SYNC.push()');
   shardGets = 0;
   const pollDelta = await rawApiFetch(`api/state?since=${prevRevBeforePatch}`, {
-    headers: { 'x-carelink-session': authBody.token }
+    headers: { 'x-carelink-session': pcAdmin.run('SYNC.sessionToken') }
   });
   const pollDeltaBody = await pollDelta.json();
   ok('GET /api/state?since=<prevRev> serves incremental delta patches from manifest head with ZERO shard reads',
     pollDelta.ok === true && Array.isArray(pollDeltaBody.patches) && pollDeltaBody.patches.length > 0 && shardGets === 0,
     `shardGets=${shardGets}`);
+  await pcAdmin.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
 
   /* Verify exact Upstash quota diagnostic message & Retry Cloud KV Connection UI (not Reset Setup) */
   kvRefusalOverride = { status: 400, error: 'ERR max daily request limit exceeded. Limit: 10000, Usage: 10000.' };
@@ -555,42 +578,23 @@ function ok(name, cond, detail = '') {
   process.env.KV_REST_API_URL = origPrimaryUrl;
   process.env.KV_REST_API_TOKEN = origPrimaryTok;
 
-  /* 8d. Explicit Offline Device Console escape hatch when Cloud KV is down (!isActivated && !demoBlocked) */
+  /* 8d. No offline synthetic role shortcut before Chief System Administrator commissioning. */
   const offlineClient = makeHostedClient();
   const offlineBefore = JSON.parse(offlineClient.run(`JSON.stringify((()=>{
-    DB.load();
-    APPX.host = { ok: false, setup: false, globallyActivated: false };
+    DB.load(); APPX.host = { ok:false, setup:false, globallyActivated:false };
     LOGIN6.usernameDraft = 'director';
-    LOGIN6.error = 'The mandatory CareLink KV store refused the read on live.upstash.io (HTTP 403); no local fallback is used.';
+    LOGIN6.error = 'The mandatory CareLink KV store refused the read (HTTP 403); no local fallback is used.';
     const html = renderLogin6();
-    return {
-      syncAvailableBefore: SYNC.available(),
-      hasOfflineBtn: html.includes('data-act="login-offline-device-mode"'),
-      hasRetryBtn: html.includes('data-act="login-retry-kv"')
-    };
+    return { syncAvailable:SYNC.available(), hasOfflineBtn:html.includes('data-act="login-offline-device-mode"'),
+      hasRetryBtn:html.includes('data-act="login-retry-kv"'), patients:DB.db.patients.length };
   })())`));
-  ok('Unactivated Sign-In screen with Cloud KV HTTP 403 renders explicit Open Offline Console on This Device button',
-    offlineBefore.syncAvailableBefore === true && offlineBefore.hasOfflineBtn === true && offlineBefore.hasRetryBtn === true,
+  ok('Cloud KV failure keeps an uncommissioned installation fail-closed without an offline demo shortcut',
+    offlineBefore.syncAvailable === true && offlineBefore.hasOfflineBtn === false && offlineBefore.hasRetryBtn === true && offlineBefore.patients === 0,
     JSON.stringify(offlineBefore));
-
   await offlineClient.run(`ACTIONS['login-offline-device-mode']()`);
-  const offlineAfter = JSON.parse(offlineClient.run(`JSON.stringify({
-    syncAvailableAfter: SYNC.available(),
-    syncState: SYNC.state,
-    screen: APPX.screen,
-    roleId: AUTH.user && AUTH.user.roleId,
-    patients: DB.db && DB.db.patients && DB.db.patients.length
-  })`));
-  ok('Clicking Open Offline Console on This Device explicitly enters Offline/static mode with full 3,333-patient Director console & resets on logout',
-    offlineAfter.syncAvailableAfter === false &&
-    offlineAfter.syncState === 'device' &&
-    offlineAfter.screen === 'app' &&
-    offlineAfter.roleId === 'director' &&
-    offlineAfter.patients === 3333,
-    JSON.stringify(offlineAfter));
-  offlineClient.run(`ACTIONS.logout()`);
-  ok('Signing out of Offline Device Console restores SYNC.available() === true for online Cloud KV',
-    offlineClient.run(`SYNC.available()`) === true);
+  const offlineAfter = JSON.parse(offlineClient.run(`JSON.stringify({screen:APPX.screen,roleId:AUTH.user&&AUTH.user.roleId,patients:DB.db.patients.length})`));
+  ok('A stale offline-demo action cannot seed synthetic data or authenticate a role before setup',
+    offlineAfter.screen === 'landing' && offlineAfter.roleId === null && offlineAfter.patients === 0, JSON.stringify(offlineAfter));
 
   if (fails.length) {
     console.error('v665-ux-nav-login-e2e FAILED:\n  ✗ ' + fails.join('\n  ✗ '));

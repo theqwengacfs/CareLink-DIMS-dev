@@ -564,7 +564,7 @@ function budgetVsActualBoard(lines, opts={}){
   return `<div class="bva-board">
     <div class="bva-summary-grid">
       <div class="bva-stat">
-        <span class="xs muted bold">APPROVED BUDGET</span>
+        <span class="xs muted bold">${esc(opts.budgetLabel || 'APPROVED BUDGET')}</span>
         <b class="mono">${esc(fmt(totBudget))}</b>
         <span class="xs muted">${esc(opts.periodLabel || 'Authorised allocation')}</span>
       </div>
@@ -581,7 +581,7 @@ function budgetVsActualBoard(lines, opts={}){
     </div>
     <div class="bva-overall-bar">
       <div class="spread xs" style="margin-bottom:5px">
-        <span class="bold">Overall Expenditure Against Approved Budget</span>
+        <span class="bold">${esc(opts.comparisonLabel || 'Overall Expenditure Against Approved Budget')}</span>
         <span class="mono bold" style="color:${headColor}">${totPct}% utilised</span>
       </div>
       <div class="progress ${totPct>100?'crit':totPct>=85?'warn':'ok'}" style="height:9px"><i style="width:${Math.min(100, Math.max(0, totPct))}%"></i></div>
@@ -591,7 +591,7 @@ function budgetVsActualBoard(lines, opts={}){
         <thead>
           <tr>
             <th>Budget Line / Expenditure Group</th>
-            <th class="num">Approved Budget</th>
+            <th class="num">${esc(opts.budgetColumnLabel || 'Approved Budget')}</th>
             <th class="num">Actual Spent</th>
             ${hasCommitted ? '<th class="num">Committed</th>' : ''}
             <th class="num">Remaining / Variance</th>
@@ -617,7 +617,7 @@ function budgetVsActualBoard(lines, opts={}){
         </tbody>
         <tfoot>
           <tr class="ct-total-row">
-            <td><b>Total Expenditure Against Budget</b></td>
+            <td><b>${esc(opts.totalLabel || 'Total Expenditure Against Budget')}</b></td>
             <td class="num mono"><b>${esc(fmt(totBudget))}</b></td>
             <td class="num mono"><b>${esc(fmt(totSpent))}</b></td>
             ${hasCommitted ? `<td class="num mono"><b>${esc(fmt(totCommitted))}</b></td>` : ''}
