@@ -5,7 +5,7 @@ This repository is engineered for seamless **two-way GitHub co-development** acr
 
 ## How the codebase works in every environment
 
-1. **Modular source of truth (`v6/src/`)** — 61 JS modules + 6 CSS stylesheets, concatenated in a fixed
+1. **Modular source of truth (`v6/src/`)** — JavaScript modules and 8 CSS stylesheets, concatenated in a fixed
    order by the build. Nothing is bundled by a package manager: the modules are
    plain scripts that share one global scope, which is what lets the whole system
    ship as one offline HTML file (`4.2 MB`).
@@ -30,7 +30,7 @@ This repository is engineered for seamless **two-way GitHub co-development** acr
    | Consoles | `views_*.js`, `hub6.js`, `workplace.js`, `recognition.js`, `care6_flows.js`, `pharmacy.js`, `leave.js`, `schedule.js`, `omaha.js`, `forms.js`, `import.js` |
    | Shell & actions | `app.js`, `ui.js`, `navpane.js`, `pager.js`, `entry6.js`, `office_actions.js`, `care_actions.js` |
    | Embedded photography | `media6.js` (teamwork), `media_portal.js` (public portal) |
-   | Styles | `styles.css`, `console51.css`, `console6.css`, `portal6.css`, `audit6.css`, `carelink63.css` |
+   | Styles | `styles.css`, `console51.css`, `console6.css`, `portal6.css`, `audit6.css`, `carelink63.css`, `console_color_schemes.css`, `admin_ops6.css` |
 
 2. **Automatic zero-Python Vite sync (`tools/sync-lovable.mjs` + `vite.config.ts`)**:
    every `npm run dev` and `npm run build` compiles `v6/src/*` into both

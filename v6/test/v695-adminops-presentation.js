@@ -94,6 +94,12 @@ ok('Every scheme accent remains contrast-safe on the selected console surface',
   schemeContrast.length===8 && schemeContrast.every(s=>s.minimum>=4.59 && s.accent>=4.99),JSON.stringify(schemeContrast));
 run(`WTHEME.apply(null)`);
 ok('Public front door does not inherit signed-in console colour schemes',rootAttrs.get('data-colorscheme')==='public');
+const syncBuild = fs.readFileSync(path.join(__dirname, '..', '..', 'tools', 'sync-lovable.mjs'), 'utf8');
+const publicBundle = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'carelink-v6.html'), 'utf8');
+ok('The Vite/Vercel/Lovable bundle includes the workspace palette and Admin Ops stylesheets',
+  syncBuild.includes("'console_color_schemes.css', 'admin_ops6.css'") &&
+  publicBundle.includes('.aops-section-tab:not(.is-current):nth-child(5n+1) .aops-section-index') &&
+  publicBundle.includes('.console-scheme-choice'));
 
 console.log(`\n${pass}/${pass + fail} CareLink workspace presentation checks passed`);
 if (fail) process.exit(1);
