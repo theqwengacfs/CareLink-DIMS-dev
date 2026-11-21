@@ -80,7 +80,9 @@ details were built to look real: `'07' + a random 8-digit range` produced
 plausible Kenyan mobile numbers for demo patients, and two generators produced
 plausible numbers for **real named staff**. A fabricated patient beside a number
 that belongs to a real subscriber publishes that subscriber's number next to an
-HIV diagnosis. All seeded contact details now sit in reserved space:
+HIV diagnosis. Seeded patient contact data uses reserved synthetic ranges; staff
+login aliases are organization-domain labels only and are never used as patient
+contact addresses or sent through email:
 
 | What | Convention |
 |---|---|
@@ -89,7 +91,7 @@ HIV diagnosis. All seeded contact details now sit in reserved space:
 | Demo roster numbers | `0700 5xxxxx` |
 | National IDs | the `9x,xxx,xxx` band, which no Kenyan identity number has reached |
 | Clinic (CCC) numbers | `CCC/9xxxx` |
-| Mailboxes | `@lomamo.example` — the RFC 2606 reserved TLD, so no seeded mailbox can be a real one |
+| Staff account labels | `username@lomamofoundation.org` — mock sign-in aliases required by the organisation; no mailbox is provisioned and CareLink does not send email. Never use this domain for patient contact data. |
 
 The three demo vehicle plates in `v6/src/data.js` are invented and stay; they are
 allowlisted in the verifier with a comment saying so.
@@ -143,8 +145,10 @@ import template at `v6/examples/LOMAMO-Master-Patient-Workbook-TEMPLATE.xlsx`.
 ## 6. How this is kept clean
 
 `v6/tools/verify_no_patient_data.py` runs six passes and exits non-zero on any
-match. The three added by this remediation are pattern-based, so they catch a
-source no identity list could anticipate:
+match. The patient identity sweep also fails closed when its authorized master
+workbook is unavailable; missing source data is not reported as a clean sweep.
+The three added by this remediation are pattern-based, so they catch a source
+no identity list could anticipate:
 
 - **Pass 3 — secrets.** Vehicle plates, chassis numbers, handset IMEIs, and
   telephone numbers outside the demo band, across every text file and inside

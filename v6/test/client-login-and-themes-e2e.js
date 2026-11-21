@@ -197,7 +197,8 @@ global.fetch = async (input, init = {}) => {
   const actPack = await pcAdmin.run('PROD_SETUP.activateSystemGlobally(AUTH.user)');
   assert.ok(actPack && actPack.count > 0 && Array.isArray(actPack.rows), 'Global activation must succeed');
   const nyalendaEntry = actPack.rows.find(e => e.username === 'caregiver.nyalenda');
-  assert.ok(nyalendaEntry && nyalendaEntry.tempPassword, 'WhatsApp credential issued for caregiver.nyalenda');
+  assert.ok(nyalendaEntry && nyalendaEntry.tempPassword, 'Credential issued for caregiver.nyalenda');
+  const nyalendaPatientIds = JSON.parse(pcAdmin.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda').map(p=>p.id))`));
 
   /* Provision a new county staff account with official email via /api/credentials/provision */
   const customTempPw = 'Temp#Seed9876!Ab';
@@ -207,7 +208,7 @@ global.fetch = async (input, init = {}) => {
     body: JSON.stringify(${JSON.stringify({
       id: 'u-nurse-extra',
       username: 'nurse.extra',
-      email: 'nurse.extra@lomamo.org',
+      email: 'nurse.extra@lomamofoundation.org',
       password: customTempPw,
       roleId: 'nurse',
       mustChange: true,
@@ -217,7 +218,7 @@ global.fetch = async (input, init = {}) => {
   pcAdmin.run(`
     DB.db.users.push({
       id: 'u-nurse-extra', name: 'Extra County Nurse', username: 'nurse.extra',
-      email: 'nurse.extra@lomamo.org', roleId: 'nurse', jobTitle: 'Clinical Nurse',
+      email: 'nurse.extra@lomamofoundation.org', roleId: 'nurse', jobTitle: 'Clinical Nurse',
       departmentId: 'clinical', countyId: 'kisumu', areaIds: ['nyalenda'],
       status: 'active', active: true, mustChange: true
     });
@@ -250,7 +251,7 @@ global.fetch = async (input, init = {}) => {
   const emailLoginRes = await apiFetch('api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'nurse.extra@lomamo.org', password: customTempPw }),
+    body: JSON.stringify({ username: 'nurse.extra@lomamofoundation.org', password: customTempPw }),
   });
   assert.equal(emailLoginRes.ok, true, 'Official email login must succeed for newly provisioned staff');
   const emailLoginOut = await apiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${(await emailLoginRes.json()).token}` }, body: '{}' });
@@ -268,7 +269,8 @@ global.fetch = async (input, init = {}) => {
   assert.equal(tabletA.run('AUTH.mustChange'), false);
   assert.equal(tabletA.run('AUTH.user.status'), 'active', 'Staff user status must be active');
   assert.equal(tabletA.run('RBAC.can(AUTH.user, "patient.list").ok'), true, 'Caregiver must pass RBAC.can("patient.list")');
-  assert.equal(tabletA.run('DB.db.patients.length'), 3333, 'Tablet A must hold all 3,333 patients');
+  assert.equal(tabletA.run('DB.db.patients.length'), nyalendaPatientIds.length, 'Tablet A must hold only its assigned ministry-area patients');
+  assert.deepEqual(JSON.parse(tabletA.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), nyalendaPatientIds, 'No cross-area patient records may reach Tablet A');
 
   /* CRITICAL: Run SYNC.tick() and LIVE.start() when unchanged -> 0 shard reads, 3,333 patients preserved, no logout! */
   shardGets = 0;
@@ -277,7 +279,7 @@ global.fetch = async (input, init = {}) => {
   assert.equal(tabletA.run('LIVE.state'), 'live', 'LIVE indicator must reflect live SYNC state');
   await tabletA.run('SYNC.tick()');
   assert.equal(shardGets, 0, 'Unchanged SYNC.tick() must NOT download KV shards');
-  assert.equal(tabletA.run('DB.db.patients.length'), 3333, 'SYNC.tick() must preserve all 3,333 patients');
+  assert.equal(tabletA.run('DB.db.patients.length'), nyalendaPatientIds.length, 'SYNC.tick() must preserve only the authorized area dataset');
   assert.equal(tabletA.run('Boolean(AUTH.user)'), true, 'Client must remain signed in across SYNC.tick()');
 
   /* Even if AUTH.user.id differed from db.users[i].id (e.g. u-chief-admin vs u-chief), LIVE.adopt must NOT logout */
@@ -332,7 +334,7 @@ global.fetch = async (input, init = {}) => {
   assert.equal(pcCaregiverB.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Cloud personalPrefs must sync harbour theme to PC B after hand-off');
   assert.equal(pcCaregiverB.run('WTHEME.studio(AUTH.user).font'), 'editorial', 'Cloud personalPrefs must sync editorial font to PC B');
   assert.equal(pcCaregiverB.run('DB.db.personalPrefs[AUTH.user.id].textScale'), 110, 'Cloud personalPrefs must sync textScale to PC B');
-  assert.equal(pcCaregiverB.run('DB.db.patients.length'), 3333, 'PC B must also load all 3,333 patients');
+  assert.equal(pcCaregiverB.run('DB.db.patients.length'), nyalendaPatientIds.length, 'PC B must load only its assigned ministry-area patients');
   await pcCaregiverB.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
   await tabletA.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaPrivPw })}))`);
   assert.equal(tabletA.run('AUTH.user && AUTH.user.username'), 'caregiver.nyalenda', 'Tablet A can regain its session after the explicit hand-off back');
@@ -359,7 +361,7 @@ global.fetch = async (input, init = {}) => {
 
   /* Tablet A polls incremental delta via SYNC.tick() -> receives settings patch + rehydrates custom theme without losing 3,333 patients! */
   await tabletA.run('SYNC.tick()');
-  assert.equal(tabletA.run('DB.db.patients.length'), 3333, 'Incremental settings patch on Tablet A must keep all 3,333 patients');
+  assert.equal(tabletA.run('DB.db.patients.length'), nyalendaPatientIds.length, 'Incremental settings patch preserves only Tablet A’s assigned area patients');
   const customThemeId = customPackRes.pack.config.wtheme;
   assert.ok(tabletA.run(`Boolean(WTHEME.byId(${JSON.stringify(customThemeId)}))`), 'Custom pack theme must rehydrate on Tablet A via WTHEME.syncCustomThemes()');
 
@@ -405,7 +407,7 @@ global.fetch = async (input, init = {}) => {
     password2: nurseActivatedPw,
   })}))`);
   assert.match(freshBrowser.run('LOGIN6.notice'), /Account activated/i, 'ACT code redemption must succeed on hosted client');
-  await freshBrowser.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'nurse.extra@lomamo.org', password: nurseActivatedPw })}))`);
+  await freshBrowser.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'nurse.extra@lomamofoundation.org', password: nurseActivatedPw })}))`);
   assert.equal(freshBrowser.run('AUTH.user && AUTH.user.username'), 'nurse.extra', 'Activated account must sign in with new password via official email');
   assert.equal(freshBrowser.run('AUTH.mustChange'), false, 'ACT-redeemed account must have mustChange cleared');
 

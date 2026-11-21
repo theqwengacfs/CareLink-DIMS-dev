@@ -138,7 +138,12 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
   const pack = await pc.run('PROD_SETUP.activateSystemGlobally({})');
   assert.ok(pack && pack.count > 0, 'global activation must follow the completed reference import');
-  const staff = pack.rows[0];
+  const staff = pack.rows.find((r) => r.username === 'caregiver.nyalenda');
+  assert.ok(staff, 'a scoped ministry-area caregiver must be provisioned');
+  const expectedPatients = JSON.parse(pc.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda').map(p=>p.id))`));
+  const expectedPatientIds = new Set(expectedPatients);
+  const expectedVisitCount = Number(pc.run(`DB.db.visits.filter(v=>${JSON.stringify([...expectedPatientIds])}.includes(String(v.patientId))).length`));
+  assert.ok(expectedPatients.length > 0 && expectedPatients.length < 3333, 'test caregiver scope must be a strict subset of the reference master');
 
   const tablet = client();
   tablet.run('SYNC.queue = () => {}; DB.load();');
@@ -147,8 +152,9 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   assert.equal(health.globallyActivated, true);
   const tabletLogin = await tablet.run(`AUTH.loginOnline(${JSON.stringify(staff.username)}, ${JSON.stringify(staff.tempPassword)}, 'tablet')`);
   assert.equal(tabletLogin.ok, true, JSON.stringify(tabletLogin));
-  assert.equal(tablet.run('DB.db.patients.length'), 3333, 'fresh tablet must reconstruct every paged patient');
-  assert.equal(tablet.run('DB.db.visits.length'), 44995, 'fresh tablet must reconstruct every paged visit');
+  assert.equal(tablet.run('DB.db.patients.length'), expectedPatients.length, 'fresh tablet receives only its authorized ministry-area patients');
+  assert.deepEqual(JSON.parse(tablet.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), expectedPatients, 'out-of-area patient records must not be present on the device');
+  assert.equal(tablet.run('DB.db.visits.length'), expectedVisitCount, 'fresh tablet receives only visits linked to its authorized patients');
   assert.equal(tablet.run('DB.db.settings.globallyActivated'), true);
   const loginHtml = tablet.run(`(()=>{ AUTH.logout(); APPX.screen='login'; LOGIN6.tab='demo'; return renderLogin6(); })()`);
   assert.ok(!/data-tab="demo"|data-act="load-demo"|First-run online setup|Live host setup/i.test(loginHtml));

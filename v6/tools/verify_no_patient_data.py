@@ -26,9 +26,10 @@ It works in passes:
            no device identifier, no person used as a location, no narrative note
            mistaken for an item, and the count templates still present.
 
-  PASS 5 - conventions. Every telephone number and mailbox seeded for a person
-           must sit in reserved space (the 0700 demo band, the .example TLD), so
-           an invented record can never carry a real person's contact details.
+  PASS 5 - conventions. Patient contact details must use reserved synthetic
+           ranges. Staff login aliases on the requested organization domain are
+           explicitly allow-listed, are not mailboxes, and must never be used
+           as patient contact details.
 
   PASS 6 - the files.   No Administration workbook may be tracked at the
            repository root. The blank demo-only import template under
@@ -42,7 +43,9 @@ Usage:
     python3 v6/tools/verify_no_patient_data.py --workbook /path/to/wb.xlsx
     python3 v6/tools/verify_no_patient_data.py --json
 
-Exit code 0 means clean; 1 means something matched and is printed.
+Exit code 0 means all checks, including the identity sweep, completed cleanly.
+Exit code 1 means a finding was detected or a required source (such as the
+master workbook) was unavailable; incomplete identity checks fail closed.
 
 Requires: openpyxl for PASS 1  (python3 -m pip install --user openpyxl).
 Passes 3 to 6 need nothing but Python.
@@ -103,7 +106,15 @@ SECRET_SKIP = {"v6/tools/verify_no_patient_data.py", "v6/tools/redact_inventory.
 # The demo estate owns these bands. Anything seeded for a person must sit in
 # one of them, so a fabricated record can never carry a real identifier.
 DEMO_PHONE = re.compile(r"^0700\d{6}$")
-DEMO_EMAIL_DOMAINS = ("@lomamo.example", "@lomamo.demo", "@example.com", "@example.org")
+DEMO_EMAIL_DOMAINS = ("@lomamo.demo", "@example.com", "@example.org")
+# The only literal @lomamofoundation.org address in source is a role mailbox
+# alias. This domain is explicitly requested for mock staff login labels; it is
+# not reserved, must never be used for patient contact data, and is not mailed.
+ACCOUNT_ALIAS_EMAILS = {
+    "intl.data@lomamofoundation.org",
+    "beatrice.akinyi@lomamofoundation.org",
+    "samuel.otieno@lomamofoundation.org",
+}
 INTERNAL_TAG = re.compile(r"^(?:LMM|LMMK)[A-Z0-9/\-]*$")
 
 
@@ -345,7 +356,7 @@ def contact_conventions() -> list[str]:
         for gen in re.findall(r"'07'\s*\+", txt):
             fails.append(f"{rel} still builds a number from '07' + a random range")
         for e in EMAIL_RX.findall(txt):
-            if e in EMAIL_PUBLIC_OK:
+            if e in EMAIL_PUBLIC_OK or e in ACCOUNT_ALIAS_EMAILS:
                 continue
             if not e.endswith(DEMO_EMAIL_DOMAINS):
                 fails.append(f"{rel} seeds a mailbox on a live domain: {e!r}")
@@ -389,8 +400,9 @@ def main() -> int:
         add("identities extracted from the workbook", bool(names or phones),
             f"{len(names)} patient names, {len(phones)} telephone numbers")
     else:
-        report["checks"].append({"check": "NOTE workbook not available", "ok": True,
-                                 "detail": "no local copy and none in this clone's history; the identity sweep was skipped"})
+        add("master workbook available for identity sweep", False,
+            f"{WORKBOOK_NAME} is absent from the working tree and all fetched Git history; "
+            "the identity sweep cannot be certified. Supply the authorized workbook with --workbook.")
 
     # --- 3. the sweep -------------------------------------------------------
     if names or phones:
@@ -439,7 +451,7 @@ def main() -> int:
     contact_fails = contact_conventions()
     add("every seeded person is reachable only in reserved space", not contact_fails,
         "; ".join(contact_fails[:5]) if contact_fails else
-        "telephone numbers in the 0700 demo band, mailboxes on .example")
+        "patient phones in the 0700 demo band; mock staff aliases are allow-listed and not deliverable")
 
     # --- 7. the workbooks themselves -----------------------------------------
     tracked = sh(["git", "ls-files"]).stdout.splitlines()

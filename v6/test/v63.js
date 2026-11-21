@@ -201,14 +201,18 @@ test('the blank count sheet downloads with nothing filled in', ()=>{
   return true;
 });
 
-/* ===================== 4. reserved space for invented people ============== */
-test('every seeded person is reachable only in reserved space', ()=>{
+/* ===================== 4. synthetic contact details ===================== */
+test('synthetic contact details remain identifiable and email aliases are not delivered', ()=>{
   const users = J('DB.db.users.map(u=>({n:u.name,p:u.phone||"",e:u.email||""}))');
   ok('every staff number is in the 0700 demo band', users.every(u=>!u.p || /^0700\d{6}$/.test(u.p)),
     users.filter(u=>u.p && !/^0700\d{6}$/.test(u.p)).map(u=>u.p).slice(0,3).join(', '));
   ok('staff numbers are unique', new Set(users.map(u=>u.p).filter(Boolean)).size===users.filter(u=>u.p).length);
-  ok('no mailbox is on a live domain', users.every(u=>!u.e || /@(lomamo\.example|lomamo\.demo|example\.(com|org))$/.test(u.e)),
-    users.filter(u=>u.e && !/@(lomamo\.example|lomamo\.demo|example\.(com|org))$/.test(u.e)).map(u=>u.e).slice(0,3).join(', '));
+  ok('mock staff mailboxes use the explicitly requested LOMAMO Foundation address domain',
+    users.every(u=>!u.e || /@lomamofoundation\.org$/i.test(u.e)),
+    users.filter(u=>u.e && !/@lomamofoundation\.org$/i.test(u.e)).map(u=>u.e).slice(0,3).join(', '));
+  const mailIntegration = fs.readFileSync(path.join(SRC,'..','..','api','index.js'),'utf8') +
+    fs.readFileSync(path.join(SRC,'dev_console6.js'),'utf8');
+  ok('mock email labels are not wired to outbound email delivery', !/(nodemailer|sendgrid|mailgun|sendMail|smtp\.connect)/i.test(mailIntegration));
   const pats = J('DB.db.patients.map(p=>({p:p.phone||"",c:p.ccc||"",i:p.nationalId||""}))');
   ok('patient numbers are in their own demo sub-band',
     pats.every(p=>!p.p || /^07001\d{5}$/.test(p.p)), pats.filter(p=>p.p&&!/^07001\d{5}$/.test(p.p)).length+' off-band');

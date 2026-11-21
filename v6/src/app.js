@@ -3178,6 +3178,62 @@ document.addEventListener('click',(e)=>{
    they had been typed above. */
 Object.assign(ACTIONS, FORMS_ACTIONS);
 Object.assign(FORMS, FORMS_FORMS);
+Object.assign(ACTIONS, {
+  'calendar-new-meeting': () => openCalendarMeetingForm(),
+  'calendar-join-meeting': (d) => {
+    const meeting = (DB.db.calendarEvents || []).find(e => e.id === d.id && e.kind === 'meeting');
+    if (!meeting || !(meeting.visibleTo || []).includes(AUTH.user.id) && !canManageCalendarMeetings(AUTH.user))
+      return toast('Meeting unavailable', 'This invite is not visible to your account.', 'err');
+    try {
+      const url = new URL(meeting.meetingUrl);
+      if (url.protocol !== 'https:') throw new Error('HTTPS required');
+      AUDIT.append({ actor:AUTH.user.id, action:'meeting.join_link_opened', entity:'calendar_event', entityId:meeting.id,
+        detail:`Opened ${meeting.mode || 'audio/video'} meeting link for ${meeting.title}` });
+      DB.save();
+      const opened = window.open(url.href, '_blank', 'noopener,noreferrer');
+      if (!opened) toast('Meeting link ready', 'Your browser blocked the new tab; allow pop-ups for the approved meeting provider.', 'warn');
+    } catch (_e) { toast('Meeting link rejected', 'Only a valid HTTPS meeting provider URL can be opened.', 'err'); }
+  },
+});
+Object.assign(FORMS, {
+  'calendar-meeting-create': (d) => {
+    const user = AUTH.user;
+    if (!canManageCalendarMeetings(user)) return toast('Not permitted', 'Only Media and County Admin Assistant accounts may schedule meetings.', 'err');
+    const title = String(d.get('title') || '').trim().slice(0, 120);
+    const mode = String(d.get('mode') || 'video');
+    const localAt = String(d.get('at') || '').trim();
+    const duration = Number(d.get('duration') || 30);
+    const agenda = String(d.get('agenda') || '').trim().slice(0, 1000);
+    if (!title || !localAt || ![15,30,45,60,90,120].includes(duration)) return toast('Check meeting details', 'Title, start time and duration are required.', 'err');
+    if (d.get('confidentiality') !== 'on' || d.get('approvedProvider') !== 'on')
+      return toast('Acknowledgements required', 'Confirm confidentiality/data protection and an approved provider before scheduling.', 'err');
+    const urlText = String(d.get('meetingUrl') || '').trim();
+    let meetingUrl;
+    try { const u = new URL(urlText); if (u.protocol !== 'https:' || u.username || u.password) throw new Error(); meetingUrl = u.href; }
+    catch (_e) { return toast('Provider URL invalid', 'Use an approved HTTPS audio/video meeting URL.', 'err'); }
+    const parsed = new Date(`${localAt}:00+03:00`);
+    if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) return toast('Start time must be in the future', 'Enter a future Nairobi time.', 'err');
+    const usernames = [...new Set(String(d.get('invitees') || '').split(/[\s,;]+/).map(x=>x.trim().toLowerCase()).filter(Boolean))];
+    if (!usernames.length || usernames.length > 20) return toast('Invite 1–20 staff', 'Use active CareLink usernames separated by commas or lines.', 'err');
+    const users = DB.db.users || [];
+    const invitees = usernames.map(name => users.find(u=>String(u.username||'').toLowerCase()===name));
+    if (invitees.some(u=>!u || u.active===false || u.status==='inactive')) return toast('Invitee not found', 'Every invitee must be an existing active CareLink account.', 'err');
+    const participants = [...new Set([user.id, ...invitees.map(u=>u.id)])];
+    DB.db.calendarEvents = DB.db.calendarEvents || [];
+    const event = {
+      id:uid('meet'), at:parsed.toISOString(), endAt:new Date(parsed.getTime()+duration*60000).toISOString(),
+      title, kind:'meeting', mode:mode==='audio'?'audio':'video', meetingUrl, agenda,
+      detail:`${mode==='audio'?'Audio':'Video'} meeting · ${duration} minutes · ${participants.length} attendees`,
+      createdBy:user.id, createdAt:new Date().toISOString(), participantUserIds:participants, visibleTo:participants,
+      status:'scheduled', governance:{ confidentialityAcknowledged:true, approvedProviderAcknowledged:true,
+        policy:'LOMAMO confidentiality, data-protection, safeguarding and ethical-storytelling requirements', acknowledgedBy:user.id, acknowledgedAt:new Date().toISOString() },
+    };
+    DB.db.calendarEvents.push(event);
+    AUDIT.append({actor:user.id, action:'meeting.scheduled', entity:'calendar_event', entityId:event.id,
+      detail:`Scheduled ${event.mode} meeting '${title}' for ${event.at}; ${participants.length} participants; provider approval and confidentiality acknowledgements recorded.`});
+    DB.save(); closeModal(true); toast('Meeting scheduled', 'Invited staff can see the private event in their CareLink calendar.', 'ok'); go('calendar');
+  },
+});
 if(typeof registerCountyUrgentActions === 'function') registerCountyUrgentActions();
 
 /* ---------------- Start ---------------- */

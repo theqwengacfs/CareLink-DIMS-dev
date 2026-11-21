@@ -932,7 +932,7 @@ const ACCOUNT_SWITCHER = {
             </div>
           </div>` : ''}
           <div class="field">
-            <label>Incoming Staff Username or Official Email *</label>
+            <label>Incoming Staff Username or Mock Email Alias *</label>
             <input class="input" id="sw-live-u" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. director, mcm.kisumu, caregiver.nyalenda">
           </div>
           <div class="field">

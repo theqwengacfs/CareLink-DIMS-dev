@@ -403,11 +403,12 @@ const URGENT = {
 };
 
 /* ---------------- grants ---------------- */
-['caregiver','coordinator','chw','mcm','nurse','liaison','depthead','countyadmin','assistant','homestay','hr','me','finance','auditor','director','president','program.admin','program.assistant','chief']
+['caregiver','coordinator','chw','mcm','nurse','liaison','countyadmin','assistant','homestay']
   .forEach(id=>{ const r=ROLES.find(x=>x.id===id); if(r && !r.perms.includes('waiting.view')) r.perms.push('waiting.view'); });
-/* A caregiver finds the household and writes it down; the county office and the
-   case manager decide. Both hold the capability, and scope decides the area. */
-['countyadmin','assistant','mcm','coordinator','caregiver','chief','hr','program.admin'].forEach(id=>{
+/* The identifiable waiting-list register is limited to county/area clinical
+   staff. Non-clinical leaders and M&E may receive approved aggregate reports,
+   not names or household contact details from the source register. */
+['countyadmin','assistant','mcm','coordinator','caregiver'].forEach(id=>{
   const r=ROLES.find(x=>x.id===id); if(r && !r.perms.includes('waiting.manage')) r.perms.push('waiting.manage'); });
 ['mcm','nurse','liaison','depthead','countyadmin','finance','procurement','auditor','director','president','program.admin','chief','assistant','caregiver','coordinator','homestay','me']
   .forEach(id=>{ const r=ROLES.find(x=>x.id===id); if(r && !r.perms.includes('urgent.view')) r.perms.push('urgent.view'); });

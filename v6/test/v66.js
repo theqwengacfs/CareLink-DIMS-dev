@@ -375,11 +375,11 @@ test('8. 4-Step Live Host Setup -> Official Login -> Must-Change Password -> Act
 });
 
 /* 11. Compiled Single-File Browser Bundle (public/carelink-v6.html) Boot & Screen Render Guard */
-test('11. Compiled single-script browser HTML bundle boots cleanly and renders Landing, Sign-In, Architecture & Console without TDZ errors', async () => {
+test('11. Compiled standalone browser HTML bundle boots cleanly and renders Landing, Sign-In, Architecture & Console without TDZ errors', async () => {
   const vm = require('vm');
   const html = fs.readFileSync(path.join(REPO, 'public', 'carelink-v6.html'), 'utf8');
   const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
-  ok('public/carelink-v6.html embeds assets + application script blocks', scripts.length === 2);
+  ok('public/carelink-v6.html embeds app assets, application code and PWA installer scripts', scripts.length === 3);
 
   const store = new Map();
   const el = (tag = 'div') => ({
@@ -421,6 +421,7 @@ test('11. Compiled single-script browser HTML bundle boots cleanly and renders L
   vm.createContext(bctx);
   vm.runInContext(scripts[0][1], bctx, { filename: 'carelink-assets.js' });
   vm.runInContext(scripts[1][1], bctx, { filename: 'carelink-bundle.js' });
+  vm.runInContext(scripts[2][1], bctx, { filename: 'carelink-pwa.js' });
   for (const l of winListeners) { if (l.ev === 'DOMContentLoaded') await l.fn(); }
 
   const landingHtml = root.innerHTML;

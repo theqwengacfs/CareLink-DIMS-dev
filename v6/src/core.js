@@ -303,7 +303,7 @@ const DB = {
           countyId:r.countyId, areaIds:r.areas||[], departmentId:r.dept, jobTitle:r.job,
           reportsTo:'u-chief', status:'active', active:true, mustChange:false, demo:true,
           salt, hash:strongHash('LOMAMO2026', salt),
-          email:r.username+'@lomamo.example', phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
+          email:r.username+'@lomamofoundation.org', phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
           created:demo.seededAt, execTeam:EXEC_DEFAULT.includes(r.username)
         });
       });
@@ -405,6 +405,7 @@ const AUTH = {
   },
   logout(){
     if(this.user) AUDIT.append({actor:this.user.id,action:'auth.logout',entity:'user',entityId:this.user.id,detail:'Signed out'});
+    if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.clearCredentialPack) PROD_SETUP.clearCredentialPack();
     this._pw=null; this.mustChange=false; this.user=null; this.session=null; DB.save(); this.emit();
   },
   touch(){ if(this.session) this.session.last = Date.now(); },

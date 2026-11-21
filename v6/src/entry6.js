@@ -14,7 +14,7 @@
    ============================================================ */
 
 const ONB = {
-  step:1, host:null, org:{ name:'LOMAMO Foundation Kenya', county:'kisumu', shortName:'LOMAMO', emailDomain:'lomamo.example' },
+  step:1, host:null, org:{ name:'LOMAMO Foundation Kenya', county:'kisumu', shortName:'LOMAMO', emailDomain:'lomamofoundation.org' },
   admin:{ name:'', username:'', password:'', confirm:'' },
   mode:'host', roster:[], issued:null, seed:'empty', autoFeedCloudMaster:true, _pendingCloudAutoFeed:false, busy:false, error:'',
   hostSetup:null, advice:''
@@ -514,7 +514,7 @@ function renderLogin6(){
       ? 'Sign in with your assigned CareLink username or official email and your personal password (or your WhatsApp temporary password on first sign-in to activate your account).'
       : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
-      <div class="field"><label for="lg-u">Username or Official Email</label>
+      <div class="field"><label for="lg-u">Username or mock email alias</label>
         <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. system.admin, chief.admin, director, caregiver.nyalenda" required></div>
       <div class="field"><label for="lg-p">Password</label>
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
@@ -764,7 +764,7 @@ function renderOnboarding6(){
     body = `<p class="lg-note">Run the <b>4-Step Online Setup</b> to establish CareLink's institutional host &amp; organogram structure. Upon completion you return to the <b>Official Sign-In screen</b>, sign in as Chief System Administrator, change your password, and click <b>Activate System Globally</b> to generate the Team WhatsApp Credential Sheet.</p>
       <div class="grid g2" style="gap:10px">
         <div class="field"><label>Organisation name</label><input class="input" id="ob-org" value="${esc(ONB.org.name)}"></div>
-        <div class="field"><label>Official staff email domain</label><input class="input mono" id="ob-domain" value="${esc(ONB.org.emailDomain||'lomamo.example')}" placeholder="e.g. lomamofoundation.org"></div>
+        <div class="field"><label>Mock staff email domain (account labels only)</label><input class="input mono" id="ob-domain" value="${esc(ONB.org.emailDomain||'lomamofoundation.org')}" placeholder="e.g. lomamofoundation.org"><div class="hint">No mailbox is provisioned and CareLink does not send email.</div></div>
       </div>
       <div class="grid g2" style="gap:10px">
         <div class="field"><label>Short name</label><input class="input" id="ob-short" value="${esc(ONB.org.shortName)}"></div>
@@ -1133,7 +1133,7 @@ Object.assign(ACTIONS, {
       const name = ($('#ob-org')||{}).value || ONB.org.name;
       const short = ($('#ob-short')||{}).value || 'LOMAMO';
       const county = ($('#ob-county')||{}).value || 'kisumu';
-      const emailDomain = (($('#ob-domain')||{}).value || ONB.org.emailDomain || 'lomamo.example').replace(/^@+/,'').trim().toLowerCase();
+      const emailDomain = (($('#ob-domain')||{}).value || ONB.org.emailDomain || 'lomamofoundation.org').replace(/^@+/,'').trim().toLowerCase();
       ONB.org = {name:name.trim(), shortName:short.trim(), county, emailDomain};
       if(typeof SYNC !== 'undefined' && SYNC.available()){
         ONB.busy = true; render();
@@ -1168,7 +1168,7 @@ Object.assign(ACTIONS, {
         const res = await PROD_SETUP.completeFourStepHostSetup({
           orgNameVal: ONB.org.name,
           shortNameVal: ONB.org.shortName,
-          emailDomain: ONB.org.emailDomain || 'lomamo.example',
+          emailDomain: ONB.org.emailDomain || 'lomamofoundation.org',
           loginUrl: (typeof location !== 'undefined' && location.origin && location.origin !== 'null') ? location.origin : 'https://carelink.lomamo.org',
           primaryCounty: ONB.org.county || 'kisumu',
           chiefName: ONB.admin.name || 'Chief System Administrator',

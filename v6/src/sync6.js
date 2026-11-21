@@ -183,6 +183,7 @@ const SYNC = {
 
   async logout(){
     clearTimeout(this._timer);
+    if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.clearCredentialPack) PROD_SETUP.clearCredentialPack();
     if(this.sessionToken){
       try{ await this._json('api/auth/logout', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}', timeoutMs:6000}); }catch(e){}
     }

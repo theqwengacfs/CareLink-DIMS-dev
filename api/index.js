@@ -1100,15 +1100,19 @@ function buildStateHead(state) {
   };
 }
 
-function getClientFastPack(state, targetRev = 0) {
+function getClientFastPack(state, targetRev = 0, sess = null) {
   const currentRev = Number(state.rev) || 0;
+  const principal = sess ? principalScope(state, sess) : null;
+  const scopeKey = principal
+    ? `${String(sess.username || 'anonymous').toLowerCase()}|${principal.roleId}|${principal.countyId}|${principal.areaIds.slice().sort().join(',')}`
+    : 'anonymous';
   if (targetRev > 0) {
-    const hit = _clientFastPackRing.find((e) => e.rev === targetRev);
+    const hit = _clientFastPackRing.find((e) => e.rev === targetRev && e.scopeKey === scopeKey);
     if (hit) return hit;
   }
-  const existing = _clientFastPackRing.find((e) => e.rev === currentRev && e.saved === state.saved);
+  const existing = _clientFastPackRing.find((e) => e.rev === currentRev && e.saved === state.saved && e.scopeKey === scopeKey);
   if (existing) return existing;
-  const cleanClientDb = sanitizeDbForClient(state.db || {});
+  const cleanClientDb = sess ? scopedDbForSession(state.db || {}, state, sess) : sanitizeDbForClient(state.db || {});
   if (state.setup && cleanClientDb && typeof cleanClientDb === 'object') {
     cleanClientDb.settings = {
       ...(cleanClientDb.settings || {}),
@@ -1126,7 +1130,7 @@ function getClientFastPack(state, targetRev = 0) {
     parts.push(gzB64.slice(offset, offset + FAST_PACK_PART_CHARS));
   }
   if (!parts.length) parts.push('');
-  const entry = { rev: currentRev, saved: state.saved, parts };
+  const entry = { rev: currentRev, saved: state.saved, parts, scopeKey };
   _clientFastPackRing = [entry, ..._clientFastPackRing.filter((e) => e.rev !== currentRev)].slice(0, 2);
   return entry;
 }
@@ -1517,6 +1521,30 @@ function appendServerAudit(state, actor, action, entity, entityId, detail, meta 
   return entry;
 }
 
+const PATIENT_LINKED_COLLECTIONS = new Set([
+  'patients', 'visits', 'pdcas', 'pdcaDiscussions', 'patientConditions', 'support', 'supportIssues',
+  'documents', 'requests', 'transactions', 'adminOpsPayg', 'concerns', 'encounters', 'referrals', 'clinicalRx', 'omahaPlans',
+  'careResidents', 'formRecords', 'tbRequests', 'tbDispenses', 'intlPdcaDossiers', 'urgentCases', 'workspaceDrafts',
+]);
+const COUNTY_AREA_SCOPED_COLLECTIONS = new Set(['waitingList']);
+const WAITING_LIST_READ_ROLES = new Set([
+  'caregiver', 'coordinator', 'chw', 'mcm', 'nurse', 'liaison', 'homestay', 'countyadmin', 'assistant',
+]);
+const WAITING_LIST_WRITE_ROLES = new Set(['countyadmin', 'assistant', 'mcm', 'coordinator', 'caregiver']);
+const URGENT_CASE_READ_ROLES = new Set([
+  'mcm', 'nurse', 'liaison', 'depthead', 'countyadmin', 'finance', 'procurement', 'auditor', 'director', 'president',
+  'program.admin', 'chief', 'assistant', 'caregiver', 'coordinator', 'homestay', 'me',
+]);
+const URGENT_CASE_WRITE_ROLES = new Set(['mcm', 'countyadmin', 'finance', 'liaison', 'depthead', 'program.admin', 'chief']);
+const GLOBAL_DATA_ROLES = new Set(['chief', 'president', 'director', 'program.admin', 'auditor', 'hr']);
+const GLOBAL_MESSAGE_ROLES = new Set(['chief', 'director', 'program.admin', 'program.assistant', 'president']);
+const FINANCIAL_DATA_ROLES = new Set(['finance', 'procurement', 'countyadmin', 'director', 'president', 'program.admin', 'auditor']);
+const CLINICAL_READ_ROLES = new Set([
+  'countyadmin', 'assistant', 'caregiver', 'chw', 'mcm', 'liaison', 'nurse', 'homestay', 'intl.medical',
+]);
+const AREA_SCOPED_ROLES = new Set(['caregiver', 'chw', 'coordinator']);
+const CLINICAL_WRITE_ROLES = new Set(['countyadmin', 'assistant', 'caregiver', 'chw', 'mcm', 'nurse', 'homestay']);
+
 function sanitizeDbForClient(db) {
   if (!db || typeof db !== 'object') return db;
   const copy = { ...db };
@@ -1529,6 +1557,352 @@ function sanitizeDbForClient(db) {
     });
   }
   return copy;
+}
+
+/* Server-side clinical data scope. The browser's RBAC is presentation only;
+   every initial, full, paged and delta read must use this boundary. */
+function principalScope(state, sess) {
+  const username = String(sess && sess.username || '').toLowerCase();
+  const user = (state.db && Array.isArray(state.db.users) ? state.db.users : [])
+    .find((u) => String(u.username || '').toLowerCase() === username) || {};
+  const cred = state.creds && state.creds[username] || {};
+  const areas = Array.isArray(user.areaIds) ? user.areaIds : (Array.isArray(cred.areaIds) ? cred.areaIds : []);
+  return {
+    userId: String((sess && sess.userId) || cred.id || user.id || ''),
+    roleId: String((sess && sess.roleId) || cred.roleId || user.roleId || 'staff'),
+    countyId: String((sess && sess.countyId) || cred.countyId || user.countyId || ''),
+    areaIds: areas.map(String),
+  };
+}
+
+function canManageServerMeetings(roleId) {
+  return roleId === 'assistant' || roleId === 'mediahead';
+}
+
+function patientInPrincipalScope(patient, scope) {
+  if (!patient || typeof patient !== 'object' || !scope.countyId) return false;
+  if (String(patient.countyId || '') !== scope.countyId) return false;
+  if (AREA_SCOPED_ROLES.has(scope.roleId)) return scope.areaIds.includes(String(patient.areaId || ''));
+  if (scope.roleId === 'intl.medical') return true;
+  return CLINICAL_READ_ROLES.has(scope.roleId);
+}
+
+function countyAreaRecordInScope(record, scope, collection) {
+  if (!record || typeof record !== 'object') return false;
+  const roleSet = collection === 'waitingList' ? WAITING_LIST_READ_ROLES : URGENT_CASE_READ_ROLES;
+  if (!roleSet.has(scope.roleId)) return false;
+  if (GLOBAL_DATA_ROLES.has(scope.roleId)) return true;
+  if (!scope.countyId || String(record.countyId || '') !== scope.countyId) return false;
+  if (AREA_SCOPED_ROLES.has(scope.roleId)) return scope.areaIds.includes(String(record.areaId || ''));
+  return true;
+}
+
+function patchPatientInScope(patientId, state, scope) {
+  const patients = state.db && Array.isArray(state.db.patients) ? state.db.patients : [];
+  const patient = patients.find((p) => p && String(p.id) === String(patientId));
+  return Boolean(patient && patientInPrincipalScope(patient, scope));
+}
+
+function financialRecordInScope(record, scope) {
+  return Boolean(record && FINANCIAL_DATA_ROLES.has(scope.roleId) &&
+    (GLOBAL_DATA_ROLES.has(scope.roleId) || (scope.countyId && String(record.countyId || '') === scope.countyId)));
+}
+
+function redactFinancialLink(record) {
+  const safe = { ...(record || {}) };
+  for (const key of ['patientId', 'patientName', 'patientLabel', 'patientCode', 'requestId', 'clinicalReport', 'diagnosis', 'note', 'description', 'contact', 'phone', 'phoneNumber', 'householdId', 'medicalNotes']) delete safe[key];
+  return safe;
+}
+
+function financialPatchInScope(patch, state, sess) {
+  const scope = principalScope(state, sess);
+  if (!['transactions', 'adminOpsPayg'].includes(patch.c)) return false;
+  const current = (state.db && Array.isArray(state.db[patch.c]) ? state.db[patch.c] : [])
+    .find((r) => r && String(r.id) === String(patch.id));
+  if (patch.del) return Boolean(current && financialRecordInScope(current, scope));
+  const candidate = { ...(current || {}), ...(patch.set || {}) };
+  if ((current && !financialRecordInScope(current, scope)) || !financialRecordInScope(candidate, scope)) return false;
+  if (candidate.patientId) {
+    const patient = (state.db.patients || []).find((p) => p && String(p.id) === String(candidate.patientId));
+    if (!patient || String(patient.countyId || '') !== scope.countyId) return false;
+  }
+  return true;
+}
+
+function activeServerUser(state, id) {
+  return (state.db && Array.isArray(state.db.users) ? state.db.users : [])
+    .find((u) => u && String(u.id) === String(id) && u.status === 'active' && u.active !== false) || null;
+}
+
+function serverMessageKind(thread) {
+  const value = String(thread || '');
+  if (value.startsWith('dm:')) return 'direct';
+  const kind = value.split(':')[0];
+  return ['dept', 'area', 'global'].includes(kind) ? kind : '';
+}
+
+function serverMessageRecipients(state, sess, thread) {
+  const users = state.db && Array.isArray(state.db.users) ? state.db.users : [];
+  const sender = activeServerUser(state, sess.userId);
+  const value = String(thread || '');
+  if (!sender) return null;
+  const globalReach = GLOBAL_MESSAGE_ROLES.has(sess.roleId);
+  const inReach = (u) => u && u.id !== sender.id && u.status === 'active' && u.active !== false &&
+    (globalReach || String(u.countyId || '') === String(sender.countyId || ''));
+  if (value.startsWith('dm:')) {
+    const ids = value.slice(3).split(':');
+    if (ids.length !== 2 || ids[0] === ids[1] || !ids.includes(sender.id)) return null;
+    const recipient = activeServerUser(state, ids.find((id) => id !== sender.id));
+    return inReach(recipient) ? [recipient.id] : null;
+  }
+  if (value.startsWith('dept:')) {
+    const dept = value.slice(5);
+    if (!dept || dept.length > 80) return null;
+    const recipients = users.filter((u) => u.departmentId === dept && inReach(u)).map((u) => u.id);
+    return recipients.length ? recipients : null;
+  }
+  if (value.startsWith('area:')) {
+    const areaId = value.slice(5);
+    const areaPatient = (state.db.patients || []).find((p) => String(p.areaId || '') === areaId);
+    const areaUser = users.find((u) => (u.areaIds || []).map(String).includes(areaId));
+    const countyId = (areaPatient && areaPatient.countyId) || (areaUser && areaUser.countyId);
+    if (!areaId || !countyId) return null;
+    const recipients = users.filter((u) => u.id !== sender.id && u.status === 'active' && u.active !== false &&
+      ((u.areaIds || []).map(String).includes(areaId) || (u.countyId === countyId && ['countyadmin', 'assistant', 'mcm', 'coordinator', 'depthead'].includes(u.roleId))))
+      .map((u) => u.id);
+    return recipients.length ? recipients : null;
+  }
+  if (value.startsWith('global:')) {
+    const countyId = value.slice(7);
+    if (countyId !== 'all' && !['kisumu', 'homabay'].includes(countyId)) return null;
+    const recipients = users.filter((u) => u.id !== sender.id && u.status === 'active' && u.active !== false &&
+      !['gov.partner', 'ccc.partner'].includes(u.roleId) && (countyId === 'all' || u.countyId === countyId)).map((u) => u.id);
+    return recipients.length ? recipients : null;
+  }
+  return null;
+}
+
+function serverMessageTextAllowed(text, state) {
+  const body = String(text || '');
+  if (!body.trim() || body.length > 2000 || /LOM-[A-Z]{3}-\d{4}/.test(body) || /CCC\s*\/?\s*\d{3,}/i.test(body) || /(?:\+254|\b254|\b0)[17]\d{8}\b/.test(body)) return false;
+  const lower = body.toLowerCase();
+  return !(state.db && Array.isArray(state.db.patients) && state.db.patients.some((patient) => patient && (
+    (patient.name && patient.name.length > 6 && lower.includes(String(patient.name).toLowerCase())) ||
+    (patient.code && lower.includes(String(patient.code).toLowerCase())) ||
+    (patient.id && lower.includes(String(patient.id).toLowerCase()))
+  )));
+}
+
+function messagePatchAllowed(patch, state, sess) {
+  const messages = state.db && Array.isArray(state.db.messages) ? state.db.messages : [];
+  const current = messages.find((message) => message && String(message.id) === String(patch.id));
+  const set = patch.set && typeof patch.set === 'object' && !Array.isArray(patch.set) ? patch.set : {};
+  if (!current) {
+    if (patch.del || !set || String(set.from || '') !== String(sess.userId) || !Array.isArray(set.to) ||
+        !serverMessageTextAllowed(set.text, state)) return false;
+    const expected = serverMessageRecipients(state, sess, set.thread);
+    const recipients = set.to.map(String);
+    return Boolean(expected && set.kind === serverMessageKind(set.thread) && recipients.length === expected.length &&
+      new Set(recipients).size === recipients.length && expected.every((id) => recipients.includes(String(id))));
+  }
+  if (patch.del || (current.from !== sess.userId && !(Array.isArray(current.to) && current.to.map(String).includes(String(sess.userId))))) return false;
+  const keys = Object.keys(set);
+  if (keys.some((key) => key !== 'readBy')) return false;
+  if (set.readBy !== undefined) {
+    const allowed = new Set([...(Array.isArray(current.readBy) ? current.readBy.map(String) : []), String(sess.userId)]);
+    if (!Array.isArray(set.readBy) || set.readBy.some((id) => !allowed.has(String(id)))) return false;
+  }
+  return true;
+}
+
+function messageVisibleToScope(message, state, scope) {
+  if (!message || (String(message.from || '') !== scope.userId &&
+      !(Array.isArray(message.to) && message.to.map(String).includes(scope.userId)))) return false;
+  const sender = activeServerUser(state, message.from);
+  const expected = sender && serverMessageRecipients(state, { userId: sender.id, roleId: sender.roleId }, message.thread);
+  const actual = Array.isArray(message.to) ? message.to.map(String) : [];
+  if (!expected || message.kind !== serverMessageKind(message.thread) || actual.length !== expected.length ||
+      new Set(actual).size !== actual.length || !expected.every((id) => actual.includes(String(id)))) return false;
+  const text = String(message.text || '');
+  const patients = state.db && Array.isArray(state.db.patients) ? state.db.patients : [];
+  const matches = patients.filter((patient) => patient && (
+    (patient.name && patient.name.length > 6 && text.toLowerCase().includes(String(patient.name).toLowerCase())) ||
+    (patient.code && text.toLowerCase().includes(String(patient.code).toLowerCase())) ||
+    (patient.id && text.includes(String(patient.id)))
+  ));
+  if (matches.length && (!CLINICAL_READ_ROLES.has(scope.roleId) || !matches.every((patient) => patientInPrincipalScope(patient, scope)))) return false;
+  if (/(?:LOM-[A-Z]{3}-\d{4}|CCC\s*\/?\s*\d{3,}|(?:\+254|\b254|\b0)[17]\d{8}\b)/i.test(text)) {
+    if (!CLINICAL_READ_ROLES.has(scope.roleId)) return false;
+  }
+  return true;
+}
+
+function notificationPatchAllowed(patch, state, sess) {
+  const notifications = state.db && Array.isArray(state.db.notifications) ? state.db.notifications : [];
+  const current = notifications.find((notification) => notification && String(notification.id) === String(patch.id));
+  const set = patch.set && typeof patch.set === 'object' && !Array.isArray(patch.set) ? patch.set : {};
+  if (current) {
+    if (patch.del || String(current.userId || '') !== String(sess.userId)) return false;
+    return Object.keys(set).every((key) => ['read', 'seenAt'].includes(key));
+  }
+  if (patch.del || !set || !set.userId || typeof set.title !== 'string' || typeof set.body !== 'string' ||
+      set.title.length > 240 || set.body.length > 1000) return false;
+  const sender = activeServerUser(state, sess.userId);
+  const recipient = activeServerUser(state, set.userId);
+  if (!sender || !recipient) return false;
+  const canReach = GLOBAL_MESSAGE_ROLES.has(sess.roleId) || String(sender.countyId || '') === String(recipient.countyId || '');
+  if (!canReach) return false;
+  const text = `${set.title} ${set.body} ${String(set.link || '')}`;
+  const matches = (state.db && Array.isArray(state.db.patients) ? state.db.patients : []).filter((patient) => {
+    if (!patient) return false;
+    const lowerText = text.toLowerCase();
+    return Boolean((patient.name && patient.name.length > 6 && lowerText.includes(String(patient.name).toLowerCase())) ||
+      (patient.code && lowerText.includes(String(patient.code).toLowerCase())) ||
+      (patient.id && text.includes(String(patient.id))));
+  });
+  if (!matches.length) return true;
+  const senderScope = principalScope(state, sess);
+  const recipientScope = principalScope(state, { username: recipient.username, userId: recipient.id, roleId: recipient.roleId, countyId: recipient.countyId });
+  return matches.every((patient) => patientInPrincipalScope(patient, senderScope) && patientInPrincipalScope(patient, recipientScope));
+}
+
+function scopedDbForSession(db, state, sess) {
+  const copy = sanitizeDbForClient(db || {});
+  const scope = principalScope(state, sess);
+  const patients = Array.isArray(copy.patients) ? copy.patients : [];
+  const syntheticOnly = patients.length > 0 && patients.every((p) => p && (p.demo === true || p.synthetic === true));
+  const demoPreview = syntheticOnly && !isGloballyActivated(state) && isDemoDatabase(state);
+  const visiblePatients = demoPreview
+    ? patients
+    : (CLINICAL_READ_ROLES.has(scope.roleId)
+      ? patients.filter((p) => patientInPrincipalScope(p, scope)) : []);
+  const patientIds = new Set(visiblePatients.map((p) => String(p.id)));
+  const scopedResidentIds = new Set((Array.isArray(db.careResidents) ? db.careResidents : [])
+    .filter((r) => r && patientIds.has(String(r.patientId))).map((r) => String(r.id)));
+  for (const name of PATIENT_LINKED_COLLECTIONS) {
+    if (!Array.isArray(copy[name])) continue;
+    if (name === 'patients') { copy[name] = visiblePatients; continue; }
+    copy[name] = (CLINICAL_READ_ROLES.has(scope.roleId) || demoPreview)
+      ? copy[name].filter((r) => r && r.patientId != null && patientIds.has(String(r.patientId)))
+      : [];
+  }
+  for (const name of ['careLogs', 'careIncidents']) {
+    if (Array.isArray(copy[name])) copy[name] = (CLINICAL_READ_ROLES.has(scope.roleId) || demoPreview)
+      ? copy[name].filter((r) => r && scopedResidentIds.has(String(r.residentId))) : [];
+  }
+  for (const name of COUNTY_AREA_SCOPED_COLLECTIONS) {
+    if (Array.isArray(copy[name])) copy[name] = copy[name].filter((r) => countyAreaRecordInScope(r, scope, name));
+  }
+  for (const name of ['transactions', 'adminOpsPayg']) {
+    if (!Array.isArray(db[name]) || CLINICAL_READ_ROLES.has(scope.roleId)) continue;
+    copy[name] = FINANCIAL_DATA_ROLES.has(scope.roleId)
+      ? db[name].filter((record) => financialRecordInScope(record, scope)).map(redactFinancialLink)
+      : [];
+  }
+  if (Array.isArray(db.urgentCases) && !CLINICAL_READ_ROLES.has(scope.roleId)) {
+    copy.urgentCases = URGENT_CASE_READ_ROLES.has(scope.roleId)
+      ? db.urgentCases.filter((r) => countyAreaRecordInScope(r, scope, 'urgentCases')).map((record) => {
+        const safe = redactFinancialLink(record);
+        safe.name = 'Confidential beneficiary';
+        safe.what = 'Clinical details restricted to the care team';
+        return safe;
+      })
+      : [];
+  }
+  if (Array.isArray(copy.workspaceDrafts)) {
+    copy.workspaceDrafts = copy.workspaceDrafts.filter((draft) => draft && String(draft.ownerId || '') === scope.userId &&
+      (!draft.patientId || patientIds.has(String(draft.patientId))));
+  }
+  if (Array.isArray(copy.notifications)) {
+    copy.notifications = copy.notifications.filter((notification) => notification && String(notification.userId || '') === scope.userId);
+  }
+  if (Array.isArray(copy.messages)) {
+    copy.messages = copy.messages.filter((message) => messageVisibleToScope(message, state, scope));
+  }
+  if (copy.drafts && typeof copy.drafts === 'object' && !Array.isArray(copy.drafts)) {
+    copy.drafts = Object.fromEntries(Object.entries(copy.drafts).filter(([key]) => key.startsWith(`${scope.userId}:`)));
+  }
+  if (copy.personalPrefs && typeof copy.personalPrefs === 'object' && !Array.isArray(copy.personalPrefs)) {
+    copy.personalPrefs = Object.hasOwn(copy.personalPrefs, scope.userId) ? { [scope.userId]: copy.personalPrefs[scope.userId] } : {};
+  }
+  if (Array.isArray(copy.calendarEvents)) {
+    copy.calendarEvents = copy.calendarEvents.filter((e) => {
+      if (!e) return false;
+      if (e.patientId != null && !patientIds.has(String(e.patientId))) return false;
+      return e.kind !== 'meeting' || canManageServerMeetings(scope.roleId) ||
+        (Array.isArray(e.visibleTo) && e.visibleTo.map(String).includes(scope.userId));
+    });
+  }
+  return copy;
+}
+
+function patchInPrincipalScope(patch, state, sess) {
+  const scope = principalScope(state, sess);
+  const current = (state.db && Array.isArray(state.db[patch.c]) ? state.db[patch.c] : [])
+    .find((r) => r && String(r.id) === String(patch.id));
+  /* `before` is client-provided merge metadata, never an authorization source. */
+  const candidate = { ...(current || {}), ...(patch.set || {}) };
+  if (patch.c === 'waitingList') {
+    return WAITING_LIST_WRITE_ROLES.has(scope.roleId) &&
+      (!current || countyAreaRecordInScope(current, scope, 'waitingList')) &&
+      countyAreaRecordInScope(candidate, scope, 'waitingList');
+  }
+  if (patch.c === 'workspaceDrafts') {
+    if (!CLINICAL_READ_ROLES.has(scope.roleId) || String(candidate.ownerId || '') !== scope.userId ||
+        (current && String(current.ownerId || '') !== scope.userId)) return false;
+    return !candidate.patientId || patchPatientInScope(candidate.patientId, state, scope);
+  }
+  if (!CLINICAL_READ_ROLES.has(scope.roleId)) return false;
+  if (patch.c === 'patients') {
+    return (!current || patientInPrincipalScope(current, scope)) && patientInPrincipalScope(candidate, scope);
+  }
+  const patients = state.db && Array.isArray(state.db.patients) ? state.db.patients : [];
+  const patientFor = (record) => patients.find((p) => p && String(p.id) === String(record && record.patientId));
+  const currentPatient = current && patientFor(current);
+  const candidatePatient = patientFor(candidate);
+  return (!current || Boolean(currentPatient && patientInPrincipalScope(currentPatient, scope))) &&
+    Boolean(candidatePatient && patientInPrincipalScope(candidatePatient, scope));
+}
+
+function scopedPatchesForSession(patches, state, sess) {
+  const scope = principalScope(state, sess);
+  const events = state.db && Array.isArray(state.db.calendarEvents) ? state.db.calendarEvents : [];
+  return (patches || []).flatMap((patch) => {
+    if (!patch) return [patch];
+    if (['transactions', 'adminOpsPayg'].includes(patch.c) && FINANCIAL_DATA_ROLES.has(scope.roleId) && !CLINICAL_READ_ROLES.has(scope.roleId)) {
+      if (!financialPatchInScope(patch, state, sess)) return [];
+      const safePatch = { ...patch };
+      if (patch.set) safePatch.set = redactFinancialLink(patch.set);
+      if (patch.before) safePatch.before = redactFinancialLink(patch.before);
+      return [safePatch];
+    }
+    if (patch.c === 'messages') {
+      const current = (state.db.messages || []).find((m) => m && String(m.id) === String(patch.id));
+      const candidate = current || patch.set || {};
+      return messageVisibleToScope(candidate, state, scope) ? [patch] : [];
+    }
+    if (patch.c === 'notifications') {
+      const current = (state.db.notifications || []).find((n) => n && String(n.id) === String(patch.id));
+      const candidate = current || patch.set || {};
+      return candidate && String(candidate.userId || '') === scope.userId ? [patch] : [];
+    }
+    if (PATIENT_LINKED_COLLECTIONS.has(patch.c) || COUNTY_AREA_SCOPED_COLLECTIONS.has(patch.c)) {
+      return patchInPrincipalScope(patch, state, sess) ? [patch] : [];
+    }
+    if (patch.c !== 'calendarEvents') return [patch];
+    const current = events.find((event) => event && String(event.id) === String(patch.id));
+    const candidate = { ...(current || {}), ...(patch.set || {}) };
+    if (candidate.patientId != null && !patchInPrincipalScope({ ...patch, set: candidate }, state, sess)) return [];
+    const isMeeting = (current && current.kind === 'meeting') || (patch.set && patch.set.kind === 'meeting');
+    if (!isMeeting || canManageServerMeetings(scope.roleId)) return [patch];
+    if (patch.del) return [{ c: 'calendarEvents', id: patch.id, del: true }];
+    const visibleTo = current && Array.isArray(current.visibleTo) ? current.visibleTo.map(String) : [];
+    const previousVisibleTo = patch.before && Array.isArray(patch.before.visibleTo) ? patch.before.visibleTo.map(String) : [];
+    if (previousVisibleTo.includes(scope.userId) && !visibleTo.includes(scope.userId)) {
+      return [{ c: 'calendarEvents', id: patch.id, del: true }];
+    }
+    return visibleTo.includes(scope.userId) ? [patch] : [];
+  });
 }
 
 function isGloballyActivated(state) {
@@ -1600,7 +1974,23 @@ function getSession(state, req) {
     const s = state.sessions[tok];
     const age = (Date.now() - new Date(s.lastSeen || s.createdAt).getTime()) / 1000;
     if (age > IDLE_SECONDS) return null;
-    return { token: tok, ...s, lastSeen: nowISO() };
+    const username = String(s.username || '').toLowerCase();
+    const cred = state.creds && state.creds[username] || null;
+    const user = state.db && Array.isArray(state.db.users)
+      ? state.db.users.find((u) => String(u.username || '').toLowerCase() === username)
+      : null;
+    /* Refresh mutable authorization attributes from the server-owned account
+       records on every request, so an old session cannot retain a demoted role
+       or an area assignment that an administrator has revoked. */
+    return {
+      token: tok, ...s, username,
+      userId: (cred && cred.id) || (user && user.id) || s.userId,
+      roleId: (cred && cred.roleId) || (user && user.roleId) || s.roleId,
+      countyId: (cred && cred.countyId) || (user && user.countyId) || s.countyId,
+      areaIds: (cred && Array.isArray(cred.areaIds) ? cred.areaIds : null)
+        || (user && Array.isArray(user.areaIds) ? user.areaIds : s.areaIds),
+      lastSeen: nowISO(),
+    };
   }
   /* Upstash Global Redis routes writes to Primary and immediate reads (~5-300 ms
      later) to Read Replicas where `state.sessions[tok]` may not have replicated
@@ -1651,8 +2041,9 @@ const MASTER_PROTECTED_KEYS = new Set([
 const ACCOUNT_ADMIN_ROLES = new Set(['chief', 'countyadmin', 'hr', 'director', 'president', 'program.admin']);
 /* Fields on a user record that grant or revoke access. */
 const PRIVILEGED_USER_FIELDS = new Set([
-  'roleId', 'countyId', 'permissions', 'scopes', 'status', 'active', 'username',
-  'mustChange', 'demo', 'consoles', 'extraRoles', 'deptId', 'hash', 'salt',
+  'roleId', 'countyId', 'areaIds', 'departmentId', 'jobTitle', 'seatTier', 'unconfirmed',
+  'permissions', 'scopes', 'status', 'active', 'username', 'mustChange', 'demo',
+  'consoles', 'extraRoles', 'deptId', 'hash', 'salt',
 ]);
 
 function safeObject(obj) {
@@ -2198,7 +2589,7 @@ async function handleRequest(req, res) {
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
     state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.2' }, users: [], audit: [] });
-    const chiefEmail = admin.email || `${username}@${(body.org && body.org.emailDomain) || 'lomamo.example'}`;
+    const chiefEmail = admin.email || `${username}@${(body.org && body.org.emailDomain) || 'lomamofoundation.org'}`;
     const chiefDisplayName = admin.name || 'Chief System Administrator';
     let chiefUserId = 'u-chief-admin';
     /* Only the authenticated activation endpoint may set this flag.  Ignore a
@@ -2316,7 +2707,9 @@ async function handleRequest(req, res) {
         name: clipString(acc.name || uname, 240),
         roleId: clipString(acc.roleId || 'staff', 80),
         countyId: clipString(acc.countyId || 'kisumu', 80),
-        email: clipString(acc.email || `${uname}@${body.emailDomain || 'lomamo.example'}`, 240),
+        areaIds: Array.isArray(acc.areaIds) ? acc.areaIds.map((id) => clipString(id, 80)).slice(0, 20) : [],
+        departmentId: clipString(acc.departmentId || '', 80),
+        email: clipString(acc.email || `${uname}@${body.emailDomain || 'lomamofoundation.org'}`, 240),
         salt,
         digest,
         mustChange: true,
@@ -2338,7 +2731,7 @@ async function handleRequest(req, res) {
     }
     state.rev = (state.rev || 0) + 1;
     appendServerAudit(state, (sess && sess.username) || body.activatedBy || 'chief.admin', 'system.activated_globally', 'system', 'global-activation',
-      `CareLink activated globally (@${body.emailDomain || 'lomamo.example'}); ${issued.length} credentials issued, ${preserved.length} private credentials preserved; demo & setup screens permanently removed.`);
+      `CareLink activated globally (@${body.emailDomain || 'lomamofoundation.org'}); ${issued.length} credentials issued, ${preserved.length} private credentials preserved; demo & setup screens permanently removed.`);
     await saveCloudState(state);
     return sendJson(res, 200, { ok: true, globallyActivated: true, rev: state.rev, issued, preserved });
   }
@@ -2518,7 +2911,8 @@ async function handleRequest(req, res) {
       (state.db && Array.isArray(state.db.pdcas) && state.db.pdcas.length > 800)
     );
     if (!obviouslyLarge) {
-      const cleanClientDb = sanitizeDbForClient(state.db || {});
+      const loginScope = { username, userId: cred.id, roleId: cred.roleId, countyId: cred.countyId || userRec.countyId || 'kisumu' };
+      const cleanClientDb = scopedDbForSession(state.db || {}, state, loginScope);
       if (state.setup && cleanClientDb && typeof cleanClientDb === 'object') {
         cleanClientDb.settings = {
           ...(cleanClientDb.settings || {}),
@@ -2687,7 +3081,7 @@ async function handleRequest(req, res) {
       const emailDomain = (body.emailDomain)
         || (state.org && state.org.emailDomain)
         || (state.db && state.db.settings && state.db.settings.org && state.db.settings.org.emailDomain)
-        || 'lomamo.example';
+        || 'lomamofoundation.org';
       const mustChangeFlag = acc.mustChange !== undefined ? Boolean(acc.mustChange) : true;
       state.creds[uname] = {
         id: acc.id || `u-${uname.replace(/\./g, '-')}`,
@@ -2696,6 +3090,8 @@ async function handleRequest(req, res) {
         name: acc.name || uname,
         roleId: acc.roleId || 'staff',
         countyId: acc.countyId || 'kisumu',
+        areaIds: Array.isArray(acc.areaIds) ? acc.areaIds.map((id) => clipString(id, 80)).slice(0, 20) : [],
+        departmentId: clipString(acc.departmentId || '', 80),
         salt,
         digest,
         mustChange: mustChangeFlag,
@@ -2708,6 +3104,9 @@ async function handleRequest(req, res) {
           u.demo = false;
           u.status = 'active';
           u.active = true;
+          if (Array.isArray(acc.areaIds)) u.areaIds = acc.areaIds.map((id) => clipString(id, 80)).slice(0, 20);
+          if (acc.roleId) u.roleId = clipString(acc.roleId, 80);
+          if (acc.countyId) u.countyId = clipString(acc.countyId, 80);
           delete u.hash;
           delete u.salt;
         }
@@ -3003,7 +3402,8 @@ async function handleRequest(req, res) {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to read the online database.' });
     const name = String(urlObj.searchParams.get('name') || '');
-    const source = state.db && Array.isArray(state.db[name]) ? state.db[name] : null;
+    const scopedDb = scopedDbForSession(state.db || {}, state, sess);
+    const source = Array.isArray(scopedDb[name]) ? scopedDb[name] : null;
     if (!SAFE_COLLECTION.test(name) || !source) return sendJson(res, 404, { ok: false, error: 'The requested online collection does not exist.' });
     const offset = Number(urlObj.searchParams.get('offset') || '0');
     if (!Number.isSafeInteger(offset) || offset < 0 || offset > source.length) return sendJson(res, 400, { ok: false, error: 'The collection-page offset is invalid.' });
@@ -3033,6 +3433,9 @@ async function handleRequest(req, res) {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to read the online database.' });
     const since = Number(urlObj.searchParams.get('since') || '0');
+    if (since > 0 && since < (state.rev || 0) && state._headOnly) {
+      state = (await loadCloudState({ readOnly: true })).state;
+    }
     if (since > 0 && since >= (state.rev || 0)) {
       return sendJson(res, 200, {
         ok: true,
@@ -3054,7 +3457,7 @@ async function handleRequest(req, res) {
           ok: true,
           rev: state.rev,
           saved: state.saved,
-          patches: deltas.flatMap((d) => d.patches || []),
+          patches: scopedPatchesForSession(deltas.flatMap((d) => d.patches || []), state, sess),
         });
       }
       if (urlObj.searchParams.get('deltaOnly') === '1') {
@@ -3072,7 +3475,7 @@ async function handleRequest(req, res) {
     if (urlObj.searchParams.get('fast') === '1') {
       const targetRev = Number(urlObj.searchParams.get('targetRev') || '0');
       const partParam = urlObj.searchParams.get('part');
-      const pack = getClientFastPack(state, targetRev);
+      const pack = getClientFastPack(state, targetRev, sess);
       if (partParam !== null) {
         const partIdx = Number(partParam);
         if (!Number.isSafeInteger(partIdx) || partIdx < 0 || partIdx >= pack.parts.length) {
@@ -3097,7 +3500,7 @@ async function handleRequest(req, res) {
         part0: pack.parts[0],
       });
     }
-    const split = splitLargeStateCollections(sanitizeDbForClient(state.db || {}));
+    const split = splitLargeStateCollections(scopedDbForSession(state.db || {}, state, sess));
     return sendJson(res, 200, {
       ok: true,
       rev: state.rev || 0,
@@ -3168,10 +3571,55 @@ async function handleRequest(req, res) {
         applied.push(p);
         continue;
       }
+      if (p.c === 'messages' && !messagePatchAllowed(p, state, sess)) {
+        rejected.push({ c: p.c, id: p.id, reason: 'message_scope_denied' });
+        continue;
+      }
+      if (p.c === 'notifications' && !notificationPatchAllowed(p, state, sess)) {
+        rejected.push({ c: p.c, id: p.id, reason: 'notification_scope_denied' });
+        continue;
+      }
       if (!Array.isArray(state.db[p.c])) state.db[p.c] = [];
       const col = state.db[p.c];
       const idx = col.findIndex((r) => r && r.id === p.id);
       const set = safeObject(p.set);
+
+      /* Clinical records are authorized by the server against the patient's
+         trusted county/area, not merely by client-side navigation guards. */
+      if (PATIENT_LINKED_COLLECTIONS.has(p.c)) {
+        const financialWrite = ['transactions', 'adminOpsPayg'].includes(p.c) && financialPatchInScope(p, state, sess);
+        const clinicalWrite = CLINICAL_WRITE_ROLES.has(sess.roleId) && patchInPrincipalScope(p, state, sess);
+        if (!financialWrite && !clinicalWrite) {
+          rejected.push({ c: p.c, id: p.id, reason: 'clinical_scope_denied' });
+          continue;
+        }
+      }
+      if (COUNTY_AREA_SCOPED_COLLECTIONS.has(p.c) && !patchInPrincipalScope(p, state, sess)) {
+        rejected.push({ c: p.c, id: p.id, reason: 'clinical_scope_denied' });
+        continue;
+      }
+      if (p.c === 'calendarEvents') {
+        const existingMeeting = (state.db.calendarEvents || []).find((r) => r && String(r.id) === String(p.id));
+        const candidate = { ...(existingMeeting || {}), ...set };
+        if (candidate.patientId != null && (!CLINICAL_WRITE_ROLES.has(sess.roleId) || !patchInPrincipalScope({ ...p, set: candidate }, state, sess))) {
+          rejected.push({ c: p.c, id: p.id, reason: 'clinical_scope_denied' });
+          continue;
+        }
+        if ((candidate.kind === 'meeting' || (existingMeeting && existingMeeting.kind === 'meeting')) && !canManageServerMeetings(sess.roleId)) {
+          rejected.push({ c: p.c, id: p.id, reason: 'meeting_manager_required' });
+          continue;
+        }
+        if (candidate.kind === 'meeting') {
+          let validHttps = false;
+          try { const u = new URL(String(candidate.meetingUrl || '')); validHttps = u.protocol === 'https:' && !u.username && !u.password; } catch (_) {}
+          if (!validHttps || !Array.isArray(candidate.visibleTo) || !candidate.visibleTo.length ||
+              !candidate.governance || candidate.governance.confidentialityAcknowledged !== true ||
+              candidate.governance.approvedProviderAcknowledged !== true) {
+            rejected.push({ c: p.c, id: p.id, reason: 'meeting_policy_validation_failed' });
+            continue;
+          }
+        }
+      }
 
       /* Access-granting changes to user records are reserved for account administrators;
          everyone else may only edit non-privileged fields on their own record. */
@@ -3225,18 +3673,27 @@ async function handleRequest(req, res) {
         if (cred && !(cred.roleId === 'chief' && sess.roleId !== 'chief')) {
           if (set.roleId && !(set.roleId === 'chief' && sess.roleId !== 'chief')) cred.roleId = set.roleId;
           if (set.countyId) cred.countyId = set.countyId;
+          if (Array.isArray(set.areaIds)) cred.areaIds = set.areaIds.map((id) => clipString(id, 80)).slice(0, 20);
           if (set.name) cred.name = set.name;
         }
       }
     }
 
+    for (const patch of applied) {
+      if (patch && patch.c === 'messages' && patch.set && patch.set.from === sess.userId && typeof patch.set.text === 'string') {
+        appendServerAudit(state, sess.userId || sess.username, 'message.sent', 'message', patch.id,
+          `Server-validated ${String(patch.set.kind || 'message')} message to ${Array.isArray(patch.set.to) ? patch.set.to.length : 0} recipient(s); text omitted from audit detail.`);
+      }
+    }
     state.rev = (state.rev || 0) + 1;
     state.deltas = state.deltas || [];
     state.deltas.push({ rev: state.rev, at: nowISO(), actor: sess.username, patches: applied });
     if (state.deltas.length > 60) state.deltas.splice(0, state.deltas.length - 60);
     if (rejected.length) {
-      appendServerAudit(state, sess.userId || sess.username, 'sync.patch_rejected', 'users', '-',
-        `${rejected.length} user-record change(s) refused: role ${sess.roleId} may not edit account access`);
+      const collections = [...new Set(rejected.map((item) => String(item.c || 'unknown')))].sort();
+      const reasons = [...new Set(rejected.map((item) => String(item.reason || 'not_permitted')))].sort();
+      appendServerAudit(state, sess.userId || sess.username, 'sync.patch_rejected', 'collection', collections.join(','),
+        `${rejected.length} patch(es) refused for role ${sess.roleId}; reason(s): ${reasons.join(', ')}.`);
     }
     await saveCloudState(state);
     return sendJson(res, 200, { ok: true, rev: state.rev, merged, rejected, saved: state.saved });
@@ -3370,7 +3827,7 @@ async function handleRequest(req, res) {
       ...(existingCred || {}),
       id: (existingCred && existingCred.id) || (matchedUser && matchedUser.id) || `u-${uname.replace(/\./g, '-')}`,
       username: uname,
-      email: (existingCred && existingCred.email) || (matchedUser && matchedUser.email) || `${uname}@${(state.org && state.org.emailDomain) || 'lomamo.example'}`,
+      email: (existingCred && existingCred.email) || (matchedUser && matchedUser.email) || `${uname}@${(state.org && state.org.emailDomain) || 'lomamofoundation.org'}`,
       name: (existingCred && existingCred.name) || (matchedUser && matchedUser.name) || uname,
       roleId: (existingCred && existingCred.roleId) || (matchedUser && matchedUser.roleId) || 'staff',
       countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',
@@ -3432,7 +3889,7 @@ async function handleRequest(req, res) {
       ...(existingCred || {}),
       id: (existingCred && existingCred.id) || (matchedUser && matchedUser.id) || `u-${uname.replace(/\./g, '-')}`,
       username: uname,
-      email: (existingCred && existingCred.email) || (matchedUser && matchedUser.email) || `${uname}@${(state.org && state.org.emailDomain) || 'lomamo.example'}`,
+      email: (existingCred && existingCred.email) || (matchedUser && matchedUser.email) || `${uname}@${(state.org && state.org.emailDomain) || 'lomamofoundation.org'}`,
       name: (existingCred && existingCred.name) || (matchedUser && matchedUser.name) || uname,
       roleId: (existingCred && existingCred.roleId) || (matchedUser && matchedUser.roleId) || 'staff',
       countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',

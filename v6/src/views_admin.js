@@ -456,7 +456,7 @@ function renderUsers(user){
         {sub:'Issues a one-time WhatsApp temporary password & 24h EMG code; staff sets private password on sign-in.'})}
     </div>` : '')
   + card('Organogram Account Directory', table([
-      {label:'User & Official Email',render:u=>`<div class="row" style="gap:9px">${avatarFor(u.name,roleObj(u.roleId)?.accent)}<div class="cellname">${esc(u.name)}${u.seatTier&&u.seatTier!=='staff'?' '+badge(titleCase(u.seatTier),'b-info','nodot'):''}<span class="sm mono">${esc(u.username)}${u.email?' · '+esc(u.email):''}</span></div></div>`},
+      {label:'User & Mock Email Alias',render:u=>`<div class="row" style="gap:9px">${avatarFor(u.name,roleObj(u.roleId)?.accent)}<div class="cellname">${esc(u.name)}${u.seatTier&&u.seatTier!=='staff'?' '+badge(titleCase(u.seatTier),'b-info','nodot'):''}<span class="sm mono">${esc(u.username)}${u.email?' · '+esc(u.email):''}</span></div></div>`},
       {label:'Role / Designation',render:u=>`${badge(roleObj(u.roleId)?.name||u.roleId,'b-neutral','nodot')}<div class="xs muted">${esc(u.jobTitle||'')}</div>`},
       {label:'Department',render:u=>`<span class="small">${esc(deptName(u.departmentId))}</span>`},
       {label:'County',render:u=>`<span class="small">${esc(u.countyId?countyName(u.countyId):'Head Office')}</span>`},
@@ -735,7 +735,7 @@ function registerCountyUrgentActions(){
       let uname = baseSlug;
       let n = 1;
       while((DB.db.users||[]).some(u=>u.username===uname)) { uname = `${baseSlug}.${++n}`; }
-      const domain = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.defaultEmailDomain) ? PROD_SETUP.defaultEmailDomain() : 'lomamo.example';
+      const domain = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.defaultEmailDomain) ? PROD_SETUP.defaultEmailDomain() : 'lomamofoundation.org';
       const portal = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.defaultPortalUrl) ? PROD_SETUP.defaultPortalUrl() : location.origin;
       const tempPw = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.generateStrongPassword) ? PROD_SETUP.generateStrongPassword(12) : 'CareLink@2026!';
       const salt = newSalt();

@@ -1,0 +1,19 @@
+{
+  "id": "./carelink-v6.html",
+  "name": "CareLink C-DIMS · LOMAMO Foundation",
+  "short_name": "CareLink",
+  "description": "LOMAMO Foundation care coordination and information management system",
+  "lang": "en-KE",
+  "start_url": "./carelink-v6.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0E234A",
+  "background_color": "#F8FAFC",
+  "categories": ["health", "productivity"],
+  "icons": [
+    { "src": "./icons/carelink-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/carelink-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/carelink-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

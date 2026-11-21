@@ -427,10 +427,10 @@ function seedDemo(db, now){
   const U = (id,name,username,roleId,countyId,areaIds,extra={}) => ({
     id, name, username, roleId, countyId, areaIds, departmentId:(extra.dept||ROLE(roleId).dept),
     jobTitle:(extra.job||ROLE(roleId).name), reportsTo:extra.reportsTo||null, status:'active',
-    /* Reserved space for invented people: the .example TLD is RFC 2606, so a
-       seeded mailbox can never belong to a real person. Telephone numbers and
-       clinic numbers follow the same rule - see the demo patient seed below. */
-    email:username+'@lomamo.example', phone:'', createdBy:'u-chief', approvedBy:'u-chief',
+    /* The requested LOMAMO domain is stored as a mock login alias only; the
+       app does not deliver email. Synthetic phone and clinic numbers stay in
+       dedicated demo ranges - see the demo patient seed below. */
+    email:username+'@lomamofoundation.org', phone:'', createdBy:'u-chief', approvedBy:'u-chief',
     salt: demoSalt, hash: strongHash('LOMAMO2026', demoSalt),
     created:iso(d(420)), lastLogin:null, mustChange:false, demo:true, ...extra
   });

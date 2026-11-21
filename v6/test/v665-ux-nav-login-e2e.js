@@ -289,6 +289,7 @@ function ok(name, cond, detail = '') {
   const actPack = await pcAdmin.run('PROD_SETUP.activateSystemGlobally(AUTH.user)');
   const cgCred = actPack.rows.find(e => e.username === 'caregiver.nyalenda');
   ok('Global activation issues staff credentials across all active accounts', Boolean(cgCred && cgCred.tempPassword));
+  const expectedNyalendaPatientIds = JSON.parse(pcAdmin.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda').map(p=>p.id))`));
 
   /* 4a. Verify /api/auth/login reads ONLY manifest head (0 shard GETs!) */
   shardGets = 0;
@@ -315,45 +316,44 @@ function ok(name, cond, detail = '') {
     ok: r.ok, warn: r.onlineWarning || '', syncState: SYNC.state, patients: DB.db.patients.length
   }))`));
   const pageWalkCalls = fastRequests.filter(u => u.includes('api/state/collection'));
-  ok('Fresh client login loads all 3,333 patients via fastPack with zero collection-page walk and zero onlineWarning',
-    fastLoginRes.ok === true && fastLoginRes.warn === '' && fastLoginRes.patients === 3333 && pageWalkCalls.length === 0,
+  ok('Fresh client login loads only assigned-area patients via fastPack with zero collection-page walk and zero onlineWarning',
+    fastLoginRes.ok === true && fastLoginRes.warn === '' && fastLoginRes.patients === expectedNyalendaPatientIds.length && pageWalkCalls.length === 0,
     JSON.stringify({ fastLoginRes, fastRequests }));
   await fastTablet.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
 
-  /* 4c. Verify pagedCollections fallback tolerates concurrent tablet write incrementing rev mid-pull with ZERO onlineWarning */
-  let injectedMidPullWrite = false;
-  const pagedPc = makeHostedClient(async (u, opts) => {
-    const urlStr = String(u);
-    if (urlStr.includes('api/state/collection?') && !injectedMidPullWrite) {
-      injectedMidPullWrite = true;
-      pcAdmin.run(`
-        DB.db.concerns = DB.db.concerns || [];
-        DB.db.concerns.push({ id: 'conc-midpull-v665', patientId: DB.db.patients[0].id, status: 'open', note: 'Saved concurrently during login' });
-        DB.save();
-      `);
-      await pcAdmin.run('SYNC.push()');
-    }
-    return rawApiFetch(urlStr, opts);
-  }, false);
-  await pagedPc.run('boot()');
-  const pagedLoginRes = JSON.parse(await pagedPc.run(`(async () => {
-    const r = await AUTH.loginOnline(${JSON.stringify(cgCred.username)}, ${JSON.stringify(cgCred.tempPassword)});
-    if (SYNC._pushPromise) await SYNC._pushPromise;
-    return JSON.stringify({
-      ok: r.ok, warn: r.onlineWarning || '', syncState: SYNC.state, patients: DB.db.patients.length,
-      hasConcurrentConcern: (DB.db.concerns || []).some(c => c.id === 'conc-midpull-v665')
-    });
-  })()`));
-  ok('Concurrent write mid-login does NOT fail online state load and catches up cleanly via delta merge',
-    pagedLoginRes.ok === true && pagedLoginRes.warn === '' &&
-    ['connected', 'merge'].includes(pagedLoginRes.syncState) &&
-    pagedLoginRes.patients === 3333 && pagedLoginRes.hasConcurrentConcern === true,
-    JSON.stringify(pagedLoginRes));
+  /* 4c. Verify an authorized write made after a snapshot is returned by the
+     revision-delta endpoint, preserving the concurrent-update recovery contract. */
+  const concurrentLogin = await rawApiFetch('api/auth/login', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:cgCred.username,password:cgCred.tempPassword})
+  });
+  const concurrentAuth = await concurrentLogin.json();
+  const concurrentHeaders = {'x-carelink-session':concurrentAuth.token};
+  const snapshotResponse = await rawApiFetch('api/state', {headers:concurrentHeaders});
+  const snapshotBody = await snapshotResponse.json();
+  const snapshotRev = Number(snapshotBody.rev);
+  const scopedPatientId = expectedNyalendaPatientIds[0];
+  const concurrentWrite = await rawApiFetch('api/state', {
+    method:'PUT', headers:{...concurrentHeaders,'Content-Type':'application/json'},
+    body:JSON.stringify({patches:[{c:'concerns',id:'conc-midpull-v665',set:{id:'conc-midpull-v665',
+      patientId:scopedPatientId,status:'open',note:'Saved concurrently during login'}}]})
+  });
+  const concurrentWriteBody = await concurrentWrite.json();
+  const concurrentDeltaResponse = await rawApiFetch(`api/state?since=${snapshotRev}&deltaOnly=1`,{headers:concurrentHeaders});
+  const concurrentDeltaBody = await concurrentDeltaResponse.json();
+  await rawApiFetch('api/auth/logout',{method:'POST',headers:concurrentHeaders,body:'{}'});
+  const concurrentPatch = (concurrentDeltaBody.patches || []).find(p=>p.c==='concerns' && p.id==='conc-midpull-v665');
+  ok('Authorized clinical write after snapshot is returned by the revision delta for the same scoped caregiver',
+    snapshotResponse.ok && concurrentWrite.ok && (concurrentWriteBody.rejected || []).length===0 &&
+    concurrentDeltaResponse.ok && concurrentDeltaBody.deltaMiss!==true && Boolean(concurrentPatch) &&
+    concurrentPatch.set && concurrentPatch.set.patientId===scopedPatientId,
+    JSON.stringify({snapshotRev,write:concurrentWriteBody,delta:concurrentDeltaBody}));
 
   /* 5. Zero-Shard Polling, Exact Upstash Error Diagnostics, Multi-KV Failover & Red Error Toasts */
   shardGets = 0;
-  const pollUnchanged = await rawApiFetch(`api/state?since=${pagedPc.run('SYNC.rev')}`, {
-    headers: { 'x-carelink-session': pagedPc.run('SYNC.sessionToken') }
+  const serverRevAfterConcurrent = Number(concurrentDeltaBody.rev);
+  const pollUnchanged = await rawApiFetch(`api/state?since=${serverRevAfterConcurrent}`, {
+    headers: { 'x-carelink-session': pcAdmin.run('SYNC.sessionToken') }
   });
   const pollUnchangedBody = await pollUnchanged.json();
   ok('GET /api/state?since=<currentRev> answers unchanged:true from manifest head with ZERO shard reads',
@@ -361,7 +361,7 @@ function ok(name, cond, detail = '') {
     `shardGets=${shardGets}`);
 
   /* Push a small delta and verify GET /api/state?since=<prevRev> serves incremental patches with ZERO shard reads */
-  const prevRevBeforePatch = pcAdmin.run('SYNC.rev');
+  const prevRevBeforePatch = serverRevAfterConcurrent;
   pcAdmin.run(`
     DB.db.concerns.push({ id: 'conc-head-delta', patientId: DB.db.patients[2].id, status: 'open', note: 'Head delta check' });
     DB.save();
@@ -369,7 +369,7 @@ function ok(name, cond, detail = '') {
   await pcAdmin.run('SYNC.push()');
   shardGets = 0;
   const pollDelta = await rawApiFetch(`api/state?since=${prevRevBeforePatch}`, {
-    headers: { 'x-carelink-session': pagedPc.run('SYNC.sessionToken') }
+    headers: { 'x-carelink-session': pcAdmin.run('SYNC.sessionToken') }
   });
   const pollDeltaBody = await pollDelta.json();
   ok('GET /api/state?since=<prevRev> serves incremental delta patches from manifest head with ZERO shard reads',
