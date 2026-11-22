@@ -27,12 +27,18 @@
    the form closes or the person navigates.
    ============================================================ */
 
+const SYNC_OUTBOX_KEY = 'carelink.sync.outbox';
+
 const SYNC = {
   /* idle | probing | connected | device | saving | merge | error */
   state:'idle', rev:0, saved:null, message:'', latency:null,
   sessionToken:null, server:null, authError:null,
   lastMerged:0, lastPatchAt:null, pendingRemote:false, deviceOnlyOverride:false,
   _timer:null, _inflight:false, _poll:null, _shadow:{}, _retry:0,
+  /* A hosted client is a view of the shared record, so it does not keep the
+     whole register in browser storage. The one thing that must survive a reload
+     is work the clinic has typed but the host has not accepted yet. */
+  outbox:{ patches:[], savedAt:null, rev:null, authFailed:false },
 
   available(){
     try{
@@ -64,6 +70,39 @@ const SYNC = {
     this.sessionToken = t || null;
     try{ t ? sessionStorage.setItem('carelink.session', t) : sessionStorage.removeItem('carelink.session'); }catch(e){}
   },
+
+  /* ---- held work ("outbox") -------------------------------------------- */
+  /* Everything typed while the host was unreachable or half-way through a tick
+     is written here before the screen can be lost. It is a patch list against
+     the shadow the host last confirmed, so replaying it is the same operation
+     as the save that was interrupted. */
+  writeOutbox(){
+    if(typeof Store === 'undefined' || !Store.set) return false;
+    const box = this.outbox;
+    if(!box || !Array.isArray(box.patches) || !box.patches.length){
+      try{ Store.del(SYNC_OUTBOX_KEY); }catch(e){}
+      return false;
+    }
+    box.savedAt = new Date().toISOString();
+    box.rev = this.rev;
+    try{ Store.set(SYNC_OUTBOX_KEY, JSON.stringify(box)); }catch(e){ return false; }
+    return true;
+  },
+  loadOutbox(){
+    if(typeof Store === 'undefined' || !Store.get) return null;
+    try{
+      const raw = Store.get(SYNC_OUTBOX_KEY);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      if(!parsed || !Array.isArray(parsed.patches) || !parsed.patches.length) return null;
+      return parsed;
+    }catch(e){ return null; }
+  },
+  clearOutbox(){
+    this.outbox = { patches:[], savedAt:null, rev:null, authFailed:false };
+    try{ if(typeof Store !== 'undefined' && Store.del) Store.del(SYNC_OUTBOX_KEY); }catch(e){}
+  },
+  heldOutbox(){ const box = this.loadOutbox(); return box ? box.patches.length : 0; },
 
   async _json(url, opts={}){
     const nowMs = () => (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') ? performance.now() : Date.now();
@@ -114,7 +153,10 @@ const SYNC = {
       });
     }
     if(r.status === 401 && this.sessionToken && !preserveTokenOn401 && !skipAuthHeader){
-      /* The host ended the session (idle window, revocation or restart). */
+      /* The host ended the session (idle window, revocation or restart). Anything
+         typed but not yet accepted is held against this account before the
+         session goes, so signing back in finishes the save. */
+      try{ if(url !== 'api/auth/logout') this.holdWork(); }catch(_e){}
       this.storeToken(null);
       if(typeof SESSION !== 'undefined' && AUTH.user) SESSION.serverExpired();
     }
@@ -263,6 +305,9 @@ const SYNC = {
       return;
     }
     await this.pullFull();
+    /* Work typed before the browser closed goes back before any further reading,
+       so a reload can never quietly discard a visit. */
+    await this.attemptOutbox();
     this.startPolling();
   },
 
@@ -774,6 +819,8 @@ const SYNC = {
   },
 
   queue(){
+    /* Nothing to send yet (offline copy, or signed out): the register itself is
+       the record, exactly as before. */
     if(!this.available() || !this.sessionToken) return;
     if(this._pulling || (typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading'))) return;
     if(this._inflight){ this._queuedWhileInflight = true; return; }
@@ -791,6 +838,78 @@ const SYNC = {
     this._pushPromise = this._runPush();
     try{ return await this._pushPromise; }
     finally{ if(!this._inflight) this._pushPromise = null; }
+  },
+
+  /* Hold whatever the host has not confirmed. The patch list is written to
+     durable storage first: losing a reload must not lose a home visit. */
+  holdWork(){
+    const patches = this.patches();
+    if(!patches.length){ this.outbox.patches = []; this.writeOutbox(); return 0; }
+    let username = null;
+    try{ username = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null; }catch(e){}
+    this.outbox = Object.assign({}, this.outbox, {
+      patches,
+      rev: this.rev,
+      savedAt: new Date().toISOString(),
+      authFailed: false,
+      username
+    });
+    this.writeOutbox();
+    return patches.length;
+  },
+
+  /* Replay held work before anything else reads the shared record. Rejections
+     the host will never accept (a scope refusal) are reported and dropped;
+     transport failures keep the work here for the next attempt. */
+  async attemptOutbox(){
+    if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return false;
+    const box = this.loadOutbox();
+    if(!box) return false;
+    if(!this.sessionToken) return false;
+    if(this._inflight || this._pulling) return false;
+    /* Held work belongs to the account that typed it: a second person signing
+       in on this tablet must never publish the first person's edits. */
+    const signedIn = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
+    if(box.username && signedIn && box.username !== signedIn) return false;
+    this.outbox = box;
+    this._inflight = true;
+    try{
+      const chunk = 1200;
+      let rev = this.rev;
+      for(let i=0;i<box.patches.length;i+=chunk){
+        const slice = box.patches.slice(i, i+chunk);
+        const r = await this._json('api/state', {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({patches: slice, baseRev: this.rev, opId:'op-out-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7), ts:new Date().toISOString()})
+        });
+        if(!r.ok){
+          if([403, 401, 409, 422].includes(r.status)){
+            /* The host will not accept this work: say so and stop holding it,
+               rather than pretending forever that it will be saved. */
+            this.outbox.authFailed = true;
+            this.clearOutbox();
+            this.state = 'error';
+            this.message = (r.body && r.body.error) || 'The shared online source refused work held on this device';
+            this.bump();
+          }
+          return false;
+        }
+        rev = r.body.rev;
+      }
+      this.rev = rev;
+      this.saved = new Date().toISOString();
+      DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:rev, serverSaved:this.saved});
+      this.clearOutbox();
+      this.state = 'connected';
+      this.message = 'Held work saved to the shared online source';
+      this.bump();
+      return true;
+    }catch(e){
+      this.holdWork();
+      return false;
+    }finally{
+      this._inflight = false;
+    }
   },
 
   async _runPush(){
@@ -814,7 +933,7 @@ const SYNC = {
                                 ts: new Date().toISOString()})
         });
         if(!r.ok){
-          this.state = r.status===403 ? 'error' : 'error';
+          this.state = 'error';
           this.message = r.body.error || 'The shared online source refused the save';
           this.bump(); this._inflight=false; return;
         }
@@ -833,6 +952,7 @@ const SYNC = {
       APPX.dirty = remaining.length > 0;
       this._retry = 0;
       this.lastMerged = merged;
+      this.clearOutbox();
       this.state = merged ? 'merge' : 'connected';
       this.message = merged
         ? `Saved · ${merged} overlapping field${merged===1?'':'s'} reconciled automatically`
@@ -847,8 +967,11 @@ const SYNC = {
       }
     }catch(e){
       this._retry++;
+      this.holdWork();
       this.state='error';
-      this.message='The shared online source is unreachable — the change is held on this device and will be retried';
+      this.message = this.outbox.patches.length
+        ? `The shared online source is unreachable — ${this.outbox.patches.length} change${this.outbox.patches.length===1?' is':'s are'} held on this device and will be retried`
+        : 'The shared online source is unreachable — the change is held on this device and will be retried';
       this.bump();
     }finally{
       this._inflight = false;
@@ -898,6 +1021,7 @@ const SYNC = {
         this.rev = r.body.rev; this.saved = r.body.saved;
         DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:r.body.rev, serverSaved:r.body.saved});
         if(typeof DB.persistState === 'function') DB.persistState();
+        this.reconcileCalls();
         this.softRefresh();
         return;
       }
@@ -905,6 +1029,7 @@ const SYNC = {
         this.applyDelta(r.body);
         this.rev = r.body.rev; this.saved = r.body.saved;
         DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:r.body.rev, serverSaved:r.body.saved});
+        this.reconcileCalls();
         this.softRefresh();
         return;
       }
@@ -1028,6 +1153,11 @@ const SYNC = {
   flushPending(){
     if(this.pendingRemote){ this.pendingRemote = false; try{ render(); }catch(e){} }
   },
+  /* An answered, declined or ended call must reach the other person without a
+     refresh: the same reconciliation runs after every adopted remote change. */
+  reconcileCalls(){
+    try{ if(typeof CALLING!=='undefined' && CALLING.reconcile) CALLING.reconcile(); }catch(e){}
+  },
 
   bump(){
     APPX.sync = {state:this.state, rev:this.rev, saved:this.saved, message:this.message, latency:this.latency, merged:this.lastMerged};
@@ -1036,6 +1166,12 @@ const SYNC = {
   },
 
   label(){
+    /* The chip must never read "unconfirmed" while work is actually held: the
+       clinic needs to know whether a visit is safely on the shared record or
+       waiting here. */
+    if(this.state==='error' && this.heldOutbox() > 0) return 'Held on this device';
+    if(this.offline()) return 'Offline on this device';
+    if(this.state==='device') return 'Offline/static mode';
     return ({ idle:'Connecting', probing:'Connecting', connected:'Shared online source', device:'Offline/static mode',
       saving:'Saving', merge:'Reconciled', error:'Online save unconfirmed' })[this.state] || 'Unknown';
   },
@@ -1045,13 +1181,35 @@ const SYNC = {
     if(this.state==='device') return 'warn';
     return 'crit';
   },
+  /* True when the browser itself says the device has no network. The service
+     worker can still serve the cached shell, so the console keeps working; the
+     point of this flag is that nothing is claimed as shared until it is. */
+  offline(){ try{ return typeof navigator!=='undefined' && navigator.onLine === false; }catch(e){ return false; } },
   detail(){
     if(this.state==='connected') return `Revision ${this.rev} · live`;
     if(this.state==='merge') return `Revision ${this.rev} · ${this.lastMerged} field(s) reconciled`;
     if(this.state==='saving') return 'Writing to the online source';
     if(this.state==='device') return this.available() ? 'Online source unavailable — no shared save is claimed' : 'Offline/static mode — local records only';
-    if(this.state==='error') return this.message;
+    if(this.state==='error'){
+      const held = this.heldOutbox();
+      if(held) return this.message || `${held} change${held===1?' is':'s are'} held on this device and will be retried`;
+      if(this.offline()) return 'This device has no network. Records stay here until it reconnects.';
+      return this.message;
+    }
+    if(this.state==='idle' && this.offline()) return 'This device has no network. Records stay here until it reconnects.';
     return this.message || 'Checking the shared online source';
+  },
+  /* Called by the shell when the browser reports the network has come back, so
+     a held visit is replayed at once rather than at the next poll. */
+  async retryNow(){
+    if(!this.sessionToken || !this.available() || this._inflight || this._pulling) return false;
+    try{
+      if(APPX.dirty) await this.push();
+      await this.attemptOutbox();
+      await this.tick();
+      this.startPolling();
+      return true;
+    }catch(e){ return false; }
   },
   chip(){
     const t = this.tone();

@@ -1,7 +1,7 @@
 # LOMAMO LOMAMO C-DIMS — LOMAMO C-DIMS
 
 **Data & Information Management System for LOMAMO Foundation Kenya** (Love Matters Most)
-Kisumu & Homa Bay County Offices · version 6.9.4 · schema 6
+Kisumu & Homa Bay County Offices · version 6.9.6 · schema 6
 
 One operating system for the whole Foundation: patient registration and the
 assessment pipeline, home visits and PDCA follow-up, hospital coordination,
@@ -61,8 +61,8 @@ change never falls back to a device-local account or demo register. Browser
 storage is a cache for the online client, not a second installation.
 
 Live first-run commissioning starts with an **empty production register**. The
-full 3,333-patient synthetic reference package is deliberately separate because
-its related visits, PDCA cycles and departmental records total roughly 70 MB of
+full 4,000-patient synthetic reference package is deliberately separate because
+its related visits, PDCA cycles and departmental records total roughly 80 MB of
 JSON, exceeding Vercel's 4.5 MB Function request/response limit and Upstash's
 10 MB free-tier request limit. After the four steps and before global
 activation, the Chief opens **System → Master data import**, downloads
@@ -88,11 +88,11 @@ never a real patient workbook.
 2. Sign in as **Chief / System Administrator** and complete the mandatory
    private-password change.
 3. Open **System → Master data import**. Under step 1, click **Full
-   3,333-patient reference master** to download the JSON file. Keep it unchanged.
+   4,000-patient reference master** to download the JSON file. Keep it unchanged.
 4. Click **Select file** and choose that downloaded JSON. Review the automated
    quality evidence, then click **Validate & upload full master**. Leave the PC
    online until every chunk and the final shared-KV commit have been confirmed.
-5. Confirm that the register shows **3,333 patients**, the quality view has no
+5. Confirm that the register shows **4,000 patients**, the quality view has no
    findings, and the import is recorded in the online audit trail.
 6. Use **Global activation** to issue staff credentials. Give each tablet user
    their own credentials; every tablet opens the same Vercel URL and downloads
@@ -108,6 +108,70 @@ workflow; it must never be published as a static file.
 evaluation installation. It is refused once live setup exists and permanently
 after `globallyActivated`; the Landing, Sign-In and first-run setup UI use the
 same server-provided activation/commissioning flags to remove demo controls.
+
+### Rebuilding or rebooting from the Chief System Administrator account
+
+Passwords are stored as one-way hashes, so re-issuing them is a deliberate,
+audited operation rather than a lookup. The full procedure — what a rebuild
+replaces, what it preserves, how to recover a pack you did not download, what
+counts as a "reboot" instead, and the three-minute health check afterwards — is in
+[`docs/REBUILD_AND_REBOOT_FROM_CHIEF_ADMIN.md`](docs/REBUILD_AND_REBOOT_FROM_CHIEF_ADMIN.md).
+In short: **Development Console → Provisioning → Rebuild & reactivate** (Chief
+password + type `REBUILD`), then download the confidential pack immediately;
+**Recover recent pack** covers a lost download for 24 hours. Every issued account
+signs in and works straight away — a personal password is optional.
+
+### What happens when a tablet loses the network
+
+A tablet is a view of the shared record, so it does not keep the whole register
+in browser storage. What it *does* keep is work the host has not accepted yet:
+a visit, a concern, a request typed while the connection dropped, the tab was
+closed, or the session timed out. That work is written to the tablet's own
+storage, the status chip reads **Held on this device** with a count, and it is
+sent to the shared record before anything else the next time the same person
+signs in on that tablet. It is never published under a colleague's name; if the
+host refuses it, the refusal is shown plainly instead of being retried forever.
+`v6/test/v6100-sync-outbox.js` covers these paths.
+
+While the device has no network the status chip reads **Offline on this device**
+and a quiet strip at the bottom of the screen says so too, so nobody has to
+guess from a spinner. When the connection comes back the held work is replayed
+at once rather than at the next poll. `v6/test/v6101-pwa-hardening.js` covers
+the offline notice, the install button and the reload notice.
+
+### Installing CareLink on a tablet or phone
+
+CareLink installs as an application and then runs its own shell offline. On
+Android/Chrome an **Install CareLink** button appears once the browser offers
+the prompt; on iPhone or iPad use Share → *Add to Home Screen*. Four shortcuts
+are offered on the installed icon: Home, Patients, Monday meeting and Report
+centre. When a new build reaches a device that has the app open, a strip says a
+newer version is ready and offers **Reload**; nothing reloads under a half-typed
+form without being asked.
+
+### The weekly planning page
+
+The Monday meeting reads **Weekly Planning Indicators** (Report centre): patients
+in programme, discharges, children rescued, the deceased, orphaned children,
+food bags by the register's codes (Bag 1 / Bag 2 / Special) and by bag number,
+mattresses, blankets, Bibles, hygiene packages, mosquito nets, home visits seen,
+patients not found at home, weights taken, inpatient and outpatient activity,
+and every ministry area split into villages and slums. Two rules are visible in
+the page itself: every figure is counted from a record, and a household whose
+decision was never recorded is reported as *not recorded* rather than counted as
+one. Where the register cannot answer a question — the couple household, for
+example, because Bag 1 is issued to normal and couple households alike — the
+page says so instead of inventing a number.
+`v6/test/v6102-weekly-indicators.js` covers it.
+
+### What the demonstration register contains
+
+The board-preview and reference register is fixed: **4,000 synthetic patients**,
+ages 5–75, an even Kisumu / Homa Bay split, exactly **40%** in the day 60–80
+review window, at least twelve recorded contacts each, and weights on a
+three-weekly rhythm. The full specification, and how to check a running
+installation against it, is in
+[`docs/DEMO_REGISTER_SPECIFICATION.md`](docs/DEMO_REGISTER_SPECIFICATION.md).
 
 ## How the code is organised
 
@@ -140,7 +204,7 @@ Vite plugin hot-reloads the preview when anything in `v6/src/` changes.
 ## Personal data
 
 This repository is public. It contains **no real patient record**. The generated
-3,333-patient reference register is synthetic evaluation content with reserved
+4,000-patient reference register is synthetic evaluation content with reserved
 contact details and no credential secrets. The Administration's master patient
 workbook was studied, mapped field by field into the system
 (`v6/docs/20_MASTER_WORKBOOK_MAPPING.md`) and then removed from the repository;

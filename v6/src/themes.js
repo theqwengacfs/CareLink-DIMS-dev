@@ -117,8 +117,12 @@ const WTHEMES = [
 const WT_DEFAULT = 'foundation';
 const WT_AUTO = 'auto';
 
-/* 15 distinct departmental color schemes (+ aliases) giving every LOMAMO
-   department its own vivid hero gradient, accent chromatic bar, and KPI tint. */
+/* One colour identity per LOMAMO department: a hero gradient (c1 to c2), a
+   third accent for the chromatic bar and a badge tint. Every department in
+   DEPARTMENTS has an entry, and no two departments share a gradient, so a
+   person can tell at a glance which console they are in. `pharmacy` is the one
+   addition: pharmacy staff hold a clinical role, and the dispensary needs its
+   own identity to be distinguishable from the ward. */
 const DEPT_PALETTES = {
   exec:     { name:'Executive Leadership',         c1:'#1A2F63', c2:'#284F9E', c3:'#B8860B', badge:'#FBBF24' },
   admin:    { name:'Administration & Operations',  c1:'#0E446E', c2:'#026AA7', c3:'#0D9488', badge:'#38BDF8' },
@@ -134,7 +138,7 @@ const DEPT_PALETTES = {
   audit:    { name:'Internal Audit & Assurance',   c1:'#4A1468', c2:'#7E22CE', c3:'#BE185D', badge:'#E9D5FF' },
   media:    { name:'Media, Ethics & Storytelling', c1:'#831843', c2:'#BE185D', c3:'#E11D48', badge:'#F9A8D4' },
   pr:       { name:'Public Relations & Partnerships', c1:'#3730A3', c2:'#4F46E5', c3:'#0891B2', badge:'#A5B4FC' },
-  hr:       { name:'Human Resources & People',     c1:'#581C87', c2:'#9333EA', c3:'#C2410C', badge:'#E9D5FF' },
+  hr:       { name:'Human Resources & People',     c1:'#581C87', c2:'#9333EA', c3:'#C2410C', badge:'#F0ABFC' },
   welfare:  { name:'Staff Welfare & Support',      c1:'#065F46', c2:'#0D9488', c3:'#7C3AED', badge:'#99F6E4' },
   vehicle:  { name:'Fleet, Logistics & Transport', c1:'#713F12', c2:'#B45309', c3:'#047857', badge:'#FDE047' },
   it:       { name:'ICT, Security & Host Systems', c1:'#0F172A', c2:'#1E40AF', c3:'#0E7490', badge:'#93C5FD' }
@@ -173,13 +177,18 @@ const ROLE_PALETTES = {
   intldata:          ['#254C78','#497AB2','#8162A1'],
   pharmacy:          ['#175B57','#388C7A','#79A45E']
 };
+/* The department's own label is read from the org chart (DEPARTMENTS), not
+   copied into this table, so renaming a department cannot leave a console
+   banner describing a name the organisation no longer uses. */
 function deptPaletteFor(user){
   if(!user) return DEPT_PALETTES.exec;
   const role = roleObj(user.roleId);
   const key = (role && role.dept) || 'exec';
   const signature = ROLE_PALETTES[user.departmentId === 'pharmacy' ? 'pharmacy' : user.roleId];
   if(signature) return { name:(role && role.name) || 'Role workspace', c1:signature[0], c2:signature[1], c3:signature[2], badge:signature[2] };
-  return DEPT_PALETTES[key] || DEPT_PALETTES.exec;
+  const palette = DEPT_PALETTES[key] || DEPT_PALETTES.exec;
+  const org = (typeof DEPARTMENTS!=='undefined') ? DEPARTMENTS.find(d=>d.id===key) : null;
+  return org ? { ...palette, name: org.name } : palette;
 }
 
 /* Personal multi-colour schemes tint navigation, workspace metrics and card edges,
@@ -548,6 +557,22 @@ const WTHEME = {
     return c;
   },
 
+  /* A department's badge tint is chosen to be vivid, not to be legible on its
+     own gradient: on a dark banner dot it can fall to 1.7:1. Rather than send
+     every department the same tint, lighten this one towards white until it
+     separates from the fill it sits on, and only fall back to darkening if a
+     near-white fill would swallow it. The hue is kept. */
+  badgeOnFill(badge, fill){
+    if(!/^#[0-9A-Fa-f]{6}$/.test(String(badge||'')) || !/^#[0-9A-Fa-f]{6}$/.test(String(fill||''))) return badge;
+    if(WTC.contrast(badge, fill) >= 4.5) return badge;
+    let c = badge, n = 0;
+    while(WTC.contrast(c, fill) < 4.5 && n++ < 20) c = WTC.mix(c,'#FFFFFF',0.08);
+    if(WTC.contrast(c, fill) >= 4.5) return c;
+    c = badge; n = 0;
+    while(WTC.contrast(c, fill) < 4.5 && n++ < 20) c = WTC.mix(c,'#000000',0.08);
+    return c;
+  },
+
   _active: null,
 
   /* Write the theme, accent, density, text size, touch size and motion
@@ -588,7 +613,14 @@ const WTHEME = {
     set('--console-hero-1', WTHEME.safeFill(schemeColors[0]));
     set('--console-hero-2', WTHEME.safeFill(schemeColors[1]));
     set('--console-hero-3', WTHEME.safeFill(schemeColors[2]));
-    set('--dept-c1', dp.c1); set('--dept-c2', dp.c2); set('--dept-c3', dp.c3); set('--dept-badge', dp.badge);
+    /* The departmental banner is a white-on-colour fill (hero, KPI style
+       "bold"), so every stop of it is darkened until white text reaches 4.5:1
+       on each of the three colours. The identity is kept; only unusable shades
+       are corrected. The department identity itself is untouched, so two
+       departments stay tellable apart after the correction. */
+    set('--dept-c1', WTHEME.safeFill(dp.c1)); set('--dept-c2', WTHEME.safeFill(dp.c2)); set('--dept-c3', WTHEME.safeFill(dp.c3));
+    set('--dept-badge', WTHEME.badgeOnFill(dp.badge, WTHEME.safeFill(dp.c1)));
+    set('--dept-id-c1', dp.c1); set('--dept-id-c2', dp.c2); set('--dept-id-c3', dp.c3);
     set('--dept-soft', WTC.mix(theme.t.surface, dp.c2, theme.mode==='dark'? 0.24 : 0.11));
     set('--dept-line', WTC.mix(theme.t.surface, dp.c2, theme.mode==='dark'? 0.42 : 0.28));
     /* studio: corners and typeface are values, the rest are attributes the stylesheet reads */

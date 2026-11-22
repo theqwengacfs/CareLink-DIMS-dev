@@ -1718,7 +1718,7 @@ const ROLE_CTX = {
         'Assurance':'Global QA, Co-Work & KHIS',
         'Reporting':'Cross-County Analytics & Reports',
         'Clinical & pharmacy':'120d PDCA Outcome Metrics',
-        'Patients & field':'3,333-Beneficiary Cohort Index',
+        'Patients & field':`${DEMO_REGISTER.patients.toLocaleString('en-GB')}-Beneficiary Cohort Index`,
         'Ministry & teams':'Cross-County Area Metrics',
         'Partner & referral':'Global Partner Indicators',
         'Finance & procurement':'Unit-Cost & Steward Metrics',
@@ -1897,7 +1897,7 @@ const ROLE_CTX = {
       intldata: {
         home:'International Data Home', smartflow:'Cross-County Co-Work & Indicator QA',
         dualcheck:'Admin / Intl 2/2 Co-Work Lock', analytics:'Cross-County Indicators', interop:'KHIS & Partner Exports',
-        quality:'Global 3,333-Record QA Audit', drafts:'International Data Drafts', settings:'International Data Preferences'
+        quality:`Global ${DEMO_REGISTER.patients.toLocaleString('en-GB')}-Record QA Audit`, drafts:'International Data Drafts', settings:'International Data Preferences'
       },
       'intl.medical': {
         home:'International Medical Home', smartflow:'120+ Day PDCA Specialist QA',

@@ -121,7 +121,9 @@ const DB = {
       adminOpsPayg:[], adminOpsSuppliers:[], adminOpsTransport:[],
       adminOpsStatutory:[], adminOpsUtilities:[], adminOpsOpEx:[],
       adminOpsMonthlyReports:[], adminOpsAnnualBudgets:[], adminOpsSocieties:[],
-      recoveryRequests:[], workflowActionsLog:[], workspaceDrafts:[]};
+      recoveryRequests:[], workflowActionsLog:[], workspaceDrafts:[],
+      /* v6.9.5 Team Chat audio & video calling (signalling records only) */
+      teamCalls:[]};
   },
 
   /* Fast O(1) per-patient longitudinal lookup indexes (auto-invalidating on mutation) */
@@ -189,12 +191,12 @@ const DB = {
     } else {
       this.db = this.blank();
       /* A hosted browser is a client of the shared online installation, not a
-         new installation of its own.  Never invent a 3,333-patient register
-         before /api/health and the authenticated state pull have answered. */
+         new installation of its own.  Never invent a reference register before
+         /api/health and the authenticated state pull have answered. */
       let hosted = false;
       try{ hosted = /^https?:$/.test(location.protocol); }catch(e){}
       if(!hosted && typeof seedOfficial === 'function'){
-        seedOfficial(this.db, new Date(), {patients:3333, mustChange:false});
+        seedOfficial(this.db, new Date(), {patients:DEMO_REGISTER.patients, mustChange:false});
         this.db.meta.freshSeeded = true;
         try{ Store.set(this.KEY, JSON.stringify(this.db)); }catch(e){}
       }
@@ -312,7 +314,7 @@ const DB = {
           countyId:r.countyId, areaIds:r.areas||[], departmentId:r.dept, jobTitle:r.job,
           reportsTo:'u-chief', status:'active', active:true, mustChange:false, demo:true,
           salt, hash:strongHash('LOMAMO2026', salt),
-          email:r.username+'@lomamofoundation.org', phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
+          email:r.username+'@'+OFFICIAL_EMAIL_DOMAIN, phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
           created:demo.seededAt, execTeam:EXEC_DEFAULT.includes(r.username)
         });
       });
@@ -323,7 +325,7 @@ const DB = {
     this.db.settings.onboarding.complete = true;
     this.save();
   },
-  /* v6: the official programme register (synthetic, labelled, 3,333 rows by
+  /* v6: the official programme register (synthetic, labelled, 4,000 rows by
      default). Used for acceptance testing and board demonstrations. */
   seedOfficial(opts={}){
     if(!this.db) this.db = this.blank();

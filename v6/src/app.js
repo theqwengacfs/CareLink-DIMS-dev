@@ -18,7 +18,7 @@ const DEMO_PREVIEW = {
     this.savedDb = DB.db;
     this.savedUser = AUTH.user; this.savedSession = AUTH.session;
     const isolated = DB.blank();
-    seedOfficial(isolated, new Date(), {patients:3333, mustChange:false});
+    seedOfficial(isolated, new Date(), {patients:DEMO_REGISTER.patients, mustChange:false});
     isolated.meta = Object.assign(isolated.meta||{}, {label:'Isolated synthetic board preview', demoPreview:true, demoSeeded:true, seeded:'official'});
     DB.db = isolated; DB._vIdx=null;
     const user = (isolated.users||[]).find(u=>u.roleId==='director' && u.status==='active')
@@ -104,6 +104,9 @@ const SESSION = {
     document.body.appendChild(box);
   },
   async heartbeat(){
+    /* Ringing invitations and a live call are reconciled every beat, so an
+       answer placed on another device is honoured on this one too. */
+    try{ if(typeof CALLING!=='undefined') await CALLING.reconcile(); }catch(e){}
     if(AUTH.user){
       DB.db.presence = DB.db.presence||{};
       DB.db.presence[AUTH.user.id] = { at:new Date().toISOString(), state:'online' };
@@ -200,6 +203,24 @@ async function boot(){
   ['pointerdown','keydown','touchstart','wheel'].forEach(ev=>
     document.addEventListener(ev, ()=>{ if(AUTH.user) SESSION.touch(); }, {passive:true}));
   window.addEventListener('hashchange', ()=>{ if(AUTH.user) SESSION.touch(); });
+  /* The installed-app shell (pwa-install.html) reports the device's own network
+     state. A visit typed while the link is down must go to the shared record the
+     moment it comes back, not at the next poll; and a lost link must be visible
+     in the status chip without waiting for a failed request to time out. */
+  window.addEventListener('carelink:network-online', ()=>{
+    try{ if(AUTH.user){ SESSION.touch(); if(typeof SYNC!=='undefined') SYNC.retryNow(); } }catch(e){}
+  });
+  window.addEventListener('carelink:open-sync', ()=>{ try{ if(AUTH.user && typeof openSyncModal==='function') openSyncModal(); }catch(e){} });
+  /* Redraw the chip on a plain network change so the console states the truth
+     immediately instead of waiting for a request to fail. */
+  const refreshChipOnNetworkChange = ()=>{
+    try{
+      if(typeof SYNC==='undefined' || !AUTH.user) return;
+      if(SYNC.state==='error' || SYNC.state==='idle' || SYNC.state==='connected') SYNC.bump();
+    }catch(e){}
+  };
+  window.addEventListener('online', refreshChipOnNetworkChange);
+  window.addEventListener('offline', refreshChipOnNetworkChange);
   if(typeof NAVP!=='undefined' && NAVP.installAutoFoldListeners) NAVP.installAutoFoldListeners();
 
   /* Respect explicit #/setup, #/onboard, #/login or #/architecture deep links at 0 ms */
@@ -485,8 +506,8 @@ function renderShell(){
   const roleHero = (typeof WORKSPACE_LAYOUTS!=='undefined' && WORKSPACE_LAYOUTS.renderHomeHero)
     ? WORKSPACE_LAYOUTS.renderHomeHero(user, heroCtx) : '';
   return `<div class="app shell ${paneOn?'has-pane':''} ${railOn?'np-rail':''} ${APPX.navOpen?'np-open':''}">
-    ${roleHero ? `<div class="shell-role-banner no-print" role="region" aria-label="Role console banner" tabindex="0">${roleHero}</div>` : ''}
     ${paneOn? NAVP.html(user, here) : ''}${paneOn? '<div class="np-scrim" data-act="nav-close"></div>' : ''}
+    ${roleHero ? `<div class="shell-role-banner no-print" role="region" aria-label="Role console banner" tabindex="0">${roleHero}</div>` : ''}
     <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}" data-role="${esc(user.roleId)}" data-dept="${esc(role.dept||'exec')}">
       <img class="cb-logo" src="${window.LOGO||''}" alt="CareLink · LOMAMO Foundation">
       <div class="cb-nav" role="group" aria-label="Navigation & history">
@@ -533,6 +554,7 @@ function renderShell(){
         <span class="small">This browser has blocked persistent storage, so changes are held for this session only. Download the file and open it directly in Chrome or Edge for a persistent installation.</span></div></div>`:''}
       ${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}
       ${PAGER.bar(user, here)}</main>
+    ${(typeof CALLING!=='undefined' && CALLING.incomingBanner) ? CALLING.incomingBanner() : ''}
   </div>`;
 }
 var view='home';
@@ -1184,6 +1206,24 @@ const ACTIONS = {
     Object.keys(d||{}).forEach(k=>{ if(k!=='act'&&k!=='v'&&k!=='skip'&&d[k]!==undefined) params[k]=d[k]; });
     go(d.v, params);
   },
+  'call-start':(d)=>{
+    if(!d || !d.thread) return;
+    CALLING.start(d.thread, d.kind==='video'?'video':'audio');
+  },
+  'call-person':(d)=>{
+    if(!d || !d.u || !AUTH.user) return;
+    const thread = 'dm:'+[AUTH.user.id, d.u].sort().join(':');
+    if(!MESSAGING.route(AUTH.user, thread).ok) return toast('Not in reach','That colleague is outside your messaging reach.','err');
+    CALLING.start(thread, d.kind==='video'?'video':'audio');
+  },
+  'call-accept':(d)=>{ if(d && d.call) CALLING.accept(d.call, d.kind==='video'?'video':'audio'); },
+  'call-decline':(d)=>{ if(d && d.call) CALLING.decline(d.call); },
+  'call-end':()=>CALLING.end(),
+  'call-mute':(d)=>{
+    CALLING.toggleMute();
+    try{ if(d && d.el) d.el.setAttribute('aria-pressed', CALLING._muted?'true':'false'); }catch(e){}
+  },
+  'call-camera':()=>CALLING.toggleCamera(),
   'close-modal':()=>closeModal(),
   'modal-close':()=>closeModal(),
   'confirm-yes':()=>{ const f=window.__confirmYes; window.__confirmYes=null; f&&f(); },
@@ -1363,7 +1403,7 @@ const ACTIONS = {
   'load-reference':()=>{
     if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return toast('Reference data locked', 'Synthetic reference data cannot be loaded into the globally activated installation.', 'err');
     if(!RBAC.has(AUTH.user,'system.import')) return toast('Not permitted','Only a system administrator may load the reference register.','err');
-    const n = DB.seedOfficial({patients:3333});
+    const n = DB.seedOfficial({patients:DEMO_REGISTER.patients});
     AUDIT.append({actor:AUTH.user.id,action:'register.reference_loaded',entity:'system',entityId:'register',
       detail:`${n} synthetic patients loaded as the reference register`});
     DB.save();

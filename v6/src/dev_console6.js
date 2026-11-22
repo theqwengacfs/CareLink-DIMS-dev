@@ -35,7 +35,7 @@ const PROD_SETUP = {
 
   defaultEmailDomain() {
     const cfg = DB.db && DB.db.settings && DB.db.settings.org && DB.db.settings.org.emailDomain;
-    return String(cfg || 'lomamofoundation.org').replace(/^@+/, '').trim().toLowerCase() || 'lomamofoundation.org';
+    return String(cfg || OFFICIAL_EMAIL_DOMAIN).replace(/^@+/, '').trim().toLowerCase() || OFFICIAL_EMAIL_DOMAIN;
   },
 
   ownsCredentialPack(actor = (typeof AUTH !== 'undefined' ? AUTH.user : null)) {
@@ -62,9 +62,9 @@ const PROD_SETUP = {
     if(this.isGloballyActivated()) throw new Error('First-run setup is locked after global activation.');
     const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
     if(hosted && seedMode !== 'empty'){
-      throw new Error('Live Vercel setup must start with an empty patient register. After setup, use Master data import before global activation to upload the complete 3,333-patient reference master in verified chunks; the full package exceeds Vercel\'s 4.5 MB Function request limit.');
+      throw new Error('Live Vercel setup must start with an empty patient register. After setup, use Master data import before global activation to upload the complete reference master in verified chunks; the full package exceeds Vercel\'s 4.5 MB Function request limit.');
     }
-    const domain = String(emailDomain || 'lomamofoundation.org').replace(/^@+/, '').trim().toLowerCase() || 'lomamofoundation.org';
+    const domain = OFFICIAL_EMAIL_DOMAIN;
     const portal = String(loginUrl || portalUrl || this.defaultPortalUrl()).trim();
     const chiefUser = String(chiefUsername || 'chief.admin').trim().toLowerCase();
     const chiefFull = String(chiefName || 'Chief System Administrator').trim();
@@ -83,7 +83,7 @@ const PROD_SETUP = {
 
     DB.reset();
     const now = new Date();
-    seedOfficial(DB.db, now, { patients: seedMode === 'empty' ? 0 : 3333, mustChange: true });
+    seedOfficial(DB.db, now, { patients: seedMode === 'empty' ? 0 : DEMO_REGISTER.patients, mustChange: true });
 
     let admin = (DB.db.users || []).find(u => u.username === chiefUser || u.roleId === 'chief');
     const cSalt = newSalt();
@@ -228,7 +228,7 @@ const PROD_SETUP = {
       toast('Chief System Administrator Only', 'Only the Chief System Administrator can Activate System Globally.', 'err');
       return null;
     }
-    const domain = String(opts.emailDomain || this.defaultEmailDomain()).replace(/^@+/, '').trim().toLowerCase() || 'lomamofoundation.org';
+    const domain = OFFICIAL_EMAIL_DOMAIN;
     const portalUrl = String(opts.loginUrl || opts.portalUrl || this.defaultPortalUrl()).trim();
     const roster = (typeof OFFICIAL_ROSTER !== 'undefined' && Array.isArray(OFFICIAL_ROSTER)) ? OFFICIAL_ROSTER : [];
     const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
@@ -515,7 +515,7 @@ const PROD_SETUP = {
       </div>`;
     }
     const patientCount = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
-    const masterLoaded = Boolean((DB.db && DB.db.meta && DB.db.meta.referenceMaster) || patientCount >= 3333);
+    const masterLoaded = Boolean((DB.db && DB.db.meta && DB.db.meta.referenceMaster) || patientCount >= DEMO_REGISTER.patients);
     const feedingNow = typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'loading' || REFERENCE_MASTER.phase === 'uploading');
     return `<div class="card" style="margin-bottom:16px;padding:16px 20px;border:2px solid #D97706;background:linear-gradient(135deg, rgba(245,158,11,.12), rgba(15,118,110,.08))">
       <div class="spread" style="gap:16px;flex-wrap:wrap;align-items:center">
@@ -524,11 +524,11 @@ const PROD_SETUP = {
           <div style="font-size:16.5px;font-weight:800;margin-bottom:4px">Ready to Activate CareLink C-DIMS Globally Across All LOMAMO Departments</div>
           <div class="small muted">Generates every organogram account name, official email, username, login URL &amp; one-time password formatted for your <b>Team WhatsApp Platform</b>, requires each user to self-activate by changing their password on first login, and <b>permanently removes all Demo &amp; Host Setup UI</b> from Landing and Sign-In.</div>
           <div class="xs" style="margin-top:6px">${masterLoaded
-            ? `<span style="color:var(--ok);font-weight:700">✓ Complete 3,333-Patient Cloud Dataset Verified in KV (${num(patientCount)} patients · 100% completeness)</span>`
-            : `<span class="muted">Patient register currently has <b>${num(patientCount)}</b> records — you can auto-feed the built-in 100%-complete 3,333-patient dataset with zero local file upload before locking activation.</span>`}</div>
+            ? `<span style="color:var(--ok);font-weight:700">✓ Complete ${num(DEMO_REGISTER.patients)}-Patient Cloud Dataset Verified in KV (${num(patientCount)} patients · 100% completeness)</span>`
+            : `<span class="muted">Patient register currently has <b>${num(patientCount)}</b> records — you can auto-feed the built-in 100%-complete ${num(DEMO_REGISTER.patients)}-patient dataset with zero local file upload before locking activation.</span>`}</div>
         </div>
         <div class="row" style="gap:8px;flex-wrap:wrap">
-          ${!masterLoaded ? `<button class="btn btn-soft" type="button" style="padding:11px 16px;font-weight:700" data-act="auto-feed-cloud-master" ${feedingNow?'disabled':''}>${ic('database',15)} ${feedingNow?'Feeding 3,333 Patients…':'Auto-Feed 3,333-Patient Dataset'}</button>` : ''}
+          ${!masterLoaded ? `<button class="btn btn-soft" type="button" style="padding:11px 16px;font-weight:700" data-act="auto-feed-cloud-master" ${feedingNow?'disabled':''}>${ic('database',15)} ${feedingNow?`Feeding ${num(DEMO_REGISTER.patients)} Patients…`:`Auto-Feed ${num(DEMO_REGISTER.patients)}-Patient Dataset`}</button>` : ''}
           <button class="btn btn-primary" type="button" style="padding:11px 20px;font-weight:800" data-act="open-global-activate">${ic('shieldcheck',16)} Activate System Globally</button>
         </div>
       </div>
@@ -541,16 +541,16 @@ const PROD_SETUP = {
     const pack = this.lastPack;
     const rosterCount = (typeof OFFICIAL_ROSTER !== 'undefined' ? OFFICIAL_ROSTER.length : 0);
     const patientCount = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
-    const masterLoaded = Boolean((DB.db && DB.db.meta && DB.db.meta.referenceMaster) || patientCount >= 3333);
+    const masterLoaded = Boolean((DB.db && DB.db.meta && DB.db.meta.referenceMaster) || patientCount >= DEMO_REGISTER.patients);
     openModal({
       title: this.isGloballyActivated() ? 'Official Team WhatsApp Activation Sheet' : 'Activate CareLink System Globally',
       sub: `${orgName()} · Complete Organogram Provisioning & Permanent Demo Removal`,
       wide: true,
       body: `<form id="globalActivateForm">
         <div class="grid g2" style="gap:12px;margin-bottom:12px">
-          <div class="field"><label>Mock Staff Email Domain *</label>
-            <input class="input mono" name="emailDomain" value="${esc(this.defaultEmailDomain())}" placeholder="e.g. lomamofoundation.org" required>
-            <div class="hint">Creates account-address labels such as <code>username@domain</code>. No mailbox is provisioned and CareLink does not send email.</div>
+          <div class="field"><label>Official Staff Email Domain</label>
+            <input class="input mono" name="emailDomain" value="${esc(OFFICIAL_EMAIL_DOMAIN)}" readonly>
+            <div class="hint">Every Foundation account signs in with an alias on <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>. No mailbox is provisioned and CareLink does not send email; the domain is fixed for the organisation.</div>
           </div>
           <div class="field"><label>Official System Login URL *</label>
             <input class="input mono" name="loginUrl" value="${esc(this.defaultPortalUrl())}" required>
@@ -558,11 +558,11 @@ const PROD_SETUP = {
           </div>
         </div>
         ${!this.isGloballyActivated() ? (masterLoaded
-          ? `<div class="alert ok" style="margin-bottom:12px">${ic('check',16)}<div><b>100%-Complete 3,333-Patient Cloud Dataset Ready</b><div class="small">All ${num(patientCount)} complete patient profiles, visits, and PDCA cycles are already committed in Cloud KV and will be shared across all departmental consoles.</div></div></div>`
+          ? `<div class="alert ok" style="margin-bottom:12px">${ic('check',16)}<div><b>100%-Complete ${num(DEMO_REGISTER.patients)}-Patient Cloud Dataset Ready</b><div class="small">All ${num(patientCount)} complete patient profiles, visits, and PDCA cycles are already committed in Cloud KV and will be shared across all departmental consoles.</div></div></div>`
           : `<label class="row" style="gap:10px;align-items:flex-start;padding:12px 14px;margin-bottom:12px;border-radius:10px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06));cursor:pointer">
               <input type="checkbox" name="autoFeedMaster" value="1" checked style="margin-top:3px">
-              <span class="small"><b>Auto-feed complete 3,333-patient generated dataset from Cloud before locking Global Activation</b><br>
-              <span class="muted">Loads all 3,333 synthetic reference patients, 44,995 visits &amp; 18,060 PDCAs (100% completeness, zero local file upload) directly into Cloud KV right before activating all departmental accounts. Uncheck only if you want an empty production register.</span></span>
+              <span class="small"><b>Auto-feed complete ${num(DEMO_REGISTER.patients)}-patient generated dataset from Cloud before locking Global Activation</b><br>
+              <span class="muted">Loads all ${num(DEMO_REGISTER.patients)} synthetic reference patients and their complete visits &amp; PDCAs (100% completeness, zero local file upload) directly into Cloud KV right before activating all departmental accounts. Uncheck only if you want an empty production register.</span></span>
             </label>`) : ''}
         <div class="alert info" style="margin-bottom:12px">${ic('shield',16)}<div>
           <b>What happens when you click Activate System Globally:</b>
@@ -640,7 +640,7 @@ const PROD_SETUP = {
     /* Build fresh or reference DB */
     const db = DB.blank();
     if (seedMode === 'reference' && typeof seedOfficial === 'function') {
-      seedOfficial(db, new Date(), { patients: 3333, mustChange: true });
+      seedOfficial(db, new Date(), { patients: DEMO_REGISTER.patients, mustChange: true });
     }
     db.meta = Object.assign({}, db.meta || {}, {
       setupComplete: true,
@@ -893,8 +893,8 @@ const PROD_SETUP = {
       body:`<div class="alert warn"><div><b>${recover ? 'Recovery is available for 24 hours' : 'This resets non-Chief accounts'}</b>
         <p class="small">${recover
           ? 'Only temporary passwords that are still valid are included. Personalised passwords cannot be recovered. Changing the Chief password also makes the recovery copy unreadable.'
-          : 'All other existing accounts and sessions, including any other Chief accounts, are replaced or deactivated. Only your current Chief sign-in and non-account records are preserved. Named officers receive new temporary passwords; unconfirmed seats remain disabled.'}</p>
-        <p class="small">Email addresses are mock login aliases, not mailboxes. Distribute credentials privately to individual officers.</p></div></div>
+          : 'All other existing accounts and sessions, including any other Chief accounts, are replaced or deactivated. Only your current Chief sign-in and non-account records are preserved. Named officers receive new passwords on the official domain and can sign in and work immediately — no password change is forced; a private password can be set whenever they choose. Unconfirmed seats remain disabled.'}</p>
+        <p class="small">Email addresses are login aliases on <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>, not mailboxes. Distribute credentials privately to individual officers.</p></div></div>
         <div class="field"><label for="reactivationPassword">Current Chief password</label>
           <input class="input" id="reactivationPassword" type="password" autocomplete="current-password"></div>
         ${recover ? '' : '<div class="field"><label for="reactivationConfirm">Type REBUILD to confirm</label><input class="input" id="reactivationConfirm" autocomplete="off"></div>'}`,
@@ -923,7 +923,7 @@ const PROD_SETUP = {
         return;
       }
       const rows = r.body.issued.map(row=>({ ...row, county:countyName(row.county),
-        loginUrl:location.origin, smsText:`CareLink: Sign in at ${location.origin} with ${row.username} and the temporary password shown in your private handoff. Set a private password on first login.` }));
+        loginUrl:location.origin, smsText:`CareLink: Sign in at ${location.origin} with ${row.username} (or ${row.email}) and the password in your private handoff. You can start work immediately; you may set a private password whenever you choose.` }));
       this.lastPack = { kind:recover ? 'recovered-rebuild' : 'official-rebuild', generatedAt:todayISO(), chiefUsername:actor.username, siteUrl:location.origin,
         count:rows.length, rows, expiresAt:r.body.expiresAt };
       this.lastWhatsappSheet = '';
@@ -938,7 +938,7 @@ const PROD_SETUP = {
           : 'Download the pack. Reload or sign in again before editing the shared workspace.', 'warn');
       } else {
         AUTH.user = (DB.db.users||[]).find(u=>u.username===actor.username) || actor;
-        toast(recover ? 'Credential pack recovered' : 'Hierarchy rebuilt', `${rows.length} still-valid temporary passwords available. Download the confidential document now.`, 'ok');
+        toast(recover ? 'Credential pack recovered' : 'Hierarchy rebuilt', `${rows.length} accounts issued on @${OFFICIAL_EMAIL_DOMAIN}; every officer can sign in now without changing their password. Download the confidential document now.`, 'ok');
       }
       render();
     } catch(_e) {
@@ -968,11 +968,11 @@ const PROD_SETUP = {
       .meta{color:#475569}.footer{margin-top:20px;color:#475569;font-size:12px}@media print{body{margin:12mm;padding:0}.notice{break-inside:avoid}tr{break-inside:avoid}button{display:none}}
       </style></head><body><header><h1>CareLink C-DIMS · Initial Account Provisioning</h1>
       <div>${html((DB.db.settings.org && DB.db.settings.org.name) || 'LOMAMO Foundation Kenya')}</div>
-      <div class="meta">${html(packDescription)} · Generated ${html(p.generatedAt)} · Portal ${html(p.siteUrl)} · ${p.rows.length} accounts</div></header>
-      <section class="notice"><strong>CONFIDENTIAL — ONE-TIME PASSWORDS</strong><br>
-      This document contains temporary account credentials. The Chief System Administrator must distribute each account holder’s credentials privately through an approved channel. Never post this file to a shared group, public repository, or unapproved storage. Each user must replace the temporary password at first sign-in. Securely delete this document after dispatch; retain no reusable password copy. This document is not a substitute for account authorization or access controls.</section>
-      <table><thead><tr><th>#</th><th>Account holder / seat</th><th>Username</th><th>Mock email alias</th><th>One-time password</th><th>Role</th><th>Department</th><th>Office / county</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="footer">Credential handoff record only. Confirm the recipient’s identity before sharing. Pending or unconfirmed roster seats should be verified before credential delivery.</p>
+      <div class="meta">${html(packDescription)} · Accounts usable immediately · Generated ${html(p.generatedAt)} · Portal ${html(p.siteUrl)} · ${p.rows.length} accounts</div></header>
+      <section class="notice"><strong>CONFIDENTIAL — ACCOUNT PASSWORDS</strong><br>
+      This document contains account credentials. The Chief System Administrator must distribute each account holder’s credentials privately through an approved channel. Never post this file to a shared group, public repository, or unapproved storage. Issued accounts sign in and work immediately; setting a personal password is optional and can be done at any time from the account menu. Securely delete this document after dispatch; retain no reusable password copy. This document is not a substitute for account authorization or access controls.</section>
+      <table><thead><tr><th>#</th><th>Account holder / seat</th><th>Username</th><th>Official email alias</th><th>Password (pack)</th><th>Role</th><th>Department</th><th>Office / county</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="footer">Credential handoff record only. Confirm the recipient’s identity before sharing. Every alias is on @${html(OFFICIAL_EMAIL_DOMAIN)}. Pending or unconfirmed roster seats should be verified before credential delivery.</p>
       </body></html>`;
     download('CareLink-Confidential-Account-Provisioning-' + todayISO().slice(0, 10) + '.html', document, 'text/html;charset=utf-8');
   },
@@ -1006,7 +1006,7 @@ const PROD_SETUP = {
     if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a credential sheet first.', 'warn');
     const escCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [
-      ['Full Name / Organogram Seat', 'Username', 'Mock Email Alias', 'Portal Login URL', 'One-Time Temporary Password', 'Assigned Role', 'Department', 'Office / County', 'WhatsApp / SMS Dispatch'].map(escCsv).join(','),
+      ['Full Name / Organogram Seat', 'Username', 'Official Email Alias', 'Portal Login URL', 'Issued Password', 'Assigned Role', 'Department', 'Office / County', 'WhatsApp / SMS Dispatch'].map(escCsv).join(','),
       ...p.rows.map(r => [r.name, r.username, r.email || `${r.username}@${this.defaultEmailDomain()}`, r.loginUrl || p.siteUrl || this.defaultPortalUrl(), r.tempPassword, r.role, r.department || '', r.county, r.whatsappBlock || r.smsText].map(escCsv).join(','))
     ];
     download('CareLink-Official-Organogram-Credentials-' + todayISO().slice(0, 10) + '.csv', lines.join('\r\n'), 'text/csv;charset=utf-8');
@@ -1018,11 +1018,11 @@ const PROD_SETUP = {
     if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a one-time SMS credential pack first.', 'warn');
     const body = [
       '====================================================================',
-      'CARELINK C-DIMS — CONFIDENTIAL ONE-TIME SMS CREDENTIAL DISPATCH PACK',
+      'CARELINK C-DIMS — CONFIDENTIAL SMS CREDENTIAL DISPATCH PACK',
       'Generated: ' + p.generatedAt + ' | Portal: ' + p.siteUrl,
-      'PRIVACY NOTICE (DPA 2019): Every user is forced on first login to',
-      'replace this temporary password with a private password known ONLY',
-      'to themselves. Delete this file after sending individual SMS texts.',
+      'PRIVACY NOTICE (DPA 2019): Issued accounts work immediately with the',
+      'password below; each user MAY replace it with a private password known',
+      'ONLY to themselves. Delete this file after sending individual SMS texts.',
       '====================================================================',
       '',
       ...p.rows.map((r, i) => `[${i + 1}] ${r.name} (${r.role} · ${r.county})\nSMS -> ${r.smsText}\n`)
@@ -1164,6 +1164,18 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.9.6', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Hardened the installed application (install button, offline and new-version notices, a bounded navigation fallback), measured every department palette against the contrast rule it is drawn with, and added the weekly planning page and the report gaps the usage trial report names.',
+      changes:['Install button is now actually attached on every host; an offline strip, a new-version reload notice and an "Offline on this device" status chip were added',
+        'Held work is replayed the moment the network returns, not at the next poll',
+        'Every department palette reviewed: banner contrast corrected stop by stop and badge tints corrected, with the department identity preserved',
+        'Weekly Planning Indicators report: 16 named figures, bags by code, villages versus slums, and a not-recorded count that is never counted as a decision',
+        'Reports now carry the period they actually cover (ISO week, month, quarter, registry month) and one list drives both the report centre and the archive',
+        'New capability patient.ministry.view gates the recorded-decision count',
+        'Demonstration support issues now use the register\u2019s own seven items and are dated along the programme'] },
+    { tag:'v6.9.5', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Rebuilt the demonstration register to the Foundation specification (4,000 patients, ages 5–75, 40% in the day 60–80 window, 50/50 Kisumu–Homa Bay, three-weekly weights) and added team audio and video calling.',
+      changes:['Fixed 4,000-patient board register with an exact 40% day 60–80 window and an even county split','Every patient carries at least 12 recorded contacts on a 21-day home-visit rhythm and three or more weights','Reference master, API validation and operator screens now state one register size instead of a scattered number','Team Chat audio and video calling with invitation, ringing, answer, decline and audited call records'] },
     { tag:'v6.9.4', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Refined role workspace banners and navigation, balanced the public front door, and updated the fresh-install roster with the supplied county and department instructions.' },
     { tag:'v6.9.3', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
@@ -1190,7 +1202,7 @@ const VERSION_CONTROL = {
     { tag:'v6.4.0', date:'2026-10-22', channel:'Production', schema:63, author:'CareLink OS Core Engineering',
       summary:'County Admin Daily PAYG, Weekly Suppliers, 9th Statutory Deductions, Operational Expenses, Kisumu HQ Kenya Reports, Dedicated Dev Console & Audited Silent Override.' },
     { tag:'v6.3.0', date:'2026-10-21', channel:'Production', schema:63, author:'CareLink OS Core Engineering',
-      summary:'3,333 Complete Beneficiary Longitudinal Records (12+ visits), Child Growth Curves, MCM SOAP Console, Hard-Copy Intake Scans, Monday Meeting & 4-Tier Procurement.' },
+      summary:`${DEMO_REGISTER.patients.toLocaleString('en-GB')} Complete Beneficiary Longitudinal Records (12+ visits), Child Growth Curves, MCM SOAP Console, Hard-Copy Intake Scans, Monday Meeting & 4-Tier Procurement.` },
     { tag:'v6.0.0', date:'2026-10-15', channel:'Foundation Baseline', schema:60, author:'LOMAMO Foundation ICT',
       summary:'Unified CareLink C-DIMS Operating System across 10 Ministry Areas, Kisumu & Homa Bay County Offices, and PBKDF2-SHA256 Zero-Knowledge Vault.' }
   ],
@@ -1483,9 +1495,9 @@ const DEV_CONSOLE = {
       const pack = PROD_SETUP.ownsCredentialPack(real) ? PROD_SETUP.lastPack : null;
       body = `<div class="alert info" style="margin-bottom:16px">${ic('shield', 18)}<div>
         <b>Production First-Run &amp; Strict Privacy Password Architecture (Kenya Data Protection Act, 2019)</b>
-        <span class="small">The official rebuild issues a new confidential document for the named roster; the separate pending-account generator is only a subset. Officers change their temporary password privately on first sign-in.</span>
+        <span class="small">The official rebuild issues a new confidential document for the named roster; the separate pending-account generator is only a subset. Every issued account signs in and works immediately — a private password can be set whenever the officer chooses.</span>
       </div></div>`
-      + (isChief && PROD_SETUP.isGloballyActivated() ? card('Rebuild the official hierarchy', `<p class="small">Reconcile the Kisumu and Homa Bay roster and issue ${num(namedRosterCount)} named officers new temporary passwords. Unconfirmed seats stay disabled. Your current Chief sign-in and non-account records are retained; all other legacy accounts, including any other Chief accounts, are replaced or deactivated.</p>
+      + (isChief && PROD_SETUP.isGloballyActivated() ? card('Rebuild the official hierarchy', `<p class="small">Reconcile the Kisumu and Homa Bay roster and issue ${num(namedRosterCount)} named officers new passwords on <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>; they can sign in and work immediately, with no forced change. Unconfirmed seats stay disabled. Your current Chief sign-in and non-account records are retained; all other legacy accounts, including any other Chief accounts, are replaced or deactivated.</p>
           <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-danger" data-act="dev-open-reactivation">Rebuild &amp; reactivate</button>
           <button class="btn btn-ghost" data-act="dev-open-recover-reactivation">Recover recent pack</button></div>
           <p class="hint">The Chief password is required. If the response is interrupted, recover the encrypted pack within 24 hours before retrying.</p>`) : '')
@@ -1597,11 +1609,11 @@ Object.assign(ACTIONS, {
     const loginUrl = fd ? fd.get('loginUrl') : PROD_SETUP.defaultPortalUrl();
     const wantAutoFeed = Boolean(fd && fd.get('autoFeedMaster'));
     const patientCount = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
-    if (wantAutoFeed && patientCount < 3333 && typeof REFERENCE_MASTER !== 'undefined' && typeof REFERENCE_MASTER.autoFeedFromCloud === 'function') {
-      toast('Feeding 3,333-Patient Cloud Dataset…', 'Verifying and committing the 100%-complete dataset into Cloud KV before Global Activation.', 'info');
+    if (wantAutoFeed && patientCount < DEMO_REGISTER.patients && typeof REFERENCE_MASTER !== 'undefined' && typeof REFERENCE_MASTER.autoFeedFromCloud === 'function') {
+      toast(`Feeding ${DEMO_REGISTER.patients.toLocaleString('en-GB')}-Patient Cloud Dataset…`, 'Verifying and committing the 100%-complete dataset into Cloud KV before Global Activation.', 'info');
       const fed = await REFERENCE_MASTER.autoFeedFromCloud({ silent: true });
       if (!fed || !fed.ok) {
-        return toast('Cloud Dataset Auto-Feed Halted', (fed && fed.error) || 'Could not auto-feed the 3,333-patient dataset before activation.', 'crit');
+        return toast('Cloud Dataset Auto-Feed Halted', (fed && fed.error) || `Could not auto-feed the ${DEMO_REGISTER.patients.toLocaleString('en-GB')}-patient dataset before activation.`, 'crit');
       }
     }
     const pack = await PROD_SETUP.activateSystemGlobally({ emailDomain, loginUrl });

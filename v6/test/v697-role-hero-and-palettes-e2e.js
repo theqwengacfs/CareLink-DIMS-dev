@@ -30,7 +30,7 @@ function ok(name, cond, detail = '') {
 
 /* 1. Topmost fixed introduction, single hero per console ------------------- */
 const shell = JSON.parse(run(`JSON.stringify((() => {
-  const res = { banners:[], heroes:[], beforeNav:[], beforeBar:[], modeSegOnInner:[], order:null };
+  const res = { banners:[], heroes:[], afterNav:[], beforeBar:[], beforeContent:[], modeSegOnInner:[], order:null };
   DB.db.users.forEach(u => {
     AUTH.user = u; AUTH.mustChange = false;
     APPX.screen = 'app'; APPX.view = 'home';
@@ -40,11 +40,15 @@ const shell = JSON.parse(run(`JSON.stringify((() => {
     const bannerAt = html.indexOf('shell-role-banner');
     const paneAt = html.indexOf('class="npane');
     const barAt = html.indexOf('class="topbar cbar');
+    const contentAt = html.indexOf('class="content');
     if (bannerCount !== 1) res.banners.push(u.username + ':' + bannerCount);
     if (heroCount !== 1) res.heroes.push(u.username + ':' + heroCount);
-    /* The banner must precede the navigation pane and the console toolbar. */
-    if (paneAt >= 0 && !(bannerAt >= 0 && bannerAt < paneAt)) res.beforeNav.push(u.username);
+    /* The banner belongs to the workspace column: it renders after the
+       navigation pane (right of it on desktop, below it on phones), leads the
+       content, and comes before the console toolbar in the markup. */
+    if (paneAt >= 0 && !(bannerAt >= 0 && bannerAt > paneAt)) res.afterNav.push(u.username);
     if (barAt >= 0 && !(bannerAt >= 0 && bannerAt < barAt)) res.beforeBar.push(u.username);
+    if (contentAt >= 0 && !(bannerAt >= 0 && bannerAt < contentAt)) res.beforeContent.push(u.username);
     if (!res.order) res.order = html.slice(0, 40);
   });
   /* Layout controls belong to the console home, not to inner clinical views. */
@@ -57,10 +61,12 @@ const shell = JSON.parse(run(`JSON.stringify((() => {
   return res;
 })())`));
 
-ok('Every signed-in console renders exactly one role introduction banner ahead of the navigation pane and toolbar',
-  shell.banners.length === 0 && shell.heroes.length === 0 && shell.beforeNav.length === 0 && shell.beforeBar.length === 0,
-  JSON.stringify(shell));
-ok('The introduction banner stays fixed above navigation and content, and inner views keep it without home-only layout controls',
+ok('Every signed-in console renders exactly one role introduction banner in the workspace column, after the navigation pane and ahead of the toolbar',
+  shell.banners.length === 0 && shell.heroes.length === 0 && shell.afterNav.length === 0 &&
+  shell.beforeBar.length === 0 && shell.beforeContent.length === 0,
+  JSON.stringify({ banners: shell.banners, heroes: shell.heroes, afterNav: shell.afterNav.slice(0, 4),
+    beforeBar: shell.beforeBar.slice(0, 4), beforeContent: shell.beforeContent.slice(0, 4) }));
+ok('The introduction banner scrolls with the workspace instead of covering navigation, and inner views keep it without home-only layout controls',
   shell.innerHasBanner === true && shell.modeSegOnInner === 0 && shell.innerArrangeCount === 1,
   JSON.stringify(shell));
 
@@ -135,14 +141,89 @@ const bannerRules = css.slice(css.indexOf('/* Role identity leads every signed-i
 ok('Banner keeps navigation reachable on phones, short screens and high zoom (scrollable tabs, no sideways page)',
   /\.shell-role-banner \.ws67-role-tabs > \.row\{[^}]*overflow-x:auto/.test(css) &&
   /@media\(max-height:720px\)/.test(css) &&
-  /\.shell-role-banner \.ws67-sub\{display:none !important;\}/.test(css) &&
-  /\.shell-role-banner \.ws67-mobile-extra\{display:block/.test(css) &&
+  /@media\(max-width:760px\)[\s\S]*?\.shell-role-banner \.ws67-greeting\{font-size:20px !important;\}/.test(css) &&
+  /\.shell-role-banner \.ws67-mode-seg\{flex:0 0 auto;max-width:100%;overflow-x:auto;\}/.test(css) &&
   /@media\(max-width:560px\)\{[\s\S]*?\.app\.shell > \.topbar\.cbar\{display:flex !important;flex-wrap:wrap/.test(css));
 ok('Banner is keyboard focusable, has a print guard and never widens the page',
   bannerRules.includes('focus-visible') && bannerRules.includes('@media print{.shell-role-banner{display:none !important}}') &&
   css.includes('.shell-role-banner .ws67-hero{overflow-x:clip;') &&
-  css.includes('.shell-role-banner .ws67-hero-copy{max-width:100%;min-width:0;'),
+  css.includes('.shell-role-banner .ws67-hero-copy{max-width:100%;overflow-wrap:anywhere;}'),
   'banner rules incomplete');
+/* The workspace column scrolls as a unit: banner first (glides away), console
+   bar second (holds at the top), content third. The pane is never overlaid. */
+const desktop = css.slice(css.indexOf('@media(min-width:1000px){\n  .app.shell.has-pane{'), css.indexOf('@media(max-width:760px){\n  .shell-role-banner{padding'));
+ok('Desktop shell keeps one scrolling workspace column: banner in flow, console bar holding, pane untouched',
+  /grid-template-rows:auto auto auto !important/.test(desktop) &&
+  /\.app\.shell\.has-pane > \.shell-role-banner\{grid-column:2 !important;grid-row:1 !important/.test(desktop) &&
+  /\.app\.shell\.has-pane > \.cbar\{grid-column:2 !important;grid-row:2 !important;position:sticky/.test(desktop) &&
+  /\.app\.shell\.has-pane > \.npane\{[\s\S]*?grid-row:1 \/ 4 !important/.test(desktop) &&
+  !/\.app\.shell\.has-pane > \.shell-role-banner\{[^}]*position:(fixed|sticky)/.test(desktop),
+  'desktop shell rules changed');
+
+/* 4b. Every department console, reviewed one by one ----------------------
+   The block above proves each account type carries its own signature. This
+   block reviews the organisation's own department list instead, through the
+   department palette that draws a console whenever an account type has no
+   signature of its own (a custom role, or a department whose staff share a
+   clinical role). Each department is rendered for real and then measured:
+   the banner must name the department as the org chart names it, white text
+   must be readable on every stop of its gradient, the badge must be visible on
+   the fill it sits on, the identity itself must not be altered by the contrast
+   correction, and no two departments may look the same. */
+run(`globalThis.__deptTokens = {};
+  document.documentElement.style.setProperty = (k, v) => { globalThis.__deptTokens[k] = v; };`);
+const deptReview = JSON.parse(run(`JSON.stringify((() => {
+  const made = [];
+  const rows = DEPARTMENTS.map(d => {
+    const roleId = 'probe-role-' + d.id;
+    DB.db.roles = DB.db.roles || [];
+    DB.db.roles.push({ id: roleId, name: 'Probe ' + d.name, dept: d.id, scope: { geo: 'county', records: 'county' }, perms: [] });
+    const user = { id: 'probe-' + d.id, username: 'probe.' + d.id, roleId, countyId: 'kisumu', areaIds: ['nyalenda'], departmentId: d.id };
+    AUTH.user = user; WTHEME.apply(user);
+    made.push(roleId);
+    const p = DEPT_PALETTES[d.id] || null;
+    return { id: d.id, orgName: d.name, hasPalette: !!p,
+      paletteName: p ? p.name : null, bannerName: deptPaletteFor(user).name,
+      identity: p ? [p.c1, p.c2, p.c3] : null,
+      rendered: { c1: __deptTokens['--dept-c1'], c2: __deptTokens['--dept-c2'], c3: __deptTokens['--dept-c3'],
+                  id1: __deptTokens['--dept-id-c1'], id2: __deptTokens['--dept-id-c2'], id3: __deptTokens['--dept-id-c3'],
+                  badge: __deptTokens['--dept-badge'] } };
+  });
+  DB.db.roles = DB.db.roles.filter(r => !made.includes(r.id));
+  const dup = arr => { const seen = new Map(), d = []; arr.forEach(([k, v]) => { if (seen.has(v)) d.push(seen.get(v) + '=' + k); else seen.set(v, k); }); return d; };
+  return { rows,
+    dupIdentity: dup(rows.map(r => [r.id, (r.identity || []).join('|')])),
+    dupFill: dup(rows.filter(r => r.rendered.c1).map(r => [r.id, [r.rendered.c1, r.rendered.c2, r.rendered.c3].join('|')])),
+    contrast: rows.map(r => ({ id: r.id,
+      stops: [r.rendered.c1, r.rendered.c2, r.rendered.c3].map(c => +WTC.contrast('#FFFFFF', c).toFixed(2)),
+      badge: +WTC.contrast(r.rendered.badge, r.rendered.c1).toFixed(2) })),
+    identityKept: rows.filter(r => !r.identity || [r.rendered.id1, r.rendered.id2, r.rendered.id3].join('|') === r.identity.join('|')).length
+  };
+})())`));
+
+ok('every department on the org chart has its own palette entry',
+  deptReview.rows.every(r => r.hasPalette), JSON.stringify(deptReview.rows.filter(r => !r.hasPalette).map(r => r.id)));
+ok('a department-drawn console names the department as the org chart names it',
+  deptReview.rows.every(r => r.bannerName === r.orgName),
+  JSON.stringify(deptReview.rows.filter(r => r.bannerName !== r.orgName).map(r => r.id + ': ' + r.bannerName + ' vs ' + r.orgName)));
+ok('white banner text is readable on every stop of every department gradient (4.5:1)',
+  deptReview.contrast.every(c => Math.min(...c.stops) >= 4.5),
+  JSON.stringify(deptReview.contrast.filter(c => Math.min(...c.stops) < 4.5)));
+ok('the department badge tint stays visible on the banner it sits on (4.5:1)',
+  deptReview.contrast.every(c => c.badge >= 4.5),
+  JSON.stringify(deptReview.contrast.filter(c => c.badge < 4.5)));
+ok('the contrast correction is applied to the fill, never to the department identity itself',
+  deptReview.identityKept === deptReview.rows.length,
+  JSON.stringify({ kept: deptReview.identityKept, of: deptReview.rows.length }));
+ok('no two departments share an identity, so one console is never mistaken for another',
+  deptReview.dupIdentity.length === 0 && deptReview.rows.every(r => r.identity && r.identity.length === 3),
+  JSON.stringify(deptReview.dupIdentity));
+ok('the rendered banner fill also stays distinct between departments after the correction',
+  deptReview.dupFill.length === 0, JSON.stringify(deptReview.dupFill));
+/* ...and the palette a real account sees is the account's own signature, which
+   the first block of this file already proves distinct for all 30 roles. */
+ok('every account type therefore has a signature, so the department palette is only the fallback',
+  run(`ROLES.every(r => !!ROLE_PALETTES[r.id])`));
 
 /* 5. Credential pack wording --------------------------------------------- */
 const devConsole = fs.readFileSync(path.join(SRC, 'dev_console6.js'), 'utf8');
@@ -153,7 +234,7 @@ ok('Credential packs are labelled by what they contain (pending-only vs official
   devConsole.includes("kind === 'official-rebuild'") &&
   devConsole.includes("kind === 'recovered-rebuild'") &&
   devConsole.includes('including any other Chief accounts, are replaced or deactivated') &&
-  devConsole.includes('Mock email alias'));
+  devConsole.includes('Official email alias'));
 ok('Issued credentials carry the actual server email alias so the private document matches sign-in',
   apiIndex.includes('email: state.creds[uname].email') &&
   devConsole.includes('email: cp.email ||'));

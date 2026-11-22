@@ -147,18 +147,21 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   newTablet.run('SYNC.queue = () => {}; DB.load();');
   const currentHealth = await newTablet.run('hostProbe()');
   newTablet.run(`APPX.host = ${JSON.stringify(currentHealth)}; SYNC.server = APPX.host;`);
+  /* A re-issued seat signs in on the official alias and works immediately:
+     the pack password is a working credential, not a preview of a change gate. */
+  assert.match(director.email, /@lomamofoundation\.org$/);
   const newLogin = await newTablet.run(`AUTH.loginOnline(${JSON.stringify(director.email)}, ${JSON.stringify(director.tempPassword)}, 'tablet')`);
   assert.equal(newLogin.ok,true,JSON.stringify(newLogin));
-  assert.equal(newLogin.mustChange,true);
-  assert.equal(newTablet.run('SYNC._passwordBeforeWorkspace'),true);
-  assert.equal(newTablet.run('DB.db.users.length'),1,'only the account record is present before password replacement');
+  assert.equal(newLogin.mustChange,false);
+  assert.equal(newTablet.run('SYNC._passwordBeforeWorkspace'),false,'no forced first-login password change');
+  assert.ok(newTablet.run('DB.db.users.length')>1,'the real scoped workspace loads straight away');
+  assert.equal(newTablet.run('AUTH.user.username'),'director');
+  /* Setting a private password later is optional and still rotates cleanly. */
   newTablet.run(`__form = {current:${JSON.stringify(director.tempPassword)}, password:'River#Lake2027!Qw', password2:'River#Lake2027!Qw'};`);
   await newTablet.run('FORMS.mustchange6(new FormData())');
   assert.equal(newTablet.run('AUTH.mustChange'),false);
-  assert.equal(newTablet.run('SYNC._passwordBeforeWorkspace'),false);
-  assert.ok(newTablet.run('DB.db.users.length')>1,'the real scoped workspace loads after the password change');
   assert.equal(newTablet.run('AUTH.user.username'),'director');
-  console.log(`hosted-e2e: PC setup + chief activation + rebuild and fresh tablet staff password change passed (${rebuilt.count} issued accounts)`);
+  console.log(`hosted-e2e: PC setup + chief activation + rebuild and immediate official-alias sign-in passed (${rebuilt.count} issued accounts)`);
 })().catch((error) => {
   console.error(error);
   process.exit(1);

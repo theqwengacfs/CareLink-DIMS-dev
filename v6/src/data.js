@@ -9,6 +9,11 @@
    staff, donor or financial records are embedded.
    ============================================================ */
 
+/* Every Foundation account uses one official address domain. It is declared
+   here, first in the load order, so no screen can regenerate a retired spelling
+   such as `@lomamo.npo`; the server pins the same value in api/index.js. */
+const OFFICIAL_EMAIL_DOMAIN = 'lomamofoundation.org';
+
 const APP = {
   /* CareLink is the unified Operating System name uniting all LOMAMO Foundation
      departments and external partners; CareLink C-DIMS is the browser tab title.
@@ -20,7 +25,7 @@ const APP = {
   shortName: 'CareLink',
   formerName: 'LOMAMO C-DIMS',
   full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
-  version: '6.9.4',
+  version: '6.9.6',
   build: '2026.10.29',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
@@ -148,6 +153,11 @@ const CAPS = {
 
   /* CareLink v6.3 strict departmental, clinical & partner capabilities */
   'pmi.check':        { g:'Patients', l:'Check returning-patient history & discharge advisories' },
+  /* v6.9.6 — the weekly planning page counts recorded decisions but not their
+     content. Only a ministry or leadership role may read who was recorded, so
+     the aggregate is gated by the same capability rather than being inferred
+     from holding a reporting capability. */
+  'patient.ministry.view': { g:'Patients', l:'Read recorded ministry decisions (aggregate only in reports)', sensitive:true },
   'monday.meeting':   { g:'Coordination', l:'Join the Monday Management Meeting workspace' },
   'monday.manage':    { g:'Coordination', l:'Prepare and push County Monday Meeting agendas', sensitive:true },
   'clinical.mcm':     { g:'Clinical', l:'Open Medical Case Manager & Clinical Assistant console', sensitive:true },
@@ -224,16 +234,18 @@ const ORG_NOTES = [
 const ROLES = [
   { id:'chief', name:'Chief System Administrator', dept:'admin', accent:'#C8102E', consoleTitle:'System Administration',
     scope:{ geo:'global', records:'global', crossCounty:true },
-    perms:['user.*','role.manage','org.manage','system.*','patient.list','patient.view.basic','report.departmental','report.executive','ai.use','delegation.manage'] },
+    perms:['user.*','role.manage','org.manage','system.*','patient.list','patient.view.basic','report.departmental','report.executive','ai.use','delegation.manage',
+      'patient.ministry.view'] },
 
   { id:'president', name:'President', dept:'exec', accent:'#111827', consoleTitle:'Presidential Console',
     scope:{ geo:'global', records:'global', crossCounty:true },
-    perms:['patient.list','report.executive','report.departmental','finance.view','hr.view','ai.use','system.audit'] },
+    perms:['patient.list','report.executive','report.departmental','finance.view','hr.view','ai.use','system.audit',
+      'patient.ministry.view'] },
 
   { id:'director', name:'Country Director', dept:'exec', accent:'#1F2937', consoleTitle:'Leadership Console',
     scope:{ geo:'global', records:'global', crossCounty:true },
     perms:['patient.list','patient.view.basic','report.executive','report.patient_figures','report.expenditure','finance.view','hr.view','audit.view','ai.use', 'delegation.manage', 'condition.aggregate', 'care.view',
-     'hr.leave.approve'] },
+     'hr.leave.approve', 'patient.ministry.view'] },
 
   { id:'countyadmin', name:'County Office Administrator', dept:'admin', accent:'#C8102E', consoleTitle:'County Administration',
     scope:{ geo:'county', records:'county' },
@@ -251,7 +263,7 @@ const ROLES = [
 
   { id:'coordinator', name:'Ministry Area Coordinator', dept:'ministry', accent:'#B45309', consoleTitle:'Ministry Area Console',
     scope:{ geo:'areas', records:'areas' },
-    perms:['user.view','user.create','patient.list','patient.view.basic','patient.discharge.recommend','visit.view','visit.create','pdca.create','report.patient_days','report.departmental','hosp.request.create','ai.use', 'condition.view', 'care.view'] },
+    perms:['user.view','user.create','patient.list','patient.view.basic','patient.discharge.recommend','visit.view','visit.create','pdca.create','report.patient_days','report.departmental','hosp.request.create','ai.use', 'condition.view', 'care.view', 'patient.ministry.view'] },
 
   { id:'caregiver', name:'Supporting Caregiver', dept:'ministry', accent:'#C2410C', consoleTitle:'Caregiver Field Console',
     scope:{ geo:'areas', records:'areas' },
@@ -430,7 +442,7 @@ function seedDemo(db, now){
     /* The requested LOMAMO domain is stored as a mock login alias only; the
        app does not deliver email. Synthetic phone and clinic numbers stay in
        dedicated demo ranges - see the demo patient seed below. */
-    email:username+'@lomamofoundation.org', phone:'', createdBy:'u-chief', approvedBy:'u-chief',
+    email:username+'@'+OFFICIAL_EMAIL_DOMAIN, phone:'', createdBy:'u-chief', approvedBy:'u-chief',
     salt: demoSalt, hash: strongHash('LOMAMO2026', demoSalt),
     created:iso(d(420)), lastLogin:null, mustChange:false, demo:true, ...extra
   });

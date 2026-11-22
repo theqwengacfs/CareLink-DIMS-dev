@@ -7,7 +7,7 @@
    2. The official staff roster across leadership, all departments,
       both county offices (Kisumu & Homa Bay) and all 10 ministry areas.
    3. seedOfficial() and enrichV6Collections(): 100% realistic, richly
-      populated programme & departmental records across all 3,333 patients
+      populated programme & departmental records across all 4,000 patients
       (95% in 45-240 days, 5% in 241-330 days, zero at 900 days) and
       every operational workspace.
    ============================================================ */
@@ -138,7 +138,25 @@ const EXEC_DEFAULT = ['chief.admin','director','president','program.admin','prog
 /* ---------------- 4. Programme duration reference ---------------- */
 const PROGRAM_DURATIONS = [30,45,60,75,90,105,120,135,150,165,180,195,210,225,240,255,270,285,300,315,330,345,360];
 const PROGRAM_DURATION_DEFAULT = [30,60,90,120,150,180,210,240,270,300,330,360];
-const PROGRAM_DAYS_PROFILE = { core:[45,240], tail:[241,330], coreShare:0.95 };
+/* The demonstration register the Foundation brings to a board review:
+   4,000 beneficiaries aged 5–75, split equally between the two county offices,
+   with two in five patients sitting in the 60–80 day review window, and every
+   patient carrying at least 12 recorded contacts on a 21-day home-visit rhythm
+   (three or more of them weighed). Smaller registers are still produced by the
+   same seeder through `opts.patients`, and they keep the original programme
+   duration profile so an older file still opens and verifies. */
+const DEMO_REGISTER = {
+  patients: 4000,
+  counties: ['kisumu', 'homabay'],
+  ageRange: [5, 75],
+  windowDays: [60, 80],
+  windowShare: 0.40,
+  visitIntervalDays: 21,
+  minVisits: 12,
+  minWeights: 3
+};
+const PROGRAM_DAYS_PROFILE = { core:[45,240], tail:[241,330], coreShare:0.95,
+  demo:DEMO_REGISTER };
 
 function durationLabel(d){ return d+' days'; }
 
@@ -669,7 +687,7 @@ function enrichV6Collections(db, T){
         updatedAt:ago(2), status:'draft' },
       { id:'wdr-5', kind:'report', title:'Draft Executive Sitting Briefing — Q4 Child Nutrition & Orphan Prevention', ownerId:'u-chief-admin', countyId:'kisumu', dept:'admin',
         targetView:'execconsole', targetParams:{},
-        summary:'Cross-county executive briefing covering 3,333 longitudinal patient files, paediatric MUAC recovery curves and county urgent desk SLA.',
+        summary:'Cross-county executive briefing covering the full longitudinal patient register, paediatric MUAC recovery curves and county urgent desk SLA.',
         payload:{ period:'2026-Q4', notes:'Prepared for Executive Sitting agenda item #2.' },
         updatedAt:ago(1), status:'draft' },
       { id:'wdr-6', kind:'message', title:'Draft Homa Bay Team Notice — Friday Home Visit Schedule', ownerId:'u-homabay-admin', countyId:'homabay', dept:'admin',
@@ -698,7 +716,7 @@ function seedOfficial(db, now, opts={}){
   const pick = a => a[Math.floor(rnd()*a.length)];
   const int = (a,b) => a + Math.floor(rnd()*(b-a+1));
   const iso = d => new Date(d).toISOString();
-  const count = opts.patients !== undefined ? Math.max(0, Math.min(20000, opts.patients)) : 3333;
+  const count = opts.patients !== undefined ? Math.max(0, Math.min(20000, opts.patients)) : DEMO_REGISTER.patients;
   const mustChangeFlag = Boolean(opts.mustChange);
 
   /* First seed baseline departmental structures from seedDemo so finance budgets,
@@ -739,7 +757,7 @@ function seedOfficial(db, now, opts={}){
   };
 
   db.meta = db.meta || {};
-  db.meta.label = 'LOMAMO Full Programme & Departmental Dataset (3,333 Patients)';
+  db.meta.label = `LOMAMO Full Programme & Departmental Dataset (${count.toLocaleString('en-GB')} Patients)`;
   db.meta.seeded = 'official';
   db.meta.seedProfile = PROGRAM_DAYS_PROFILE;
   db.settings = db.settings || {};
@@ -845,13 +863,33 @@ function seedOfficial(db, now, opts={}){
     'Follow-up after hospital clinic review; prescriptions taken as directed, appetite and functional mobility improving well.'
   ];
 
+  /* The demonstration register is balanced between the two county offices;
+     a smaller or older dataset keeps the original round-robin across areas. */
+  const balanced = count >= 1000;
+  const ksmAreas = areas.filter(a=>a.countyId==='kisumu');
+  const hbyAreas = areas.filter(a=>a.countyId==='homabay');
+  const balancedArea = i => {
+    const half = Math.floor((i - 1) / 2);
+    return (i % 2 === 1)
+      ? ksmAreas[half % ksmAreas.length]
+      : hbyAreas[half % hbyAreas.length];
+  };
   for(let i=1;i<=count;i++){
-    const area = areas[(i - 1) % areas.length];
+    const area = balanced ? balancedArea(i) : areas[(i - 1) % areas.length];
     const caregiver = caregiverFor[area.id] || 'u-caregiver-nyalenda';
     /* Strict duration distribution: >=95% in 45-240 days, remainder in 241-330 days (zero <45 or >330) */
-    const tail = i > coreCutoff;
-    const days = tail ? int(241, 330) : int(45, 240);
-    const sex = rnd() > 0.46 ? 'F' : 'M';
+    const tailCount = Math.round(count * (1 - PROGRAM_DAYS_PROFILE.coreShare));
+    const coreLimit = count - tailCount;
+    const tail = i > coreLimit;
+    /* Two in five patients sit in the 60–80 day window; the rest spread evenly
+       across day 81 to day 240 without leaving a gap in any 15-day band. */
+    const windowCount = balanced ? Math.round(count * DEMO_REGISTER.windowShare) : 0;
+    const inWindow = balanced && i <= windowCount;
+    const restCount = Math.max(1, coreLimit - windowCount);
+    const days = inWindow ? 60 + ((i * 7) % 21)
+      : tail ? int(241, 330)
+      : (balanced ? 81 + Math.floor(((i - windowCount - 1) * 160) / restCount) : int(45, 240));
+    const sex = (i % 2 === 0) ? 'F' : 'M';
     let given = sex==='F' ? pick(KENYAN_GIVEN_F) : pick(KENYAN_GIVEN_M);
     let surname = pick(KENYAN_SURNAMES);
     /* A synthetic patient must never wear the name of a real member of staff.
@@ -863,7 +901,11 @@ function seedOfficial(db, now, opts={}){
     }
     /* Complete synthetic register spans every age from 5 through 75 without
        generating under-fives whose growth references require a distinct protocol. */
-    const age = i % 4 === 0 ? 5 + (i % 13) : (i===2 ? 18 : 18 + ((i - 1) % 58));
+    /* Every age from 5 to 75 is present many times over: a quarter of the
+       register are children and adolescents (5–17), the rest adults (18–75). */
+    const age = (i % 4 === 0)
+      ? 5 + (i % 13)                       /* 5–17 */
+      : 18 + ((i * 13) % 58);              /* 18–75 */
     /* Keep the seeded stream position stable where the former adult-age draw
        consumed one random value; names and unrelated fixture data stay fixed. */
     if(i % 4 !== 0) rnd();
@@ -884,7 +926,7 @@ function seedOfficial(db, now, opts={}){
     const dischargeIso = status==='discharged' ? iso(new Date(T.getTime() - agoDays*DAY)) : null;
     const dischargeDate = dischargeIso ? dischargeIso.slice(0, 10) : null;
     const pid = 'p' + String(i).padStart(5,'0');
-    /* Keep 2 PMI duplicate-ID candidates on i=5..6 for DQ6 blocking tests, while EVERY SINGLE ONE of the 3,333 patients has a complete National ID / Birth Cert and verified Kenyan telephone */
+    /* Keep 2 PMI duplicate-ID candidates on i=5..6 for DQ6 blocking tests, while EVERY SINGLE patient has a complete National ID / Birth Cert and verified Kenyan telephone */
     const duplicateOf = (i === 5 || i === 6) ? 'p' + String(i - 4).padStart(5,'0') : null;
     const nationalId = duplicateOf
       ? (patients.find(p=>p.id===duplicateOf)||{}).nationalId || String(int(90000000,99999999))
@@ -966,7 +1008,7 @@ function seedOfficial(db, now, opts={}){
     const objSet = careObjectives[i % careObjectives.length];
     /* Wise realistic setting proportions:
        - ~30.8% (i % 13 < 4) have Hospital Referral/Outpatient visits alongside Home Visits
-       - Only ~7.1% (i % 14 === 3 = 238 of 3,333 patients) ever required Homestay / Care Centre admission/respite */
+       - Only ~7% (i % 14 === 3) of patients ever required Homestay / Care Centre admission/respite */
     const hasHospitalVisits = (i % 13 < 4) || (i % 10 === 1) || (i <= 30);
     const hadHomestay = (i % 14 === 3);
 
@@ -1071,24 +1113,56 @@ function seedOfficial(db, now, opts={}){
     };
     patients.push(pObj);
 
-    /* 100% OF ALL 3,333 PATIENTS: 12 to 15 longitudinal Home + Hospital / Homestay visits
-       with realistic progressive Weight (kg), Height (cm), BMI & MUAC (mm/cm) measurements */
-    const visitCount = 12 + (i % 4); /* 12, 13, 14 or 15 visits for every single patient */
+    /* 100% OF EVERY PATIENT: at least twelve longitudinal contacts — the
+       regular home visit, extra clinical reviews between them, and any
+       hospital or homestay stay — each carrying progressive Weight (kg),
+       Height (cm), BMI and MUAC (mm/cm) measurements. */
     const hospFacility = area.countyId==='homabay'
       ? 'Homa Bay County Teaching & Referral Hospital'
       : (i % 2 === 0 ? 'JOOTRH Outpatient Specialist Clinic' : 'Kisumu County Referral Hospital');
-    for(let v=0; v<visitCount; v++){
-      const frac = (v + 1) / visitCount;
-      const offsetDays = Math.max(1, Math.min(days, Math.round(days * frac)));
+    const interval = DEMO_REGISTER.visitIntervalDays;
+    /* Weight rounds sit on a strict three-week grid from enrolment: day 0 (the
+       enrolment measurement), day 21, day 42 and onward. That is the trial
+       report's rule — a weight at least once every three weeks. */
+    const weightDates = [];
+    for(let v=0; v*interval<=days; v++) weightDates.push(v*interval);
+    /* Every patient also carries at least twelve recorded contacts. A patient in
+       the 60–80 day window needs extra clinical contacts between the three-
+       weekly home visits (wound dressing, hospital escort, homestay review) —
+       exactly the flexible scheduling the trial report asks for. Those extra
+       contacts sit on their own days and carry no weight, so the three-weekly
+       weighing is never disturbed. */
+    const targetVisits = Math.min(16, Math.max(DEMO_REGISTER.minVisits, weightDates.length + (i % 3)));
+    const pool = [];
+    for(let d=1; d<days; d++) if(!weightDates.includes(d)) pool.push(d);
+    const extraDates = [];
+    const need = Math.max(0, targetVisits - weightDates.length);
+    for(let k=1; k<=need && pool.length; k++){
+      const d = pool[Math.min(pool.length-1, Math.floor((k * pool.length) / (need + 1)))];
+      if(!extraDates.includes(d)) extraDates.push(d);
+    }
+    const visitDates = [...weightDates, ...extraDates].sort((a,b)=>a-b);
+    for(let v=0; v<visitDates.length; v++){
+      const offsetDays = Math.max(0, Math.min(days, visitDates[v]));
+      const frac = Math.max(0, Math.min(1, days ? offsetDays / days : 1));
       const vd = new Date(intake.getTime() + offsetDays * DAY);
       const vdIso = iso(vd);
       const vHt = Math.round((baseHtCm + (htCm - baseHtCm) * frac) * 10) / 10;
       const vWt = Math.round((baseWt + (currWt - baseWt) * frac) * 10) / 10;
       const vBmi = Math.round((vWt / Math.pow(vHt / 100, 2)) * 10) / 10;
       const vMuac = Math.round(baseMuacMm + (currMuacMm - baseMuacMm) * frac);
-      let vType = 'home';
-      let vActor = caregiver;
-      let sumTxt = visitSummaries[(i + v) % visitSummaries.length];
+      const isExtra = !weightDates.includes(offsetDays);
+      /* Extra contacts between the three-weekly home visits are clinical
+         reviews — wound dressing, medication adherence, an escorted hospital
+         appointment already on the patient's plan. Each one is still weighed,
+         because the report allows more frequent weighing than the minimum. */
+      let vType = isExtra ? 'clinical' : 'home';
+      let vActor = isExtra
+        ? (area.countyId==='homabay' ? 'u-mcm-homabay' : 'u-mcm-kisumu')
+        : caregiver;
+      let sumTxt = isExtra
+        ? `Additional clinical contact between the three-weekly home visits: wound dressing / medication review; caregiver informed the same day (Wt ${vWt} kg).`
+        : visitSummaries[(i + v) % visitSummaries.length];
       if(hadHomestay && (v === 2 || (v === 5 && i % 28 === 3))){
         vType = 'homestay';
         vActor = area.countyId==='homabay' ? 'u-homestay-homabay' : 'u-homestay-kisumu';
@@ -1099,7 +1173,7 @@ function seedOfficial(db, now, opts={}){
         vType = 'hospital';
         vActor = area.countyId==='homabay' ? 'u-focal-homabay' : 'u-focal-kisumu';
         sumTxt = `Escorted outpatient clinical review at ${hospFacility}; labs, prescription refill & next review date verified.`;
-      } else if(v === visitCount - 1 && i % 5 === 0){
+      } else if(v === visitDates.length - 1 && i % 5 === 0){
         vType = 'clinical';
         vActor = area.countyId==='homabay' ? 'u-mcm-homabay' : 'u-mcm-kisumu';
       }
@@ -1115,14 +1189,15 @@ function seedOfficial(db, now, opts={}){
         foodBag:bagCode, bp:bpStr, adherence:pObj.clinical.adherence,
         gps: gpsObj, location: village + ' (' + locationObj.gpsText + ')',
         outcome:'seen',
-        summary:sumTxt, notes:sumTxt,
+        summary:sumTxt,
+        notes:sumTxt,
         nextAction:'Scheduled 30-day PDCA & household check',
         nextDue:iso(new Date(vd.getTime()+14*DAY)).slice(0,10),
         demo:true
       });
     }
 
-    /* 100% OF ALL 3,333 PATIENTS: Complete 30-day review milestones + active/closed PDCA quality cycle */
+    /* 100% OF EVERY PATIENT: complete 30-day review milestones + active/closed PDCA quality cycle */
     const completedReviews = Math.min(11, Math.max(1, Math.floor(days / 30)));
     const revEntries = [];
     for(let rv=1; rv<=completedReviews; rv++){
@@ -1174,7 +1249,7 @@ function seedOfficial(db, now, opts={}){
       demo:true
     });
 
-    /* 100% OF ALL 3,333 PATIENTS: Confirmed Condition Register + Household Support + Verified Document */
+    /* 100% OF EVERY PATIENT: Confirmed Condition Register + Household Support + Verified Document */
     patientConditions.push({
       id:'cond-'+pid, patientId:pid, countyId:area.countyId, areaId:area.id,
       key:/HIV.*TB|TB.*HIV/i.test(diag)?'hiv_tb':(/HIV/i.test(diag)?'hiv':(/TB/i.test(diag)?'tb':(/cancer|kaposi/i.test(diag)?'cancer':(/wound/i.test(diag)?'wound':(/malnutrition/i.test(diag)?'malnutrition':(/malaria/i.test(diag)?'malaria':(/pneumonia/i.test(diag)?'pneumonia':'other'))))))),
@@ -1190,9 +1265,17 @@ function seedOfficial(db, now, opts={}){
         details:{severity:pObj.clinical.anaemiaSeverity},recordedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu',recordedAt:intakeIso,
         confirmedBy:area.countyId==='homabay'?'u-mcm-homabay':'u-mcm-kisumu',confirmedAt:intakeIso,demo:true});
     }
+    /* One issued item per patient, drawn from the seven the register and the
+       weekly planning report both use (food bag, Bible, mosquito net, mattress,
+       blanket, special bag, hygiene kit), so the support totals reconcile with
+       the costing ledger and with the report instead of describing a second,
+       parallel list of items. The issue date walks through the programme, never
+       past today, so a weekly report has something real to count. */
     const supAmt = 1400 + (i % 6) * 450;
-    const supItem = pick(['Enriched nutrition food bag','Normal household food bag','Hygiene & clean-water pack','Child school uniform & books','Emergency medical transport support']);
-    const supDate = iso(new Date(intake.getTime() + 14 * DAY)).slice(0, 10);
+    const supItem = pick(SUPPORT_ITEMS);
+    const supOffset = (i % 90) * 3;
+    const supWhen = Math.min(Date.now(), intake.getTime() + supOffset * DAY);
+    const supDate = iso(new Date(supWhen)).slice(0, 10);
     supportIssues.push({
       id:'sup-'+pid, patientId:pid, countyId:area.countyId, areaId:area.id,
       type:'Nutrition & Household Support', item:supItem, description:supItem,
@@ -1402,7 +1485,7 @@ function execSeed(T, users){
       chair:idOf('director'), secretary:idOf('exec.secretary'),
       members:['director','president','program.admin','chief.admin','program.assistant','exec.secretary','kisumu.admin','homabay.admin','mcm.kisumu'].map(idOf),
       agenda:[
-        { time:'09:00', duration:'25 min', category:'Programme Caseload', text:'Q3 Orphan Prevention caseload review across all 10 ministry areas (3,333 households)', owner:idOf('program.admin') },
+        { time:'09:00', duration:'25 min', category:'Programme Caseload', text:'Q3 Orphan Prevention caseload review across every ministry area, household and beneficiary file', owner:idOf('program.admin') },
         { time:'09:25', duration:'25 min', category:'Clinical & Child Growth', text:'Programme stay profile (45-240d core, 241-330d extended) & paediatric Weight/BMI/MUAC surveillance', owner:idOf('mcm.kisumu') },
         { time:'09:50', duration:'20 min', category:'Hospital Linkage', text:'JOOTRH & Homa Bay Hospital Focal Desk turnaround & SHA enrolment drive', owner:idOf('focal.kisumu') },
         { time:'10:10', duration:'20 min', category:'Digital Infrastructure', text:'CareLink C-DIMS v6.6 global activation & county office tablet sync audit', owner:idOf('chief.admin') }

@@ -244,9 +244,10 @@ test('8. LOMAMO official email domain and single confidential account document',
     }]};
     PROD_SETUP.downloadCredentialDocument(); return JSON.stringify(saved);
   })()`));
-  ok('Chief credential export is one self-contained HTML document with escaped values and one-time password',
+  ok('Chief credential export is one self-contained HTML document with escaped values and the issued password',
     captured[0].endsWith('.html') && captured[2].startsWith('text/html') && captured[1].includes('Sample &amp; Holder') &&
-    captured[1].includes('OneTime#42') && captured[1].includes('CONFIDENTIAL — ONE-TIME PASSWORDS'));
+    captured[1].includes('OneTime#42') && captured[1].includes('CONFIDENTIAL — ACCOUNT PASSWORDS') &&
+    captured[1].includes('work immediately'));
   asRole('finance', 'kisumu');
   const blockedExport = JSON.parse(run(`(()=>{
     let saved=null; download=(...args)=>{saved=args;return true};

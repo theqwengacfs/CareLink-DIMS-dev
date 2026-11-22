@@ -3,7 +3,7 @@ const requireCrypto = require('node:crypto');
    v665-ux-nav-login-e2e.js — End-to-End Verification for CareLink v6.6.5:
    1. Default White Themes ('foundation' & 'heritage'), Zero White-Haze &
       Dominant Multi-Stop Spectrum Console Banners (all 17 depts & 29 roles)
-   2. Fast, Error-Free Online Login on 3,333-Patient Sharded Upstash KV:
+   2. Fast, Error-Free Online Login on a 4,000-Patient Sharded Upstash KV:
       - Zero shard reads on /api/auth/login (manifest head + authVault)
       - 2-request fastPack initial pull (zero 16-collection page walk)
       - Concurrent-write rev tolerance during pagedCollections (zero onlineWarning)
@@ -239,7 +239,7 @@ function ok(name, cond, detail = '') {
   ok('Explicit capability grants (permOverrides/delegations) cleanly unlock excluded views when authorised',
     navAudit.cgGrantedFinance === true);
 
-  /* 4. Fast, Error-Free Online Login on 3,333-Patient Sharded Upstash KV */
+  /* 4. Fast, Error-Free Online Login on a 4,000-Patient Sharded Upstash KV */
   const { default: handler } = await import('../../api/index.js');
 
   async function rawApiFetch(url, opts = {}) {
@@ -296,8 +296,8 @@ function ok(name, cond, detail = '') {
     password2: chiefPrivPw,
     autoFeedCloudMaster: '1',
   })}))`);
-  ok('Chief auto-feed populates all 3,333 patients across sharded Upstash KV',
-    pcAdmin.run('DB.db.patients.length') === 3333 && kv.size >= 2, `kvKeys=${[...kv.keys()].join(',')}`);
+  ok('Chief auto-feed populates all 4,000 patients across sharded Upstash KV',
+    pcAdmin.run('DB.db.patients.length') === 4000 && kv.size >= 2, `kvKeys=${[...kv.keys()].join(',')}`);
 
   const actPack = await pcAdmin.run('PROD_SETUP.activateSystemGlobally(AUTH.user)');
   const cgCred = actPack.rows.find(e => e.username === 'caregiver.nyalenda');

@@ -4,13 +4,43 @@
   "short_name": "CareLink",
   "description": "LOMAMO Foundation care coordination and information management system",
   "lang": "en-KE",
+  "dir": "ltr",
   "start_url": "./carelink-v6.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "theme_color": "#202020",
   "background_color": "#F6F6F6",
   "categories": ["health", "productivity"],
+  "prefer_related_applications": false,
+  "launch_handler": { "client_mode": "navigate-existing" },
+  "shortcuts": [
+    {
+      "name": "Home",
+      "short_name": "Home",
+      "description": "The signed-in console for your role",
+      "url": "./carelink-v6.html#/home"
+    },
+    {
+      "name": "Patients",
+      "short_name": "Patients",
+      "description": "The register you are authorised to see",
+      "url": "./carelink-v6.html#/patients"
+    },
+    {
+      "name": "Monday meeting",
+      "short_name": "Monday",
+      "description": "The Monday management meeting workspace",
+      "url": "./carelink-v6.html#/monday"
+    },
+    {
+      "name": "Report centre",
+      "short_name": "Reports",
+      "description": "Generate or reprint a report",
+      "url": "./carelink-v6.html#/reports"
+    }
+  ],
   "icons": [
     { "src": "./icons/carelink-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "./icons/carelink-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

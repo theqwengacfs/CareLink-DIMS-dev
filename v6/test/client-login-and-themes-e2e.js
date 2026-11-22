@@ -2,7 +2,7 @@ const requireCrypto = require('node:crypto');
 /* End-to-end verification of:
    1. PC & Tablet Client Login System:
       - Pre-commissioning hosted demo evaluation login (`LOMAMO2026` on server-scrubbed DB) + permanent lock after commissioning/activation
-      - Full 4-Step Setup -> Chief Login (deferred SESSION.start during mustChange) -> 3,333-patient Auto-Feed -> Global Activation -> Staff `status === 'active'`
+      - Full 4-Step Setup -> Chief Login (deferred SESSION.start during mustChange) -> 4,000-patient Auto-Feed -> Global Activation -> Staff `status === 'active'`
       - Hosted PC & Tablet Staff Login by username AND official email (`POST /api/credentials/provision`), password visibility toggle (`toggle-pw`), `ACT-*` activation & `EMG-*` emergency recovery codes, and dark-mode hosted session unlock (`FORMS.unlock`)
       - Zero data wipe & zero false logout under `SYNC.tick()` + `LIVE.start()` (`unchanged: true`, incremental `patches`, `pagedCollections` -> `pullFull()`, and lightweight `DB.persistState()`)
    2. Themes System:
@@ -159,7 +159,7 @@ global.fetch = async (input, init = {}) => {
   kv.clear();
 
   /* ------------------------------------------------------------------
-     3. Official 4-Step Setup -> Chief Login -> 3,333-Patient Cloud Auto-Feed -> Global Activation
+     3. Official 4-Step Setup -> Chief Login -> 4,000-Patient Cloud Auto-Feed -> Global Activation
      ------------------------------------------------------------------ */
   const pcAdmin = makeHostedClient('pc');
   await pcAdmin.run('boot()');
@@ -186,7 +186,7 @@ global.fetch = async (input, init = {}) => {
     autoFeedCloudMaster: '1',
   })}))`);
   assert.equal(pcAdmin.run('AUTH.mustChange'), false);
-  assert.equal(pcAdmin.run('DB.db.patients.length'), 3333, 'Chief auto-feed must load all 3,333 patients');
+  assert.equal(pcAdmin.run('DB.db.patients.length'), 4000, 'Chief auto-feed must load all 4,000 patients');
   assert.equal(pcAdmin.run('Boolean(Store.get(DB.KEY))'), false, 'Hosted >500-patient client must NOT serialize 72.8 MB DB into localStorage');
   assert.equal(pcAdmin.run('Boolean(Store.get(DB.PREFS_KEY))'), true, 'Lightweight preferences snapshot must be stored locally');
 
@@ -266,7 +266,7 @@ global.fetch = async (input, init = {}) => {
   const emailLoginOut = await apiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${(await emailLoginRes.json()).token}` }, body: '{}' });
   assert.equal(emailLoginOut.ok, true, 'Release the email-login session before later ACT activation of the same account');
 
-  /* Sign in as caregiver.nyalenda on Tablet A, complete first-login password change, verify RBAC & 3,333 patients */
+  /* Sign in as caregiver.nyalenda on Tablet A, complete first-login password change, verify RBAC & 4,000 patients */
   await tabletA.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaEntry.tempPassword })}))`);
   assert.equal(tabletA.run('AUTH.mustChange'), true);
   const nyalendaPrivPw = 'River#Lake2027!Qw';
@@ -281,7 +281,7 @@ global.fetch = async (input, init = {}) => {
   assert.equal(tabletA.run('DB.db.patients.length'), nyalendaPatientIds.length, 'Tablet A must hold only its assigned ministry-area patients');
   assert.deepEqual(JSON.parse(tabletA.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), nyalendaPatientIds, 'No cross-area patient records may reach Tablet A');
 
-  /* CRITICAL: Run SYNC.tick() and LIVE.start() when unchanged -> 0 shard reads, 3,333 patients preserved, no logout! */
+  /* CRITICAL: Run SYNC.tick() and LIVE.start() when unchanged -> 0 shard reads, 4,000 patients preserved, no logout! */
   shardGets = 0;
   tabletA.run('LIVE.start()');
   assert.equal(tabletA.run('LIVE._timer'), null, 'LIVE must delegate to SYNC on hosted sessions without starting a duplicate 500ms timer');
@@ -368,7 +368,7 @@ global.fetch = async (input, init = {}) => {
   assert.ok(exportedJson.theme && exportedJson.theme.t, 'Exported custom pack must preserve custom theme tokens');
   await pcAdmin.run('SYNC.push()');
 
-  /* Tablet A polls incremental delta via SYNC.tick() -> receives settings patch + rehydrates custom theme without losing 3,333 patients! */
+  /* Tablet A polls incremental delta via SYNC.tick() -> receives settings patch + rehydrates custom theme without losing 4,000 patients! */
   await tabletA.run('SYNC.tick()');
   assert.equal(tabletA.run('DB.db.patients.length'), nyalendaPatientIds.length, 'Incremental settings patch preserves only Tablet A’s assigned area patients');
   const customThemeId = customPackRes.pack.config.wtheme;
