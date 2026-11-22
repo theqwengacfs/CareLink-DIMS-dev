@@ -139,17 +139,53 @@ const DEPT_PALETTES = {
   vehicle:  { name:'Fleet, Logistics & Transport', c1:'#713F12', c2:'#B45309', c3:'#047857', badge:'#FDE047' },
   it:       { name:'ICT, Security & Host Systems', c1:'#0F172A', c2:'#1E40AF', c3:'#0E7490', badge:'#93C5FD' }
 };
+/* Each account type has an independent, coherent identity; personal scheme
+   selections still take precedence. Colors are corrected for contrast in apply(). */
+const ROLE_PALETTES = {
+  chief:             ['#143454','#236795','#0F766E'],
+  president:         ['#39245F','#7452A3','#B8860B'],
+  director:          ['#193B70','#3268A8','#BD7C19'],
+  countyadmin:       ['#174A62','#167C8D','#C27631'],
+  assistant:         ['#1A5961','#208C86','#B86B37'],
+  coordinator:       ['#19553D','#348061','#B08332'],
+  caregiver:         ['#275C3D','#59945A','#B17737'],
+  chw:               ['#35632D','#78924C','#99711C'],
+  mcm:               ['#124E63','#17879B','#5270AC'],
+  liaison:           ['#195372','#357AA5','#668C8B'],
+  nurse:             ['#244D7C','#4287B4','#4F8C88'],
+  mediahead:         ['#51285F','#8B4E94','#BD617C'],
+  finance:           ['#28533E','#50875B','#AA8036'],
+  procurement:       ['#75452B','#AE7243','#368475'],
+  me:                ['#44367A','#7163A6','#2D809C'],
+  auditor:           ['#523F69','#81628A','#B88747'],
+  hr:                ['#663B65','#A0638B','#BC874D'],
+  welfare:           ['#365D62','#578D88','#946BA0'],
+  vehicle:           ['#5B4A30','#9A793B','#527F78'],
+  pr:                ['#493D83','#796FC0','#3E8EA0'],
+  depthead:          ['#214C70','#5377A0','#6E8E9F'],
+  'ccc.clinician':   ['#36506F','#507FA0','#A85C70'],
+  'gov.partner':     ['#335A51','#598A6D','#A68D4B'],
+  'intl.medical':    ['#363A7C','#665AAA','#478EAA'],
+  'program.admin':   ['#714329','#A96C42','#5B8490'],
+  'program.assistant':['#725325','#A88447','#678C7E'],
+  it:                ['#253858','#46658D','#398D97'],
+  homestay:          ['#754A38','#B47750','#8C995A'],
+  intldata:          ['#254C78','#497AB2','#8162A1'],
+  pharmacy:          ['#175B57','#388C7A','#79A45E']
+};
 function deptPaletteFor(user){
   if(!user) return DEPT_PALETTES.exec;
   const role = roleObj(user.roleId);
   const key = (role && role.dept) || 'exec';
+  const signature = ROLE_PALETTES[user.departmentId === 'pharmacy' ? 'pharmacy' : user.roleId];
+  if(signature) return { name:(role && role.name) || 'Role workspace', c1:signature[0], c2:signature[1], c3:signature[2], badge:signature[2] };
   return DEPT_PALETTES[key] || DEPT_PALETTES.exec;
 }
 
 /* Personal multi-colour schemes tint navigation, workspace metrics and card edges,
    while leaving Foundation White surfaces and status colours untouched. */
 const CONSOLE_COLOR_SCHEMES = [
-  { id:'department', name:'Department signature', description:'Keep the role and department identity.', colors:null },
+  { id:'department', name:'Role signature', description:'A distinct palette for this role.', colors:null },
   { id:'sapphire', name:'Heritage Sapphire', description:'Classic blue with teal, amber and violet accents.', colors:['#1E3A8A','#2563EB','#0F766E','#A16207','#6D28D9','#166534'] },
   { id:'lake', name:'Lake & sky', description:'Lake teal, sky blue and clear indigo.', colors:['#0F766E','#0369A1','#1D4ED8','#0E7490','#854D0E','#6D28D9'] },
   { id:'forest', name:'Forest & fern', description:'Evergreen with green-teal, clay and blue highlights.', colors:['#14532D','#047857','#0F766E','#92400E','#1E40AF','#6D28D9'] },
@@ -549,6 +585,9 @@ const WTHEME = {
       set(`--console-c${i+1}`, color);
       set(`--console-soft-${i+1}`, WTC.mix(theme.t.surface, color, 0.055));
     });
+    set('--console-hero-1', WTHEME.safeFill(schemeColors[0]));
+    set('--console-hero-2', WTHEME.safeFill(schemeColors[1]));
+    set('--console-hero-3', WTHEME.safeFill(schemeColors[2]));
     set('--dept-c1', dp.c1); set('--dept-c2', dp.c2); set('--dept-c3', dp.c3); set('--dept-badge', dp.badge);
     set('--dept-soft', WTC.mix(theme.t.surface, dp.c2, theme.mode==='dark'? 0.24 : 0.11));
     set('--dept-line', WTC.mix(theme.t.surface, dp.c2, theme.mode==='dark'? 0.42 : 0.28));

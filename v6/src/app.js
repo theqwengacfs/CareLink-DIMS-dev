@@ -479,7 +479,13 @@ function renderShell(){
     ? 'Search CareLink patients, forms, reports...'
     : 'Search CareLink workspace, pages & records...';
   const countyDisp = user.countyId ? countyName(user.countyId) : 'Global / Head Office';
+  const heroCtx = { greeting:greeting(), dateStr:new Date().toLocaleDateString('en-GB', {weekday:'long',day:'numeric',month:'long',year:'numeric'}),
+    scopeText:scopeSentence(user), actionsHtml:homeHeroActions(user), currentView:APPX.view,
+    qtabs:(typeof ROLE_CTX!=='undefined' && ROLE_CTX.heroQuickTabs) ? ROLE_CTX.heroQuickTabs(user) : [] };
+  const roleHero = (typeof WORKSPACE_LAYOUTS!=='undefined' && WORKSPACE_LAYOUTS.renderHomeHero)
+    ? WORKSPACE_LAYOUTS.renderHomeHero(user, heroCtx) : '';
   return `<div class="app shell ${paneOn?'has-pane':''} ${railOn?'np-rail':''} ${APPX.navOpen?'np-open':''}">
+    ${roleHero ? `<div class="shell-role-banner no-print" role="region" aria-label="Role console banner" tabindex="0">${roleHero}</div>` : ''}
     ${paneOn? NAVP.html(user, here) : ''}${paneOn? '<div class="np-scrim" data-act="nav-close"></div>' : ''}
     <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}" data-role="${esc(user.roleId)}" data-dept="${esc(role.dept||'exec')}">
       <img class="cb-logo" src="${window.LOGO||''}" alt="CareLink · LOMAMO Foundation">
@@ -525,7 +531,7 @@ function renderShell(){
     <main class="content" id="content">
       ${!Store.durable?`<div class="alert warn no-print" style="margin-bottom:16px">${ic('info',18)}<div><b>Preview session</b>
         <span class="small">This browser has blocked persistent storage, so changes are held for this session only. Download the file and open it directly in Chrome or Edge for a persistent installation.</span></div></div>`:''}
-      ${contentFor(view=APPX.view, APPX.params, user)}
+      ${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}
       ${PAGER.bar(user, here)}</main>
   </div>`;
 }
@@ -576,12 +582,12 @@ function workspaceHeroBanner(view, user){
   const ctxStrip = (view!=='home' && typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip) ? ROLE_CTX.contextStrip(user, view) : '';
   return overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + dpaBar + ctxStrip;
 }
-function contentFor(view, params, user){
+function contentFor(view, params, user, options = {}){
   const guard = (cap)=>{ if(!RBAC.assert(user,cap,{},false)) return deniedPanel(cap); return null; };
   try{
     const html = (()=>{
     switch(view){
-      case 'home': return renderHome(user);
+      case 'home': return renderHome(user, {omitHeader:options.omitHomeHeader});
       case 'attention': return guard('patient.list')||renderAttention(user);
       case 'patients': return guard('patient.list')||renderPatients(user,params);
       case 'patient': return renderPatient(user,params);
@@ -687,9 +693,9 @@ function contentFor(view, params, user){
       /* CareLink v6.4/v6.5 Admin Operations, Development Console & Intelligent Workflow Engine */
       case 'adminops': return (RBAC.has(user,'admin.ops')||RBAC.has(user,'finance.view'))?ADMIN_OPS.render(user, params):deniedPanel('admin.ops');
       case 'devconsole': return DEV_CONSOLE.canAccess(user)?DEV_CONSOLE.render(user, params):deniedPanel('dev.console');
-      case 'smartflow': return typeof WORKFLOW_ENGINE!=='undefined'?WORKFLOW_ENGINE.render(user, params):renderHome(user);
-      case 'drafts': return typeof WORKSPACE_DRAFTS!=='undefined'?WORKSPACE_DRAFTS.render(user, params):renderHome(user);
-      default: return renderHome(user);
+      case 'smartflow': return typeof WORKFLOW_ENGINE!=='undefined'?WORKFLOW_ENGINE.render(user, params):renderHome(user, {omitHeader:options.omitHomeHeader});
+      case 'drafts': return typeof WORKSPACE_DRAFTS!=='undefined'?WORKSPACE_DRAFTS.render(user, params):renderHome(user, {omitHeader:options.omitHomeHeader});
+      default: return renderHome(user, {omitHeader:options.omitHomeHeader});
     }
     })();
     if(String(html||'').includes('Access denied')) return html;

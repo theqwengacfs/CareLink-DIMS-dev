@@ -57,6 +57,13 @@ r=await api('setup/activate-global','POST',{users:[
 ]},chief);assert.equal(r.status,200,JSON.stringify(r.body));
 r=await api('auth/login','POST',{username:'director',password:'OldDirector#2026'});assert.equal(r.status,200);const oldDirector=r.body.token;
 r=await api('auth/login','POST',{username:'obsolete',password:'OldObsolete#2026'});assert.equal(r.status,200);const obsolete=r.body.token;
+r=await api('credentials/provision','POST',{accounts:[{id:'u-custom-test',username:'custom.test',email:'officer.alias@lomamofoundation.org',name:'Test Officer',roleId:'finance',countyId:'kisumu'}]},chief);
+assert.equal(r.status,200,JSON.stringify(r.body));
+assert.equal(r.body.issued[0].email,'officer.alias@lomamofoundation.org','pack must show the actual server-issued login email');
+let emailLogin=await api('auth/login','POST',{username:r.body.issued[0].email,password:r.body.issued[0].password});
+assert.equal(emailLogin.status,200,JSON.stringify(emailLogin.body));
+await api('auth/logout','POST',{},emailLogin.body.token);
+
 assert.equal((await api('admin/reactivate','POST',{confirm:'REBUILD',password:chiefPass},obsolete)).status,403);
 assert.equal((await api('admin/reactivate','POST',{confirm:'NO',password:chiefPass},chief)).status,400);
 assert.equal((await api('admin/reactivate','POST',{confirm:'REBUILD',password:'wrong'},chief)).status,403);

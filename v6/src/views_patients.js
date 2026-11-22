@@ -13,7 +13,7 @@ const PAT = {
 };
 
 /* ---------------- Home ---------------- */
-function renderHome(user){
+function renderHome(user, options = {}){
   const role = roleObj(user.roleId)||{}; const st = repo.stats(user);
   const figs = (RBAC.has(user,'report.patient_figures')) ? REPORTS.patientFigures(user,{}) : null;
   const today = new Date();
@@ -80,6 +80,7 @@ function renderHome(user){
       scopeText: scopeSentence(user),
       actionsHtml: homeHeroActions(user),
       qtabs,
+      omitHeader: Boolean(options.omitHeader),
       arranged
     });
   }
