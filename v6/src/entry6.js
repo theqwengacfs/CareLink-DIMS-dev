@@ -198,8 +198,7 @@ async function activateFullDemoDataset(){
 
 /* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar, zero duplicate tabs) */
 function renderLanding6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#ED0000' };
-  const isLight = (th.mode || 'dark') === 'light';
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#EE0000' };
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const isCommissioned = isActivated || commissionedEntryActive();
   const setupPending = hostedEntryPending();
@@ -209,95 +208,6 @@ function renderLanding6(){
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10), l:'Ministry Areas' },
     { n: DEPARTMENTS.length, l:'Department Consoles' }
   ];
-
-  // Keep alternative dark themes intact while branding the default illustration.
-  const sceneColor = color => th.id === 'heritage' ? ({
-    '#F5C451':'#FFB3B3', '#38BDF8':'#F44336', '#0B1933':'#3A0000',
-    '#34D399':'#FFEBEE', '#2DD4BF':'#FFB3B3', '#A78BFA':'#FFEBEE',
-    '#FBBF24':'#F44336', '#F472B6':'#FFB3B3', '#FB923C':'#FFEBEE',
-    '#60A5FA':'#F44336', '#0E2248':'#7A0000',
-    'rgba(56,189,248,0.16)':'rgba(244,67,54,0.16)',
-    'rgba(148,197,255,0.22)':'rgba(255,179,179,0.22)',
-    'rgba(245,196,81,0.34)':'rgba(255,179,179,0.34)'
-  }[color] || color) : color;
-
-  const sceneSvg = isLight ? `
-            <svg viewBox="0 0 460 224" class="ld-scene-svg">
-              <defs>
-                <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#EE0000" stop-opacity="0.08"/>
-                  <stop offset="65%" stop-color="#EE0000" stop-opacity="0.03"/>
-                  <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
-                </radialGradient>
-              </defs>
-              <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="112" r="82" fill="none" stroke="#CACACA" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="112" r="55" fill="none" stroke="#CACACA" stroke-width="1.2"/>
-              <g stroke="#CACACA" stroke-width="1.3">
-                <line x1="230" y1="112" x2="230" y2="24"/>
-                <line x1="230" y1="112" x2="324" y2="52"/>
-                <line x1="230" y1="112" x2="354" y2="112"/>
-                <line x1="230" y1="112" x2="322" y2="174"/>
-                <line x1="230" y1="112" x2="230" y2="200"/>
-                <line x1="230" y1="112" x2="138" y2="174"/>
-                <line x1="230" y1="112" x2="106" y2="112"/>
-                <line x1="230" y1="112" x2="136" y2="52"/>
-              </g>
-              ${[
-                [230,24,'Field Care','#EE0000'], [324,52,'Hospital','#EE0000'],
-                [354,112,'M&E / DHIS','#EE0000'], [322,174,'Finance','#EE0000'],
-                [230,200,'Homestay','#202020'], [138,174,'Media & IT','#202020'],
-                [106,112,'HR & Leave','#EE0000'], [136,52,'Transport','#EE0000']
-              ].map(([x,y,lbl,col])=>`<g>
-                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#FFFFFF" stroke="#CACACA" stroke-width="1.1"/>
-                <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
-                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#202020">${lbl}</text>
-              </g>`).join('')}
-              <circle cx="230" cy="112" r="34" fill="#202020" stroke="#EE0000" stroke-width="1.8"/>
-              <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#CACACA" letter-spacing="0.5">OS · C-DIMS</text>
-            </svg>` : `
-            <svg viewBox="0 0 460 224" class="ld-scene-svg">
-              <defs>
-                <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="${sceneColor('#F5C451')}" stop-opacity="0.34"/>
-                  <stop offset="60%" stop-color="${sceneColor('#38BDF8')}" stop-opacity="0.12"/>
-                  <stop offset="100%" stop-color="${sceneColor('#0B1933')}" stop-opacity="0"/>
-                </radialGradient>
-                <linearGradient id="beamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="${sceneColor('#38BDF8')}" stop-opacity="0.75"/>
-                  <stop offset="50%" stop-color="${sceneColor('#F5C451')}" stop-opacity="0.85"/>
-                  <stop offset="100%" stop-color="${sceneColor('#34D399')}" stop-opacity="0.75"/>
-                </linearGradient>
-              </defs>
-              <path d="M-10,184 C75,156 120,206 205,178 C290,150 355,188 470,152" fill="none" stroke="${sceneColor('rgba(56,189,248,0.16)')}" stroke-width="1.4"/>
-              <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="112" r="82" fill="none" stroke="${sceneColor('rgba(148,197,255,0.22)')}" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="112" r="55" fill="none" stroke="${sceneColor('rgba(245,196,81,0.34)')}" stroke-width="1.4"/>
-              <g stroke="url(#beamGrad)" stroke-width="1.4" opacity="0.76">
-                <line x1="230" y1="112" x2="230" y2="24"/>
-                <line x1="230" y1="112" x2="324" y2="52"/>
-                <line x1="230" y1="112" x2="354" y2="112"/>
-                <line x1="230" y1="112" x2="322" y2="174"/>
-                <line x1="230" y1="112" x2="230" y2="200"/>
-                <line x1="230" y1="112" x2="138" y2="174"/>
-                <line x1="230" y1="112" x2="106" y2="112"/>
-                <line x1="230" y1="112" x2="136" y2="52"/>
-              </g>
-              ${[
-                [230,24,'Field Care',sceneColor('#38BDF8')], [324,52,'Hospital',sceneColor('#2DD4BF')],
-                [354,112,'M&E / DHIS',sceneColor('#A78BFA')], [322,174,'Finance',sceneColor('#FBBF24')],
-                [230,200,'Homestay',sceneColor('#F472B6')], [138,174,'Media & IT',sceneColor('#FB923C')],
-                [106,112,'HR & Leave',sceneColor('#34D399')], [136,52,'Transport',sceneColor('#60A5FA')]
-              ].map(([x,y,lbl,col])=>`<g>
-                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="${sceneColor('#0B1933')}" stroke="${col}" stroke-width="1.3"/>
-                <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
-                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#F1F5F9">${lbl}</text>
-              </g>`).join('')}
-              <circle cx="230" cy="112" r="34" fill="${sceneColor('#0E2248')}" stroke="${sceneColor('#F5C451')}" stroke-width="2"/>
-              <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="${sceneColor('#F5C451')}" letter-spacing="0.5">OS · C-DIMS</text>
-            </svg>`;
 
   return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="${ENTRY_THEME.style(th.id)}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
@@ -321,7 +231,7 @@ function renderLanding6(){
     <div class="ld-container ld-front-main">
       <section class="ld-hero ld-hero-tight">
         <div class="ld-hero-copy">
-          <div class="ld-eyebrow">${ic('heart',14)} LOMAMO Foundation Kenya · Loving Hands Management &amp; Medical Organization</div>
+          <div class="ld-eyebrow">${ic('heart',14)} CareLink · LOMAMO Foundation Kenya</div>
           <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
           <div class="ld-subhead">One Foundation. One Operating System.</div>
           <p class="ld-lede">One secure place for care teams and departments to coordinate their work, support families and serve communities across Kisumu and Homa Bay.</p>
@@ -340,8 +250,10 @@ function renderLanding6(){
 
         <div class="ld-hero-art" aria-hidden="true">
           <div class="ld-canvas-card ld-canvas-tight">
-            ${sceneSvg}
-
+            <figure class="ld-programme">
+              <img src="${carelinkPhoto('field_home_visit')}" alt="Community care and a home visit" width="760" height="535" fetchpriority="high">
+              <figcaption><b>Care that reaches the community.</b><span>Connecting field teams, care and every department around the people we serve.</span></figcaption>
+            </figure>
             <div class="ld-facts">
               ${facts.map(f=>`<div class="ld-fact"><b>${num(f.n)}</b><span>${esc(f.l)}</span></div>`).join('')}
             </div>
@@ -363,7 +275,7 @@ function renderLanding6(){
 
 /* ------------------------------------------------------------ dedicated architecture & departments page */
 function renderArchitecture6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#ED0000' };
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#EE0000' };
   const departments = DEPARTMENTS.slice(0, 10);
   const dept = d => `<div class="ld-dept" style="--c:${d.accent}">
       <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.short)}</span></div>`;
@@ -502,8 +414,8 @@ function renderArchitecture6(){
 }
 
 /* ------------------------------------------------------------ sign-in */
-/* Strict single-screen, zero-scrollbar split layout on desktop & landscape tablets,
-   and clean single-screen compact brand + card on portrait tablets & phones. */
+/* A separated brand panel and readable white card. Short or narrow screens
+   scroll naturally; device admission controls must never be clipped. */
 function renderLogin6(){
   const entryTheme=landingTheme();
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
@@ -511,7 +423,7 @@ function renderLogin6(){
   const demoBlocked = demoEntryBlocked();
   if(demoBlocked && LOGIN6.tab === 'demo') LOGIN6.tab = 'signin';
   const t = LOGIN6.tab;
-  const tabBtn = (id, label) => `<button class="lg-tab ${t===id?'on':''}" data-act="login-tab" data-tab="${id}" type="button">${label}</button>`;
+  const tabBtn = (id, label) => `<button class="lg-tab ${t===id?'on':''}" aria-pressed="${t===id}" data-act="login-tab" data-tab="${id}" type="button">${label}</button>`;
   const host = APPX.host;
   const pCount = (DB.db && DB.db.patients) ? DB.db.patients.length : 0;
   const uCount = (DB.db && DB.db.users) ? DB.db.users.length : 0;
@@ -536,10 +448,10 @@ function renderLogin6(){
       <div class="field"><label for="lg-p">Password</label>
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       <div class="grid g2 lg-device-fields" style="gap:8px">
-        <div class="field"><label for="lg-device-label">Device label</label><input class="input" id="lg-device-label" name="deviceLabel" maxlength="100" autocomplete="off" placeholder="e.g. Field tablet 3" value="${esc(LOGIN6.deviceLabel||'')}" required></div>
-        <div class="field"><label for="lg-device-type">Device type</label><select class="input" id="lg-device-type" name="deviceType"><option value="computer">Computer</option><option value="tablet">Tablet</option><option value="phone">Phone</option><option value="other">Other</option></select></div>
+        <div class="field"><label for="lg-device-label">Device label</label><input class="input" id="lg-device-label" aria-describedby="lg-device-note" name="deviceLabel" maxlength="100" autocomplete="off" placeholder="e.g. Field tablet 3" value="${esc(LOGIN6.deviceLabel||'')}" required></div>
+        <div class="field"><label for="lg-device-type">Device type</label><select class="input" id="lg-device-type" aria-describedby="lg-device-note" name="deviceType"><option value="computer">Computer</option><option value="tablet">Tablet</option><option value="phone">Phone</option><option value="other">Other</option></select></div>
       </div>
-      <p class="lg-note lg-device-note"><span class="entry-security-badge">Registered devices</span> Staff access requires Chief-approved device registration. Unknown browsers stay pending; the public portal remains open.</p>
+      <p class="lg-note lg-device-note" id="lg-device-note"><span class="entry-security-badge">Registered devices</span> Staff access requires Chief-approved device registration. Unknown browsers stay pending; the public portal remains open.</p>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
@@ -577,10 +489,10 @@ function renderLogin6(){
     <p class="lg-note">Received a WhatsApp temporary password? Simply use the <b>Sign in</b> tab to activate immediately, or redeem a legacy ACT code below.</p>
     <form data-form="activate6">
       <div class="grid g2" style="gap:6px">
-        <div class="field"><label>Username</label><input class="input" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda"></div>
-        <div class="field"><label>Activation code</label><input class="input mono" name="code" placeholder="ACT-XXXXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
-        <div class="field"><label>New password (12+ chars)</label><div class="pw-wrap"><input class="input" name="password" type="password" minlength="12" required autocomplete="new-password" placeholder="A-Z, a-z, 0-9 &amp; symbol"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
-        <div class="field"><label>Confirm password</label><div class="pw-wrap"><input class="input" name="password2" type="password" minlength="12" required autocomplete="new-password" placeholder="Repeat password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+        <div class="field"><label for="lg-activate6-username">Username</label><input class="input" id="lg-activate6-username" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda"></div>
+        <div class="field"><label for="lg-activate6-code">Activation code</label><input class="input mono" id="lg-activate6-code" name="code" placeholder="ACT-XXXXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="field"><label for="lg-activate6-password">New password (12+ chars)</label><div class="pw-wrap"><input class="input" id="lg-activate6-password" name="password" type="password" minlength="12" required autocomplete="new-password" placeholder="A-Z, a-z, 0-9 &amp; symbol"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+        <div class="field"><label for="lg-activate6-password2">Confirm password</label><div class="pw-wrap"><input class="input" id="lg-activate6-password2" name="password2" type="password" minlength="12" required autocomplete="new-password" placeholder="Repeat password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       </div>
       <button class="btn btn-primary btn-block" type="submit">Activate My Account</button>
     </form>`;
@@ -589,12 +501,12 @@ function renderLogin6(){
     <p class="lg-note">Routed <b>urgently</b> to your selected <b>County Office Administrator</b> (Kisumu Head Office or Homa Bay County Office) for verification and credential issuance.</p>
     <form data-form="request6">
       <div class="grid g2" style="gap:6px">
-        <div class="field"><label>Full name *</label><input class="input" name="name" required placeholder="Full staff name"></div>
-        <div class="field"><label>Phone / WhatsApp *</label><input class="input" name="phone" required placeholder="07..."></div>
-        <div class="field"><label>Job title / Seat *</label><input class="input" name="jobTitle" required placeholder="e.g. Supporting Caregiver"></div>
-        <div class="field"><label>Department</label><select class="input" name="departmentId">${DEPARTMENTS.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
-        <div class="field"><label>County Office Admin *</label><select class="input" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)} Admin</option>`).join('')}</select></div>
-        <div class="field"><label>Ministry area / Reason *</label><input class="input" name="justification" required placeholder="Assigned role & area"></div>
+        <div class="field"><label for="lg-request6-name">Full name *</label><input class="input" id="lg-request6-name" name="name" required placeholder="Full staff name"></div>
+        <div class="field"><label for="lg-request6-phone">Phone / WhatsApp *</label><input class="input" id="lg-request6-phone" name="phone" required placeholder="07..."></div>
+        <div class="field"><label for="lg-request6-jobTitle">Job title / Seat *</label><input class="input" id="lg-request6-jobTitle" name="jobTitle" required placeholder="e.g. Supporting Caregiver"></div>
+        <div class="field"><label for="lg-request6-departmentId">Department</label><select class="input" id="lg-request6-departmentId" name="departmentId">${DEPARTMENTS.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
+        <div class="field"><label for="lg-request6-countyId">County Office Admin *</label><select class="input" id="lg-request6-countyId" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)} Admin</option>`).join('')}</select></div>
+        <div class="field"><label for="lg-request6-justification">Ministry area / Reason *</label><input class="input" id="lg-request6-justification" name="justification" required placeholder="Assigned role & area"></div>
       </div>
       <button class="btn btn-primary btn-block" type="submit">${ic('send',14)} Send Urgent Request to County Admin</button>
     </form>`;
@@ -603,16 +515,16 @@ function renderLogin6(){
     <p class="lg-note">Submit an <b>urgent password recovery request</b> directly to your <b>County Office Administrator</b>, or redeem an issued 24-hour emergency code below.</p>
     <form data-form="forgot6" style="margin-bottom:7px">
       <div class="grid g3" style="gap:6px;align-items:flex-end">
-        <div class="field" style="margin:0"><label>Username / Email *</label><input class="input" name="username" required autocomplete="username" placeholder="Username"></div>
-        <div class="field" style="margin:0"><label>County Office *</label><select class="input" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field" style="margin:0"><label for="lg-forgot6-username">Username / Email *</label><input class="input" id="lg-forgot6-username" name="username" required autocomplete="username" placeholder="Username"></div>
+        <div class="field" style="margin:0"><label for="lg-forgot6-countyId">County Office *</label><select class="input" id="lg-forgot6-countyId" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
         <button class="btn btn-primary" type="submit" style="white-space:nowrap;padding:7px 10px">Alert County Admin</button>
       </div>
     </form>
     <form data-form="emergency6">
       <div class="grid g3" style="gap:6px">
-        <div class="field"><label>EMG code</label><input class="input mono" name="code" placeholder="EMG-XXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
-        <div class="field"><label>Username</label><input class="input" name="username" required autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username"></div>
-        <div class="field"><label>New password</label><div class="pw-wrap"><input class="input" name="password" type="password" minlength="12" required placeholder="12+ chars"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+        <div class="field"><label for="lg-emergency6-code">EMG code</label><input class="input mono" id="lg-emergency6-code" name="code" placeholder="EMG-XXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="field"><label for="lg-emergency6-username">Username</label><input class="input" id="lg-emergency6-username" name="username" required autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username"></div>
+        <div class="field"><label for="lg-emergency6-password">New password</label><div class="pw-wrap"><input class="input" id="lg-emergency6-password" name="password" type="password" minlength="12" required placeholder="12+ chars"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       </div>
       <button class="btn btn-ghost btn-block" type="submit">Redeem 24h Emergency Code</button>
     </form>`;
@@ -642,8 +554,8 @@ function renderLogin6(){
               <span>${esc(curSlide.dept)}</span>
             </div>
           </div>
-          <div class="lg6-thumbs" role="tablist" aria-label="Department teamwork gallery">
-            ${LOGIN_TEAM_SLIDES.map((s, idx)=>`<button type="button" class="lg6-thumb ${idx===slideIdx?'on':''}" data-act="login-slide" data-idx="${idx}" title="${esc(s.tag)}">
+          <div class="lg6-thumbs" role="group" aria-label="Department teamwork gallery">
+            ${LOGIN_TEAM_SLIDES.map((s, idx)=>`<button type="button" class="lg6-thumb ${idx===slideIdx?'on':''}" data-act="login-slide" data-idx="${idx}" aria-pressed="${idx===slideIdx}" aria-label="${esc(s.tag)}" title="${esc(s.tag)}">
               <img src="${carelinkPhoto(s.key)}" alt="">
               <span>${esc(s.tag.split(' ')[0])}</span>
             </button>`).join('')}
@@ -660,7 +572,7 @@ function renderLogin6(){
 
     <main class="lg6-panel">
       <div class="lg6-mobile-hero">
-        <img src="${carelinkPhoto(curSlide.key)}" alt="">
+        <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
         <div class="lg6-mobile-hero-txt">
           <div class="xs bold" style="color:#B7192B;text-transform:uppercase;letter-spacing:.08em">LOMAMO Foundation</div>
           <b>CareLink. <em>Saving lives, preventing orphans.</em></b>
@@ -683,7 +595,7 @@ function renderLogin6(){
           return `<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span><div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">${isKvUnavailable ? `<button class="btn btn-xs btn-primary" type="button" data-act="login-retry-kv">${ic('refresh',12)} Retry Cloud KV Connection</button>` : ''}${showOfflineBtn ? `<button class="btn btn-xs btn-ghost" type="button" data-act="login-offline-device-mode" style="background:#FFFFFF;color:#0F172A;border:1px solid #94A3B8;font-weight:700">${ic('laptop',12)} Open Offline Console on This Device</button>` : ''}${showResetBtn ? `<button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button>` : ''}</div></div></div>`;
         })():''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
-        <div class="lg-tabs" style="grid-template-columns:repeat(${demoBlocked?4:5},1fr)">
+        <div class="lg-tabs" role="group" aria-label="Account access">
           ${tabBtn('signin','Sign in')}
           ${tabBtn('activate','Activate')}
           ${tabBtn('request','Request')}

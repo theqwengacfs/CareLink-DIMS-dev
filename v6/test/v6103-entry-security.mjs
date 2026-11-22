@@ -202,4 +202,41 @@ await ownerRecoverChief({username:'chief.admin',password:chiefPassword,deviceId:
 assert.equal(stored().devices[recoveryDevice].status,'approved');assert.equal(stored().devicePolicyInstalled,true);
 assert.ok(stored().audit.some(e=>e.action==='device.owner_recovery'&&e.entityId===recoveryDevice));
 assert.equal((await chief.call('state',{token:chiefToken})).status,401,'owner recovery also invalidates older Chief sessions');
+// Public defaults are read-only and identical for plain, gzip-head and sharded
+// stores. A valid shared Chief config (even without a legacy flag) always wins.
+const entryBaseline=stored();
+const entryCases=[
+  {label:'fresh default',settings:{},expected:'clinic'},
+  {label:'implicit legacy dark',settings:{uiEpoch:691,landingTheme:'heritage'},expected:'clinic'},
+  {label:'explicit dark',settings:{uiEpoch:691,landingTheme:'heritage',landingThemeExplicit:true},expected:'heritage'},
+  {label:'explicit pre-691 dark',settings:{landingTheme:'heritage',landingThemeExplicit:true},expected:'heritage'},
+  {label:'explicit light',settings:{landingTheme:'clinic',landingThemeExplicit:true},expected:'clinic'},
+  {label:'shared dark without legacy flag',settings:{system:{config:{entryTheme:'heritage'}}},expected:'heritage'},
+  {label:'shared light overrides stale legacy dark',settings:{landingTheme:'heritage',landingThemeExplicit:true,system:{config:{entryTheme:'clinic'}}},expected:'clinic'},
+  {label:'invalid retired choice',settings:{landingTheme:'canopy',landingThemeExplicit:true},expected:'clinic'},
+  {label:'invalid config retains valid explicit choice',settings:{landingTheme:'heritage',landingThemeExplicit:true,system:{config:{entryTheme:'canopy'}}},expected:'heritage'}
+];
+for(const test of entryCases){
+  const variant=structuredClone(entryBaseline);variant.db.settings=test.settings;
+  const encoded=zlib.gzipSync(Buffer.from(JSON.stringify(variant))).toString('base64');
+  const head={...variant,users:variant.db.users,landingTheme:test.settings.landingTheme,
+    landingThemeExplicit:test.settings.landingThemeExplicit,uiEpoch:test.settings.uiEpoch,system:test.settings.system};
+  delete head.db;
+  const envelopes={
+    plain:variant,
+    gzip:{format:'carelink-cloud-gzip-v1',rev:variant.rev,head,data:encoded},
+    sharded:{format:'carelink-cloud-gzip-sharded-v1',rev:variant.rev,head,shardCount:1,
+      shardKeys:['entry-theme-fixture'],shardDigests:[crypto.createHash('sha256').update(encoded).digest('hex')]}
+  };
+  for(const [carrier,envelope] of Object.entries(envelopes)){
+    kv.set('entry-theme-fixture',encoded);kv.set('carelink_cloud_v66',JSON.stringify(envelope));__resetCloudCachesForTests();
+    const snapshot=JSON.stringify([...kv]);
+    for(const route of ['health','bootstrap']){
+      const probe=await stranger.call(route);assert.equal(probe.status,200);
+      assert.equal(probe.body.landingTheme,test.expected,carrier+': '+test.label+' ('+route+')');
+    }
+    assert.equal(JSON.stringify([...kv]),snapshot,'public default resolution must not migrate/write the '+carrier+' store');
+  }
+}
+ok(true,'27 storage/default/config combinations preserve explicit Chief choices without writing the installation');
 console.log(`entry-security: ${checks} boundary assertions plus device/expiry/replay/revocation/CAS, cold/warm shard overlays and exact owner-device recovery cases passed`);

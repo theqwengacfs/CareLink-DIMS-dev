@@ -11,3 +11,8 @@ module.exports = [
   'bmi_clinical6.js','discharge_hardcopy6.js','monday_procurement6.js','handover_partners6.js',
   'admin_workflows6.js','dev_console6.js','workflow_engine6.js','visual_audit.js','strategic_governance67.js','role_consoles68.js', 'security6.js'
 ];
+
+/* Public entry overrides must remain last in both production builders. */
+module.exports.CSS_ORDER = [
+  'styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css', 'carelink63.css', 'console_color_schemes.css', 'admin_ops6.css', 'entry_theme.css'
+];

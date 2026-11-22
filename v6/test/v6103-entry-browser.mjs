@@ -58,6 +58,8 @@ const server=http.createServer(async(req,res)=>{
 });
 let browser;
 const errors=[],evidence=[];
+const screenshotDir=process.env.ENTRY_SCREENSHOT_DIR;
+if(screenshotDir) fs.mkdirSync(screenshotDir,{recursive:true});
 try{
   await new Promise(resolve=>server.listen(0,'0.0.0.0',resolve));
   const base='http://localhost:'+server.address().port;
@@ -74,7 +76,7 @@ try{
   let response=await chief.request.post(base+'/api/setup',{data:{admin:{username:'chief.admin',password,name:'Synthetic Browser Chief'},db:fixture}});
   assert.equal(response.status(),200,await response.text());
   const page=await chief.newPage();page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(base+'/carelink-v6.html');await page.waitForSelector('.ld[data-theme="heritage"]');
+  await page.goto(base+'/carelink-v6.html');await page.waitForSelector('.ld[data-theme="clinic"]');
   async function signIn(page,username,password,label){
     if(await page.locator('[data-act="goto-login"]').count()) await page.locator('[data-act="goto-login"]').first().click();
     const form=page.locator('form[data-form="login6"]');
@@ -85,22 +87,28 @@ try{
   async function measure(page,theme,screen){
     const metrics=await page.evaluate(screen=>{
       const prefix=screen==='landing'?'.ld[data-front="1"]':'.lg6[data-theme]';
-      const selectors=screen==='landing'?['.ld-org','h1','.ld-lede','.ld-fact b','.ld-fact span','.ld-btn-primary','.ld-btn-secondary']:
-        ['.lg6-card h2','.field label','.input','.lg-note','.entry-security-badge','.lg-tab.on','.btn-primary','.lg6-brand h1','.lg6-brand-foot'];
+      const selectors=screen==='landing'?
+        ['.ld-org','h1','h1 em','.ld-eyebrow','.ld-subhead','.ld-lede','.ld-fact b','.ld-fact span','.ld-btn-primary','.ld-btn-secondary','.ld-programme figcaption b','.ld-programme figcaption span','.ld-setup-status','.ld-assure span','.ld-foot']:
+        ['.lg6-card h2','.lg6-kicker','.field label','.input','.lg-note','.entry-security-badge','.lg-tab','.btn-primary','.lg6-brand h1','.lg6-brand h1 em','.lg6-brand-foot','.lg6-copy','.lg6-photo-overlay b','.lg6-photo-overlay span','.lg-links .linkbtn','.lg6-foot','.lg-check','.lg-host','.lg6-head .btn','.alert'];
       const rgba=value=>{const a=value.match(/[\d.]+/g)?.map(Number)||[];return [a[0]||0,a[1]||0,a[2]||0,a.length>3?a[3]:1]};
       const composite=(top,bottom)=>[0,1,2].map(i=>top[i]*top[3]+bottom[i]*(1-top[3]));
       const background=element=>{const chain=[];for(let e=element;e;e=e.parentElement)chain.unshift(e);let rgb=[255,255,255];for(const e of chain)rgb=composite(rgba(getComputedStyle(e).backgroundColor),rgb);return rgb};
       const lum=rgb=>rgb.map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4}).reduce((n,x,i)=>n+x*[.2126,.7152,.0722][i],0);
       const ratio=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
-      return selectors.flatMap(selector=>[...document.querySelectorAll(prefix+' '+selector)].filter(e=>e.getClientRects().length).map(element=>{
-        const bg=background(element),style=getComputedStyle(element);return {selector,ratio:ratio(composite(rgba(style.color),bg),bg),color:style.color,background:style.backgroundColor,effectiveBackground:bg,entryBackground:getComputedStyle(document.querySelector(prefix)).backgroundColor,entryImage:getComputedStyle(document.querySelector(prefix)).backgroundImage,ancestors:(()=>{const result=[];for(let e=element;e;e=e.parentElement)result.push([e.className,getComputedStyle(e).backgroundColor]);return result})()};
-      }));
+      const metric=(element,selector,pseudo=null)=>{
+        const bg=background(element),style=getComputedStyle(element,pseudo);
+        return {selector,ratio:ratio(composite(rgba(style.color),bg),bg),color:style.color,background:bg};
+      };
+      const visible=e=>e.getClientRects().length>0;
+      const result=selectors.flatMap(selector=>[...document.querySelectorAll(prefix+' '+selector)].filter(visible).map(e=>metric(e,selector)));
+      for(const input of document.querySelectorAll(prefix+' input[placeholder]')) if(visible(input)) result.push(metric(input,'input::placeholder','::placeholder'));
+      return result;
     },screen);
     assert.ok(metrics.length>=6,theme+' '+screen+' has measurable rendered controls');
     for(const metric of metrics) assert.ok(metric.ratio>=4.5,theme+' '+screen+' '+JSON.stringify(metric));
     evidence.push({theme,screen,pairs:metrics.length,minimum:Math.min(...metrics.map(x=>x.ratio)).toFixed(2)});
   }
-  await measure(page,'heritage','landing');
+  await measure(page,'clinic default','landing');
   await signIn(page,'chief.admin',password,'Synthetic commissioning browser');
   await page.waitForFunction(()=>AUTH.user?.roleId==='chief'&&APPX.screen==='app');
   for(const theme of ['clinic','heritage']){
@@ -116,15 +124,69 @@ try{
     const visitor=await browser.newContext({viewport:{width:1366,height:900}}),entry=await visitor.newPage();
     entry.on('pageerror',error=>errors.push(error.message));
     await entry.goto(base+'/carelink-v6.html');await entry.waitForSelector('.ld[data-theme="'+theme+'"]');
-    await measure(entry,theme,'landing');
-    await entry.locator('[data-act="goto-login"]').click();await entry.waitForSelector('.lg6[data-theme="'+theme+'"]');
-    await measure(entry,theme,'signin');
-    for(const size of [{width:1024,height:768},{width:390,height:844}]){
-      await entry.setViewportSize(size);
-      await entry.locator('form[data-form="login6"] [type="submit"]').scrollIntoViewIfNeeded();
-      assert.ok(await entry.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'entry must not overflow horizontally at '+size.width);
-      assert.ok(await entry.locator('#lg-device-label').isVisible(),'device controls remain available at '+size.width);
+    async function noClipping(label){
+      const geometry=await entry.evaluate(()=>({
+        width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
+        outside:[...document.querySelectorAll('.ld button,.lg6-panel input,.lg6-panel select,.lg6-panel button')]
+          .filter(e=>e.getClientRects().length).map(e=>({name:e.name||e.textContent.trim(),box:e.getBoundingClientRect().toJSON()}))
+          .filter(e=>e.box.left< -1||e.box.right>innerWidth+1)
+      }));
+      assert.ok(geometry.scrollWidth<=geometry.width+1,label+' horizontal overflow: '+JSON.stringify(geometry));
+      assert.deepEqual(geometry.outside,[],label+' clipped controls');
     }
+    for(const size of [{width:1366,height:900},{width:1024,height:768},{width:768,height:1024},{width:390,height:844},{width:320,height:640},{width:844,height:390}]){
+      await entry.setViewportSize(size);
+      if(await entry.locator('.lg6').count()) await entry.locator('[data-act="goto-landing"]').click();
+      await noClipping(theme+' landing '+size.width);
+      const photo=entry.locator('.ld-programme img');
+      assert.ok(await photo.evaluate(img=>img.complete&&img.naturalWidth>0),'programme photo is self-contained and loaded');
+      const footer=await entry.locator('.ld-foot').boundingBox(),art=await entry.locator('.ld-canvas-card').boundingBox();
+      assert.ok(footer.y>=art.y+art.height-1,'landing footer must flow below, not clip/overlap the hero');
+      if([1366,390].includes(size.width)){
+        await measure(entry,theme+' '+size.width,'landing');
+        if(screenshotDir) await entry.screenshot({path:path.join(screenshotDir,theme+'-'+size.width+'-landing.png'),fullPage:true});
+      }
+      await entry.locator('[data-act="goto-login"]').click();await entry.waitForSelector('.lg6[data-theme="'+theme+'"]');
+      assert.equal(await entry.locator('.lg6-card').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(255, 255, 255)','sign-in card stays white in both identities');
+      assert.equal(await entry.locator('.lg-tabs').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length),4,'no empty demo column');
+      for(const tab of ['signin','activate','request','forgot']){
+        await entry.locator('.lg-tabs [data-tab="'+tab+'"]').click();
+        await noClipping(theme+' '+tab+' '+size.width);
+        for(const label of await entry.locator('.lg6-body .field label').all()) assert.ok(await label.evaluate(e=>Boolean(e.control)),'access fields have associated labels');
+        const submit=entry.locator('.lg6-body form [type="submit"]').last();
+        await submit.scrollIntoViewIfNeeded();const box=await submit.boundingBox();
+        assert.ok(box.y>=-1&&box.y+box.height<=size.height+1,'submit reachable on '+size.width+' × '+size.height+' '+tab);
+        if(tab==='signin'){
+          assert.ok(await entry.locator('#lg-device-label').isVisible(),'device controls remain available at '+size.width);
+          if(size.width===390){
+            await entry.locator('#lg-u').focus();await entry.keyboard.press('Tab');
+            assert.ok(await entry.evaluate(()=>getComputedStyle(document.activeElement).outlineStyle!=='none'),'keyboard focus is visible');
+            await entry.locator('#lg-p').fill('Synthetic#Visibility1!');
+            await entry.locator('.pw-eye').first().click();assert.equal(await entry.locator('#lg-p').getAttribute('type'),'text');
+            await entry.locator('.pw-eye').first().click();assert.equal(await entry.locator('#lg-p').getAttribute('type'),'password');
+          }
+        }
+        if([1366,390].includes(size.width)){
+          await measure(entry,theme+' '+size.width+' '+tab,'signin');
+          if(screenshotDir) await entry.screenshot({path:path.join(screenshotDir,theme+'-'+size.width+'-'+tab+'.png'),fullPage:true});
+        }
+      }
+    }
+    // A prior dark workspace must not turn entry inputs, hints or links grey on
+    // grey. This is an isolated DOM state, not a saved theme or server write.
+    await entry.setViewportSize({width:1366,height:900});
+    await entry.evaluate(()=>{
+      LOGIN6.tab='signin';LOGIN6.error='Synthetic sign-in error for the contrast regression.';render();
+      // Inject after render(): applyTheme() runs during render, so injecting
+      // before it would accidentally test the normal workspace reset instead.
+      document.documentElement.dataset.wmode='dark';
+      for(const [key,value] of Object.entries({'--ink':'#EEEEEE','--muted':'#DDDDDD','--surface':'#141414','--field':'#141414','--crit-bg':'#3F0A13'})) document.documentElement.style.setProperty(key,value);
+    });
+    assert.equal(await entry.evaluate(()=>document.documentElement.dataset.wmode),'dark');
+    assert.equal(await entry.locator('#lg-u').evaluate(e=>getComputedStyle(e).color),'rgb(32, 32, 32)','entry field ink is local even while the surrounding document remains dark');
+    await measure(entry,theme+' after cached dark workspace','signin');
+    await entry.locator('[data-act="goto-landing"]').click();
+    await entry.locator('[data-act="goto-public"]').click();await entry.waitForFunction(()=>APPX.screen==='public');
     await visitor.close();
   }
   // Exercise actual DOM events with a stored, explicitly folded rail preference.
@@ -187,7 +249,7 @@ try{
   await retiredPage.goto('https://theqwengacfs.github.io/CareLink-DIMS-dev/carelink-v6.html').catch(()=>{});
   await retiredPage.waitForURL('https://care-link-dims-dev.vercel.app/');assert.deepEqual(retiredApi,[]);
   assert.deepEqual(errors,[],'no uncaught browser errors');
-  console.log('entry-browser: actual Chromium themes/preview/apply, responsive controls, expand → hold → collapse, isolated-cookie pending/approval/private-change/revocation, confidential download and retired-host redirect passed');
+  console.log('entry-browser: actual Chromium themes/preview/apply, six viewport sizes and all four access panels, keyboard/placeholder/contrast and cached-workspace isolation, expand → hold → collapse, isolated-cookie pending/approval/private-change/revocation, confidential download and retired-host redirect passed');
   console.log(JSON.stringify(evidence));
 }finally{
   if(browser) await browser.close();

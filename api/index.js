@@ -1127,7 +1127,7 @@ function buildStateHead(state) {
     rebuildRevision: Number(state.rebuildRevision) || 0,
     saved: state.saved,
     org: state.org,
-    landingTheme: (state.db && state.db.settings && (Number(state.db.settings.uiEpoch || 0) >= 691 || state.db.settings.landingThemeExplicit) && state.db.settings.landingTheme) || 'heritage',
+    landingTheme: systemConfig(state).entryTheme,
     landingThemeExplicit: Boolean(state.db && state.db.settings && state.db.settings.landingThemeExplicit),
     consoleTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.consoleTheme) || 'foundation',
     uiEpoch: Number((state.db && state.db.settings && state.db.settings.uiEpoch) || 0),
@@ -1245,7 +1245,7 @@ async function loadCloudHead() {
           users: Array.isArray(h.users) ? h.users : [],
           audit: Array.isArray(h.audit) ? h.audit : [],
           settings: {
-            landingTheme: ((Number(h.uiEpoch || 0) >= 691 || h.landingThemeExplicit) && h.landingTheme) ? h.landingTheme : 'heritage',
+            landingTheme: ((Number(h.uiEpoch || 0) >= 691 || h.landingThemeExplicit) && h.landingTheme) ? h.landingTheme : 'clinic',
             landingThemeExplicit: Boolean(h.landingThemeExplicit),
             consoleTheme: (Number(h.uiEpoch || 0) >= 690 && h.consoleTheme) ? h.consoleTheme : 'foundation',
             uiEpoch: Number(h.uiEpoch || 0),
@@ -1291,7 +1291,7 @@ async function loadCloudHead() {
           users: Array.isArray(h.users) ? h.users : [],
           audit: Array.isArray(h.audit) ? h.audit : [],
           settings: {
-            landingTheme: ((Number(h.uiEpoch || 0) >= 691 || h.landingThemeExplicit) && h.landingTheme) ? h.landingTheme : 'heritage',
+            landingTheme: ((Number(h.uiEpoch || 0) >= 691 || h.landingThemeExplicit) && h.landingTheme) ? h.landingTheme : 'clinic',
             landingThemeExplicit: Boolean(h.landingThemeExplicit),
             consoleTheme: (Number(h.uiEpoch || 0) >= 690 && h.consoleTheme) ? h.consoleTheme : 'foundation',
             uiEpoch: Number(h.uiEpoch || 0),
@@ -2809,7 +2809,7 @@ function systemConfig(state) {
   const settings = state.db && state.db.settings || {};
   const cfg = settings.system && settings.system.config || {};
   const entryTheme = ENTRY_THEME_IDS.has(cfg.entryTheme) ? cfg.entryTheme :
-    (ENTRY_THEME_IDS.has(settings.landingTheme) ? settings.landingTheme : 'heritage');
+    (settings.landingThemeExplicit && ENTRY_THEME_IDS.has(settings.landingTheme) ? settings.landingTheme : 'clinic');
   const days = Number(cfg.temporaryPasswordDays);
   return { entryTheme, temporaryPasswordDays:Number.isInteger(days) && days >= 1 && days <= 30 ? days : 7 };
 }

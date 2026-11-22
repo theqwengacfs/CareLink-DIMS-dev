@@ -435,8 +435,8 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
   const landingHtml = root.innerHTML;
   const appVer = vm.runInContext(`APP.version`, bctx);
   ok('APP.version is 6.9.6 across CareLink OS', appVer === '6.9.6', `got=${appVer}`);
-  ok('Compiled bundle opens in LOMAMO Red with the layered depth topology graphic',
-    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="heritage" data-mode="dark"') && landingHtml.includes('linearGradient id="beamGrad"') && landingHtml.includes('v6.9.6') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
+  ok('Compiled bundle opens in the light LOMAMO letterhead with programme photography',
+    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="clinic" data-mode="light"') && landingHtml.includes('class="ld-programme"') && landingHtml.includes('data:image/jpeg;base64') && landingHtml.includes('v6.9.6') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'login'; render();`, bctx);
   const loginHtml = root.innerHTML;
