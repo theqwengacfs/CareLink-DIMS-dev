@@ -132,11 +132,11 @@ function ok(name, cond, detail = '') {
     defaults.foundation && defaults.foundation.name === 'Foundation White' &&
     defaults.foundation.mode === 'light' && defaults.foundation.t.surface === '#FFFFFF');
   const console6CssRaw = fs.readFileSync(path.join(REPO, 'v6', 'src', 'console6.css'), 'utf8');
-  ok('Default landing theme is Heritage Sapphire blue with layered topology depth',
+  ok('Default landing theme is LOMAMO Red with layered topology depth',
     defaults.landingDefault && defaults.landingDefault.id === 'heritage' &&
-    defaults.landingDefault.name === 'Heritage Sapphire' &&
+    defaults.landingDefault.name === 'LOMAMO Red' &&
     defaults.landingDefault.mode === 'dark' &&
-    defaults.landingDefault.accent === '#E9C765' &&
+    defaults.landingDefault.accent === '#ED0000' &&
     /\.ld\[data-theme="heritage"\][\s\S]*?linear-gradient/.test(console6CssRaw));
   ok('45 workspace themes (including 10 new themes) pass 100% of contrast audits',
     defaults.wthemeCount === 45 && defaults.auditFails === 0,

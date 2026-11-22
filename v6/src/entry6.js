@@ -198,7 +198,7 @@ async function activateFullDemoDataset(){
 
 /* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar, zero duplicate tabs) */
 function renderLanding6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#ED0000' };
   const isLight = (th.mode || 'dark') === 'light';
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const facts = [
@@ -207,6 +207,17 @@ function renderLanding6(){
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10), l:'Ministry Areas' },
     { n: DEPARTMENTS.length, l:'Department Consoles' }
   ];
+
+  // Keep alternative dark themes intact while branding the default illustration.
+  const sceneColor = color => th.id === 'heritage' ? ({
+    '#F5C451':'#FFB3B3', '#38BDF8':'#F44336', '#0B1933':'#3A0000',
+    '#34D399':'#FFEBEE', '#2DD4BF':'#FFB3B3', '#A78BFA':'#FFEBEE',
+    '#FBBF24':'#F44336', '#F472B6':'#FFB3B3', '#FB923C':'#FFEBEE',
+    '#60A5FA':'#F44336', '#0E2248':'#7A0000',
+    'rgba(56,189,248,0.16)':'rgba(244,67,54,0.16)',
+    'rgba(148,197,255,0.22)':'rgba(255,179,179,0.22)',
+    'rgba(245,196,81,0.34)':'rgba(255,179,179,0.34)'
+  }[color] || color) : color;
 
   const sceneSvg = isLight ? `
             <svg viewBox="0 0 460 224" class="ld-scene-svg">
@@ -247,20 +258,20 @@ function renderLanding6(){
             <svg viewBox="0 0 460 224" class="ld-scene-svg">
               <defs>
                 <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#F5C451" stop-opacity="0.34"/>
-                  <stop offset="60%" stop-color="#38BDF8" stop-opacity="0.12"/>
-                  <stop offset="100%" stop-color="#0B1933" stop-opacity="0"/>
+                  <stop offset="0%" stop-color="${sceneColor('#F5C451')}" stop-opacity="0.34"/>
+                  <stop offset="60%" stop-color="${sceneColor('#38BDF8')}" stop-opacity="0.12"/>
+                  <stop offset="100%" stop-color="${sceneColor('#0B1933')}" stop-opacity="0"/>
                 </radialGradient>
                 <linearGradient id="beamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.75"/>
-                  <stop offset="50%" stop-color="#F5C451" stop-opacity="0.85"/>
-                  <stop offset="100%" stop-color="#34D399" stop-opacity="0.75"/>
+                  <stop offset="0%" stop-color="${sceneColor('#38BDF8')}" stop-opacity="0.75"/>
+                  <stop offset="50%" stop-color="${sceneColor('#F5C451')}" stop-opacity="0.85"/>
+                  <stop offset="100%" stop-color="${sceneColor('#34D399')}" stop-opacity="0.75"/>
                 </linearGradient>
               </defs>
-              <path d="M-10,184 C75,156 120,206 205,178 C290,150 355,188 470,152" fill="none" stroke="rgba(56,189,248,0.16)" stroke-width="1.4"/>
+              <path d="M-10,184 C75,156 120,206 205,178 C290,150 355,188 470,152" fill="none" stroke="${sceneColor('rgba(56,189,248,0.16)')}" stroke-width="1.4"/>
               <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="112" r="82" fill="none" stroke="rgba(148,197,255,0.22)" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="112" r="55" fill="none" stroke="rgba(245,196,81,0.34)" stroke-width="1.4"/>
+              <circle cx="230" cy="112" r="82" fill="none" stroke="${sceneColor('rgba(148,197,255,0.22)')}" stroke-width="1.2" stroke-dasharray="5 5"/>
+              <circle cx="230" cy="112" r="55" fill="none" stroke="${sceneColor('rgba(245,196,81,0.34)')}" stroke-width="1.4"/>
               <g stroke="url(#beamGrad)" stroke-width="1.4" opacity="0.76">
                 <line x1="230" y1="112" x2="230" y2="24"/>
                 <line x1="230" y1="112" x2="324" y2="52"/>
@@ -272,21 +283,21 @@ function renderLanding6(){
                 <line x1="230" y1="112" x2="136" y2="52"/>
               </g>
               ${[
-                [230,24,'Field Care','#38BDF8'], [324,52,'Hospital','#2DD4BF'],
-                [354,112,'M&E / DHIS','#A78BFA'], [322,174,'Finance','#FBBF24'],
-                [230,200,'Homestay','#F472B6'], [138,174,'Media & IT','#FB923C'],
-                [106,112,'HR & Leave','#34D399'], [136,52,'Transport','#60A5FA']
+                [230,24,'Field Care',sceneColor('#38BDF8')], [324,52,'Hospital',sceneColor('#2DD4BF')],
+                [354,112,'M&E / DHIS',sceneColor('#A78BFA')], [322,174,'Finance',sceneColor('#FBBF24')],
+                [230,200,'Homestay',sceneColor('#F472B6')], [138,174,'Media & IT',sceneColor('#FB923C')],
+                [106,112,'HR & Leave',sceneColor('#34D399')], [136,52,'Transport',sceneColor('#60A5FA')]
               ].map(([x,y,lbl,col])=>`<g>
-                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#0B1933" stroke="${col}" stroke-width="1.3"/>
+                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="${sceneColor('#0B1933')}" stroke="${col}" stroke-width="1.3"/>
                 <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
                 <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#F1F5F9">${lbl}</text>
               </g>`).join('')}
-              <circle cx="230" cy="112" r="34" fill="#0E2248" stroke="#F5C451" stroke-width="2"/>
+              <circle cx="230" cy="112" r="34" fill="${sceneColor('#0E2248')}" stroke="${sceneColor('#F5C451')}" stroke-width="2"/>
               <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#F5C451" letter-spacing="0.5">OS · C-DIMS</text>
+              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="${sceneColor('#F5C451')}" letter-spacing="0.5">OS · C-DIMS</text>
             </svg>`;
 
-  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#E9C765')}">
+  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#ED0000')}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -349,7 +360,7 @@ function renderLanding6(){
 
 /* ------------------------------------------------------------ dedicated architecture & departments page */
 function renderArchitecture6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#E9C765' };
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#ED0000' };
   const departments = DEPARTMENTS.slice(0, 10);
   const dept = d => `<div class="ld-dept" style="--c:${d.accent}">
       <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.short)}</span></div>`;
@@ -385,7 +396,7 @@ function renderArchitecture6(){
     }
   ];
 
-  return `<div class="ld ld-arch-page" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#E9C765')}">
+  return `<div class="ld ld-arch-page" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#ED0000')}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -803,18 +814,13 @@ function renderOnboarding6(){
       </div>`;
   }
   if(step===4){
-    const pack = (typeof PROD_SETUP!=='undefined') ? PROD_SETUP.lastPack : null;
     body = `${hostedSetup
       ? `<p class="lg-note">Live Vercel commissioning starts with an <b>empty production register</b>. After these four steps, the Chief can open <b>Master data import</b> before global activation to download and upload the complete 3,333-patient reference master in verified chunks. The large package is deliberately not part of this initial request because of Vercel's 4.5 MB Function request limit.</p>`
       : `<p class="lg-note">Choose whether to start with the full 3,333-patient synthetic reference register across all 10 ministry areas and 14 departments, or an empty production register ready for live intake.</p>`}
-      ${pack ? `<div class="alert ok" style="margin-bottom:12px">${ic('check',16)}<div>
-        <b>${num(pack.count)} Staff Accounts Provisioned with Unique Strong SMS Passwords</b>
-        <span class="small">Download your SMS distribution pack below before closing. Every user will be required on first login to replace their SMS password with a private 12+ character password known only to them.</span>
-        <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
-          <button class="btn btn-xs btn-primary" type="button" data-act="dev-dl-sms-csv">${ic('download',13)} Download SMS Spreadsheet (.csv)</button>
-          <button class="btn btn-xs btn-ghost" type="button" data-act="dev-dl-sms-txt">${ic('download',13)} Download SMS Dispatch Sheet (.txt)</button>
-        </div>
-      </div></div>` : ''}
+      <div class="alert info" style="margin-bottom:12px">${ic('info',16)}<div>
+        <b>Staff credential downloads follow global activation</b>
+        <span class="small">Finish setup, sign in as Chief System Administrator and change your password. After you activate the system globally, download the confidential SMS CSV or text pack from the activation screen.</span>
+      </div></div>
       ${hostedSetup ? '' : `<div class="ob-choice ${ONB.seed==='reference'?'on':''}" data-act="ob-seed" data-seed="reference">
         <b>Load full 3,333-patient &amp; full-department dataset</b>
         <span>95% between 45 and 240 days, 5% between 241 and 330 days, plus clinical, hospital, pharmacy, finance, HR, fleet, media, library and 122-item equipment registers.</span>

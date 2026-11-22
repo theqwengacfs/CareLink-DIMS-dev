@@ -73,6 +73,13 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   /* The test DOM executes timers immediately.  Disable only the background
      patch debounce so this test measures the explicit workflow requests. */
   pc.run('SYNC.queue = () => {};');
+  const freshHealth = await pc.run('hostProbe()');
+  assert.ok(freshHealth && !freshHealth.commissioned);
+  pc.run(`APPX.host = ${JSON.stringify(freshHealth)};`);
+  const stepFour = pc.run(`(()=>{ APPX.screen='onboard'; ONB.step=4; return renderOnboarding6(); })()`);
+  assert.match(stepFour, /Staff credential downloads follow global activation/);
+  assert.doesNotMatch(stepFour, /data-act="dev-dl-sms-(csv|txt)"/, 'unauthenticated setup must not expose staff credentials');
+
   const setup = await pc.run(`PROD_SETUP.completeFourStepHostSetup({
     orgNameVal:'Hosted E2E Organisation', shortNameVal:'E2E', seedMode:'empty',
     chiefUsername:'chief.admin', chiefPassword:${JSON.stringify(chiefPassword)}, loginUrl:'https://carelink.test'
@@ -90,6 +97,14 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   const pack = await pc.run('PROD_SETUP.activateSystemGlobally({})');
   assert.ok(pack && pack.count > 0, 'global activation must issue a server-backed staff pack');
   const staff = pack.rows[0];
+  pc.run(`__downloads = []; download = (name, body, type) => __downloads.push({ name, body, type });
+    PROD_SETUP.downloadCSV(); PROD_SETUP.downloadSMSText();`);
+  const downloads = pc.run('__downloads');
+  assert.equal(downloads.length, 2, 'authenticated chief can export both SMS pack formats');
+  assert.match(downloads[0].name, /\.csv$/);
+  assert.match(downloads[1].name, /\.txt$/);
+  assert.ok(downloads.every(file => file.body.includes(pack.rows[0].tempPassword)), 'exports contain the issued temporary credential');
+
 
   const tablet = client();
   tablet.run('SYNC.queue = () => {}; DB.load();');
