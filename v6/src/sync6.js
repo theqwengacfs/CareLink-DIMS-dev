@@ -127,7 +127,7 @@ const SYNC = {
     inSetup = false;
     let r;
     try{
-      const reqInit = Object.assign({cache:'no-store'}, fetchOpts, {headers});
+      const reqInit = Object.assign({cache:'no-store',credentials:'same-origin'}, fetchOpts, {headers});
       if(controller && !reqInit.signal) reqInit.signal = controller.signal;
       r = await fetch(this.resolveApiUrl(url), reqInit);
     }catch(err){
@@ -172,7 +172,8 @@ const SYNC = {
     if(!loginAttemptId){
       try{ const bytes = new Uint8Array(24); cryptoApi.getRandomValues(bytes); loginAttemptId = Array.from(bytes, b=>b.toString(16).padStart(2,'0')).join(''); }catch(_e){ loginAttemptId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`; }
     }
-    const loginPayload = JSON.stringify({username, password, device: device || String(navigator.userAgent||'').slice(0,120), loginAttemptId});
+    const descriptor=device && typeof device==='object' ? device : {label:device||'Staff browser',type:'other'};
+    const loginPayload = JSON.stringify({username, password, deviceLabel:String(descriptor.label||'Staff browser').slice(0,100), deviceType:descriptor.type||'other', loginAttemptId});
     let r = null;
     let netErr = null;
     for(let attempt=0; attempt<2; attempt++){

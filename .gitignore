@@ -32,3 +32,12 @@ sensitive_vault/
 *Food*Budget*
 *EPP_Handbook*
 
+
+# Deployment metadata, secrets and runtime-generated reference packages
+.vercel/
+.env*
+/public/master/
+
+# Generated distribution kits must be explicitly rebuilt from reviewed source.
+/v6/*Office-Kit.zip
+/deliverables/CareLink-Chief-Recovery-*.zip

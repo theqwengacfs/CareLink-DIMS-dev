@@ -5,32 +5,18 @@
    quiet and white. No console data appears on either.
    ============================================================ */
 
-/* Ten landing identities. Each is a different arrangement and palette, not a
-   recolour of one page. The workspace accent is deliberately separate: a theme
-   changes only the public front door. */
-const LANDING_THEMES = [
-{ id:'heritage', name:'LOMAMO Red', blurb:'LOMAMO Foundation black, white and grey with a red accent, inspired by the Foundation emblem.', accent:'#ED0000', mode:'dark' },
-  { id:'clinic',   name:'Foundation White', blurb:'Luminous architectural pure white with crisp slate typography and royal sapphire accent.', accent:'#1E3A8A', mode:'light' },
-  { id:'dawn',     name:'Dawn',          blurb:'Warm sunrise gradient, centred hero, soft cards. Optimistic and open.', accent:'#F97316', mode:'dark' },
-  { id:'editorial',name:'Editorial',     blurb:'Magazine layout: oversized serif headline, rule lines, one column of text.', accent:'#7C2D12', mode:'light' },
-  { id:'canopy',   name:'Canopy',        blurb:'Deep green, organic shapes, layered leaves of colour. Rooted and human.', accent:'#15803D', mode:'dark' },
-  { id:'signal',   name:'Signal',        blurb:'High-contrast black with a vivid spectrum bar. Direct and modern.', accent:'#E11D48', mode:'dark' },
-  { id:'sand',     name:'Sandstone',     blurb:'Earth tones, wide type, photograph band across the base. Grounded.', accent:'#B45309', mode:'light' },
-  { id:'violet',   name:'Violet hour',   blurb:'Indigo, violet glow and a glassy panel. Contemporary and calm.', accent:'#7C3AED', mode:'dark' },
-  { id:'paper',    name:'Paper',         blurb:'Off-white, black rules, small caps. Plain, documentary, unfussy.', accent:'#111827', mode:'light' },
-  { id:'spectrum', name:'Spectrum',      blurb:'A full visible-light ribbon running through the page. Vibrant and celebratory.', accent:'#2563EB', mode:'dark' }
-];
+/* Exactly two official entry identities; both landing and sign-in read the
+   same Chief-owned system.config value. Preview state never enters the DB. */
+const LANDING_THEMES = ENTRY_THEMES;
 const DEFAULT_THEME = 'heritage';
 function landingTheme(){
-  const preview = DB.db && DB.db.settings && DB.db.settings._landingPreview;
-  if(preview) return LANDING_THEMES.find(t=>t.id===preview) || LANDING_THEMES[0];
-  const explicitLocal = DB.db && DB.db.settings && DB.db.settings.landingTheme;
-  const hostLanding = typeof APPX !== 'undefined' && APPX.host && APPX.host.landingTheme;
-  const cachedLanding = typeof DB !== 'undefined' && typeof DB.loadLocalPrefs === 'function' && (DB.loadLocalPrefs()||{}).landingTheme;
-  const id = (explicitLocal && explicitLocal !== DEFAULT_THEME)
-    ? explicitLocal
-    : (hostLanding || explicitLocal || cachedLanding || DEFAULT_THEME);
-  return LANDING_THEMES.find(t=>t.id===id) || LANDING_THEMES[0];
+  if(ENTRY_THEME.previewId) return ENTRY_THEME.tokens(ENTRY_THEME.previewId);
+  const settings=DB.db && DB.db.settings || {};
+  const config=settings.system && settings.system.config || {};
+  const host=typeof APPX!=='undefined' && APPX.host;
+  const saved=config.entryTheme || settings.landingTheme;
+  const id=(host && host.landingTheme) || saved || DEFAULT_THEME;
+  return ENTRY_THEME.tokens(id);
 }
 
 function renderLanding(){

@@ -82,9 +82,13 @@ const { makeCtx } = require('./dom');
       keptTextScale: DB.db.personalPrefs[u.id].textScale,
       explicitChoice: (() => {
         DB.db.settings.uiEpoch = 690;
-        DB.db.settings.landingTheme = 'canopy';
+        DB.db.settings.landingTheme = 'clinic';
         DB.db.settings.landingThemeExplicit = true;
         DB.migrate();
+        return landingTheme().id;
+      })(),
+      retiredChoice: (() => {
+        DB.db.settings.landingTheme = 'canopy';
         return landingTheme().id;
       })()
     };
@@ -96,7 +100,7 @@ const { makeCtx } = require('./dom');
     epochAudit.studioAfter.bannerStyle === 'glass' &&
     epochAudit.studioAfter.kpiStyle === 'tinted' &&
     epochAudit.keptTextScale === 110 &&
-    epochAudit.explicitChoice === 'canopy',
+    epochAudit.explicitChoice === 'clinic' && epochAudit.retiredChoice === 'heritage',
     JSON.stringify(epochAudit));
   ok('Global Workspace Default is Luminous Foundation White across surface, bar & sidebar chrome',
     themeAudit.wtDefault === 'foundation' &&

@@ -1,0 +1,195 @@
+/* Optional real-Chromium regression. Install playwright-core and supply
+   CHROMIUM_PATH, or install @sparticuz/chromium (npm-only binary for CI).
+   Every request goes to an in-memory fixture API; never contact production. */
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
+import {chromium} from 'playwright-core';
+const require=createRequire(import.meta.url),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+const bundle=fs.readFileSync(path.join(root,'public/carelink-v6.html'),'utf8');
+const kv=new Map(),nativeFetch=globalThis.fetch;
+const answer=(result,status=200)=>({ok:status>=200&&status<300,status,json:async()=>({result})});
+globalThis.fetch=async(input,init={})=>{
+  const url=new URL(String(input));
+  assert.equal(url.origin,'https://entry-browser.test','test must never use a production backend');
+  const [op,...a]=JSON.parse(init.body);
+  if(op==='GET') return answer(kv.get(a[0])??null);
+  if(op==='SET'){
+    if(a.includes('NX')&&kv.has(a[0])) return answer(null);
+    kv.set(a[0],String(a[1]));return answer('OK');
+  }
+  if(op==='EVAL'){
+    const [script,count,key,...args]=a;assert.equal(Number(count),1);
+    if(script==="return redis.call('GET', KEYS[1])") return answer(kv.get(key)??null);
+    if(script.includes('redis.sha1hex')){
+      const old=kv.get(key),digest=old===undefined?'missing':crypto.createHash('sha1').update(old).digest('hex');
+      if(digest!==args[0]) return answer(old===args[1]?2:0);
+      kv.set(key,args[1]);return answer(1);
+    }
+    if(kv.get(key)!==String(args[0])) return answer(0);
+    if(script.includes('DEL')) kv.delete(key);
+    return answer(1);
+  }
+  throw new Error('Unexpected fixture Redis command: '+op);
+};
+for(const key of Object.keys(process.env)) if(/^(?:CARELINK_|KV_|REDIS_|UPSTASH_|STORAGE_)/.test(key)) delete process.env[key];
+process.env.KV_REST_API_URL='https://entry-browser.test';process.env.KV_REST_API_TOKEN='synthetic-browser-fixture';
+const {default:handler}=await import('../../api/index.js');
+const server=http.createServer(async(req,res)=>{
+  try{
+    if(req.url.startsWith('/api/')){
+      const parts=[];for await(const part of req) parts.push(part);
+      req.body=parts.length?JSON.parse(Buffer.concat(parts).toString('utf8')):{};
+      await handler(req,res);return;
+    }
+    const pathname=new URL(req.url,'http://test').pathname;
+    let target=pathname==='/'?'index.html':pathname.replace(/^\//,'');
+    if(target==='carelink-v6.html') target='public/carelink-v6.html';
+    if(!fs.existsSync(path.join(root,target))) target='public/'+target;
+    const file=path.resolve(root,target);
+    if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}
+    res.setHeader('Content-Type',file.endsWith('.html')?'text/html':file.endsWith('.js')?'text/javascript':file.endsWith('.png')?'image/png':'application/json');
+    res.end(fs.readFileSync(file));
+  }catch(error){res.writeHead(500);res.end(error.message);}
+});
+let browser;
+const errors=[],evidence=[];
+try{
+  await new Promise(resolve=>server.listen(0,'0.0.0.0',resolve));
+  const base='http://localhost:'+server.address().port;
+  const binary=process.env.CHROMIUM_PATH?null:(await import('@sparticuz/chromium')).default;
+  const args=binary?binary.args.filter(arg=>!['--single-process','--disable-web-security','--allow-running-insecure-content','--disable-site-isolation-trials'].includes(arg)):['--no-sandbox'];
+  browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||await binary.executablePath(),args});
+  const chief=await browser.newContext({viewport:{width:1366,height:900},acceptDownloads:true});
+  const {run}=require('./dom.js').makeCtx();
+  // Keep the rows synthetic, but exercise commissioned RBAC rather than the
+  // deliberately all-synthetic, pre-activation board-preview exception.
+  run(`DB.db=DB.blank();seedSyntheticDataset(DB.db,new Date('2026-11-22T00:00:00.000Z'),{patients:12});DB.db.meta.demoMode=false;DB.db.meta.seeded='browser-fixture';DB.db.meta.label='Isolated browser fixture';`);
+  const fixture=JSON.parse(run('JSON.stringify(DB.db)'));
+  const password='Chief#Private2029!Xy';
+  let response=await chief.request.post(base+'/api/setup',{data:{admin:{username:'chief.admin',password,name:'Synthetic Browser Chief'},db:fixture}});
+  assert.equal(response.status(),200,await response.text());
+  const page=await chief.newPage();page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(base+'/carelink-v6.html');await page.waitForSelector('.ld[data-theme="heritage"]');
+  async function signIn(page,username,password,label){
+    if(await page.locator('[data-act="goto-login"]').count()) await page.locator('[data-act="goto-login"]').first().click();
+    const form=page.locator('form[data-form="login6"]');
+    await form.locator('[name="username"]').fill(username);await form.locator('[name="password"]').fill(password);
+    await form.locator('[name="deviceLabel"]').fill(label);await form.locator('[name="deviceType"]').selectOption('tablet');
+    await form.locator('[type="submit"]').click();
+  }
+  async function measure(page,theme,screen){
+    const metrics=await page.evaluate(screen=>{
+      const prefix=screen==='landing'?'.ld[data-front="1"]':'.lg6[data-theme]';
+      const selectors=screen==='landing'?['.ld-org','h1','.ld-lede','.ld-fact b','.ld-fact span','.ld-btn-primary','.ld-btn-secondary']:
+        ['.lg6-card h2','.field label','.input','.lg-note','.entry-security-badge','.lg-tab.on','.btn-primary','.lg6-brand h1','.lg6-brand-foot'];
+      const rgba=value=>{const a=value.match(/[\d.]+/g)?.map(Number)||[];return [a[0]||0,a[1]||0,a[2]||0,a.length>3?a[3]:1]};
+      const composite=(top,bottom)=>[0,1,2].map(i=>top[i]*top[3]+bottom[i]*(1-top[3]));
+      const background=element=>{const chain=[];for(let e=element;e;e=e.parentElement)chain.unshift(e);let rgb=[255,255,255];for(const e of chain)rgb=composite(rgba(getComputedStyle(e).backgroundColor),rgb);return rgb};
+      const lum=rgb=>rgb.map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4}).reduce((n,x,i)=>n+x*[.2126,.7152,.0722][i],0);
+      const ratio=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+      return selectors.flatMap(selector=>[...document.querySelectorAll(prefix+' '+selector)].filter(e=>e.getClientRects().length).map(element=>{
+        const bg=background(element),style=getComputedStyle(element);return {selector,ratio:ratio(composite(rgba(style.color),bg),bg),color:style.color,background:style.backgroundColor,effectiveBackground:bg,entryBackground:getComputedStyle(document.querySelector(prefix)).backgroundColor,entryImage:getComputedStyle(document.querySelector(prefix)).backgroundImage,ancestors:(()=>{const result=[];for(let e=element;e;e=e.parentElement)result.push([e.className,getComputedStyle(e).backgroundColor]);return result})()};
+      }));
+    },screen);
+    assert.ok(metrics.length>=6,theme+' '+screen+' has measurable rendered controls');
+    for(const metric of metrics) assert.ok(metric.ratio>=4.5,theme+' '+screen+' '+JSON.stringify(metric));
+    evidence.push({theme,screen,pairs:metrics.length,minimum:Math.min(...metrics.map(x=>x.ratio)).toFixed(2)});
+  }
+  await measure(page,'heritage','landing');
+  await signIn(page,'chief.admin',password,'Synthetic commissioning browser');
+  await page.waitForFunction(()=>AUTH.user?.roleId==='chief'&&APPX.screen==='app');
+  for(const theme of ['clinic','heritage']){
+    await page.evaluate(()=>go('settings',{section:'landing'}));
+    const prior=(await (await chief.request.get(base+'/api/health')).json()).landingTheme;
+    await page.locator('[data-act="preview-theme"][data-id="'+theme+'"]').click();
+    await page.locator('.modal [data-page="signin"]').click();
+    await page.waitForSelector('.modal .lg6[data-theme="'+theme+'"]');
+    assert.equal((await (await chief.request.get(base+'/api/health')).json()).landingTheme,prior,'live preview is ephemeral');
+    assert.equal(await page.locator('.modal [inert]').count(),1);
+    const saved=page.waitForResponse(r=>r.url().endsWith('/api/admin/system-config')&&r.request().method()==='POST');
+    await page.locator('.modal [data-act="set-landing-theme"]').click();assert.equal((await saved).status(),200);
+    const visitor=await browser.newContext({viewport:{width:1366,height:900}}),entry=await visitor.newPage();
+    entry.on('pageerror',error=>errors.push(error.message));
+    await entry.goto(base+'/carelink-v6.html');await entry.waitForSelector('.ld[data-theme="'+theme+'"]');
+    await measure(entry,theme,'landing');
+    await entry.locator('[data-act="goto-login"]').click();await entry.waitForSelector('.lg6[data-theme="'+theme+'"]');
+    await measure(entry,theme,'signin');
+    for(const size of [{width:1024,height:768},{width:390,height:844}]){
+      await entry.setViewportSize(size);
+      await entry.locator('form[data-form="login6"] [type="submit"]').scrollIntoViewIfNeeded();
+      assert.ok(await entry.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'entry must not overflow horizontally at '+size.width);
+      assert.ok(await entry.locator('#lg-device-label').isVisible(),'device controls remain available at '+size.width);
+    }
+    await visitor.close();
+  }
+  // Exercise actual DOM events with a stored, explicitly folded rail preference.
+  await page.evaluate(()=>{DB.db.personalPrefs[AUTH.user.id]={navRail:true,navAutoFold:true,navRailExplicit:true};go('home');});
+  await page.waitForSelector('.app.shell.np-rail');
+  const destination=page.locator('#npane [data-act="go"][data-v="devconsole"]');
+  await destination.click();await page.waitForSelector('.app.shell:not(.np-rail)');
+  assert.equal(await page.evaluate(()=>APPX.view),'home','first tap expands without navigation');
+  await page.waitForTimeout(1200);await page.evaluate(()=>render());
+  assert.equal(await page.locator('.app.shell.np-rail').count(),0,'expansion holds across time, redraw and focus/scroll restoration');
+  await page.locator('#npane [data-act="go"][data-v="devconsole"]').click();
+  await page.waitForSelector('.app.shell.np-rail');assert.equal(await page.evaluate(()=>APPX.view),'devconsole');
+  await page.evaluate(()=>NAVP.expandTemporarily());
+  await page.locator('#content').click({position:{x:20,y:20}});await page.waitForSelector('.app.shell.np-rail');
+  // One-account confidential export through the real Chief form/download path.
+  await page.evaluate(()=>go('staffaccounts'));await page.waitForFunction(()=>ENTRY_ADMIN.rosterLoaded&&!ENTRY_ADMIN.busy);
+  await page.locator('[data-act="entry-export-open"][data-username="caregiver.ombeyi"]').click();
+  await page.locator('#entry-admin-form [name="confirm"]').check();await page.locator('#entry-admin-form [name="password"]').fill(password);
+  const exported=page.waitForResponse(r=>r.url().endsWith('/api/admin/staff-accounts/export'));
+  const downloaded=page.waitForEvent('download');await page.locator('#entry-admin-form [type="submit"]').click();
+  const exportResponse=await exported;assert.equal(exportResponse.status(),200);const pack=await exportResponse.json(),account=pack.rows[0];
+  const download=await downloaded;assert.match(download.suggestedFilename(),/^CareLink-confidential-staff-/);await download.delete();
+  assert.equal(account.email,'');assert.ok(account.temporaryPassword&&account.expiresAt);
+  const chiefToken=await page.evaluate(()=>SYNC.sessionToken);
+  const staff=await browser.newContext({viewport:{width:1024,height:768}}),tablet=await staff.newPage(),staffRequests=[];
+  tablet.on('pageerror',error=>errors.push(error.message));tablet.on('request',request=>staffRequests.push(new URL(request.url()).pathname));
+  await tablet.goto(base+'/carelink-v6.html');await tablet.waitForSelector('[data-act="goto-login"]');
+  await signIn(tablet,account.username,account.temporaryPassword,'Synthetic browser tablet');
+  await tablet.waitForFunction(()=>LOGIN6.error.includes('awaiting Chief'));
+  assert.equal(await tablet.evaluate(()=>Boolean(AUTH.user||SYNC.sessionToken)),false,'pending browser has neither session nor workspace');
+  assert.ok(!staffRequests.some(p=>p==='/api/state'||p.startsWith('/api/state/')),'no staff-state request before approval');
+  assert.equal((await staff.request.get(base+'/api/state',{headers:{'X-CareLink-Session':chiefToken}})).status(),401,'copied Chief token without its cookie cannot grant access');
+  await page.evaluate(()=>go('devices'));await page.waitForFunction(()=>ENTRY_ADMIN.deviceLoaded&&!ENTRY_ADMIN.busy);
+  const deviceRow=()=>page.locator('tbody tr').filter({hasText:'Synthetic browser tablet'});
+  await deviceRow().locator('[data-act="entry-device-review"]').click();await page.locator('#entry-admin-form [name="password"]').fill(password);
+  await page.locator('#entry-admin-form [type="submit"]').click();await page.waitForFunction(()=>!ENTRY_ADMIN.busy&&ENTRY_ADMIN.devices.some(d=>d.label==='Synthetic browser tablet'&&d.status==='approved'));
+  await signIn(tablet,account.username,account.temporaryPassword,'Synthetic browser tablet');
+  await tablet.waitForSelector('form[data-form="mustchange6"]');
+  assert.equal(await tablet.evaluate(()=>DB.db.patients.length),0);
+  let staffToken=await tablet.evaluate(()=>SYNC.sessionToken);
+  assert.equal((await staff.request.get(base+'/api/state',{headers:{'X-CareLink-Session':staffToken}})).status(),403,'temporary session is gated before private replacement');
+  const change=tablet.locator('form[data-form="mustchange6"]');
+  await change.locator('[name="current"]').fill(account.temporaryPassword);await change.locator('[name="password"]').fill('River#Private2030!Xy');await change.locator('[name="password2"]').fill('River#Private2030!Xy');await change.locator('[type="submit"]').click();
+  await tablet.waitForFunction(()=>AUTH.user&&APPX.screen==='app'&&!AUTH.mustChange&&!LOGIN6.mustChangeBusy);
+  const workspace=await tablet.evaluate(()=>({patients:DB.db.patients.length,inScope:DB.db.patients.every(p=>p.areaId==='ombeyi'),areas:AUTH.user?.areaIds,error:LOGIN6.error,sync:SYNC.message}));
+  assert.ok(workspace.patients>0&&workspace.inScope,'approved staff receive only scoped data after private replacement: '+JSON.stringify(workspace));
+  const cookies=await staff.cookies(base);assert.ok(cookies.some(c=>c.name==='carelink_device_v1'&&c.httpOnly&&c.sameSite==='Strict'));
+  await deviceRow().locator('[data-act="entry-device-review"]').click();await page.locator('#entry-admin-form [name="decision"]').selectOption('revoked');await page.locator('#entry-admin-form [name="password"]').fill(password);await page.locator('#entry-admin-form [type="submit"]').click();
+  await page.waitForFunction(()=>!ENTRY_ADMIN.busy&&ENTRY_ADMIN.devices.some(d=>d.label==='Synthetic browser tablet'&&d.status==='revoked'));
+  assert.equal((await staff.request.get(base+'/api/state',{headers:{'X-CareLink-Session':staffToken}})).status(),401,'revocation cuts off an existing actual-browser session');
+  // A retired Pages entry may redirect but may never probe or commission an API.
+  const retired=await browser.newContext({serviceWorkers:'block'}),retiredPage=await retired.newPage(),retiredApi=[];
+  await retired.route('**/*',async route=>{
+    const url=new URL(route.request().url());
+    if(url.pathname.includes('/api/')) retiredApi.push(url.pathname);
+    if(url.hostname==='care-link-dims-dev.vercel.app') return route.fulfill({contentType:'text/html',body:'<h1>Official service destination</h1>'});
+    if(url.hostname==='theqwengacfs.github.io') return route.fulfill({contentType:'text/html',body:bundle});
+    return route.abort();
+  });
+  await retiredPage.goto('https://theqwengacfs.github.io/CareLink-DIMS-dev/carelink-v6.html').catch(()=>{});
+  await retiredPage.waitForURL('https://care-link-dims-dev.vercel.app/');assert.deepEqual(retiredApi,[]);
+  assert.deepEqual(errors,[],'no uncaught browser errors');
+  console.log('entry-browser: actual Chromium themes/preview/apply, responsive controls, expand → hold → collapse, isolated-cookie pending/approval/private-change/revocation, confidential download and retired-host redirect passed');
+  console.log(JSON.stringify(evidence));
+}finally{
+  if(browser) await browser.close();
+  server.closeAllConnections();await new Promise(resolve=>server.close(resolve));globalThis.fetch=nativeFetch;
+}

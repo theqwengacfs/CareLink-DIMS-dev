@@ -427,7 +427,7 @@ const INDICATORS = {
 /* ---------- 6. DEMO DATASET (synthetic) ----------
    Deterministic, seeded, clearly labelled. Never presented as real. */
 function seedDemo(db, now){
-  const T = new Date(now); T.setHours(9,0,0,0);
+  const T = new Date(now); T.setUTCHours(9,0,0,0);
   const DAY = 86400000, d = n => new Date(T.getTime() - n*DAY);
   const iso = x => new Date(x).toISOString();
   const rnd = (function(s){ return function(){ s = (s*1664525 + 1013904223) % 4294967296; return s/4294967296; }; })(20261018);
@@ -442,7 +442,7 @@ function seedDemo(db, now){
     /* The requested LOMAMO domain is stored as a mock login alias only; the
        app does not deliver email. Synthetic phone and clinic numbers stay in
        dedicated demo ranges - see the demo patient seed below. */
-    email:username+'@'+OFFICIAL_EMAIL_DOMAIN, phone:'', createdBy:'u-chief', approvedBy:'u-chief',
+    email:username+'@lomamo.example', phone:'', createdBy:'u-chief', approvedBy:'u-chief',
     salt: demoSalt, hash: strongHash('LOMAMO2026', demoSalt),
     created:iso(d(420)), lastLogin:null, mustChange:false, demo:true, ...extra
   });
@@ -941,7 +941,7 @@ function seedDemo(db, now){
       data:{ assessmentDate:iso(d(5)), areaLocation:COUNTIES.flatMap(c=>c.areas).find(a=>a.id===demoPatient(2).areaId)?.name||'', name:demoPatient(2).name, sex:'M', age:7,
         weightKg:18, heightCm:112, birthCertificate:'Yes', parentName:'Guardian of '+demoPatient(2).name,
         chiefComplaint:'Poor appetite and repeated illness.', hivPositive:'No', tbDiagnosis:'No', medicationAllergies:'No',
-        nhif:'No', saved:'No', schoolName:'Demo Primary School', schoolContact:'0700000000' } },
+        nhif:'No', saved:'No', schoolName:'Demo Primary School', schoolContact:'0700100000' } },
     { id:'frm-demo-4', kind:'hospital_outpatient', code:'LMMK 020', title:'LOMAMO Outpatient Hospital Visit Form',
       patientId:demoPatient(3).id, patientName:demoPatient(3).name, countyId:demoPatient(3).countyId, areaId:demoPatient(3).areaId,
       status:'verified', visitDate:iso(d(9)), enteredBy:'u-lia-ksm', createdAt:iso(d(9)), enteredAt:iso(d(9)), submittedAt:iso(d(9)),
@@ -1022,7 +1022,7 @@ function seedDemo(db, now){
   ];
 
   /* Normalise all seeded patient durations to 95%+ in 45-240 days and ~5% in 241-330 days (zero <45 or >330) */
-  const _nowT = new Date(); _nowT.setHours(9,0,0,0);
+  const _nowT = new Date(T); _nowT.setUTCHours(9,0,0,0);
   patients.forEach((p, idx)=>{
     const isTail = idx >= Math.ceil(patients.length * 0.95);
     const stay = isTail ? (246 + ((idx * 37) % 80)) : (45 + ((idx * 41) % 196));

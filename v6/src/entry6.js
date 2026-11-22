@@ -16,7 +16,7 @@
 const ONB = {
   step:1, host:null, org:{ name:'LOMAMO Foundation Kenya', county:'kisumu', shortName:'LOMAMO', emailDomain:'lomamofoundation.org' },
   admin:{ name:'', username:'', password:'', confirm:'' },
-  mode:'host', roster:[], issued:null, seed:'empty', autoFeedCloudMaster:true, _pendingCloudAutoFeed:false, busy:false, error:'',
+  mode:'host', roster:[], issued:null, seed:'empty', autoFeedCloudMaster:false, _pendingCloudAutoFeed:false, busy:false, error:'',
   hostSetup:null, advice:''
 };
 
@@ -162,7 +162,7 @@ async function activateFullDemoDataset(){
   const previousRaw = JSON.stringify(DB.db);
   const previousDirty = typeof APPX !== 'undefined' ? APPX.dirty : false;
   try{
-    const count = DB.seedOfficial({ patients:DEMO_REGISTER.patients, mustChange:false });
+    const count = DB.seedSynthetic({ patients:DEMO_REGISTER.patients, mustChange:false });
     if(typeof SYNC !== 'undefined' && SYNC.available()){
       let r;
       try{
@@ -225,15 +225,15 @@ function renderLanding6(){
             <svg viewBox="0 0 460 224" class="ld-scene-svg">
               <defs>
                 <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#1E3A8A" stop-opacity="0.08"/>
-                  <stop offset="65%" stop-color="#0EA5E9" stop-opacity="0.03"/>
+                  <stop offset="0%" stop-color="#EE0000" stop-opacity="0.08"/>
+                  <stop offset="65%" stop-color="#EE0000" stop-opacity="0.03"/>
                   <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
                 </radialGradient>
               </defs>
               <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="112" r="82" fill="none" stroke="#E2E8F0" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="112" r="55" fill="none" stroke="#CBD5E1" stroke-width="1.2"/>
-              <g stroke="#CBD5E1" stroke-width="1.3">
+              <circle cx="230" cy="112" r="82" fill="none" stroke="#CACACA" stroke-width="1.2" stroke-dasharray="5 5"/>
+              <circle cx="230" cy="112" r="55" fill="none" stroke="#CACACA" stroke-width="1.2"/>
+              <g stroke="#CACACA" stroke-width="1.3">
                 <line x1="230" y1="112" x2="230" y2="24"/>
                 <line x1="230" y1="112" x2="324" y2="52"/>
                 <line x1="230" y1="112" x2="354" y2="112"/>
@@ -244,18 +244,18 @@ function renderLanding6(){
                 <line x1="230" y1="112" x2="136" y2="52"/>
               </g>
               ${[
-                [230,24,'Field Care','#1E3A8A'], [324,52,'Hospital','#0F766E'],
-                [354,112,'M&E / DHIS','#1D4ED8'], [322,174,'Finance','#047857'],
-                [230,200,'Homestay','#334155'], [138,174,'Media & IT','#475569'],
-                [106,112,'HR & Leave','#0369A1'], [136,52,'Transport','#0F766E']
+                [230,24,'Field Care','#EE0000'], [324,52,'Hospital','#EE0000'],
+                [354,112,'M&E / DHIS','#EE0000'], [322,174,'Finance','#EE0000'],
+                [230,200,'Homestay','#202020'], [138,174,'Media & IT','#202020'],
+                [106,112,'HR & Leave','#EE0000'], [136,52,'Transport','#EE0000']
               ].map(([x,y,lbl,col])=>`<g>
-                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.1"/>
+                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#FFFFFF" stroke="#CACACA" stroke-width="1.1"/>
                 <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
-                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#0F172A">${lbl}</text>
+                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#202020">${lbl}</text>
               </g>`).join('')}
-              <circle cx="230" cy="112" r="34" fill="#0F172A" stroke="#1E3A8A" stroke-width="1.8"/>
+              <circle cx="230" cy="112" r="34" fill="#202020" stroke="#EE0000" stroke-width="1.8"/>
               <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#93C5FD" letter-spacing="0.5">OS · C-DIMS</text>
+              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#CACACA" letter-spacing="0.5">OS · C-DIMS</text>
             </svg>` : `
             <svg viewBox="0 0 460 224" class="ld-scene-svg">
               <defs>
@@ -299,7 +299,7 @@ function renderLanding6(){
               <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="${sceneColor('#F5C451')}" letter-spacing="0.5">OS · C-DIMS</text>
             </svg>`;
 
-  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#ED0000')}">
+  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="${ENTRY_THEME.style(th.id)}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -399,7 +399,7 @@ function renderArchitecture6(){
     }
   ];
 
-  return `<div class="ld ld-arch-page" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#ED0000')}">
+  return `<div class="ld ld-arch-page" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="${ENTRY_THEME.style(th.id)}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -505,6 +505,7 @@ function renderArchitecture6(){
 /* Strict single-screen, zero-scrollbar split layout on desktop & landscape tablets,
    and clean single-screen compact brand + card on portrait tablets & phones. */
 function renderLogin6(){
+  const entryTheme=landingTheme();
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const isAwaitingAct = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isAwaitingGlobalActivation && PROD_SETUP.isAwaitingGlobalActivation());
   const demoBlocked = demoEntryBlocked();
@@ -530,10 +531,15 @@ function renderLogin6(){
       ? 'This installation has already been set up. Sign in with your assigned username and password, or choose Recover if you cannot access your account.'
       : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
-      <div class="field"><label for="lg-u">Username or mock email alias</label>
-        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda or caregiver.nyalenda@lomamofoundation.org" required></div>
+      <div class="field"><label for="lg-u">Username or confirmed work email</label>
+        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Assigned username or confirmed work email" required></div>
       <div class="field"><label for="lg-p">Password</label>
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+      <div class="grid g2 lg-device-fields" style="gap:8px">
+        <div class="field"><label for="lg-device-label">Device label</label><input class="input" id="lg-device-label" name="deviceLabel" maxlength="100" autocomplete="off" placeholder="e.g. Field tablet 3" value="${esc(LOGIN6.deviceLabel||'')}" required></div>
+        <div class="field"><label for="lg-device-type">Device type</label><select class="input" id="lg-device-type" name="deviceType"><option value="computer">Computer</option><option value="tablet">Tablet</option><option value="phone">Phone</option><option value="other">Other</option></select></div>
+      </div>
+      <p class="lg-note lg-device-note"><span class="entry-security-badge">Registered devices</span> Staff access requires Chief-approved device registration. Unknown browsers stay pending; the public portal remains open.</p>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
@@ -613,7 +619,7 @@ function renderLogin6(){
 
   const body = t==='activate' ? activate : t==='request' ? request : t==='forgot' ? forgot : signIn;
 
-  return `<div class="lg6">
+  return `<div class="lg6" data-theme="${esc(entryTheme.id)}" data-mode="${esc(entryTheme.mode)}" style="${ENTRY_THEME.style(entryTheme.id)}">
     <aside class="lg6-brand">
       <div class="lg6-brand-top">
         <div class="row" style="gap:11px;margin-bottom:8px">
@@ -716,8 +722,8 @@ function renderMustChange(){
             <div class="hint">Minimum 12 characters including uppercase (A–Z), lowercase (a–z), number (0–9) and symbol (@ # % &amp; * ! ?).</div></div>
           <div class="field"><label>Repeat your new private password</label><div class="pw-wrap"><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
           ${isChiefPreActivation ? `<label class="lg-check" style="margin:8px 0 12px;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:9px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06))">
-            <input type="checkbox" name="autoFeedCloudMaster" value="1" checked style="margin-top:2px">
-            <span><b>Auto-feed complete ${num(DEMO_REGISTER.patients)}-patient CareLink Cloud Dataset</b> into Cloud KV immediately upon saving my password (zero local file upload)</span>
+            <input type="checkbox" name="autoFeedCloudMaster" value="1" style="margin-top:2px">
+            <span><b>Evaluation only: load ${num(DEMO_REGISTER.patients)} synthetic patients</b> into this isolated evaluation database. Leave unchecked for production; never use on an existing live register.</span>
           </label>` : ''}
           <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.mustChangeBusy?'disabled':''}>${LOGIN6.mustChangeBusy?'Saving password &amp; loading Cloud Dataset...':'Save private password &amp; open my console'}</button>
         </form>
@@ -832,9 +838,9 @@ function renderOnboarding6(){
         <b>Start with an empty patient register</b>
         <span>For live clinical intake or master workbook import.</span>
       </div>
-      ${hostedSetup ? `<div class="ob-choice ${ONB.autoFeedCloudMaster!==false?'on':''}" data-act="ob-toggle-autofeed" style="margin-top:8px">
-        <b>${ONB.autoFeedCloudMaster!==false?'✓ ':''}Auto-feed 100%-complete ${num(DEMO_REGISTER.patients)}-patient CareLink Cloud Dataset on Chief Sign-In (zero local file needed)</b>
-        <span>Automatically feeds the built-in ${num(DEMO_REGISTER.patients)}-patient reference dataset (visits, PDCAs, conditions and documents) directly from the server into Cloud KV right after Chief System Administrator password setup — without uploading any Excel or local file.</span>
+      ${hostedSetup ? `<div class="ob-choice ${ONB.autoFeedCloudMaster===true?'on':''}" data-act="ob-toggle-autofeed" style="margin-top:8px">
+        <b>${ONB.autoFeedCloudMaster===true?'✓ ':''}Evaluation only: explicitly load ${num(DEMO_REGISTER.patients)} synthetic patients after Chief Sign-In</b>
+        <span>Off by default. Enable only for an isolated evaluation installation, never a live register. The server generates the synthetic reference at runtime, including related visits, PDCAs, conditions and documents; no real workbook is used.</span>
       </div>` : ''}`;
   }
   const footer = `<div class="ob-actions">
@@ -954,7 +960,7 @@ Object.assign(ACTIONS, {
       ONB.advice = '';
       ONB.step = 1;
       ONB.seed = 'empty';
-      ONB.autoFeedCloudMaster = true;
+      ONB.autoFeedCloudMaster = false;
       ONB._pendingCloudAutoFeed = false;
       let freshHealth = null;
       for (const ms of [0, 200, 450, 900]) {
@@ -1040,7 +1046,7 @@ Object.assign(ACTIONS, {
       SYNC.bump();
     }
     if (!(DB.db && Array.isArray(DB.db.patients) && DB.db.patients.length >= 100)) {
-      DB.seedOfficial({ patients: DEMO_REGISTER.patients, mustChange: false });
+      DB.seedSynthetic({ patients: DEMO_REGISTER.patients, mustChange: false });
     } else if (DB.db && Array.isArray(DB.db.users)) {
       DB.db.users.forEach(u => {
         if (u && !u.hash) {
@@ -1154,7 +1160,7 @@ Object.assign(ACTIONS, {
         });
         APPX.showMustChange = false;
         ONB.busy = false;
-        if (ONB.autoFeedCloudMaster !== false) {
+        if (ONB.autoFeedCloudMaster === true) {
           ONB._pendingCloudAutoFeed = true;
           try { sessionStorage.setItem('carelink.pendingCloudAutoFeed', '1'); } catch (_e) {}
         } else {
@@ -1164,7 +1170,7 @@ Object.assign(ACTIONS, {
         APPX.screen = 'login';
         LOGIN6.tab = 'signin';
         LOGIN6.error = '';
-        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername} (${res.chiefEmail}) and set your private personal password${ONB.autoFeedCloudMaster !== false ? ' — the 100%-complete ${num(DEMO_REGISTER.patients)}-patient Cloud Dataset will auto-feed into KV immediately' : ''}, then click "Activate System Globally".`;
+        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername}${res.chiefEmail?' ('+res.chiefEmail+')':''} and set your private personal password${ONB.autoFeedCloudMaster === true ? ' — the synthetic evaluation dataset will be generated and loaded because you explicitly selected it' : ''}, then click "Activate System Globally".`;
         toast('Online Setup Complete', 'Sign in as Chief System Administrator to set your private password and Activate System Globally.', 'ok');
         render();
       }catch(e){ ONB.busy=false; ONB.error='Could not finish host setup: '+e.message; render(); }
@@ -1233,7 +1239,8 @@ Object.assign(FORMS, {
         if(SYNC.stopPolling) SYNC.stopPolling();
         if(SYNC.storeToken) SYNC.storeToken(null);
       }
-      let res = await AUTH.loginOnline(username, password, 'this device');
+      LOGIN6.deviceLabel=String(d.get('deviceLabel')||'Staff browser').trim().slice(0,100);
+      let res = await AUTH.loginOnline(username, password, {label:LOGIN6.deviceLabel,type:String(d.get('deviceType')||'other')});
       if(!res.ok && !hosted){
         /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
            feature.  A Vercel client never turns a failed server login into a

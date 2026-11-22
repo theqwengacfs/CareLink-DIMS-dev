@@ -9,7 +9,7 @@ const setForm=(o)=>run(`ctx=>0`), form=(o)=>run(`__form = ${JSON.stringify(o)}`)
 /* ---------------- 1. PATIENT: paper → programme → discharge ---------------- */
 as('caregiver.nyalenda');
 form({name:'DEMO Workflow Patient',sex:'F',age:38,areaId:'nyalenda',intake:'2026-10-01',
-      referralEntityId:'rf1',ccc:'CCC/99999',phone:'0700000099',caregiverId:'u-cg-nyal',diagnosis:'HIV — on ART',children:'2',consent:'on'});
+      referralEntityId:'rf1',ccc:'CCC/99999',phone:'0700100099',caregiverId:'u-cg-nyal',diagnosis:'HIV — on ART',children:'2',consent:'on'});
 run(`ACTIONS['submit-assessment']()`);
 const pid = run(`DB.db.patients.find(p=>p.name==='DEMO Workflow Patient')?.id`);
 check('Caregiver creates an assessment', !!pid, pid||'none');

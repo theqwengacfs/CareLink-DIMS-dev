@@ -1,3 +1,4 @@
+import { dispatchWithDeviceCookie } from './device-cookies.cjs';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
@@ -49,7 +50,7 @@ const {default:handler,ownerListChiefs,ownerRecoverChief}=await import('../../ap
 async function api(route, method='GET', body={}, token='') {
   const req={url:`/api/${route}`, method, headers:{host:'carelink.test',...(token?{'x-carelink-session':token}:{})},body,on(){}};
   let status, raw=''; const res={set statusCode(v){status=v},get statusCode(){return status},setHeader(){},end(s){raw=s||''}};
-  await handler(req,res); return {status,body:JSON.parse(raw)};
+  await dispatchWithDeviceCookie(handler,req,res); return {status,body:JSON.parse(raw)};
 }
 await assert.rejects(ownerListChiefs(),/No commissioned/);
 const old='Chief#Secure2027', fresh='Private#Safe2028';

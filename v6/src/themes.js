@@ -570,6 +570,9 @@ const WTHEME = {
     if(WTC.contrast(c, fill) >= 4.5) return c;
     c = badge; n = 0;
     while(WTC.contrast(c, fill) < 4.5 && n++ < 20) c = WTC.mix(c,'#000000',0.08);
+    // A fill just at the white-text threshold may need the exact endpoint:
+    // twenty easing steps cannot reach white/black. Never return a failed gate.
+    if(WTC.contrast(c,fill)<4.5) c=WTC.contrast('#FFFFFF',fill)>=4.5?'#FFFFFF':'#000000';
     return c;
   },
 
@@ -793,4 +796,62 @@ const WTHEME = {
   installPack(user, packId){ return WTHEME.applyVisualPack(user, packId); },
   importCustomPack(user, rawJson){ return WTHEME.installCustomPack(user, rawJson); },
   exportCurrentPack(user){ return WTHEME.exportActivePack(user); }
+};
+
+
+/* Official public entry identities. Palette source: the root LOMAMO letterhead
+   PNG (dominant emblem red #EE0000; white #FFFFFF; black #000000; grey #F2F2F2) and existing --action / --ink CSS tokens.
+   The saturated emblem red is corrected by the PR #35 safeFill gate; text and
+   badge pairs are measured at runtime rather than chosen by appearance. */
+const ENTRY_THEMES = [
+  {id:'heritage',name:'LOMAMO Emblem Dark',mode:'dark',accent:'#EE0000',
+    blurb:'Black and charcoal, emblem red and clean white. The official letterhead identity.',
+    bg:'#202020',surface:'#292929',ink:'#FFFFFF',muted:'#D9D9D9',line:'#737373'},
+  {id:'clinic',name:'LOMAMO Letterhead Light',mode:'light',accent:'#EE0000',
+    blurb:'White letterhead, charcoal ink and emblem red. A bright, restrained front door.',
+    bg:'#F5F5F5',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#737373'}
+];
+const ENTRY_THEME = {
+  previewId:null, previewed:new Set(),
+  tokens(id){
+    const t=ENTRY_THEMES.find(x=>x.id===id)||ENTRY_THEMES[0];
+    const fill=WTHEME.safeFill(t.accent), badge=WTHEME.badgeOnFill('#D9D9D9',fill);
+    return {...t,fill,badge,fillInk:'#FFFFFF'};
+  },
+  measurements(id){
+    const t=this.tokens(id);
+    return [
+      {label:'Primary action / white text',ratio:WTC.contrast(t.fill,'#FFFFFF')},
+      {label:'Badge / action fill',ratio:WTC.contrast(t.badge,t.fill)},
+      {label:'Main text / background',ratio:WTC.contrast(t.ink,t.bg)},
+      {label:'Supporting text / background',ratio:WTC.contrast(t.muted,t.bg)},
+      {label:'Main text / card',ratio:WTC.contrast(t.ink,t.surface)},
+      {label:'Supporting text / card',ratio:WTC.contrast(t.muted,t.surface)}
+    ];
+  },
+  style(id){
+    const t=this.tokens(id);
+    return `--entry-bg:${t.bg};--entry-surface:${t.surface};--entry-ink:${t.ink};--entry-muted:${t.muted};--entry-line:${t.line};--entry-fill:${t.fill};--entry-badge:${t.badge};--accent:${t.fill};--accent-ink:#FFFFFF`;
+  },
+  async apply(id){
+    if(!AUTH.user || AUTH.user.roleId!=='chief' || !RBAC.has(AUTH.user,'system.config')) throw new Error('Only the Chief System Administrator may change the public entry theme.');
+    if(!ENTRY_THEMES.some(t=>t.id===id) || !this.previewed.has(id)) throw new Error('Preview an official theme before applying it.');
+    if(this.measurements(id).some(m=>m.ratio<4.5)) throw new Error('This theme failed its measured contrast gates.');
+    if(typeof SYNC!=='undefined' && SYNC.available()){
+      const result=await ENTRY_ADMIN.request('system-config',{entryTheme:id});
+      DB.db.settings.system={...(DB.db.settings.system||{}),config:result.config};
+      if(APPX.host) APPX.host.landingTheme=id;
+      if(SYNC.server) SYNC.server.landingTheme=id;
+      // A config acknowledgement is not a complete database snapshot. Never
+      // advance the sync revision over held edits or skip unrelated deltas.
+      await ENTRY_ADMIN.refreshAfterWrite(result);
+    }else{
+      DB.db.settings.system=DB.db.settings.system||{};
+      DB.db.settings.system.config={...(DB.db.settings.system.config||{}),entryTheme:id};
+      AUDIT.append({actor:AUTH.user.id,action:'system.config_changed',entity:'system.config',entityId:'entryTheme',detail:'Offline entry theme -> '+id});
+    }
+    DB.db.settings.landingTheme=id; DB.db.settings.landingThemeExplicit=true;
+    DB.saveLocalPrefs();
+    if(typeof SYNC==='undefined' || !SYNC.available()) DB.save();
+  }
 };

@@ -196,7 +196,7 @@ const DB = {
       let hosted = false;
       try{ hosted = /^https?:$/.test(location.protocol); }catch(e){}
       if(!hosted && typeof seedOfficial === 'function'){
-        seedOfficial(this.db, new Date(), {patients:DEMO_REGISTER.patients, mustChange:false});
+        seedSyntheticDataset(this.db, new Date('2026-11-22T00:00:00.000Z'), {patients:DEMO_REGISTER.patients, mustChange:false});
         this.db.meta.freshSeeded = true;
         try{ Store.set(this.KEY, JSON.stringify(this.db)); }catch(e){}
       }
@@ -314,7 +314,7 @@ const DB = {
           countyId:r.countyId, areaIds:r.areas||[], departmentId:r.dept, jobTitle:r.job,
           reportsTo:'u-chief', status:'active', active:true, mustChange:false, demo:true,
           salt, hash:strongHash('LOMAMO2026', salt),
-          email:r.username+'@'+OFFICIAL_EMAIL_DOMAIN, phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
+          email:r.username+'@lomamo.example', phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
           created:demo.seededAt, execTeam:EXEC_DEFAULT.includes(r.username)
         });
       });
@@ -334,6 +334,13 @@ const DB = {
     this.db.meta.demoSeeded = new Date().toISOString();
     this.save();
     return this.db.patients.length;
+  },
+  seedSynthetic(opts={}){
+    if(!this.db) this.db=this.blank();
+    seedSyntheticDataset(this.db,new Date('2026-11-22T00:00:00.000Z'),opts);
+    this.db.settings.onboarding={complete:true,step:9};
+    this.db.meta.demoSeeded='2026-11-22T00:00:00.000Z';
+    this.save();return this.db.patients.length;
   },
   /* Fast, read-only lookups used by the return-visit checker. */
   byNationalId(id){ return patientsByNationalId(this.db, id); },
@@ -417,6 +424,7 @@ const AUTH = {
   logout(){
     if(this.user) AUDIT.append({actor:this.user.id,action:'auth.logout',entity:'user',entityId:this.user.id,detail:'Signed out'});
     if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.clearCredentialPack) PROD_SETUP.clearCredentialPack();
+    if(typeof ENTRY_ADMIN !== 'undefined') ENTRY_ADMIN.clear();
     this._pw=null; this.mustChange=false; this.user=null; this.session=null; DB.save(); this.emit();
   },
   touch(){ if(this.session) this.session.last = Date.now(); },

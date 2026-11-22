@@ -13,6 +13,11 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="./icons/carelink-192.png">
 <link rel="apple-touch-icon" href="./icons/carelink-192.png">
+<link rel="canonical" href="https://care-link-dims-dev.vercel.app/">
+<script>
+/* Retired Pages copies must not become a second commissioned installation. */
+if(location.hostname==='theqwengacfs.github.io') location.replace('https://care-link-dims-dev.vercel.app/');
+</script>
 <style>
 /* ============================================================
    LOMAMO FOUNDATION KENYA - CareLink DIMS v4.0
@@ -6768,6 +6773,48 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:hover{background:c
   html[data-wmode="light"] .shell-role-banner .ws67-hero .ws67-role-tabs{margin-top:8px;padding-top:8px;}
 }
 
+/* Official public entry palettes share themes.js tokens and its PR #35 contrast
+   gates. All opaque text surfaces below are included in the measured matrix. */
+.ld[data-front="1"][data-theme], .lg6[data-theme]{
+  background:var(--entry-bg) !important;color:var(--entry-ink) !important;
+  --action:var(--entry-fill);--action-ink:#fff;--accent:var(--entry-fill);
+  --accent-fg:var(--entry-fill);--ink:var(--entry-ink);--muted:var(--entry-muted);
+  --ld-bg:var(--entry-bg);--ld-surface:var(--entry-surface);--ld-text:var(--entry-ink);
+  --ld-dim:var(--entry-muted);--ld-border:var(--entry-line);
+}
+.ld[data-front="1"][data-theme] :is(.ld-top,.ld-foot){background:var(--entry-surface) !important;border-color:var(--entry-line) !important;}
+.lg6[data-theme] .input::placeholder{color:var(--entry-muted) !important;opacity:1;}
+.ld[data-front="1"][data-theme] :is(.ld-org,.ld-hero h1,.ld-subhead,.ld-scene,.ld-stat b){color:var(--entry-ink) !important;}
+.ld[data-front="1"][data-theme] :is(.ld-lede,.ld-dim,.ld-note,.ld-foot,.ld-eyebrow,.ld-assure,.ld-setup-status,.ld-stat span){color:var(--entry-muted) !important;opacity:1 !important;}
+.ld[data-front="1"][data-theme] :is(.ld-scene,.ld-stat,.ld-card){background:var(--entry-surface) !important;border-color:var(--entry-line) !important;}
+.ld[data-front="1"][data-theme] :is(.ld-btn-primary,.ld-cta){background:var(--entry-fill) !important;color:#fff !important;border-color:var(--entry-fill) !important;}
+.ld[data-front="1"][data-theme] .ld-hero h1 em{color:var(--entry-ink) !important;}
+.ld[data-front="1"][data-theme] :is(.ld-btn-secondary,.ld-btn-arch,.ld-recovery-link){background:var(--entry-surface) !important;color:var(--entry-ink) !important;border-color:var(--entry-line) !important;}
+.ld[data-front="1"][data-theme] :is(.ld-aurora,.ld-weave){display:none !important;}
+.lg6[data-theme] :is(.lg6-brand,.lg6-panel,.lg6-card,.lg6-brand-foot){background:var(--entry-surface) !important;color:var(--entry-ink) !important;border-color:var(--entry-line) !important;}
+.lg6[data-theme] :is(h1,h2,h3,.lg6-brand-top .bold,.lg6-brand-top .xs,.lg6-kicker,.lg6-copy,.lg6-brand-foot,.field label,.lg-note,.lg-check,.lg6-head,.linkbtn){color:var(--entry-ink) !important;opacity:1 !important;}
+.lg6[data-theme] :is(.lg-note,.lg-device-note,.lg6-copy,.lg6-brand-foot .xs){color:var(--entry-muted) !important;}
+.lg6[data-theme] :is(.input,.lg-tab,.pw-eye){background:var(--entry-surface) !important;color:var(--entry-ink) !important;border-color:var(--entry-line) !important;}
+.lg6[data-theme] :is(.btn-primary,.lg-tab.on){background:var(--entry-fill) !important;color:#fff !important;border-color:var(--entry-fill) !important;}
+.lg6[data-theme] :is(.lg6-photo-overlay,.lg6-thumb span){background:#202020 !important;color:#fff !important;opacity:1 !important;}
+.lg6[data-theme] .lg6-photo-overlay :is(span,b){color:#fff !important;opacity:1 !important;}
+.lg6[data-theme] :is(.lg6-thumb,.lg6-photo-frame){border-color:var(--entry-line) !important;}
+:is(.ld[data-front="1"],.lg6[data-theme]) :focus-visible{outline:3px solid var(--entry-ink) !important;outline-offset:3px;}
+.entry-contrast-evidence{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 22px;font-size:12px;padding:12px 20px;}
+.lg6[data-theme] .lg-device-note{font-size:11px;line-height:1.35;margin:4px 0 8px;}
+.lg6[data-theme] .lg-device-fields .field{margin-bottom:3px;}
+/* Added device controls must remain reachable on short tablets: never clip a
+   security field or submit button just to keep an older zero-scroll aesthetic. */
+.lg6[data-theme] .lg6-panel{overflow-y:auto;min-height:0;}
+@media(max-height:850px){.lg6[data-theme] .lg6-card{margin:auto 0;padding:18px;}.lg6[data-theme] .lg6-panel{align-items:flex-start;}}
+@media(max-width:640px){.entry-contrast-evidence{grid-template-columns:1fr;}.lg6[data-theme] .lg-device-fields{grid-template-columns:1fr 1fr;}}
+
+.ld[data-front="1"][data-theme] :is(.ld-canvas-card,.ld-fact){background:var(--entry-surface) !important;border-color:var(--entry-line) !important;}
+.ld[data-front="1"][data-theme] .ld-fact b{color:var(--entry-ink) !important;}
+.ld[data-front="1"][data-theme] .ld-fact span{color:var(--entry-muted) !important;}
+.lg6[data-theme] :is(.lg6-mobile-hero,.lg6-mobile-hero-txt b,.lg6-mobile-hero-txt em){background:var(--entry-surface) !important;color:var(--entry-ink) !important;}
+.lg6[data-theme] .entry-security-badge{display:inline-block;background:var(--entry-fill);color:var(--entry-badge);border-radius:4px;padding:2px 5px;font-weight:700;}
+
 /* Admin Operations — presentation-grade finance workspace */
 .aops-workspace{
   --aops-ink:#152943; --aops-muted:#64748B; --aops-line:#E2E8F0; --aops-paper:#FFFFFF;
@@ -6894,7 +6941,7 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:hover{background:c
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,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";
-window.BUILD_STAMP = "2026-11-22 16:43";
+window.BUILD_STAMP = "2026-11-22 20:36";
 </script>
 <script>
 /* ============================================================
@@ -7326,7 +7373,7 @@ const INDICATORS = {
 /* ---------- 6. DEMO DATASET (synthetic) ----------
    Deterministic, seeded, clearly labelled. Never presented as real. */
 function seedDemo(db, now){
-  const T = new Date(now); T.setHours(9,0,0,0);
+  const T = new Date(now); T.setUTCHours(9,0,0,0);
   const DAY = 86400000, d = n => new Date(T.getTime() - n*DAY);
   const iso = x => new Date(x).toISOString();
   const rnd = (function(s){ return function(){ s = (s*1664525 + 1013904223) % 4294967296; return s/4294967296; }; })(20261018);
@@ -7341,7 +7388,7 @@ function seedDemo(db, now){
     /* The requested LOMAMO domain is stored as a mock login alias only; the
        app does not deliver email. Synthetic phone and clinic numbers stay in
        dedicated demo ranges - see the demo patient seed below. */
-    email:username+'@'+OFFICIAL_EMAIL_DOMAIN, phone:'', createdBy:'u-chief', approvedBy:'u-chief',
+    email:username+'@lomamo.example', phone:'', createdBy:'u-chief', approvedBy:'u-chief',
     salt: demoSalt, hash: strongHash('LOMAMO2026', demoSalt),
     created:iso(d(420)), lastLogin:null, mustChange:false, demo:true, ...extra
   });
@@ -7840,7 +7887,7 @@ function seedDemo(db, now){
       data:{ assessmentDate:iso(d(5)), areaLocation:COUNTIES.flatMap(c=>c.areas).find(a=>a.id===demoPatient(2).areaId)?.name||'', name:demoPatient(2).name, sex:'M', age:7,
         weightKg:18, heightCm:112, birthCertificate:'Yes', parentName:'Guardian of '+demoPatient(2).name,
         chiefComplaint:'Poor appetite and repeated illness.', hivPositive:'No', tbDiagnosis:'No', medicationAllergies:'No',
-        nhif:'No', saved:'No', schoolName:'Demo Primary School', schoolContact:'0700000000' } },
+        nhif:'No', saved:'No', schoolName:'Demo Primary School', schoolContact:'0700100000' } },
     { id:'frm-demo-4', kind:'hospital_outpatient', code:'LMMK 020', title:'LOMAMO Outpatient Hospital Visit Form',
       patientId:demoPatient(3).id, patientName:demoPatient(3).name, countyId:demoPatient(3).countyId, areaId:demoPatient(3).areaId,
       status:'verified', visitDate:iso(d(9)), enteredBy:'u-lia-ksm', createdAt:iso(d(9)), enteredAt:iso(d(9)), submittedAt:iso(d(9)),
@@ -7921,7 +7968,7 @@ function seedDemo(db, now){
   ];
 
   /* Normalise all seeded patient durations to 95%+ in 45-240 days and ~5% in 241-330 days (zero <45 or >330) */
-  const _nowT = new Date(); _nowT.setHours(9,0,0,0);
+  const _nowT = new Date(T); _nowT.setUTCHours(9,0,0,0);
   patients.forEach((p, idx)=>{
     const isTail = idx >= Math.ceil(patients.length * 0.95);
     const stay = isTail ? (246 + ((idx * 37) % 80)) : (45 + ((idx * 41) % 196));
@@ -8358,7 +8405,7 @@ function enrichV6Collections(db, T){
   /* Public Relations stakeholders, enquiries, media studio projects, messages & calendar */
   if(!db.stakeholders || !db.stakeholders.length){
     db.stakeholders = [
-      { id:'stk-001', name:'JOOTRH Social Work & Oncology Unit', kind:'Referral hospital', county:'Kisumu', contact:'Focal Desk · 0712 340 890', status:'active', note:'Primary tertiary referral partner for oncology, TB & complex inpatient care.' },
+      { id:'stk-001', name:'JOOTRH Social Work & Oncology Unit', kind:'Referral hospital', county:'Kisumu', contact:'Synthetic referral desk · 0700 510001', status:'active', note:'Primary tertiary referral partner for oncology, TB & complex inpatient care.' },
       { id:'stk-002', name:'Kisumu County Department of Health (CHMT)', kind:'County government', county:'Kisumu', contact:'Sub-County CHS Coordinator', status:'active', note:'Community health strategy & non-official data verification alignment.' },
       { id:'stk-003', name:'Homa Bay County Referral Hospital', kind:'Referral hospital', county:'Homa Bay', contact:'Outpatient Liaison Desk', status:'active', note:'Homa Bay Town cluster referral & SHA verification partner.' },
       { id:'stk-004', name:'Local Church & Community Orphan-Prevention Network', kind:'Community partner', county:'Kisumu', contact:'Pastoral & Household Support Desk', status:'active', note:'Household nutrition, Upper Room discipleship and guardian support.' }
@@ -8423,7 +8470,7 @@ function enrichV6Collections(db, T){
       countyId:'kisumu', areaIds:[], departmentId:'intldata', jobTitle:'International Data & Global Verification Lead',
       reportsTo:'u-chief', status:'active', active:true, mustChange:false, provisioned:true, demo:true,
       salt, hash:strongHash('LOMAMO2026', salt), /* Mock login alias only; no email delivery is configured. */
-      email:'intl.data@lomamofoundation.org', phone:'0700000010',
+      email:'intl.data@lomamo.example', phone:'0700300010',
       createdBy:'u-chief', created:ago(180), lastLogin:ago(1)
     });
   }
@@ -8510,10 +8557,10 @@ function enrichV6Collections(db, T){
   if(!Array.isArray(db.accountRequests) || db.accountRequests.length < 2){
     db.accountRequests = [
       { id:'acr-seed-1', at:ago(1), name:'Beatrice Akinyi Ochieng', roleId:'caregiver', countyId:'kisumu', assignedCountyId:'kisumu',
-        assignedAdminUsername:'kisumu.admin', urgent:true, contact:'0700201104', email:'beatrice.akinyi@lomamofoundation.org',
+        assignedAdminUsername:'kisumu.admin', urgent:true, contact:'0700101104', email:'beatrice.akinyi@lomamo.example',
         reason:'Newly assigned Nyalenda Cluster B field caregiver — requires mobile tablet sign-in before Monday area briefing.', status:'open', demo:true },
       { id:'acr-seed-2', at:ago(2), name:'Samuel Odhiambo Otieno', roleId:'assistant', countyId:'homabay', assignedCountyId:'homabay',
-        assignedAdminUsername:'homabay.admin', urgent:true, contact:'0700201198', email:'samuel.otieno@lomamofoundation.org',
+        assignedAdminUsername:'homabay.admin', urgent:true, contact:'0700101198', email:'samuel.otieno@lomamo.example',
         reason:'Homa Bay County Office hard-copy intake filing desk support — requires verified County Office account.', status:'open', demo:true }
     ];
   }
@@ -8659,9 +8706,9 @@ function seedOfficial(db, now, opts={}){
      intake timestamp to now; with a 09:00 anchor a run before nine in the
      morning made every patient one day shorter than the seed intended, which
      moved the 45-240 / 241-330 distribution off its stated profile. */
-  const T = new Date(now); T.setHours(0,0,0,0);
+  const T = new Date(now); T.setUTCHours(0,0,0,0);
   const DAY = 86400000;
-  const rnd = rng6(20261022);
+  const rnd = rng6(Number.isInteger(opts.seed) ? opts.seed : 20261022);
   const pick = a => a[Math.floor(rnd()*a.length)];
   const int = (a,b) => a + Math.floor(rnd()*(b-a+1));
   const iso = d => new Date(d).toISOString();
@@ -8725,7 +8772,7 @@ function seedOfficial(db, now, opts={}){
       reportsTo:officialReportsTo(r),
       status:'active', active:true, mustChange:mustChangeFlag, provisioned:true, demo:true,
       salt, hash:strongHash('LOMAMO2026', salt),
-      email:(r.emailLocal||r.username)+'@lomamofoundation.org', phone:'0700' + String(300000 + (i*13799) % 99999).padStart(6,'0'),
+      email:r.username+'@lomamo.example', phone:'0700' + String(300000 + (i*13799) % 99999).padStart(6,'0'),
       createdBy:'u-chief-admin', created:iso(new Date(T.getTime()-420*DAY)), lastLogin:iso(new Date(T.getTime()-(i%7)*DAY)),
       execTeam:EXEC_DEFAULT.includes(r.username),
       /* Administration's own scheduling data, carried on the account so the
@@ -9223,7 +9270,7 @@ function seedOfficial(db, now, opts={}){
     const supAmt = 1400 + (i % 6) * 450;
     const supItem = pick(SUPPORT_ITEMS);
     const supOffset = (i % 90) * 3;
-    const supWhen = Math.min(Date.now(), intake.getTime() + supOffset * DAY);
+    const supWhen = Math.min(T.getTime(), intake.getTime() + supOffset * DAY);
     const supDate = iso(new Date(supWhen)).slice(0, 10);
     supportIssues.push({
       id:'sup-'+pid, patientId:pid, countyId:area.countyId, areaId:area.id,
@@ -9250,7 +9297,7 @@ function seedOfficial(db, now, opts={}){
         id:rid, no:reqNo, code:reqNo, patientId:pid,
         requestedBy:caregiver, caregiverId:caregiver, countyId:area.countyId, areaId:area.id,
         status:st, submittedAt:subIso, createdAt:subIso.slice(0,10),
-        patientContact: pObj.phone || '0700000000',
+        patientContact: pObj.phone || '0700100000',
         shaStatus: pick(['Active','Active','Pending registration']),
         chiefComplaints: pick(['Cervical screening & GOPC review','Persistent cough & MOPC chest review','Chronic wound SOPC review','Physiotherapy neuro-rehab session','Paediatric POPC growth review']),
         reason: pick(['Specialist MOPC clinical review & lab panel at '+fac,'GOPC screening results & treatment plan at '+fac,'SOPC surgical wound review at '+fac,'Physiotherapy rehabilitation session at '+fac,'Onward specialist clinic review at '+fac]),
@@ -9356,7 +9403,7 @@ function seedOfficial(db, now, opts={}){
   db.patientConditions = patientConditions;
 
   enrichV6Collections(db, T);
-  if(typeof DUALCHECK !== 'undefined' && DUALCHECK.ensureStore) DUALCHECK.ensureStore(db);
+  if(!opts.deterministic && typeof DUALCHECK !== 'undefined' && DUALCHECK.ensureStore) DUALCHECK.ensureStore(db);
   return db;
 }
 
@@ -9629,6 +9676,61 @@ function scoreBand(score){
   if(score>=60) return { name:'Silver', tone:'neutral', coins:2 };
   if(score>=40) return { name:'Bronze', tone:'neutral', coins:1 };
   return { name:'Building', tone:'crit', coins:0 };
+}
+
+
+/* A reproducible evaluation estate, not a production roster. The reference
+   service uses this at runtime; no generated rows are committed or embedded.
+   Official person names stay in OFFICIAL_ROSTER for real account issuance only. */
+function seedSyntheticDataset(db, now=new Date('2026-11-22T00:00:00.000Z'), opts={}){
+  const anchor = new Date(now), seed = Number.isInteger(opts.seed) ? opts.seed : 20261022;
+  seedOfficial(db, anchor, {...opts, seed, deterministic:true});
+  const names = new Map();
+  (db.users||[]).forEach((u,i)=>{
+    const label = u.unconfirmed ? u.name : 'Synthetic Staff ' + String(i+1).padStart(3,'0');
+    if(!u.unconfirmed) names.set(u.name,label);
+    u.name=label; u.email=u.username+'@lomamo.example'; u.phone='07003'+String(i+1).padStart(5,'0');
+    u.synthetic=true; u.demo=true;
+  });
+  (db.employees||[]).forEach((e,i)=>{
+    const user=(db.users||[]).find(u=>u.id===e.userId);
+    e.name=user ? user.name : 'Synthetic Roster ' + String(i+1).padStart(3,'0');
+    e.email=(e.username||('roster.'+(i+1)))+'@lomamo.example';
+    e.phone='07005'+String(i+1).padStart(5,'0');
+  });
+  // Seat notes and attribution strings can embed a real roster name even when
+  // their own name field is synthetic. Replace full names throughout evaluation
+  // text; this never changes OFFICIAL_ROSTER or a real staff-account export.
+  const personPattern=new RegExp([...names.keys()].sort((a,b)=>b.length-a.length)
+    .map(name=>name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
+  let contact=1;
+  const walk=(value,key='')=>{
+    if(Array.isArray(value)){
+      value.forEach(row=>{if(row && typeof row==='object' && !Array.isArray(row)) row.synthetic=true; walk(row,key);});
+    }else if(value && typeof value==='object'){
+      if(value.id) value.synthetic=true;
+      Object.keys(value).forEach(k=>{
+        const v=value[k];
+        if(typeof v==='string'){
+          if(names.size) value[k]=v.replace(personPattern,name=>names.get(name));
+          if(/email/i.test(k) && v.includes('@')) value[k]=(value.username||('demo.'+(contact++)))+'@lomamo.example';
+          if(/phone|mobile|contact|telephone/i.test(k) && /(?:0|254)[17][0-9 ()-]{7,}/.test(v)){
+            if(!/^0700[135]\d{5}$/.test(v)) value[k]='07001'+String(contact++).padStart(5,'0');
+          }
+        }else walk(v,k);
+      });
+    }
+  };
+  walk(db);
+  (db.patients||[]).forEach((p,i)=>{
+    p.synthetic=true; p.demo=true;
+    p.phone='07001'+String(i+1).padStart(5,'0');
+    p.nationalId=String(91000000+i+1); p.ccc='CCC/'+String(900000+i+1);
+    p.docsVerified=true;
+  });
+  db.meta={...db.meta,created:anchor.toISOString(),installationId:'SYN-'+seed,
+    label:'Synthetic evaluation estate — no real patients or staff',synthetic:true,demoMode:true,realPatientData:false,seed,anchor:anchor.toISOString()};
+  return db;
 }
 
 /* =====================================================================
@@ -10113,7 +10215,7 @@ const DB = {
       let hosted = false;
       try{ hosted = /^https?:$/.test(location.protocol); }catch(e){}
       if(!hosted && typeof seedOfficial === 'function'){
-        seedOfficial(this.db, new Date(), {patients:DEMO_REGISTER.patients, mustChange:false});
+        seedSyntheticDataset(this.db, new Date('2026-11-22T00:00:00.000Z'), {patients:DEMO_REGISTER.patients, mustChange:false});
         this.db.meta.freshSeeded = true;
         try{ Store.set(this.KEY, JSON.stringify(this.db)); }catch(e){}
       }
@@ -10231,7 +10333,7 @@ const DB = {
           countyId:r.countyId, areaIds:r.areas||[], departmentId:r.dept, jobTitle:r.job,
           reportsTo:'u-chief', status:'active', active:true, mustChange:false, demo:true,
           salt, hash:strongHash('LOMAMO2026', salt),
-          email:r.username+'@'+OFFICIAL_EMAIL_DOMAIN, phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
+          email:r.username+'@lomamo.example', phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
           created:demo.seededAt, execTeam:EXEC_DEFAULT.includes(r.username)
         });
       });
@@ -10251,6 +10353,13 @@ const DB = {
     this.db.meta.demoSeeded = new Date().toISOString();
     this.save();
     return this.db.patients.length;
+  },
+  seedSynthetic(opts={}){
+    if(!this.db) this.db=this.blank();
+    seedSyntheticDataset(this.db,new Date('2026-11-22T00:00:00.000Z'),opts);
+    this.db.settings.onboarding={complete:true,step:9};
+    this.db.meta.demoSeeded='2026-11-22T00:00:00.000Z';
+    this.save();return this.db.patients.length;
   },
   /* Fast, read-only lookups used by the return-visit checker. */
   byNationalId(id){ return patientsByNationalId(this.db, id); },
@@ -10334,6 +10443,7 @@ const AUTH = {
   logout(){
     if(this.user) AUDIT.append({actor:this.user.id,action:'auth.logout',entity:'user',entityId:this.user.id,detail:'Signed out'});
     if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.clearCredentialPack) PROD_SETUP.clearCredentialPack();
+    if(typeof ENTRY_ADMIN !== 'undefined') ENTRY_ADMIN.clear();
     this._pw=null; this.mustChange=false; this.user=null; this.session=null; DB.save(); this.emit();
   },
   touch(){ if(this.session) this.session.last = Date.now(); },
@@ -18003,6 +18113,9 @@ const WTHEME = {
     if(WTC.contrast(c, fill) >= 4.5) return c;
     c = badge; n = 0;
     while(WTC.contrast(c, fill) < 4.5 && n++ < 20) c = WTC.mix(c,'#000000',0.08);
+    // A fill just at the white-text threshold may need the exact endpoint:
+    // twenty easing steps cannot reach white/black. Never return a failed gate.
+    if(WTC.contrast(c,fill)<4.5) c=WTC.contrast('#FFFFFF',fill)>=4.5?'#FFFFFF':'#000000';
     return c;
   },
 
@@ -18228,6 +18341,64 @@ const WTHEME = {
   exportCurrentPack(user){ return WTHEME.exportActivePack(user); }
 };
 
+
+/* Official public entry identities. Palette source: the root LOMAMO letterhead
+   PNG (dominant emblem red #EE0000; white #FFFFFF; black #000000; grey #F2F2F2) and existing --action / --ink CSS tokens.
+   The saturated emblem red is corrected by the PR #35 safeFill gate; text and
+   badge pairs are measured at runtime rather than chosen by appearance. */
+const ENTRY_THEMES = [
+  {id:'heritage',name:'LOMAMO Emblem Dark',mode:'dark',accent:'#EE0000',
+    blurb:'Black and charcoal, emblem red and clean white. The official letterhead identity.',
+    bg:'#202020',surface:'#292929',ink:'#FFFFFF',muted:'#D9D9D9',line:'#737373'},
+  {id:'clinic',name:'LOMAMO Letterhead Light',mode:'light',accent:'#EE0000',
+    blurb:'White letterhead, charcoal ink and emblem red. A bright, restrained front door.',
+    bg:'#F5F5F5',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#737373'}
+];
+const ENTRY_THEME = {
+  previewId:null, previewed:new Set(),
+  tokens(id){
+    const t=ENTRY_THEMES.find(x=>x.id===id)||ENTRY_THEMES[0];
+    const fill=WTHEME.safeFill(t.accent), badge=WTHEME.badgeOnFill('#D9D9D9',fill);
+    return {...t,fill,badge,fillInk:'#FFFFFF'};
+  },
+  measurements(id){
+    const t=this.tokens(id);
+    return [
+      {label:'Primary action / white text',ratio:WTC.contrast(t.fill,'#FFFFFF')},
+      {label:'Badge / action fill',ratio:WTC.contrast(t.badge,t.fill)},
+      {label:'Main text / background',ratio:WTC.contrast(t.ink,t.bg)},
+      {label:'Supporting text / background',ratio:WTC.contrast(t.muted,t.bg)},
+      {label:'Main text / card',ratio:WTC.contrast(t.ink,t.surface)},
+      {label:'Supporting text / card',ratio:WTC.contrast(t.muted,t.surface)}
+    ];
+  },
+  style(id){
+    const t=this.tokens(id);
+    return `--entry-bg:${t.bg};--entry-surface:${t.surface};--entry-ink:${t.ink};--entry-muted:${t.muted};--entry-line:${t.line};--entry-fill:${t.fill};--entry-badge:${t.badge};--accent:${t.fill};--accent-ink:#FFFFFF`;
+  },
+  async apply(id){
+    if(!AUTH.user || AUTH.user.roleId!=='chief' || !RBAC.has(AUTH.user,'system.config')) throw new Error('Only the Chief System Administrator may change the public entry theme.');
+    if(!ENTRY_THEMES.some(t=>t.id===id) || !this.previewed.has(id)) throw new Error('Preview an official theme before applying it.');
+    if(this.measurements(id).some(m=>m.ratio<4.5)) throw new Error('This theme failed its measured contrast gates.');
+    if(typeof SYNC!=='undefined' && SYNC.available()){
+      const result=await ENTRY_ADMIN.request('system-config',{entryTheme:id});
+      DB.db.settings.system={...(DB.db.settings.system||{}),config:result.config};
+      if(APPX.host) APPX.host.landingTheme=id;
+      if(SYNC.server) SYNC.server.landingTheme=id;
+      // A config acknowledgement is not a complete database snapshot. Never
+      // advance the sync revision over held edits or skip unrelated deltas.
+      await ENTRY_ADMIN.refreshAfterWrite(result);
+    }else{
+      DB.db.settings.system=DB.db.settings.system||{};
+      DB.db.settings.system.config={...(DB.db.settings.system.config||{}),entryTheme:id};
+      AUDIT.append({actor:AUTH.user.id,action:'system.config_changed',entity:'system.config',entityId:'entryTheme',detail:'Offline entry theme -> '+id});
+    }
+    DB.db.settings.landingTheme=id; DB.db.settings.landingThemeExplicit=true;
+    DB.saveLocalPrefs();
+    if(typeof SYNC==='undefined' || !SYNC.available()) DB.save();
+  }
+};
+
 /* ============================================================
    ui.js - Icons, components, navigation model, modal/toast system
    ============================================================ */
@@ -18416,6 +18587,8 @@ function navModel(user){
     ]},
     { label:'System', show:isSystemAdmin||has('dev.console'), items:[
       { id:'devconsole', label:'Development console', icon:'flow', show:has('dev.console') },
+      { id:'devices', label:'Devices', icon:'shield', show:user.roleId==='chief' },
+      { id:'staffaccounts', label:'Staff credential export', icon:'key', show:user.roleId==='chief' },
       { id:'users', label:'Users & accounts', icon:'userplus', show:has('user.view') },
       { id:'roles', label:'Roles & permissions', icon:'key', show:has('role.manage')||has('user.approve') },
       { id:'governance', label:'Credentials & recovery', icon:'lock', show:has('user.approve')||has('system.config') },
@@ -18810,10 +18983,10 @@ const NAVP = {
   narrow(){ try{ return (window.innerWidth||1280) < NAV_PANE_MIN; }catch(e){ return false; } },
 
   /* Runtime auto-fold tracking:
-     - _tempOpen: true when the user manually clicked Expand to browse the pane;
-       clears automatically the instant the user scrolls or interacts on #content.
-     - _workspaceEngaged: true once the user scrolls #content / window or uses
-       any feature/control on the #content workspace ("white space"). */
+     - _tempOpen: a rail tap holds the pane expanded through redraws and scroll
+       restoration, until actual navigation or deliberate workspace engagement.
+     - _workspaceEngaged: true after actual navigation, or using a feature on
+       #content; an unheld pane may also auto-fold on workspace scrolling. */
   _tempOpen: false,
   _workspaceEngaged: false,
   _listenersBound: false,
@@ -18824,10 +18997,10 @@ const NAVP = {
   effectiveRail(user, view){
     if(!user) return false;
     const pr = NAVP.prefs(user);
+    if(NAVP._tempOpen) return false;
     if(pr.rail) return true;
     if(pr.railExplicit && !pr.rail && !pr.autoFold) return false;
     if(!pr.autoFold) return false;
-    if(NAVP._tempOpen) return false;
     if(NAVP._workspaceEngaged) return true;
     const curView = view || (typeof APPX!=='undefined' && APPX.view) || 'home';
     const isTab = (typeof DEVICE!=='undefined' && DEVICE.isTablet && DEVICE.isTablet());
@@ -18883,6 +19056,7 @@ const NAVP = {
   /* Automatically fold the left navigation panel whenever the user starts
      scrolling or using features on the main workspace (#content). */
   foldForWorkspace(reason){
+    if(NAVP._tempOpen && reason === 'scroll') return false;
     if(NAVP._hoveringPane && reason !== 'rail-btn') return false;
     const user = (typeof AUTH!=='undefined' && AUTH.user) ? AUTH.user : null;
     if(!user || !NAVP.enabled(user)) return false;
@@ -18951,6 +19125,7 @@ const NAVP = {
     ['pointerdown', 'mousedown', 'focusin', 'input', 'change'].forEach(ev => {
       document.addEventListener(ev, (e)=>{
         const t = e && e.target;
+        if(ev==='focusin' && e.isTrusted!==true) return;
         if(!t || isInsideNavOrModal(t)) return;
         if(t.closest && t.closest('#content')){
           NAVP.foldForWorkspace('workspace-' + ev);
@@ -21506,32 +21681,18 @@ const ROLE_CTX = {
    quiet and white. No console data appears on either.
    ============================================================ */
 
-/* Ten landing identities. Each is a different arrangement and palette, not a
-   recolour of one page. The workspace accent is deliberately separate: a theme
-   changes only the public front door. */
-const LANDING_THEMES = [
-{ id:'heritage', name:'LOMAMO Red', blurb:'LOMAMO Foundation black, white and grey with a red accent, inspired by the Foundation emblem.', accent:'#ED0000', mode:'dark' },
-  { id:'clinic',   name:'Foundation White', blurb:'Luminous architectural pure white with crisp slate typography and royal sapphire accent.', accent:'#1E3A8A', mode:'light' },
-  { id:'dawn',     name:'Dawn',          blurb:'Warm sunrise gradient, centred hero, soft cards. Optimistic and open.', accent:'#F97316', mode:'dark' },
-  { id:'editorial',name:'Editorial',     blurb:'Magazine layout: oversized serif headline, rule lines, one column of text.', accent:'#7C2D12', mode:'light' },
-  { id:'canopy',   name:'Canopy',        blurb:'Deep green, organic shapes, layered leaves of colour. Rooted and human.', accent:'#15803D', mode:'dark' },
-  { id:'signal',   name:'Signal',        blurb:'High-contrast black with a vivid spectrum bar. Direct and modern.', accent:'#E11D48', mode:'dark' },
-  { id:'sand',     name:'Sandstone',     blurb:'Earth tones, wide type, photograph band across the base. Grounded.', accent:'#B45309', mode:'light' },
-  { id:'violet',   name:'Violet hour',   blurb:'Indigo, violet glow and a glassy panel. Contemporary and calm.', accent:'#7C3AED', mode:'dark' },
-  { id:'paper',    name:'Paper',         blurb:'Off-white, black rules, small caps. Plain, documentary, unfussy.', accent:'#111827', mode:'light' },
-  { id:'spectrum', name:'Spectrum',      blurb:'A full visible-light ribbon running through the page. Vibrant and celebratory.', accent:'#2563EB', mode:'dark' }
-];
+/* Exactly two official entry identities; both landing and sign-in read the
+   same Chief-owned system.config value. Preview state never enters the DB. */
+const LANDING_THEMES = ENTRY_THEMES;
 const DEFAULT_THEME = 'heritage';
 function landingTheme(){
-  const preview = DB.db && DB.db.settings && DB.db.settings._landingPreview;
-  if(preview) return LANDING_THEMES.find(t=>t.id===preview) || LANDING_THEMES[0];
-  const explicitLocal = DB.db && DB.db.settings && DB.db.settings.landingTheme;
-  const hostLanding = typeof APPX !== 'undefined' && APPX.host && APPX.host.landingTheme;
-  const cachedLanding = typeof DB !== 'undefined' && typeof DB.loadLocalPrefs === 'function' && (DB.loadLocalPrefs()||{}).landingTheme;
-  const id = (explicitLocal && explicitLocal !== DEFAULT_THEME)
-    ? explicitLocal
-    : (hostLanding || explicitLocal || cachedLanding || DEFAULT_THEME);
-  return LANDING_THEMES.find(t=>t.id===id) || LANDING_THEMES[0];
+  if(ENTRY_THEME.previewId) return ENTRY_THEME.tokens(ENTRY_THEME.previewId);
+  const settings=DB.db && DB.db.settings || {};
+  const config=settings.system && settings.system.config || {};
+  const host=typeof APPX!=='undefined' && APPX.host;
+  const saved=config.entryTheme || settings.landingTheme;
+  const id=(host && host.landingTheme) || saved || DEFAULT_THEME;
+  return ENTRY_THEME.tokens(id);
 }
 
 function renderLanding(){
@@ -26517,54 +26678,35 @@ function settingsAppearance(user){
 
 /* ---------------- 14. Landing page theme ---------------- */
 function themeSwatchCss(id){
-  const map = {
-    heritage:'linear-gradient(150deg,#FFFFFF 0%,#E5E5E5 45%,#242424 46%,#242424 83%,#C91B2B 84%)',
-    dawn:'linear-gradient(160deg,#2A1206,#B4430F,#1A0C05)',
-    clinic:'linear-gradient(160deg,#FFFFFF,#E6F4F7)',
-    editorial:'linear-gradient(160deg,#F7F3EC,#E4D8C6)',
-    canopy:'linear-gradient(160deg,#06251A,#0F5237,#041A12)',
-    signal:'linear-gradient(160deg,#08090B,#1B1D22)',
-    sand:'linear-gradient(160deg,#FBF6EF,#E4D2B7)',
-    violet:'linear-gradient(160deg,#120A24,#3B1D77,#0A0616)',
-    paper:'linear-gradient(160deg,#FDFDFB,#EDEDEA)',
-    spectrum:'linear-gradient(160deg,#0B0F1A,#1B2438,#070A12)'
-  };
+  const map = {heritage:'#202020',clinic:'#F5F5F5'};
   return map[id]||map.heritage;
 }
 function themeCard(t, active){
+  const safe=ENTRY_THEME.tokens(t.id);
   const dark = t.mode==='dark';
   return `<div class="theme-card ${active?'on':''}">
     <div class="theme-shot" style="background:${themeSwatchCss(t.id)}">
       <div class="mini">
-        <div class="eyebrow" style="color:${dark?'rgba(255,255,255,.72)':'#5A4A3A'}">Serving our Neighbours in Love</div>
-        <h4 style="color:${dark?'#fff':'#1B1B1B'};font-family:${t.id==='editorial'?'Georgia,serif':'inherit'}">One Foundation.<br>One Operating System.</h4>
-        <div class="dots">${['#EF4444','#F59E0B','#22C55E','#06B6D4','#6366F1','#A855F7'].map(c=>`<i style="background:${c}"></i>`).join('')}</div>
-        <div class="cta" style="background:${t.accent};color:${dark?'#0B0F1A':'#fff'}">Proceed to My Console</div>
+        <div class="eyebrow" style="color:${safe.muted}">Serving our Neighbours in Love</div>
+        <h4 style="color:${safe.ink};font-family:inherit">One Foundation.<br>One Operating System.</h4>
+        <div class="dots">${['#EE0000','#202020','#FFFFFF','#737373'].map(c=>`<i style="background:${c}"></i>`).join('')}</div>
+        <div class="cta" style="background:${safe.fill};color:#FFFFFF">Proceed to My Console</div>
       </div>
     </div>
     <div class="theme-meta"><b>${esc(t.name)}</b><span>${esc(t.blurb)}</span></div>
     <div class="theme-actions">
       <button class="btn btn-xs btn-ghost" data-act="preview-theme" data-id="${t.id}">Preview</button>
-      <button class="btn btn-xs ${active?'btn-ghost':'btn-primary'}" data-act="set-landing-theme" data-id="${t.id}" ${active?'disabled':''}>${active?'In use':'Apply'}</button>
+      <span class="badge b-neutral">${active?'In use':'Preview before applying'}</span>
     </div>
   </div>`;
 }
 function settingsLanding(user, may){
-  const active = DB.db.settings.landingTheme || DEFAULT_THEME;
-  return `<div class="settings-block">
-    <h3>Landing page identity</h3>
-    <p class="small muted">Ten complete front-door designs. A theme changes the public landing page and the public portal only. It never changes permissions, patient data, workflows or the colours used inside a console.</p>
-    <div class="theme-grid" style="margin-top:14px">
-      ${LANDING_THEMES.map(t=>themeCard(t, t.id===active)).join('')}
-    </div>
-    <div class="divider"></div>
-    ${settingRow('Restore the default', 'Heritage navy. Available at any time, including if a theme is ever withdrawn.', `<button class="btn btn-sm btn-ghost" data-act="set-landing-theme" data-id="${DEFAULT_THEME}" ${active===DEFAULT_THEME?'disabled':''}>Restore default</button>`)}
-    ${settingRow('Preview before applying', 'A preview opens the full page in a frame without changing what anyone else sees.', `<button class="btn btn-sm btn-ghost" data-act="preview-theme" data-id="${active}">Preview current</button>`)}
-    ${settingRow('Who may change this', 'System configuration authority. Every change is recorded in the audit trail with the previous and new value.', `<span class="badge b-neutral">${esc(RBAC.has(user,'system.config')?'You may change it':'View only')}</span>`)}
-    <div class="divider"></div>
-    <div class="alert info">${ic('info',17)}<div><b>Workspace colour is a separate setting</b>
-      <span class="small">Console colours follow the department identity and your own accessibility preferences. A landing theme cannot override a status colour, a warning, or the contrast of any record.</span></div></div>
-  </div>`;
+  if(user.roleId!=='chief' || !may) return note('Only the Chief System Administrator may configure the public entry pages.');
+  const active=landingTheme().id;
+  return `<div class="settings-block"><h3>Official landing &amp; sign-in themes</h3>
+    <p class="small muted">Two identities from the official LOMAMO letterhead: emblem red, black, white and grey. Both entry pages share the Chief-owned <code>system.config.entryTheme</code>. Preview either page before applying; nothing is saved during preview.</p>
+    <div class="theme-grid">${ENTRY_THEMES.map(t=>themeCard(t,t.id===active)).join('')}</div>
+    <p class="small">Every text, badge and primary-action contrast pair is measured against the 4.5:1 gate. Console palettes and operational status colours stay independent.</p></div>`;
 }
 
 /* ============================================================
@@ -27098,7 +27240,7 @@ const REFERENCE_MASTER = {
     if(typeof SYNC !== 'undefined') clearTimeout(SYNC._timer);
     if(!silent) render();
     try{
-      /* Fast path: server-side zero-upload feed directly from bundled CareLink-Reference-Master-v6.6.json into KV */
+      /* Fast path: server-side deterministic synthetic generation and verified commit into KV */
       const autoRes = await SYNC._json('api/master-import/auto-seed', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -27120,16 +27262,6 @@ const REFERENCE_MASTER = {
         }
         return {ok:true, counts:autoRes.body.counts, quality:autoRes.body.quality, importId:autoRes.body.importId};
       }
-      /* Fallback path: fetch pre-packaged Brotli bundle from deployed web origin & stream 5 verified 512 KB chunks (still zero local file!) */
-      if(autoRes.body && autoRes.body.code === 'master_bundle_unavailable' && typeof fetch === 'function'){
-        const pkgRes = await fetch('master/CareLink-Reference-Master-v6.6.json', {cache:'no-store'});
-        if(!pkgRes.ok) throw new Error('Could not fetch built-in CareLink-Reference-Master-v6.6.json from web host.');
-        const manifest = await pkgRes.json();
-        this.phase = 'idle';
-        this.inspect(manifest, {name:'CareLink-Reference-Master-v6.6.json (Cloud Stream)'});
-        await this.upload();
-        return {ok:this.phase==='done', counts:this.result&&this.result.counts, quality:this.result&&this.result.quality, error:this.error};
-      }
       throw new Error((autoRes.body && autoRes.body.error) || `Cloud auto-feed of the ${num(DEMO_REGISTER.patients)}-patient reference master failed.`);
     }catch(e){
       this.phase='idle';
@@ -27149,7 +27281,7 @@ function renderReferenceMasterImport(user){
     : r.phase==='done' ? 'Reference master committed in the shared online source'
     : 'Ready for server-side digest, structure, relationship and completeness validation';
   return pageHead('Full reference master import',
-    `One-time post-setup import of the complete synthetic ${num(DEMO_REGISTER.patients)}-patient reference package, with live accounts and settings preserved.`)
+    `Evaluation installations only: one-time post-setup import of ${num(DEMO_REGISTER.patients)} synthetic patients. Never load this into the existing live register; accounts and settings are preserved.`)
     + card(esc(r.file&&r.file.name||'CareLink reference master'), `
       <div class="grid g4" style="margin-bottom:16px">
         ${kpi('Patients',num(counts.patients||0),'Complete synthetic profiles','ok','users')}
@@ -27203,7 +27335,7 @@ function renderImport(user){
       <div class="row" style="justify-content:center;margin-top:14px">
         <span class="btn btn-sm btn-primary" data-act="trigger-file">${ic('file',14)} Select file</span>
         <span class="btn btn-sm btn-ghost" data-act="download-template">${ic('download',14)} CSV template</span>
-        <a class="btn btn-sm btn-soft" href="master/CareLink-Reference-Master-v6.6.json" download>${ic('download',14)} Full ${num(DEMO_REGISTER.patients)}-patient reference master</a>
+        <button class="btn btn-sm btn-soft" data-act="reference-master-download">${ic('download',14)} Generate full ${num(DEMO_REGISTER.patients)}-patient synthetic reference</button>
       </div>
       <div class="small muted" style="margin-top:10px">After the four-step setup and before global activation: download the full reference master, then select that same JSON file above. It includes all related system collections and is uploaded to the shared KV source in verified chunks.</div>
     </div>
@@ -27296,7 +27428,7 @@ function importActions(){ return {
   'trigger-file':()=>{ const i=$('#importFile'); if(i) i.click(); },
   'download-template':()=>{
     const headers=['Patient Name','File Number','Ministry Area','CCC Number','Phone','Sex','Age','Intake Date','Status','Referral Source','Caregiver','Weight (kg)','Diagnosis','Household Children','Discharge Date'];
-    download('LOMAMO-master-import-template.csv', '\uFEFF'+headers.join(',')+'\n"DEMO Patient 001","LOM-001","Nyalenda","CCC/12345","0700000000","F",34,"2026-03-14","Active","Demo County Referral Hospital","Demo - Caregiver, Nyalenda",58,"HIV - on ART",2,""');
+    download('LOMAMO-master-import-template.csv', '\uFEFF'+headers.join(',')+'\n"DEMO Patient 001","LOM-001","Nyalenda","CCC/900001","0700100000","F",34,"2026-03-14","Active","Demo County Referral Hospital","Demo - Caregiver, Nyalenda",58,"HIV - on ART",2,""');
   },
   'import-reset':()=>{ IMPORTER.reset(); render(); },
   'import-validate':()=>{ IMPORTER.validate(); render(); },
@@ -27495,7 +27627,7 @@ const SYNC = {
     inSetup = false;
     let r;
     try{
-      const reqInit = Object.assign({cache:'no-store'}, fetchOpts, {headers});
+      const reqInit = Object.assign({cache:'no-store',credentials:'same-origin'}, fetchOpts, {headers});
       if(controller && !reqInit.signal) reqInit.signal = controller.signal;
       r = await fetch(this.resolveApiUrl(url), reqInit);
     }catch(err){
@@ -27540,7 +27672,8 @@ const SYNC = {
     if(!loginAttemptId){
       try{ const bytes = new Uint8Array(24); cryptoApi.getRandomValues(bytes); loginAttemptId = Array.from(bytes, b=>b.toString(16).padStart(2,'0')).join(''); }catch(_e){ loginAttemptId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`; }
     }
-    const loginPayload = JSON.stringify({username, password, device: device || String(navigator.userAgent||'').slice(0,120), loginAttemptId});
+    const descriptor=device && typeof device==='object' ? device : {label:device||'Staff browser',type:'other'};
+    const loginPayload = JSON.stringify({username, password, deviceLabel:String(descriptor.label||'Staff browser').slice(0,100), deviceType:descriptor.type||'other', loginAttemptId});
     let r = null;
     let netErr = null;
     for(let attempt=0; attempt<2; attempt++){
@@ -29648,7 +29781,7 @@ const DEMO_PREVIEW = {
     this.savedDb = DB.db;
     this.savedUser = AUTH.user; this.savedSession = AUTH.session;
     const isolated = DB.blank();
-    seedOfficial(isolated, new Date(), {patients:DEMO_REGISTER.patients, mustChange:false});
+    seedSyntheticDataset(isolated, new Date('2026-11-22T00:00:00.000Z'), {patients:DEMO_REGISTER.patients, mustChange:false});
     isolated.meta = Object.assign(isolated.meta||{}, {label:'Isolated synthetic board preview', demoPreview:true, demoSeeded:true, seeded:'official'});
     DB.db = isolated; DB._vIdx=null;
     const user = (isolated.users||[]).find(u=>u.roleId==='director' && u.status==='active')
@@ -29814,6 +29947,7 @@ let _booted = false;
 async function boot(){
   if(_booted) return;
   _booted = true;
+  if(typeof CANONICAL_HOST!=='undefined' && CANONICAL_HOST.enforce()) return;
   DB.load();
   applyTheme();
   /* Attach click, submit, change and hash listeners synchronously at 0 ms
@@ -29892,7 +30026,7 @@ function go(view, params={}){
   APPX.view = view; APPX.params = params;
   if(typeof NAVP!=='undefined'){
     NAVP._tempOpen = false;
-    NAVP._workspaceEngaged = (view !== 'home');
+    NAVP._workspaceEngaged = true;
   }
   if(typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.isActive()) SILENT_OVERRIDE.recordView(view);
   const q = Object.keys(params).length? '?'+Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&'):'';
@@ -30239,6 +30373,8 @@ function contentFor(view, params, user, options = {}){
   try{
     const html = (()=>{
     switch(view){
+      case 'devices': return user.roleId==='chief' ? renderDevicesConsole(user) : deniedPanel('system.config');
+      case 'staffaccounts': return user.roleId==='chief' ? renderStaffAccountsConsole(user) : deniedPanel('system.config');
       case 'home': return renderHome(user, {omitHeader:options.omitHomeHeader});
       case 'attention': return guard('patient.list')||renderAttention(user);
       case 'patients': return guard('patient.list')||renderPatients(user,params);
@@ -30400,6 +30536,13 @@ function onClick(e){
   const el = e.target.closest('[data-act]');
   if(!el) return;
   const act = el.dataset.act;
+  if(AUTH.user && typeof NAVP!=='undefined' && !NAVP.narrow() && ['go','nav-group'].includes(act) &&
+      el.closest && el.closest('#npane') && NAVP.effectiveRail(AUTH.user,APPX.view)){
+    e.preventDefault();
+    NAVP.expandTemporarily();
+    render();
+    return;
+  }
   if(el.disabled && act!=='noop') return;
   if(el.dataset.skip) return;
   const fn = ACTIONS[act];
@@ -30523,33 +30666,23 @@ const ACTIONS = {
     toast('Draft saved','Stored on this device. Returned cleanly to your console.','ok');
   },
   'discard-draft':(d)=>{ const fid=d.draftid||d.form; clearDraft(fid); closeModal(true); toast('Draft discarded','It will not be restored.','warn'); },
-  'set-landing-theme':(d)=>{
-    if(!(RBAC.has(AUTH.user,'system.config')||RBAC.has(AUTH.user,'org.manage')))
-      return toast('Not permitted','Only a system administrator may change the landing page identity.','err');
-    const t = LANDING_THEMES.find(x=>x.id===d.id);
-    if(!t) return toast('Unknown theme','The selected theme is not available. The default remains in use.','err');
-    const before = DB.db.settings.landingTheme||DEFAULT_THEME;
-    DB.db.settings.uiEpoch = 691;
-    DB.db.settings.landingTheme = t.id;
-    DB.db.settings.landingThemeExplicit = true;
-    AUDIT.append({actor:AUTH.user.id,action:'landing.theme_changed',entity:'setting',entityId:'landingTheme',
-      detail:`${before} to ${t.id}`});
-    DB.save(); toast('Landing page updated', t.name+' is now the front door.','ok');
-    render();
+  'set-landing-theme':async(d)=>{
+    try{ await ENTRY_THEME.apply(d.id); closeModal(true); render(); toast('Entry theme applied','Landing and sign-in now use the shared, audited setting.','ok'); }
+    catch(error){ toast('Theme not changed',error.message,'err'); }
   },
   'preview-theme':(d)=>{
-    const t = LANDING_THEMES.find(x=>x.id===d.id)||LANDING_THEMES[0];
-    const cur = landingTheme().id;
-    /* A preview must not change what anyone else sees, so it is drawn from the
-       same renderer into a frame rather than by saving the setting. */
-    DB.db.settings._landingPreview = t.id;
-    let html='';
-    try{ html = renderLanding(); } finally { delete DB.db.settings._landingPreview; }
-    openModal({title:'Landing preview', sub:`${t.name} · ${t.mode==='dark'?'dark':'light'} · nothing has been saved`, wide:true,
-      body:`<div class="theme-preview-wrap"><div class="theme-preview-inner">${html}</div></div>
-        <div class="row" style="margin-top:12px"><span class="chip">${esc(t.blurb)}</span></div>`,
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
-        <button class="btn btn-primary" data-act="set-landing-theme" data-id="${t.id}" ${cur===t.id?'disabled':''}>${cur===t.id?'Already in use':'Apply this theme'}</button>`});
+    if(!AUTH.user || AUTH.user.roleId!=='chief') return toast('Chief access required','Only the Chief may preview or apply the public entry identity.','err');
+    const t=ENTRY_THEMES.find(x=>x.id===d.id)||ENTRY_THEMES[0], page=d.page==='signin'?'signin':'landing';
+    let html=''; ENTRY_THEME.previewId=t.id;
+    try{html=page==='signin'?renderLogin6():renderLanding6();}finally{ENTRY_THEME.previewId=null;}
+    ENTRY_THEME.previewed.add(t.id);
+    const measured=ENTRY_THEME.measurements(t.id), passed=measured.every(m=>m.ratio>=4.5);
+    closeModal(true);
+    openModal({title:'Official entry preview',sub:t.name+' · nothing saved · '+page,wide:true,
+      body:`<div class="seg" aria-label="Preview page"><button data-act="preview-theme" data-id="${t.id}" data-page="landing" class="${page==='landing'?'on':''}">Landing</button><button data-act="preview-theme" data-id="${t.id}" data-page="signin" class="${page==='signin'?'on':''}">Sign-in</button></div>
+        <div class="theme-preview-wrap"><div class="theme-preview-inner" inert>${html}</div></div>
+        <ul class="entry-contrast-evidence">${measured.map(m=>`<li>${esc(m.label)}: <b>${m.ratio.toFixed(2)}:1</b> ${m.ratio>=4.5?'PASS':'FAIL'}</li>`).join('')}</ul>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="set-landing-theme" data-id="${t.id}" ${passed?'':'disabled'}>Apply to landing &amp; sign-in</button>`});
   },
   'goto-public':()=>{ APPX.screen='public'; APPX.params={}; refreshPublicFeed(); render(); window.scrollTo({top:0}); },
   'my-profile':()=>{
@@ -31033,7 +31166,7 @@ const ACTIONS = {
   'load-reference':()=>{
     if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return toast('Reference data locked', 'Synthetic reference data cannot be loaded into the globally activated installation.', 'err');
     if(!RBAC.has(AUTH.user,'system.import')) return toast('Not permitted','Only a system administrator may load the reference register.','err');
-    const n = DB.seedOfficial({patients:DEMO_REGISTER.patients});
+    const n = DB.seedSynthetic({patients:DEMO_REGISTER.patients});
     AUDIT.append({actor:AUTH.user.id,action:'register.reference_loaded',entity:'system',entityId:'register',
       detail:`${n} synthetic patients loaded as the reference register`});
     DB.save();
@@ -36152,7 +36285,7 @@ Object.assign(FORMS, {
 const ONB = {
   step:1, host:null, org:{ name:'LOMAMO Foundation Kenya', county:'kisumu', shortName:'LOMAMO', emailDomain:'lomamofoundation.org' },
   admin:{ name:'', username:'', password:'', confirm:'' },
-  mode:'host', roster:[], issued:null, seed:'empty', autoFeedCloudMaster:true, _pendingCloudAutoFeed:false, busy:false, error:'',
+  mode:'host', roster:[], issued:null, seed:'empty', autoFeedCloudMaster:false, _pendingCloudAutoFeed:false, busy:false, error:'',
   hostSetup:null, advice:''
 };
 
@@ -36298,7 +36431,7 @@ async function activateFullDemoDataset(){
   const previousRaw = JSON.stringify(DB.db);
   const previousDirty = typeof APPX !== 'undefined' ? APPX.dirty : false;
   try{
-    const count = DB.seedOfficial({ patients:DEMO_REGISTER.patients, mustChange:false });
+    const count = DB.seedSynthetic({ patients:DEMO_REGISTER.patients, mustChange:false });
     if(typeof SYNC !== 'undefined' && SYNC.available()){
       let r;
       try{
@@ -36361,15 +36494,15 @@ function renderLanding6(){
             <svg viewBox="0 0 460 224" class="ld-scene-svg">
               <defs>
                 <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#1E3A8A" stop-opacity="0.08"/>
-                  <stop offset="65%" stop-color="#0EA5E9" stop-opacity="0.03"/>
+                  <stop offset="0%" stop-color="#EE0000" stop-opacity="0.08"/>
+                  <stop offset="65%" stop-color="#EE0000" stop-opacity="0.03"/>
                   <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
                 </radialGradient>
               </defs>
               <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="112" r="82" fill="none" stroke="#E2E8F0" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="112" r="55" fill="none" stroke="#CBD5E1" stroke-width="1.2"/>
-              <g stroke="#CBD5E1" stroke-width="1.3">
+              <circle cx="230" cy="112" r="82" fill="none" stroke="#CACACA" stroke-width="1.2" stroke-dasharray="5 5"/>
+              <circle cx="230" cy="112" r="55" fill="none" stroke="#CACACA" stroke-width="1.2"/>
+              <g stroke="#CACACA" stroke-width="1.3">
                 <line x1="230" y1="112" x2="230" y2="24"/>
                 <line x1="230" y1="112" x2="324" y2="52"/>
                 <line x1="230" y1="112" x2="354" y2="112"/>
@@ -36380,18 +36513,18 @@ function renderLanding6(){
                 <line x1="230" y1="112" x2="136" y2="52"/>
               </g>
               ${[
-                [230,24,'Field Care','#1E3A8A'], [324,52,'Hospital','#0F766E'],
-                [354,112,'M&E / DHIS','#1D4ED8'], [322,174,'Finance','#047857'],
-                [230,200,'Homestay','#334155'], [138,174,'Media & IT','#475569'],
-                [106,112,'HR & Leave','#0369A1'], [136,52,'Transport','#0F766E']
+                [230,24,'Field Care','#EE0000'], [324,52,'Hospital','#EE0000'],
+                [354,112,'M&E / DHIS','#EE0000'], [322,174,'Finance','#EE0000'],
+                [230,200,'Homestay','#202020'], [138,174,'Media & IT','#202020'],
+                [106,112,'HR & Leave','#EE0000'], [136,52,'Transport','#EE0000']
               ].map(([x,y,lbl,col])=>`<g>
-                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.1"/>
+                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#FFFFFF" stroke="#CACACA" stroke-width="1.1"/>
                 <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
-                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#0F172A">${lbl}</text>
+                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#202020">${lbl}</text>
               </g>`).join('')}
-              <circle cx="230" cy="112" r="34" fill="#0F172A" stroke="#1E3A8A" stroke-width="1.8"/>
+              <circle cx="230" cy="112" r="34" fill="#202020" stroke="#EE0000" stroke-width="1.8"/>
               <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#93C5FD" letter-spacing="0.5">OS · C-DIMS</text>
+              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#CACACA" letter-spacing="0.5">OS · C-DIMS</text>
             </svg>` : `
             <svg viewBox="0 0 460 224" class="ld-scene-svg">
               <defs>
@@ -36435,7 +36568,7 @@ function renderLanding6(){
               <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="${sceneColor('#F5C451')}" letter-spacing="0.5">OS · C-DIMS</text>
             </svg>`;
 
-  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#ED0000')}">
+  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="${ENTRY_THEME.style(th.id)}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -36535,7 +36668,7 @@ function renderArchitecture6(){
     }
   ];
 
-  return `<div class="ld ld-arch-page" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#ED0000')}">
+  return `<div class="ld ld-arch-page" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="${ENTRY_THEME.style(th.id)}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -36641,6 +36774,7 @@ function renderArchitecture6(){
 /* Strict single-screen, zero-scrollbar split layout on desktop & landscape tablets,
    and clean single-screen compact brand + card on portrait tablets & phones. */
 function renderLogin6(){
+  const entryTheme=landingTheme();
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const isAwaitingAct = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isAwaitingGlobalActivation && PROD_SETUP.isAwaitingGlobalActivation());
   const demoBlocked = demoEntryBlocked();
@@ -36666,10 +36800,15 @@ function renderLogin6(){
       ? 'This installation has already been set up. Sign in with your assigned username and password, or choose Recover if you cannot access your account.'
       : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
-      <div class="field"><label for="lg-u">Username or mock email alias</label>
-        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda or caregiver.nyalenda@lomamofoundation.org" required></div>
+      <div class="field"><label for="lg-u">Username or confirmed work email</label>
+        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Assigned username or confirmed work email" required></div>
       <div class="field"><label for="lg-p">Password</label>
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+      <div class="grid g2 lg-device-fields" style="gap:8px">
+        <div class="field"><label for="lg-device-label">Device label</label><input class="input" id="lg-device-label" name="deviceLabel" maxlength="100" autocomplete="off" placeholder="e.g. Field tablet 3" value="${esc(LOGIN6.deviceLabel||'')}" required></div>
+        <div class="field"><label for="lg-device-type">Device type</label><select class="input" id="lg-device-type" name="deviceType"><option value="computer">Computer</option><option value="tablet">Tablet</option><option value="phone">Phone</option><option value="other">Other</option></select></div>
+      </div>
+      <p class="lg-note lg-device-note"><span class="entry-security-badge">Registered devices</span> Staff access requires Chief-approved device registration. Unknown browsers stay pending; the public portal remains open.</p>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
@@ -36749,7 +36888,7 @@ function renderLogin6(){
 
   const body = t==='activate' ? activate : t==='request' ? request : t==='forgot' ? forgot : signIn;
 
-  return `<div class="lg6">
+  return `<div class="lg6" data-theme="${esc(entryTheme.id)}" data-mode="${esc(entryTheme.mode)}" style="${ENTRY_THEME.style(entryTheme.id)}">
     <aside class="lg6-brand">
       <div class="lg6-brand-top">
         <div class="row" style="gap:11px;margin-bottom:8px">
@@ -36852,8 +36991,8 @@ function renderMustChange(){
             <div class="hint">Minimum 12 characters including uppercase (A–Z), lowercase (a–z), number (0–9) and symbol (@ # % &amp; * ! ?).</div></div>
           <div class="field"><label>Repeat your new private password</label><div class="pw-wrap"><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
           ${isChiefPreActivation ? `<label class="lg-check" style="margin:8px 0 12px;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:9px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06))">
-            <input type="checkbox" name="autoFeedCloudMaster" value="1" checked style="margin-top:2px">
-            <span><b>Auto-feed complete ${num(DEMO_REGISTER.patients)}-patient CareLink Cloud Dataset</b> into Cloud KV immediately upon saving my password (zero local file upload)</span>
+            <input type="checkbox" name="autoFeedCloudMaster" value="1" style="margin-top:2px">
+            <span><b>Evaluation only: load ${num(DEMO_REGISTER.patients)} synthetic patients</b> into this isolated evaluation database. Leave unchecked for production; never use on an existing live register.</span>
           </label>` : ''}
           <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.mustChangeBusy?'disabled':''}>${LOGIN6.mustChangeBusy?'Saving password &amp; loading Cloud Dataset...':'Save private password &amp; open my console'}</button>
         </form>
@@ -36968,9 +37107,9 @@ function renderOnboarding6(){
         <b>Start with an empty patient register</b>
         <span>For live clinical intake or master workbook import.</span>
       </div>
-      ${hostedSetup ? `<div class="ob-choice ${ONB.autoFeedCloudMaster!==false?'on':''}" data-act="ob-toggle-autofeed" style="margin-top:8px">
-        <b>${ONB.autoFeedCloudMaster!==false?'✓ ':''}Auto-feed 100%-complete ${num(DEMO_REGISTER.patients)}-patient CareLink Cloud Dataset on Chief Sign-In (zero local file needed)</b>
-        <span>Automatically feeds the built-in ${num(DEMO_REGISTER.patients)}-patient reference dataset (visits, PDCAs, conditions and documents) directly from the server into Cloud KV right after Chief System Administrator password setup — without uploading any Excel or local file.</span>
+      ${hostedSetup ? `<div class="ob-choice ${ONB.autoFeedCloudMaster===true?'on':''}" data-act="ob-toggle-autofeed" style="margin-top:8px">
+        <b>${ONB.autoFeedCloudMaster===true?'✓ ':''}Evaluation only: explicitly load ${num(DEMO_REGISTER.patients)} synthetic patients after Chief Sign-In</b>
+        <span>Off by default. Enable only for an isolated evaluation installation, never a live register. The server generates the synthetic reference at runtime, including related visits, PDCAs, conditions and documents; no real workbook is used.</span>
       </div>` : ''}`;
   }
   const footer = `<div class="ob-actions">
@@ -37090,7 +37229,7 @@ Object.assign(ACTIONS, {
       ONB.advice = '';
       ONB.step = 1;
       ONB.seed = 'empty';
-      ONB.autoFeedCloudMaster = true;
+      ONB.autoFeedCloudMaster = false;
       ONB._pendingCloudAutoFeed = false;
       let freshHealth = null;
       for (const ms of [0, 200, 450, 900]) {
@@ -37176,7 +37315,7 @@ Object.assign(ACTIONS, {
       SYNC.bump();
     }
     if (!(DB.db && Array.isArray(DB.db.patients) && DB.db.patients.length >= 100)) {
-      DB.seedOfficial({ patients: DEMO_REGISTER.patients, mustChange: false });
+      DB.seedSynthetic({ patients: DEMO_REGISTER.patients, mustChange: false });
     } else if (DB.db && Array.isArray(DB.db.users)) {
       DB.db.users.forEach(u => {
         if (u && !u.hash) {
@@ -37290,7 +37429,7 @@ Object.assign(ACTIONS, {
         });
         APPX.showMustChange = false;
         ONB.busy = false;
-        if (ONB.autoFeedCloudMaster !== false) {
+        if (ONB.autoFeedCloudMaster === true) {
           ONB._pendingCloudAutoFeed = true;
           try { sessionStorage.setItem('carelink.pendingCloudAutoFeed', '1'); } catch (_e) {}
         } else {
@@ -37300,7 +37439,7 @@ Object.assign(ACTIONS, {
         APPX.screen = 'login';
         LOGIN6.tab = 'signin';
         LOGIN6.error = '';
-        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername} (${res.chiefEmail}) and set your private personal password${ONB.autoFeedCloudMaster !== false ? ' — the 100%-complete ${num(DEMO_REGISTER.patients)}-patient Cloud Dataset will auto-feed into KV immediately' : ''}, then click "Activate System Globally".`;
+        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername}${res.chiefEmail?' ('+res.chiefEmail+')':''} and set your private personal password${ONB.autoFeedCloudMaster === true ? ' — the synthetic evaluation dataset will be generated and loaded because you explicitly selected it' : ''}, then click "Activate System Globally".`;
         toast('Online Setup Complete', 'Sign in as Chief System Administrator to set your private password and Activate System Globally.', 'ok');
         render();
       }catch(e){ ONB.busy=false; ONB.error='Could not finish host setup: '+e.message; render(); }
@@ -37369,7 +37508,8 @@ Object.assign(FORMS, {
         if(SYNC.stopPolling) SYNC.stopPolling();
         if(SYNC.storeToken) SYNC.storeToken(null);
       }
-      let res = await AUTH.loginOnline(username, password, 'this device');
+      LOGIN6.deviceLabel=String(d.get('deviceLabel')||'Staff browser').trim().slice(0,100);
+      let res = await AUTH.loginOnline(username, password, {label:LOGIN6.deviceLabel,type:String(d.get('deviceType')||'other')});
       if(!res.ok && !hosted){
         /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
            feature.  A Vercel client never turns a failed server login into a
@@ -46975,7 +47115,7 @@ const PROD_SETUP = {
     }
     admin.name = chiefFull;
     admin.username = chiefUser;
-    admin.email = `${chiefUser}@${domain}`;
+    admin.email = hosted ? '' : `${chiefUser}@lomamo.example`; // no mailbox is inferred
     admin.salt = cSalt;
     admin.hash = cHash;
     admin.status = 'pending_activation';
@@ -47097,9 +47237,9 @@ const PROD_SETUP = {
   },
 
   /* Chief System Administrator clicks "Activate System Globally":
-     Generates ALL organogram user accounts, official emails, usernames, login URL &
-     one-time temporary passwords formatted for the Team WhatsApp Platform, and
-     permanently removes all Demo / Setup elements from Landing and Sign-In. */
+     Finalizes confirmed roster seats. The hosted API generates single-use,
+     expiring temporary passwords; only explicitly attested mailboxes are
+     returned. Unconfirmed seats and the Chief credential are never reissued. */
   async activateSystemGlobally(opts = {}) {
     const actor = (typeof SILENT_OVERRIDE !== 'undefined' && SILENT_OVERRIDE.realActor()) || AUTH.user;
     if (!actor || actor.roleId !== 'chief') {
@@ -47127,25 +47267,25 @@ const PROD_SETUP = {
     DB.db.users = DB.db.users || [];
     const packRows = [];
 
-    /* Ensure Chief Admin account is active, non-demo, and carries official email */
+    /* Activation never guesses or rewrites the Chief's mailbox. Mailbox
+       authority belongs to the separate, authenticated server attestation. */
     actor.demo = false;
     actor.status = 'active';
     actor.active = true;
-    actor.email = actor.email && actor.email.includes('@') ? actor.email.replace(/@.+$/, '@' + domain) : `${actor.username}@${domain}`;
 
     /* Provision / finalize every single organogram account (including applicable Secretaries, Deputies & Clerks) */
     for (let i = 0; i < roster.length; i++) {
       const r = roster[i];
       const uname = String(r.username || '').trim().toLowerCase();
-      if (!uname || uname === String(actor.username || '').toLowerCase()) continue;
+      if (!uname || r.roleId==='chief' || uname === String(actor.username || '').toLowerCase()) continue;
 
       let u = DB.db.users.find(x => String(x.username || '').toLowerCase() === uname);
       const cId = r.countyId !== undefined ? r.countyId : (r.county !== undefined ? r.county : 'kisumu');
       const deptId = r.dept || (roleObj(r.roleId) || {}).dept || 'admin';
       const jobTitle = r.job || r.title || (roleObj(r.roleId) || {}).name || r.roleId;
       const cleanName = String(r.name || (u && u.name) || uname).replace(/^Demo - /, '');
-      const officialEmail = `${r.emailLocal || uname}@${domain}`;
-      const tempPassword = this.generateStrongPassword(12);
+      const officialEmail = hosted ? ((u && u.mailboxConfirmed && u.email) || '') : uname+'@lomamo.example';
+      const tempPassword = hosted ? '' : this.generateStrongPassword(12);
       const salt = newSalt();
       const hash = strongHash(tempPassword, salt);
 
@@ -47176,8 +47316,8 @@ const PROD_SETUP = {
       u.dpaFirstLoginRequired = true;
       u.provisionedAt = todayISO();
       u.loginUrl = portalUrl;
-      u.salt = salt;
-      u.hash = hash;
+      if(hosted){delete u.salt;delete u.hash;}else{u.salt=salt;u.hash=hash;}
+      if(r.unconfirmed){u.status='unconfirmed';u.active=false;u.mustChange=false;u.mustChangePassword=false;continue;}
 
       const deptLabel = (typeof deptName === 'function' ? deptName(deptId) : deptId) || 'Foundation';
       const countyLabel = cId ? countyName(cId) : 'Head Office (All Counties)';
@@ -47256,7 +47396,7 @@ const PROD_SETUP = {
             accounts: packRows.map(row => {
               const u = (DB.db.users || []).find(x => String(x.username || '').toLowerCase() === row.username);
               return { id:u && u.id, username:row.username, name:row.name, email:row.email,
-                roleId:u && u.roleId, countyId:u && u.countyId, password:row.tempPassword };
+                roleId:u && u.roleId, countyId:u && u.countyId, areaIds:u && u.areaIds, departmentId:u && u.departmentId };
             })
           })
         });
@@ -47304,6 +47444,12 @@ const PROD_SETUP = {
         const uname = String(packRows[i].username || '').toLowerCase();
         if(!issuedNames.has(uname)) packRows.splice(i,1);
       }
+      for(const row of packRows){
+        const issued=response.body.issued.find(x=>String(x.username||'').toLowerCase()===row.username);
+        row.tempPassword=issued.password;row.email=issued.email||'';row.expiresAt=issued.expiresAt;
+        row.whatsappBlock=`${row.name}\nUsername: ${row.username}\nConfirmed work email: ${row.email||'not confirmed — use username'}\nLogin: ${portalUrl}\nSingle-use temporary password: ${row.tempPassword}\nExpires: ${row.expiresAt||'per system.config'} — replace privately before opening a workspace.`;
+        row.smsText=row.whatsappBlock;
+      }
       try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(_e){}
       APPX.dirty = false;
     }
@@ -47324,7 +47470,8 @@ const PROD_SETUP = {
       `Date: ${new Date().toISOString().slice(0, 10)}`,
       ``,
       `*HOW EACH STAFF MEMBER ACTIVATES THEIR ACCOUNT:*`,
-      `1. Open ${portalUrl} and sign in on the Official Sign-In screen using your *Username* (or *Mock Email Alias*) and *Temporary Password* below.`,
+      `1. Open ${portalUrl} and sign in with your *Username* (or a confirmed work email, if listed) and *Temporary Password* below.`,
+      `   New browsers must be approved by the Chief before sign-in can continue. This file is confidential: give each holder only their own row, never the whole pack.`,
       `2. CareLink immediately prompts you to set your own private 12+ character password known ONLY to you.`,
       `3. Once saved, your individual account status becomes *Activated* automatically.`,
       `4. Forgot password or new county staff? Use *Request / Recover* on Sign-In (routed urgently to your County Office Admin).`,
@@ -47355,11 +47502,25 @@ const PROD_SETUP = {
     return this.lastPack;
   },
 
+  deliverExport(format, rows, deliver) {
+    if (typeof SYNC === 'undefined' || !SYNC.available()) return deliver();
+    const actor=AUTH.user && AUTH.user.username,token=SYNC.sessionToken,epoch=ENTRY_ADMIN.epoch;
+    return SYNC._json('api/admin/staff-accounts/export-log',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({format,usernames:rows.map(row=>row.username)})
+    }).then(result=>{
+      if(!result.ok || !AUTH.user || AUTH.user.username!==actor || AUTH.user.roleId!=='chief' || SYNC.sessionToken!==token || ENTRY_ADMIN.epoch!==epoch){
+        toast('Export not released',result.body.error||'The Chief session changed. No confidential file was downloaded.','err');return false;
+      }
+      return deliver();
+    }).catch(()=>{toast('Export not released','The host could not record the export audit. Retry online; no file was downloaded.','err');return false;});
+  },
+
   downloadWhatsappTxt() {
     if (!this.requireCredentialPackAccess()) return;
     const p = this.lastPack;
     if (!p || !p.rows.length) return toast('Activate System Globally first', 'Generate the organogram WhatsApp credential sheet first.', 'warn');
-    download('CareLink-Official-WhatsApp-Activation-Sheet-' + todayISO().slice(0, 10) + '.txt', p.whatsappText || this.lastWhatsappSheet, 'text/plain;charset=utf-8');
+    return this.deliverExport('whatsapp-text',p.rows,()=>download('CareLink-Official-WhatsApp-Activation-Sheet-' + todayISO().slice(0, 10) + '.txt', p.whatsappText || this.lastWhatsappSheet, 'text/plain;charset=utf-8'));
   },
 
   async copyWhatsappSheet() {
@@ -47368,8 +47529,9 @@ const PROD_SETUP = {
     if (!txt) return toast('No WhatsApp sheet in memory', 'Click Activate System Globally first.', 'warn');
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(txt);
-        toast('Copied for Team WhatsApp Platform', `${this.lastPack.count} organogram accounts copied — paste directly into official LOMAMO WhatsApp dispatches.`, 'ok');
+        const copied=await this.deliverExport('clipboard',this.lastPack.rows,()=>navigator.clipboard.writeText(txt));
+        if(copied===false) return;
+        toast('Copied for Team WhatsApp Platform', `${this.lastPack.count} organogram accounts copied — give each person only their own row through a private channel. Never paste the pack in a group.`, 'ok');
         return;
       }
     } catch (_e) {}
@@ -47400,7 +47562,7 @@ const PROD_SETUP = {
         <div style="flex:1;min-width:260px">
           <div class="xs bold" style="text-transform:uppercase;letter-spacing:.09em;color:#B45309;margin-bottom:4px">${ic('sparkles',13)} Final Commissioning Step · Chief System Administrator Authority</div>
           <div style="font-size:16.5px;font-weight:800;margin-bottom:4px">Ready to Activate CareLink C-DIMS Globally Across All LOMAMO Departments</div>
-          <div class="small muted">Generates every organogram account name, official email, username, login URL &amp; one-time password formatted for your <b>Team WhatsApp Platform</b>, requires each user to self-activate by changing their password on first login, and <b>permanently removes all Demo &amp; Host Setup UI</b> from Landing and Sign-In.</div>
+          <div class="small muted">Issues server-generated, expiring single-use passwords to confirmed roster seats. Unconfirmed seats receive no credentials, and work mail is included only after Chief attestation of an existing mailbox. Every new holder must set a private password before opening a workspace. Demo and setup controls are then locked.</div>
           <div class="xs" style="margin-top:6px">${masterLoaded
             ? `<span style="color:var(--ok);font-weight:700">✓ Complete ${num(DEMO_REGISTER.patients)}-Patient Cloud Dataset Verified in KV (${num(patientCount)} patients · 100% completeness)</span>`
             : `<span class="muted">Patient register currently has <b>${num(patientCount)}</b> records — you can auto-feed the built-in 100%-complete ${num(DEMO_REGISTER.patients)}-patient dataset with zero local file upload before locking activation.</span>`}</div>
@@ -47428,7 +47590,7 @@ const PROD_SETUP = {
         <div class="grid g2" style="gap:12px;margin-bottom:12px">
           <div class="field"><label>Official Staff Email Domain</label>
             <input class="input mono" name="emailDomain" value="${esc(OFFICIAL_EMAIL_DOMAIN)}" readonly>
-            <div class="hint">Every Foundation account signs in with an alias on <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>. No mailbox is provisioned and CareLink does not send email; the domain is fixed for the organisation.</div>
+            <div class="hint">Sign in with the issued username. An existing <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code> mailbox appears only after Chief confirmation in Staff credential export. No mailbox is guessed or provisioned; email/SMS 2FA is deferred to Phase 2.</div>
           </div>
           <div class="field"><label>Official System Login URL *</label>
             <input class="input mono" name="loginUrl" value="${esc(this.defaultPortalUrl())}" required>
@@ -47438,14 +47600,14 @@ const PROD_SETUP = {
         ${!this.isGloballyActivated() ? (masterLoaded
           ? `<div class="alert ok" style="margin-bottom:12px">${ic('check',16)}<div><b>100%-Complete ${num(DEMO_REGISTER.patients)}-Patient Cloud Dataset Ready</b><div class="small">All ${num(patientCount)} complete patient profiles, visits, and PDCA cycles are already committed in Cloud KV and will be shared across all departmental consoles.</div></div></div>`
           : `<label class="row" style="gap:10px;align-items:flex-start;padding:12px 14px;margin-bottom:12px;border-radius:10px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06));cursor:pointer">
-              <input type="checkbox" name="autoFeedMaster" value="1" checked style="margin-top:3px">
-              <span class="small"><b>Auto-feed complete ${num(DEMO_REGISTER.patients)}-patient generated dataset from Cloud before locking Global Activation</b><br>
-              <span class="muted">Loads all ${num(DEMO_REGISTER.patients)} synthetic reference patients and their complete visits &amp; PDCAs (100% completeness, zero local file upload) directly into Cloud KV right before activating all departmental accounts. Uncheck only if you want an empty production register.</span></span>
+              <input type="checkbox" name="autoFeedMaster" value="1" style="margin-top:3px">
+              <span class="small"><b>Evaluation only: load ${num(DEMO_REGISTER.patients)} synthetic patients before activation</b><br>
+              <span class="muted">Off by default. Select only for an isolated evaluation database. Generates synthetic patients and related records at runtime; leave unchecked for production and never use on an existing live register.</span></span>
             </label>`) : ''}
         <div class="alert info" style="margin-bottom:12px">${ic('shield',16)}<div>
           <b>What happens when you click Activate System Globally:</b>
-          <div class="small" style="margin-top:4px">1. All <b>${num(rosterCount)} organogram accounts</b> (Leadership, County Admins, Area Coordinators, Caregivers, Clinicians, Hospital Desk, Finance, Procurement, Media, HR, Audit, ICT, plus applicable Secretaries, Deputies &amp; Clerks) receive official emails &amp; unique temporary passwords.<br>
-          2. Each staff member activates their own account upon logging in and setting their private password.<br>
+          <div class="small" style="margin-top:4px">1. The <b>${num(rosterCount)} official roster seats</b> retain their actual names or unconfirmed seat labels. Named staff receive unique, server-generated temporary passwords; the Chief and unconfirmed seats do not. No unconfirmed mailbox is exported.<br>
+          2. Each staff member needs an approved registered browser, redeems a temporary password once within its validity period (seven days by default), and sets a private password before accessing staff data.<br>
           3. All Demo tabs, "Explore demo accounts", and "First-run online setup" links are <b>permanently removed</b> from Landing &amp; Sign-In.</div>
         </div></div>
         <div class="alert warn" style="margin-bottom:12px"><div><b>Credential handling</b><div class="small">Temporary passwords are secrets. Download the single confidential account document only to an approved device, then distribute each user’s credentials privately and securely delete the file after dispatch.</div></div></div>
@@ -47518,7 +47680,7 @@ const PROD_SETUP = {
     /* Build fresh or reference DB */
     const db = DB.blank();
     if (seedMode === 'reference' && typeof seedOfficial === 'function') {
-      seedOfficial(db, new Date(), { patients: DEMO_REGISTER.patients, mustChange: true });
+      seedSyntheticDataset(db, new Date('2026-11-22T00:00:00.000Z'), { patients: DEMO_REGISTER.patients, mustChange: true });
     }
     db.meta = Object.assign({}, db.meta || {}, {
       setupComplete: true,
@@ -47687,10 +47849,8 @@ const PROD_SETUP = {
     }
     const packRows = [];
     for (const u of targets) {
-      const tempPassword = this.generateStrongPassword(14);
-      const salt = newSalt();
-      u.salt = salt;
-      u.hash = strongHash(tempPassword, salt);
+      const tempPassword = hosted ? '' : this.generateStrongPassword(14);
+      if(!hosted){const salt=newSalt();u.salt=salt;u.hash=strongHash(tempPassword,salt);}
       u.demo = false;
       u.mustChange = true;
       u.mustChangePassword = true;
@@ -47735,16 +47895,14 @@ const PROD_SETUP = {
       srvList.forEach(cp => {
         const pw = cp.tempPassword || cp.password;
         const match = targets.find(t => t.username === String(cp.username).toLowerCase());
-        if(match && pw){
-          match.salt = newSalt();
-          match.hash = strongHash(pw, match.salt);
-        }
+        if(match){delete match.hash;delete match.salt;match.email=cp.email||'';}
         packRows.push({
           name: cp.name,
           username: cp.username,
-          email: cp.email || (match && match.email) || `${cp.username}@${this.defaultEmailDomain()}`,
+          email: cp.email || '',
           department: cp.departmentId || (match && match.departmentId) || '',
           tempPassword: pw,
+          expiresAt: cp.expiresAt,
           role: cp.roleName || (roleObj(cp.roleId) || {}).name || cp.role || cp.roleId || '',
           county: cp.county || (cp.countyId ? countyName(cp.countyId) : 'Head Office'),
           smsText: cp.smsText || `CareLink C-DIMS: Hello ${cp.name}, sign in at ${location.origin} | Username: ${cp.username} | One-Time Password: ${pw} . Set your own private password on first login.`
@@ -47771,8 +47929,8 @@ const PROD_SETUP = {
       body:`<div class="alert warn"><div><b>${recover ? 'Recovery is available for 24 hours' : 'This resets non-Chief accounts'}</b>
         <p class="small">${recover
           ? 'Only temporary passwords that are still valid are included. Personalised passwords cannot be recovered. Changing the Chief password also makes the recovery copy unreadable.'
-          : 'All other existing accounts and sessions, including any other Chief accounts, are replaced or deactivated. Only your current Chief sign-in and non-account records are preserved. Named officers receive new passwords on the official domain and can sign in and work immediately — no password change is forced; a private password can be set whenever they choose. Unconfirmed seats remain disabled.'}</p>
-        <p class="small">Email addresses are login aliases on <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>, not mailboxes. Distribute credentials privately to individual officers.</p></div></div>
+          : 'All other existing accounts and sessions, including any other Chief accounts, are replaced or deactivated. Only your current Chief sign-in and non-account records are preserved. Named officers receive server-generated single-use passwords. They must replace them privately before accessing a workspace; temporary passwords expire under system.config. Unconfirmed seats remain disabled.'}</p>
+        <p class="small">Only explicitly confirmed existing <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code> mailboxes are exported. All other officers sign in by assigned username. Distribute each credential privately.</p></div></div>
         <div class="field"><label for="reactivationPassword">Current Chief password</label>
           <input class="input" id="reactivationPassword" type="password" autocomplete="current-password"></div>
         ${recover ? '' : '<div class="field"><label for="reactivationConfirm">Type REBUILD to confirm</label><input class="input" id="reactivationConfirm" autocomplete="off"></div>'}`,
@@ -47801,7 +47959,7 @@ const PROD_SETUP = {
         return;
       }
       const rows = r.body.issued.map(row=>({ ...row, county:countyName(row.county),
-        loginUrl:location.origin, smsText:`CareLink: Sign in at ${location.origin} with ${row.username} (or ${row.email}) and the password in your private handoff. You can start work immediately; you may set a private password whenever you choose.` }));
+        loginUrl:location.origin, smsText:`CareLink: Sign in at ${location.origin} with username ${row.username}${row.email?' or confirmed work email '+row.email:''}. Your private handoff contains a single-use temporary password, expiring ${row.expiresAt||'under system.config'}. Use an approved registered browser and set a private password before opening a workspace.` }));
       this.lastPack = { kind:recover ? 'recovered-rebuild' : 'official-rebuild', generatedAt:todayISO(), chiefUsername:actor.username, siteUrl:location.origin,
         count:rows.length, rows, expiresAt:r.body.expiresAt };
       this.lastWhatsappSheet = '';
@@ -47816,7 +47974,7 @@ const PROD_SETUP = {
           : 'Download the pack. Reload or sign in again before editing the shared workspace.', 'warn');
       } else {
         AUTH.user = (DB.db.users||[]).find(u=>u.username===actor.username) || actor;
-        toast(recover ? 'Credential pack recovered' : 'Hierarchy rebuilt', `${rows.length} accounts issued on @${OFFICIAL_EMAIL_DOMAIN}; every officer can sign in now without changing their password. Download the confidential document now.`, 'ok');
+        toast(recover ? 'Credential pack recovered' : 'Hierarchy rebuilt', `${rows.length} named staff received expiring, single-use temporary credentials. Approved browser and private-password replacement are required before workspace access. Download the confidential document now.`, 'ok');
       }
       render();
     } catch(_e) {
@@ -47832,7 +47990,7 @@ const PROD_SETUP = {
     const packDescription = p.kind === 'official-rebuild' ? 'Official hierarchy rebuild — newly issued named officers' : p.kind === 'recovered-rebuild' ? 'Recovered rebuild pack — only still-valid temporary passwords' : 'Pending-account pack — not the full official hierarchy';
     const rows = p.rows.map((r, i) => `<tr>
       <td>${i + 1}</td><td><strong>${html(r.name)}</strong></td><td>${html(r.username)}</td>
-      <td>${html(r.email || `${r.username}@${this.defaultEmailDomain()}`)}</td>
+      <td>${html(r.email || 'Not confirmed — use username')}</td>
       <td class="password">${html(r.tempPassword)}</td><td>${html(r.role)}</td>
       <td>${html(r.department || '')}</td><td>${html(r.county)}</td>
     </tr>`).join('');
@@ -47846,48 +48004,56 @@ const PROD_SETUP = {
       .meta{color:#475569}.footer{margin-top:20px;color:#475569;font-size:12px}@media print{body{margin:12mm;padding:0}.notice{break-inside:avoid}tr{break-inside:avoid}button{display:none}}
       </style></head><body><header><h1>CareLink C-DIMS · Initial Account Provisioning</h1>
       <div>${html((DB.db.settings.org && DB.db.settings.org.name) || 'LOMAMO Foundation Kenya')}</div>
-      <div class="meta">${html(packDescription)} · Accounts usable immediately · Generated ${html(p.generatedAt)} · Portal ${html(p.siteUrl)} · ${p.rows.length} accounts</div></header>
+      <div class="meta">${html(packDescription)} · Single-use temporary credentials · Generated ${html(p.generatedAt)} · Portal ${html(p.siteUrl)} · ${p.rows.length} accounts</div></header>
       <section class="notice"><strong>CONFIDENTIAL — ACCOUNT PASSWORDS</strong><br>
-      This document contains account credentials. The Chief System Administrator must distribute each account holder’s credentials privately through an approved channel. Never post this file to a shared group, public repository, or unapproved storage. Issued accounts sign in and work immediately; setting a personal password is optional and can be done at any time from the account menu. Securely delete this document after dispatch; retain no reusable password copy. This document is not a substitute for account authorization or access controls.</section>
-      <table><thead><tr><th>#</th><th>Account holder / seat</th><th>Username</th><th>Official email alias</th><th>Password (pack)</th><th>Role</th><th>Department</th><th>Office / county</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="footer">Credential handoff record only. Confirm the recipient’s identity before sharing. Every alias is on @${html(OFFICIAL_EMAIL_DOMAIN)}. Pending or unconfirmed roster seats should be verified before credential delivery.</p>
+      This document contains account credentials. The Chief System Administrator must distribute each account holder’s credentials privately through an approved channel. Never post this file to a shared group, public repository, or unapproved storage. Temporary passwords expire after seven days by default (or the configured system.config period) and can be redeemed once, on an approved registered browser. Every holder must choose a private password before opening a workspace. Securely delete this document after dispatch; retain no reusable password copy. This document is not a substitute for account authorization or access controls.</section>
+      <table><thead><tr><th>#</th><th>Account holder / seat</th><th>Username</th><th>Confirmed work mailbox</th><th>Single-use temporary password</th><th>Role</th><th>Department</th><th>Office / county</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="footer">Credential handoff record only. Confirm the recipient’s identity before sharing. Only explicitly confirmed existing work mailboxes may be listed. An empty address is not evidence of a mailbox; use the username. Unconfirmed seats receive no credential.</p>
       </body></html>`;
-    download('CareLink-Confidential-Account-Provisioning-' + todayISO().slice(0, 10) + '.html', document, 'text/html;charset=utf-8');
+    return this.deliverExport('html',p.rows,()=>download('CareLink-Confidential-Account-Provisioning-' + todayISO().slice(0, 10) + '.html', document, 'text/html;charset=utf-8'));
   },
 
-  downloadRoleDirectory() {
+  async downloadRoleDirectory() {
     const actor = AUTH && AUTH.user;
     if(!actor || actor.roleId !== 'chief') return toast('Restricted', 'Only the Chief System Administrator may export the account directory.', 'err');
     if(!this.isGloballyActivated()) return toast('Commissioning required', 'The role account directory is available only after global activation.', 'warn');
-    const users = ((DB.db && DB.db.users) || []).filter(u => u && u.status === 'active' && !u.demo);
-    const lines = [
-      'CARELINK C-DIMS — COMMISSIONED ROLE ACCOUNT DIRECTORY',
-      'Confidential staff directory. No passwords or patient information are included.',
-      'Generated: ' + todayISO(),
-      'Accounts: ' + users.length,
-      '='.repeat(64),
-      ...users.map((u,i) => {
-        const role = roleObj(u.roleId);
-        return `${String(i+1).padStart(3,'0')}. ${String(u.name || u.jobTitle || u.username).replace(/[\r\n]+/g,' ').trim()}\n` +
-          `     Role: ${String((role && role.name) || u.roleId || 'Staff').replace(/[\r\n]+/g,' ')}\n` +
-          `     Official email: ${String(u.email || '').replace(/[\r\n]+/g,' ')}\n` +
-          `     Username: ${String(u.username || '').replace(/[\r\n]+/g,' ')}\n`;
-      })
-    ].join('\n');
-    download('CareLink-Commissioned-Role-Account-Directory-' + todayISO() + '.txt', lines, 'text/plain;charset=utf-8');
-    toast('Directory downloaded', `${users.length} active role accounts listed. No passwords are included.`, 'ok');
+    try {
+      // Never export guessed/legacy DB.users emails or browser-invented people.
+      // Online: the same authoritative roster and mailbox attestations as CSV.
+      // Offline: roster labels only; no unverified work addresses are released.
+      const users = typeof SYNC !== 'undefined' && SYNC.available()
+        ? (await ENTRY_ADMIN.request('staff-accounts')).rows
+        : OFFICIAL_ROSTER.map(seat=>({...seat,username:seat.roleId==='chief'?actor.username:seat.username,email:'',mailboxConfirmed:false}));
+      const clean=value=>String(value||'').replace(/[\r\n]+/g,' ').trim();
+      const lines = [
+        'CARELINK C-DIMS — COMMISSIONED ROLE ACCOUNT DIRECTORY',
+        'Confidential official roster, including unconfirmed seat labels. No passwords or patient information.',
+        'Generated: ' + todayISO(),
+        'Roster seats: ' + users.length,
+        '='.repeat(64),
+        ...users.map((u,i) => {
+          const role = roleObj(u.roleId);
+          const email=u.mailboxConfirmed && /^[a-z0-9._-]+@lomamofoundation\.org$/i.test(u.email||'') ? u.email : 'not confirmed — use username';
+          return `${String(i+1).padStart(3,'0')}. ${clean(u.name || u.jobTitle || u.job || u.username)}${u.unconfirmed?' [unconfirmed seat]':''}\n` +
+            `     Role: ${clean((role && role.name) || u.roleId || 'Staff')}\n` +
+            `     Confirmed official email: ${email}\n` +
+            `     Username: ${clean(u.username)}\n`;
+        })
+      ].join('\n');
+      return await this.deliverExport('directory-text',users,()=>{download('CareLink-Commissioned-Role-Account-Directory-' + todayISO() + '.txt', lines, 'text/plain;charset=utf-8');toast('Directory downloaded', `${users.length} actual roster seats listed. No passwords are included.`, 'ok');});
+    } catch(error) { toast('Directory not released',error.message,'err'); }
   },
 
   downloadCSV() {
     if (!this.requireCredentialPackAccess()) return;
     const p = this.lastPack;
     if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a credential sheet first.', 'warn');
-    const escCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const escCsv = v => {let text=String(v??'');if(/^[=+\-@\t\r]/.test(text))text="'"+text;return `"${text.replace(/"/g,'""')}"`;};
     const lines = [
-      ['Full Name / Organogram Seat', 'Username', 'Official Email Alias', 'Portal Login URL', 'Issued Password', 'Assigned Role', 'Department', 'Office / County', 'WhatsApp / SMS Dispatch'].map(escCsv).join(','),
-      ...p.rows.map(r => [r.name, r.username, r.email || `${r.username}@${this.defaultEmailDomain()}`, r.loginUrl || p.siteUrl || this.defaultPortalUrl(), r.tempPassword, r.role, r.department || '', r.county, r.whatsappBlock || r.smsText].map(escCsv).join(','))
+      ['Full Name / Organogram Seat', 'Username', 'Confirmed Work Mailbox', 'Portal Login URL', 'Issued Password', 'Assigned Role', 'Department', 'Office / County', 'WhatsApp / SMS Dispatch'].map(escCsv).join(','),
+      ...p.rows.map(r => [r.name, r.username, r.email || '', r.loginUrl || p.siteUrl || this.defaultPortalUrl(), r.tempPassword, r.role, r.department || '', r.county, r.whatsappBlock || r.smsText].map(escCsv).join(','))
     ];
-    download('CareLink-Official-Organogram-Credentials-' + todayISO().slice(0, 10) + '.csv', lines.join('\r\n'), 'text/csv;charset=utf-8');
+    return this.deliverExport('csv',p.rows,()=>download('CareLink-Official-Organogram-Credentials-' + todayISO().slice(0, 10) + '.csv', lines.join('\r\n'), 'text/csv;charset=utf-8'));
   },
 
   downloadSMSText() {
@@ -47898,14 +48064,14 @@ const PROD_SETUP = {
       '====================================================================',
       'CARELINK C-DIMS — CONFIDENTIAL SMS CREDENTIAL DISPATCH PACK',
       'Generated: ' + p.generatedAt + ' | Portal: ' + p.siteUrl,
-      'PRIVACY NOTICE (DPA 2019): Issued accounts work immediately with the',
-      'password below; each user MAY replace it with a private password known',
-      'ONLY to themselves. Delete this file after sending individual SMS texts.',
+      'PRIVACY NOTICE (DPA 2019): Temporary passwords are single-use and expire',
+      'under system.config (seven days by default). Use an approved browser and',
+      'set a private password BEFORE workspace access. Delete after private dispatch.',
       '====================================================================',
       '',
       ...p.rows.map((r, i) => `[${i + 1}] ${r.name} (${r.role} · ${r.county})\nSMS -> ${r.smsText}\n`)
     ].join('\r\n');
-    download('CareLink-SMS-Dispatch-' + todayISO().slice(0, 10) + '.txt', body, 'text/plain;charset=utf-8');
+    return this.deliverExport('sms-text',p.rows,()=>download('CareLink-SMS-Dispatch-' + todayISO().slice(0, 10) + '.txt', body, 'text/plain;charset=utf-8'));
   }
 };
 
@@ -48373,9 +48539,9 @@ const DEV_CONSOLE = {
       const pack = PROD_SETUP.ownsCredentialPack(real) ? PROD_SETUP.lastPack : null;
       body = `<div class="alert info" style="margin-bottom:16px">${ic('shield', 18)}<div>
         <b>Production First-Run &amp; Strict Privacy Password Architecture (Kenya Data Protection Act, 2019)</b>
-        <span class="small">The official rebuild issues a new confidential document for the named roster; the separate pending-account generator is only a subset. Every issued account signs in and works immediately — a private password can be set whenever the officer chooses.</span>
+        <span class="small">The official rebuild issues a new confidential document for the named roster; the separate pending-account generator is only a subset. Every issued temporary password is single-use and expires under system.config. Approved browser and private-password replacement are mandatory before workspace access.</span>
       </div></div>`
-      + (isChief && PROD_SETUP.isGloballyActivated() ? card('Rebuild the official hierarchy', `<p class="small">Reconcile the Kisumu and Homa Bay roster and issue ${num(namedRosterCount)} named officers new passwords on <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>; they can sign in and work immediately, with no forced change. Unconfirmed seats stay disabled. Your current Chief sign-in and non-account records are retained; all other legacy accounts, including any other Chief accounts, are replaced or deactivated.</p>
+      + (isChief && PROD_SETUP.isGloballyActivated() ? card('Rebuild the official hierarchy', `<p class="small">Reconcile the Kisumu and Homa Bay roster and issue ${num(namedRosterCount)} named officers single-use temporary passwords; they expire under system.config and must be replaced privately on an approved browser before work. Only confirmed existing work mailboxes are included. Unconfirmed seats stay disabled. Your current Chief sign-in and non-account records are retained; all other legacy accounts, including any other Chief accounts, are replaced or deactivated.</p>
           <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-danger" data-act="dev-open-reactivation">Rebuild &amp; reactivate</button>
           <button class="btn btn-ghost" data-act="dev-open-recover-reactivation">Recover recent pack</button></div>
           <p class="hint">The Chief password is required. If the response is interrupted, recover the encrypted pack within 24 hours before retrying.</p>`) : '')
@@ -51982,6 +52148,130 @@ const ROLE_CONSOLES_68 = {
   }
 };
 
+/* Chief-owned Phase 1 security consoles. Display state is ephemeral. The API,
+   never DB.devices, an IMEI or a browser fingerprint, grants device access. */
+const CANONICAL_HOST = {
+  origin:'https://care-link-dims-dev.vercel.app',
+  isRetired(host){return String(host||'').toLowerCase()==='theqwengacfs.github.io';},
+  enforce(){
+    if(typeof location==='undefined' || !this.isRetired(location.hostname)) return false;
+    const root=document.querySelector('#root');
+    if(root) root.innerHTML='<main style="padding:32px;font:18px system-ui"><h1>CareLink has one official host</h1><p>Do not commission or enter staff/patient data on GitHub Pages. Existing local records are not deleted or automatically uploaded.</p><a href="'+this.origin+'/">Open the official CareLink service</a></main>';
+    if(typeof location.replace==='function') location.replace(this.origin+'/');
+    return true; // boot must stop even if navigation is blocked or offline
+  }
+};
+
+const ENTRY_ADMIN = {
+  devices:[],rows:[],currentDeviceId:'',deviceLoaded:false,rosterLoaded:false,busy:false,error:'',epoch:0,config:{temporaryPasswordDays:7},
+  clear(){this.epoch++;this.devices=[];this.rows=[];this.currentDeviceId='';this.deviceLoaded=false;this.rosterLoaded=false;this.busy=false;this.error='';this.config={temporaryPasswordDays:7};if(typeof ENTRY_THEME!=='undefined'){ENTRY_THEME.previewed.clear();ENTRY_THEME.previewId=null;}},
+  async request(route,body){
+    if(!AUTH.user || AUTH.user.roleId!=='chief' || !SYNC.available()) throw new Error('Use the shared online Chief System Administrator session. Offline/browser-only approval is not supported.');
+    const actor=AUTH.user.username,token=SYNC.sessionToken,epoch=this.epoch;
+    const r=await SYNC._json('api/admin/'+route,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),timeoutMs:60000});
+    if(!AUTH.user || AUTH.user.roleId!=='chief' || AUTH.user.username!==actor || SYNC.sessionToken!==token || this.epoch!==epoch) throw new Error('The Chief session changed; no confidential response was retained.');
+    if(!r.ok) throw new Error(r.body.error||'The shared host refused this operation.');
+    return r.body;
+  },
+  async load(kind){
+    if(this.busy) return;
+    const epoch=this.epoch;
+    this.busy=true; this.error='';
+    try{
+      if(kind==='devices'){
+        const result=await this.request('devices'); if(epoch!==this.epoch)return; this.devices=result.devices; this.currentDeviceId=result.currentDeviceId;
+      }else{
+        const result=await this.request('staff-accounts'); if(epoch!==this.epoch)return; this.rows=result.rows; this.config=result.config;
+      }
+    }catch(error){if(epoch===this.epoch)this.error=error.message;}
+    finally{if(epoch===this.epoch){this.busy=false;if(kind==='devices') this.deviceLoaded=true;else this.rosterLoaded=true;render();}}
+  },
+  async refreshAfterWrite(result){
+    // Do not silently discard a form/outbox just to refresh admin status. The
+    // next sync must reconcile the newer revision if local work is still held.
+    if(!result.rev || APPX.dirty || SYNC._inflight || SYNC.heldOutbox()) return;
+    if(!await SYNC.pullFull({minRev:result.rev})) toast('Change saved; refresh needed','The host confirmed the change. Refresh before the next workspace edit.','warn');
+  },
+  dialog(operation,data={}){
+    if(!AUTH.user || AUTH.user.roleId!=='chief') return;
+    const titles={device:'Review registered browser',export:'Confidential staff-account export',revoke:'Revoke an account password',mailbox:'Confirm an existing work mailbox'};
+    const username=data.username||'',device=this.devices.find(d=>d.id===data.id);
+    const extra=operation==='device'
+      ? `<input type="hidden" name="deviceId" value="${esc(data.id||'')}"><p>${esc(device?.label||'')} · ${esc(device?.requestedBy||'')} · ${esc(data.id||'')}</p><div class="field"><label>Decision</label><select class="input" name="decision"><option value="approved">Approve</option><option value="rejected">Reject</option><option value="revoked">Revoke approval</option></select></div><p class="small">Confirm the device code and requester through a trusted channel before approving. An IP address or label alone is not identity proof.</p>`
+      : operation==='export'
+        ? `<p>Source: official staff roster. ${username?'Only @'+esc(username):'All roster seats'}. Unconfirmed seats have no credentials. Existing private passwords are retained; other selected accounts get new single-use passwords, valid for ${this.config.temporaryPasswordDays} days. Re-issuing invalidates their previous temporary passwords and sessions.</p><label class="lg-check"><input type="checkbox" name="confirm" value="ISSUE TEMPORARY PASSWORDS" required> I authorize issuing temporary passwords and downloading a confidential CSV. I will give each person only their own row and remove the file from shared storage.</label>`
+        : operation==='mailbox'
+          ? `<p>No address is guessed from a person's name. Confirm existence in the organisation's mail administration before attesting. This does not send a verification email; provider-backed 2FA is Phase 2.</p><div class="field"><label>Existing @lomamofoundation.org mailbox (blank withdraws confirmation)</label><input type="email" class="input" name="email" autocomplete="off" value="${esc(data.email||'')}"></div><div class="field"><label>Type MAILBOX CONFIRMED when recording an existing address</label><input class="input" name="confirm" autocomplete="off"></div>`
+          : `<p>Revoke the password and all online sessions for <b>@${esc(username)}</b>. The staff seat stays on the real roster and can receive a newly issued temporary password.</p>`;
+    openModal({title:titles[operation],sub:'Server verified · Chief only · every change audited',body:`<form data-form="entry-admin" id="entry-admin-form" autocomplete="off"><input type="hidden" name="operation" value="${operation}"><input type="hidden" name="username" value="${esc(username)}">${extra}<div class="field"><label>Chief private password</label><input class="input" type="password" name="password" autocomplete="current-password" required></div><button class="btn btn-primary" type="submit">${operation==='export'?'Generate & download confidential CSV':'Confirm on shared host'}</button></form>`,footer:'<button class="btn btn-ghost" data-act="close-modal">Cancel</button>'});
+  },
+  csv(rows){
+    const fields=['name','username','roleId','department','county','jobTitle','unconfirmed','email','mailboxConfirmed','credentialStatus','temporaryPassword','expiresAt'];
+    const cell=value=>{let text=String(value??'');if(/^[=+\-@\t\r]/.test(text)) text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+    return fields.map(cell).join(',')+'\r\n'+rows.map(row=>fields.map(k=>cell(row[k])).join(',')).join('\r\n');
+  }
+};
+function entryAdminStatus(){
+  return ENTRY_ADMIN.error?`<div class="alert crit" role="alert">${esc(ENTRY_ADMIN.error)}</div>`:ENTRY_ADMIN.busy?'<p role="status">Reading the shared server register…</p>':'';
+}
+function renderDevicesConsole(user){
+  if(user.roleId!=='chief') return deniedPanel('system.config');
+  if(!ENTRY_ADMIN.deviceLoaded && !ENTRY_ADMIN.busy && AUTH.online) ENTRY_ADMIN.load('devices');
+  return `${pageHead('Devices','Phase 1 · server-side approval is mandatory for every staff session. The public portal is open to everyone.')}
+    <div class="card"><div class="card-b"><p>First sign-in from an unknown browser verifies the account, registers its label, type, first-seen time and requester, then stops before any staff data. Approve only after checking the displayed device code with the requester. Clearing cookies creates a new approval request.</p><button class="btn btn-sm btn-primary" data-act="entry-admin-refresh" data-kind="devices">Refresh server register</button></div></div>${entryAdminStatus()}
+    ${table([{label:'Device / code',render:d=>`<b>${esc(d.label)}</b><div class="xs mono">${esc(d.id.slice(0,12))}${d.id===ENTRY_ADMIN.currentDeviceId?' · this browser':''}</div>`},
+      {label:'Type',render:d=>esc(d.type)},{label:'First seen',render:d=>esc(d.firstSeen)},{label:'Requested by',render:d=>esc(d.requestedBy)},
+      {label:'Status',render:d=>badge(d.status,d.status==='approved'?'b-ok':d.status==='pending'?'b-warn':'b-crit')},
+      {label:'Decision',render:d=>`<button class="btn btn-xs btn-ghost" data-act="entry-device-review" data-id="${esc(d.id)}">Review</button>`}],ENTRY_ADMIN.devices)}
+    <p class="small muted">Phase 2 email/SMS one-time codes are not enabled. No mail or SMS provider credentials are stored in this repository. Lost Chief browser? Use the owner-only recovery runbook; there is no public approval bypass.</p>`;
+}
+function renderStaffAccountsConsole(user){
+  if(user.roleId!=='chief') return deniedPanel('system.config');
+  if(!ENTRY_ADMIN.rosterLoaded && !ENTRY_ADMIN.busy && AUTH.online) ENTRY_ADMIN.load('staff');
+  return `${pageHead('Staff credential export','Official roster · @lomamofoundation.org only for explicitly confirmed existing mailboxes · no invented people')}
+    <div class="card"><div class="card-b"><p>Passwords are generated by the server, stored as salted hashes and an encrypted, server-only export receipt, and shown only in the confidential download response. A temporary password is single-use, expires in the configured period, and cannot open a workspace until replaced. No pack is kept in browser storage.</p><div class="row" style="gap:12px;flex-wrap:wrap"><button class="btn btn-primary" data-act="entry-export-open">Generate roster export</button><button class="btn btn-ghost" data-act="entry-admin-refresh" data-kind="staff">Refresh roster</button></div><form data-form="entry-config" class="row" style="gap:10px;margin-top:16px;align-items:end"><div class="field"><label>Temporary-password validity (days)</label><input class="input" type="number" name="days" min="1" max="30" value="${ENTRY_ADMIN.config.temporaryPasswordDays}" required></div><button class="btn btn-sm btn-ghost" type="submit">Save system.config</button></form></div></div>${entryAdminStatus()}
+    ${table([{label:'Real roster / unconfirmed seat',render:r=>`<b>${esc(r.name)}</b><div class="xs">@${esc(r.username)} · ${esc(r.jobTitle)}</div>${r.unconfirmed?badge('Unconfirmed — no credential','b-warn'):''}`},
+      {label:'Work mailbox',render:r=>r.mailboxConfirmed?esc(r.email):'<span class="muted">Not confirmed — no address exported</span>'},
+      {label:'Credential',render:r=>esc(r.credentialStatus)},
+      {label:'Controls',render:r=>r.unconfirmed?'<span class="xs muted">Confirm seat through roster governance first</span>':`<div class="row" style="flex-wrap:wrap;gap:5px"><button class="btn btn-xs btn-ghost" data-act="entry-mailbox-open" data-username="${esc(r.username)}" data-email="${esc(r.email)}">Mailbox</button>${r.roleId==='chief'?'':`<button class="btn btn-xs btn-ghost" data-act="entry-export-open" data-username="${esc(r.username)}">Issue / export</button><button class="btn btn-xs btn-ghost" data-act="entry-revoke-open" data-username="${esc(r.username)}">Revoke password</button>`}</div>`}],ENTRY_ADMIN.rows)}`;
+}
+Object.assign(ACTIONS,{
+  'entry-admin-refresh':d=>ENTRY_ADMIN.load(d.kind),
+  'entry-device-review':d=>ENTRY_ADMIN.dialog('device',d),
+  'entry-export-open':d=>ENTRY_ADMIN.dialog('export',d),
+  'entry-mailbox-open':d=>ENTRY_ADMIN.dialog('mailbox',d),
+  'entry-revoke-open':d=>ENTRY_ADMIN.dialog('revoke',d),
+  'reference-master-download':async()=>{
+    try{const result=await ENTRY_ADMIN.request('reference-master');downloadText('CareLink-Synthetic-Reference.json',JSON.stringify(result.manifest),'application/json');}
+    catch(error){toast('Reference not downloaded',error.message,'err');}
+  }
+});
+Object.assign(FORMS,{
+  'entry-admin':async(d,form)=>{
+    const submit=form?.querySelector?.('[type="submit"]');
+    if(submit?.disabled) return;
+    if(submit) submit.disabled=true;
+    try{
+      const operation=String(d.get('operation')||''),password=String(d.get('password')||''),username=String(d.get('username')||'');
+      let result;
+      if(operation==='device') result=await ENTRY_ADMIN.request('devices/decision',{password,deviceId:d.get('deviceId'),decision:d.get('decision')});
+      else if(operation==='export'){
+        result=await ENTRY_ADMIN.request('staff-accounts/export',{password,confirm:d.get('confirm'),...(username?{usernames:[username]}:{})});
+        downloadText('CareLink-confidential-staff-'+result.exportId+'.csv',ENTRY_ADMIN.csv(result.rows),'text/csv;charset=utf-8');
+      }else if(operation==='revoke') result=await ENTRY_ADMIN.request('staff-accounts/revoke',{password,username});
+      else if(operation==='mailbox') result=await ENTRY_ADMIN.request('staff-accounts/mailbox',{password,username,email:d.get('email'),confirm:d.get('confirm')});
+      else throw new Error('Unknown security operation.');
+      closeModal(true);await ENTRY_ADMIN.refreshAfterWrite(result);await ENTRY_ADMIN.load(operation==='device'?'devices':'staff');
+      toast('Confirmed by shared host','The operation is recorded in the server audit trail.','ok');
+    }catch(error){toast('Not completed',error.message,'err');}
+    finally{if(submit) submit.disabled=false;const password=form?.querySelector?.('[name="password"]');if(password) password.value='';}
+  },
+  'entry-config':async d=>{
+    try{const result=await ENTRY_ADMIN.request('system-config',{temporaryPasswordDays:Number(d.get('days'))});ENTRY_ADMIN.config=result.config;await ENTRY_ADMIN.refreshAfterWrite(result);render();toast('Validity saved','Applies to newly issued temporary passwords; existing expiries are unchanged.','ok');}
+    catch(error){toast('Config not saved',error.message,'err');}
+  }
+});
+
 </script>
 <script>
 /* CareLink PWA shell. Three jobs, all of them defensive:
@@ -52171,6 +52461,6 @@ const ROLE_CONSOLES_68 = {
   });
 })();
 </script>
-<!-- Build 2026-11-22 16:43 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-11-22 20:36 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

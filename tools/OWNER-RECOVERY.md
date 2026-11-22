@@ -22,14 +22,29 @@ will not work. Make a database backup first if one is available.
    and displays the existing Chief account name and username on your computer.
    If there is more than one, select the account to recover by its number.
    Keep the shown username so you can sign in; do not share it here.
-4. Choose and repeat a new private password. The token and password are hidden
+4. If a Chief browser is **pending**, the tool shows only pending devices already
+   associated with the selected Chief account. To approve your own recovery
+   browser, match its sign-in device code through a trusted channel, then paste
+   the **exact full device ID** shown in the tool. Labels are untrusted; never
+   select a browser on its name alone. Press Enter for password-only recovery.
+   There is no wildcard, automatic approval, or way to disable device enforcement.
+5. Choose and repeat a new private password. The token and password are hidden
    while typing. The password must be at least 12 characters, with uppercase,
    lowercase, a number and a symbol; it cannot contain your username, the
    organisation name, or common words such as `password`.
-5. Type `RECOVER` only after confirming the correct database and account. Keep
-   the terminal open; on larger databases the tool reports upload progress and
-   may take several minutes. Only after it reports `Recovery saved`, sign in to
-   the normal CareLink site with the new password.
+6. Type `RECOVER` only after confirming the correct database, account and any
+   explicitly selected pending device. Keep the terminal open; on larger
+   databases the tool reports upload progress and may take several minutes.
+   Only after it reports `Recovery saved`, sign in at
+   <https://care-link-dims-dev.vercel.app/> with the new password.
+
+If you forgot the password **and** lost the last approved browser, there may not
+be a pending device yet. First perform password-only recovery, attempt sign-in on
+your recovery browser to register its pending request, and keep its cookies.
+Rerun the tool, verify the displayed code and paste that exact pending ID. This
+second recovery chooses a fresh private password and explicitly approves only
+that browser. Merely resetting a password never approves an unknown browser or
+reopens the one-time commissioning/migration bootstrap.
 
 The tool changes only the named existing Chief credential and its login state,
 revokes old Chief sessions and codes, and writes an audit event. It preserves

@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import officialStructure from './official-structure.mjs';
+import { generateReferenceManifest } from './synthetic-reference.mjs';
 
 const CLOUD_KEY = 'carelink_cloud_v66';
 /* Every request remembers the exact primary snapshot it read. Atomic compare-
@@ -356,6 +357,10 @@ function blankStore() {
     recoveryRequests: [],
     masterImports: [],
     loginFailures: {},
+    devices: {},
+    devicePolicyInstalled: false,
+    credentialExports: [],
+    mailboxes: {},
   };
 }
 
@@ -366,10 +371,10 @@ function normalizeStore(value) {
   /* Keep forwards/backwards-compatible defaults without ever treating a local
      object as the stored state.  The object returned here came from KV. */
   const state = { ...blankStore(), ...value };
-  for (const key of ['creds', 'sessions', 'revokedSessions', 'loginFailures']) {
+  for (const key of ['creds', 'sessions', 'revokedSessions', 'loginFailures', 'devices', 'mailboxes']) {
     if (!state[key] || typeof state[key] !== 'object' || Array.isArray(state[key])) state[key] = {};
   }
-  for (const key of ['deltas', 'mergeJournal', 'audit', 'activations', 'emergencies', 'accountRequests', 'recoveryRequests', 'masterImports']) {
+  for (const key of ['deltas', 'mergeJournal', 'audit', 'activations', 'emergencies', 'accountRequests', 'recoveryRequests', 'masterImports', 'credentialExports']) {
     if (!Array.isArray(state[key])) state[key] = [];
   }
   return state;
@@ -909,6 +914,8 @@ function overlayAuthoritativeHead(state, head, manifestRev = 0, manifestSaved = 
   if (typeof head.setup === 'boolean') state.setup = head.setup;
   if (typeof head.globallyActivated === 'boolean') state.globallyActivated = head.globallyActivated;
   if (head.org && typeof head.org === 'object') state.org = head.org;
+  state.devices = head.devices || {};
+  state.devicePolicyInstalled = Boolean(head.devicePolicyInstalled);
   if (head.creds && typeof head.creds === 'object' && !Array.isArray(head.creds)) state.creds = head.creds;
   if (head.sessions && typeof head.sessions === 'object' && !Array.isArray(head.sessions)) state.sessions = head.sessions;
   if (head.revokedSessions && typeof head.revokedSessions === 'object' && !Array.isArray(head.revokedSessions)) state.revokedSessions = head.revokedSessions;
@@ -950,6 +957,7 @@ function overlayAuthoritativeHead(state, head, manifestRev = 0, manifestSaved = 
     ...(head.landingTheme ? { landingTheme: head.landingTheme } : {}),
     ...(head.consoleTheme ? { consoleTheme: head.consoleTheme } : {}),
     ...(head.uiEpoch ? { uiEpoch: Number(head.uiEpoch) } : {}),
+    ...(head.system ? { system: head.system } : {}),
     globallyActivated: Boolean(state.globallyActivated),
     ...(state.setup ? { onboarding: { complete: true, step: 4 }, hostSetupComplete: true } : {}),
   };
@@ -1106,6 +1114,7 @@ function buildStateHead(state) {
     status: u.status,
     active: u.active,
     mustChange: u.mustChange,
+    unconfirmed: u.unconfirmed,
   }));
   return {
     setup: Boolean(state.setup),
@@ -1138,6 +1147,9 @@ function buildStateHead(state) {
       pdcas: sha256Hex(JSON.stringify((state.db && Array.isArray(state.db.pdcas)) ? state.db.pdcas : [])),
     },
     referenceMasterDigest: state.db && state.db.meta && state.db.meta.referenceMaster && state.db.meta.referenceMaster.digest || null,
+    devices: state.devices || {},
+    devicePolicyInstalled: Boolean(state.devicePolicyInstalled),
+    system: (state.db && state.db.settings && state.db.settings.system) || {},
     creds: state.creds || {},
     loginFailures: state.loginFailures || {},
     sessions: state.sessions || {},
@@ -1222,6 +1234,8 @@ async function loadCloudHead() {
         rebuildRevision: Number(h.rebuildRevision) || 0,
         saved: unwrapped.saved || h.saved || null,
         org: h.org || null,
+        devices: h.devices || {},
+        devicePolicyInstalled: Boolean(h.devicePolicyInstalled),
         creds: h.creds || {},
         loginFailures: h.loginFailures || {},
         sessions: h.sessions || {},
@@ -1235,6 +1249,7 @@ async function loadCloudHead() {
             landingThemeExplicit: Boolean(h.landingThemeExplicit),
             consoleTheme: (Number(h.uiEpoch || 0) >= 690 && h.consoleTheme) ? h.consoleTheme : 'foundation',
             uiEpoch: Number(h.uiEpoch || 0),
+            system: h.system || {},
             globallyActivated: Boolean(h.globallyActivated),
             onboarding: { complete: Boolean(h.setup), step: 4 },
           },
@@ -1265,6 +1280,8 @@ async function loadCloudHead() {
         rebuildRevision: Number(h.rebuildRevision) || 0,
         saved: unwrapped.saved || h.saved || null,
         org: h.org || null,
+        devices: h.devices || {},
+        devicePolicyInstalled: Boolean(h.devicePolicyInstalled),
         creds: h.creds || {},
         loginFailures: h.loginFailures || {},
         sessions: h.sessions || {},
@@ -1278,6 +1295,7 @@ async function loadCloudHead() {
             landingThemeExplicit: Boolean(h.landingThemeExplicit),
             consoleTheme: (Number(h.uiEpoch || 0) >= 690 && h.consoleTheme) ? h.consoleTheme : 'foundation',
             uiEpoch: Number(h.uiEpoch || 0),
+            system: h.system || {},
             globallyActivated: Boolean(h.globallyActivated),
             onboarding: { complete: Boolean(h.setup), step: 4 },
           },
@@ -1322,10 +1340,7 @@ async function loadCloudState({ readOnly = false } = {}) {
       if (readOnly && _decodedCache.state) {
         const cached = _decodedCache.state;
         if (unwrapped.head && typeof unwrapped.head === 'object') {
-          cached.loginFailures = unwrapped.head.loginFailures || cached.loginFailures || {};
-          cached.revokedSessions = unwrapped.head.revokedSessions || cached.revokedSessions || {};
-          cached.sessions = unwrapped.head.sessions || cached.sessions || {};
-          mergeHeadAudit(cached, unwrapped.head.audit);
+          overlayAuthoritativeHead(cached, unwrapped.head, unwrapped.rev, unwrapped.saved);
         }
         Object.defineProperty(cached, '_shardedManifest', { value: unwrapped, enumerable: false, configurable: true });
         Object.defineProperty(cached, '_activeShardKeys', { value: Array.isArray(unwrapped.shardKeys) ? unwrapped.shardKeys : [], enumerable: false, configurable: true });
@@ -1335,9 +1350,7 @@ async function loadCloudState({ readOnly = false } = {}) {
       if (_decodedCache.rawJson) {
         const cloned = normalizeStore(JSON.parse(_decodedCache.rawJson));
         if (unwrapped.head && typeof unwrapped.head === 'object') {
-          cloned.loginFailures = unwrapped.head.loginFailures || cloned.loginFailures || {};
-          cloned.revokedSessions = unwrapped.head.revokedSessions || cloned.revokedSessions || {};
-          cloned.sessions = unwrapped.head.sessions || cloned.sessions || {};
+          overlayAuthoritativeHead(cloned, unwrapped.head, unwrapped.rev, unwrapped.saved);
         }
         Object.defineProperty(cloned, '_shardedManifest', { value: unwrapped, enumerable: false, configurable: true });
         Object.defineProperty(cloned, '_activeShardKeys', { value: Array.isArray(unwrapped.shardKeys) ? unwrapped.shardKeys : [], enumerable: false, configurable: true });
@@ -1372,10 +1385,7 @@ async function loadCloudState({ readOnly = false } = {}) {
     catch { throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.'); }
     const normalized = normalizeStore(parsedObj);
     if (unwrapped.head && typeof unwrapped.head === 'object') {
-      normalized.loginFailures = unwrapped.head.loginFailures || normalized.loginFailures || {};
-      normalized.revokedSessions = unwrapped.head.revokedSessions || normalized.revokedSessions || {};
-      normalized.sessions = unwrapped.head.sessions || normalized.sessions || {};
-      mergeHeadAudit(normalized, unwrapped.head.audit);
+      overlayAuthoritativeHead(normalized, unwrapped.head, unwrapped.rev, unwrapped.saved);
     }
     Object.defineProperty(normalized, '_shardedManifest', { value: unwrapped, enumerable: false, configurable: true });
     Object.defineProperty(normalized, '_activeShardKeys', { value: shardKeys, enumerable: false, configurable: true });
@@ -1545,6 +1555,8 @@ async function saveCloudAuthMetadata(state) {
     const updatedHead = {
       ...mf.head,
       creds: state.creds || mf.head.creds || {},
+      devices: state.devices || {},
+      devicePolicyInstalled: Boolean(state.devicePolicyInstalled),
       loginFailures: state.loginFailures || {},
       sessions: state.sessions || {},
       revokedSessions: state.revokedSessions || {},
@@ -1557,6 +1569,9 @@ async function saveCloudAuthMetadata(state) {
     await commitCloudSnapshot(JSON.stringify(nextManifest));
     Object.defineProperty(state, '_shardedManifest', { value: nextManifest, enumerable: false, configurable: true });
     if (_decodedCache && _decodedCache.state) {
+      _decodedCache.state.devices = updatedHead.devices;
+      _decodedCache.state.devicePolicyInstalled = updatedHead.devicePolicyInstalled;
+      _decodedCache.state.creds = updatedHead.creds;
       _decodedCache.state.loginFailures = updatedHead.loginFailures;
       _decodedCache.state.sessions = updatedHead.sessions;
       _decodedCache.state.revokedSessions = updatedHead.revokedSessions;
@@ -1621,11 +1636,13 @@ const CLINICAL_WRITE_ROLES = new Set(['countyadmin', 'assistant', 'caregiver', '
 function sanitizeDbForClient(db) {
   if (!db || typeof db !== 'object') return db;
   const copy = { ...db };
+  for (const key of ['devices','devicesPending','passwordVault','creds','credentialExports','reactivationPack','mailboxes']) delete copy[key];
   if (Array.isArray(db.users)) {
     copy.users = db.users.map((u) => {
       const clean = { ...u };
       delete clean.hash;
       delete clean.salt;
+      for(const key of ['digest','temporary','password','tempPassword','sessionEpoch']) delete clean[key];
       return clean;
     });
   }
@@ -2147,13 +2164,14 @@ function sessionSigningSecret() {
   return crypto.createHash('sha256').update(`carelink-sess-v1:${(kv && kv.token) || 'local'}:${CLOUD_KEY}`).digest();
 }
 
-function mintSignedSessionToken(cred, username, sessionId) {
+function mintSignedSessionToken(cred, username, sessionId, deviceId) {
   const payload = {
     u: String(username || '').toLowerCase(),
     uid: cred.id || `u-${username}`,
     r: cred.roleId || 'staff',
     c: cred.countyId || 'kisumu',
     ...(sessionId ? { sid: sessionId } : {}),
+    ...(deviceId ? { d: deviceId } : {}),
     ...(cred.sessionEpoch ? { e: cred.sessionEpoch } : {}),
     iat: Math.floor(Date.now() / 1000),
     n: crypto.randomBytes(9).toString('base64url'),
@@ -2197,7 +2215,8 @@ function getSession(state, req) {
     if (age > IDLE_SECONDS) return null;
     const username = String(s.username || '').toLowerCase();
     const cred = state.creds && state.creds[username] || null;
-    if (!cred || (cred.sessionEpoch && s.sessionEpoch !== cred.sessionEpoch)) return null;
+    if (!cred || cred.revokedAt || cred.active === false || !accountIsActive(state,username) || (cred.sessionEpoch && s.sessionEpoch !== cred.sessionEpoch)) return null;
+    if (!approvedSessionDevice(state, req, s.deviceId) || !validTemporarySession(cred, s.sessionId, s.deviceId)) return null;
     const user = state.db && Array.isArray(state.db.users)
       ? state.db.users.find((u) => String(u.username || '').toLowerCase() === username)
       : null;
@@ -2224,7 +2243,8 @@ function getSession(state, req) {
   const cred = state.creds && Object.prototype.hasOwnProperty.call(state.creds, verified.u)
     ? state.creds[verified.u]
     : null;
-  if (!cred || (cred.sessionEpoch && verified.e !== cred.sessionEpoch)) return null;
+  if (!cred || cred.revokedAt || cred.active === false || !accountIsActive(state,verified.u) || (cred.sessionEpoch && verified.e !== cred.sessionEpoch)) return null;
+  if (!approvedSessionDevice(state, req, verified.d) || !validTemporarySession(cred, verified.sid, verified.d)) return null;
   return {
     token: tok,
     username: verified.u,
@@ -2233,6 +2253,7 @@ function getSession(state, req) {
     roleId: (cred && cred.roleId) || verified.r,
     countyId: (cred && cred.countyId) || verified.c || 'kisumu',
     sessionId: verified.sid || null,
+    deviceId: verified.d,
     createdAt: new Date(verified.iat * 1000).toISOString(),
     lastSeen: nowISO(),
   };
@@ -2598,22 +2619,7 @@ Never diagnose or prescribe. Keep responses concise, structured, and grounded in
 }
 
 function readBundledReferenceManifest() {
-  const candidates = [];
-  try {
-    const here = path.dirname(fileURLToPath(import.meta.url));
-    candidates.push(path.resolve(here, '..', 'public', 'master', 'CareLink-Reference-Master-v6.6.json'));
-  } catch { /* ignore */ }
-  try {
-    candidates.push(path.resolve(process.cwd(), 'public', 'master', 'CareLink-Reference-Master-v6.6.json'));
-  } catch { /* ignore */ }
-  for (const p of candidates) {
-    try {
-      if (fs.existsSync(p)) {
-        return JSON.parse(fs.readFileSync(p, 'utf8'));
-      }
-    } catch { /* try next */ }
-  }
-  return null;
+  return generateReferenceManifest();
 }
 
 async function ensureFreshStateMinRev(currentState, minRev) {
@@ -2659,27 +2665,12 @@ function chiefReauthenticated(state, sess, password) {
     !cred.mustChange && typeof password === 'string' && verifyPassword(password, cred.salt, cred.digest));
 }
 
-/* --- Official account email aliases -------------------------------------------
-   Every account in the Foundation signs in with a username and an email alias on
-   the organisation's own domain. The domain is a single constant so a rebuild can
-   never reintroduce a retired spelling, and the alias local part is sanitised so
-   an accidental address can never be formed. */
+/* Work addresses are never derived from a person's name or username. Only
+   explicit Chief attestation in the server mailbox register makes an address
+   eligible for export. Email/SMS delivery and provider verification are Phase 2. */
 const OFFICIAL_EMAIL_DOMAIN = 'lomamofoundation.org';
-function normalizeEmailAlias(existing, fallbackLocal, domain = OFFICIAL_EMAIL_DOMAIN){
-  const clean = String(existing || '').trim().toLowerCase();
-  const at = clean.lastIndexOf('@');
-  const local = (at > 0 ? clean.slice(0, at) : clean).replace(/[^a-z0-9._-]/g, '');
-  const label = local || String(fallbackLocal || '').replace(/[^a-z0-9._-]/g, '');
-  return `${label}@${domain}`;
-}
-function officialEmailLocal(seat){
-  const source = String((seat && (seat.emailLocal || seat.username)) || '').toLowerCase();
-  return source.replace(/[^a-z0-9._-]/g, '') || 'staff';
-}
-/* Pre-rebuild installations stored aliases on retired domains (for example
-   `@lomamo.npo`). Sign-in accepts any alias on an organisation domain so the
-   address printed in an older credential pack still reaches the account, while
-   every alias is re-written to the official domain on the next rebuild. */
+/* Retain sign-in compatibility for an EXISTING legacy account address; this
+   matching helper neither creates a mailbox nor makes it exportable. */
 const ORG_ALIAS_DOMAINS = new Set([OFFICIAL_EMAIL_DOMAIN, 'lomamo.npo', 'lomamofoundation.co.ke']);
 function aliasKey(value){
   const clean = String(value || '').trim().toLowerCase();
@@ -2720,9 +2711,7 @@ function rebuildOfficialAccounts(state, sess) {
     const chief = r.roleId === 'chief';
     const username = chief ? sess.username : r.username;
     const id = chief ? chiefId : ids.get(r.username);
-    const email = chief
-      ? normalizeEmailAlias(chiefCred.email || chiefOld.email, chiefUsernameOr(username), OFFICIAL_EMAIL_DOMAIN)
-      : `${officialEmailLocal(r)}@${OFFICIAL_EMAIL_DOMAIN}`;
+    const email = chief ? (chiefCred.email || '') : rosterMailbox(state,r);
     const user = {
       id, username, name:r.name, roleId:r.roleId, countyId:r.countyId,
       areaIds:r.areas || [], departmentId:r.dept, jobTitle:r.job,
@@ -2732,9 +2721,7 @@ function rebuildOfficialAccounts(state, sess) {
       canLeaveMonday:Boolean(r.canLeaveMonday), execTeam:officialStructure.exec.includes(r.username),
       ...(r.permOverrides ? { permOverrides:r.permOverrides } : {}),
       status: r.unconfirmed ? 'unconfirmed' : 'active', active:!r.unconfirmed,
-      /* Re-issued accounts sign in with the password in the confidential pack
-         and go straight to work: no forced first-login password change. */
-      mustChange: false, mustChangePassword: false, dpaFirstLoginRequired: false,
+      mustChange: !chief && !r.unconfirmed, mustChangePassword: !chief && !r.unconfirmed, dpaFirstLoginRequired: !chief && !r.unconfirmed,
       demo:false, provisioned:!r.unconfirmed, createdBy:chiefId, created:now,
     };
     if (chief) {
@@ -2748,12 +2735,13 @@ function rebuildOfficialAccounts(state, sess) {
       passwords.add(password);
       const { salt, digest } = hashPassword(password);
       nextCreds[username] = { id, username, email, name:r.name, roleId:r.roleId, countyId:r.countyId,
-        areaIds:r.areas || [], departmentId:r.dept, salt, digest, mustChange:false,
+        areaIds:r.areas || [], departmentId:r.dept, salt, digest, mustChange:true,
+        temporary:temporaryMetadata(state,sess.username),
         issuedAt:now, issuedBy:sess.username,
         sessionEpoch:crypto.randomBytes(16).toString('hex'), updatedAt:now };
       rows.push({ id, name:r.name, username, email, tempPassword:password, roleId:r.roleId,
         role:(officialStructure.roles.find(x=>x.id===r.roleId) || {}).name || r.roleId,
-        department:r.dept, county:r.countyId, jobTitle:r.job });
+        department:r.dept, county:r.countyId, jobTitle:r.job, expiresAt:new Date(nextCreds[username].temporary.expiresAt).toISOString() });
     }
     nextUsers.push(user);
   }
@@ -2807,8 +2795,117 @@ function rebuildOfficialAccounts(state, sess) {
   state.rebuildRevision = state.rev;
   state.deltas = [];
   appendServerAudit(state, chiefId, 'system.accounts_rebuilt', 'installation', 'official-hierarchy',
-    `Official hierarchy rebuilt; ${rows.length} named staff credentials issued, ${officialStructure.roster.filter(r=>r.unconfirmed).length} unconfirmed seats disabled. Chief credential preserved; non-account records retained.`);
+    `Official hierarchy rebuilt; ${rows.length} named staff credentials issued, ${officialStructure.roster.filter(r=>r.unconfirmed).length} unconfirmed seats disabled. Chief credential preserved; non-account records retained.`,{deviceId:sess.deviceId,rowCount:rows.length});
   return rows;
+}
+
+/* Phase 1 device admission. The opaque proof is an HttpOnly, same-origin
+   cookie, not a client-supplied device ID/fingerprint. Only its SHA-256 is kept
+   in the server store. Session tokens are bound to that hash, and approval is
+   rechecked on EVERY authenticated read, write, page, heartbeat and recovery. */
+const DEVICE_COOKIE = 'carelink_device_v1';
+const ENTRY_THEME_IDS = new Set(['heritage', 'clinic']);
+function systemConfig(state) {
+  const settings = state.db && state.db.settings || {};
+  const cfg = settings.system && settings.system.config || {};
+  const entryTheme = ENTRY_THEME_IDS.has(cfg.entryTheme) ? cfg.entryTheme :
+    (ENTRY_THEME_IDS.has(settings.landingTheme) ? settings.landingTheme : 'heritage');
+  const days = Number(cfg.temporaryPasswordDays);
+  return { entryTheme, temporaryPasswordDays:Number.isInteger(days) && days >= 1 && days <= 30 ? days : 7 };
+}
+function deviceProof(req) {
+  const cookie = String(req.headers.cookie || '').split(';').map(v => v.trim()).find(v => v.startsWith(DEVICE_COOKIE + '='));
+  const proof = cookie ? cookie.slice(DEVICE_COOKIE.length + 1) : '';
+  return /^[A-Za-z0-9_-]{43}$/.test(proof) ? proof : '';
+}
+function setDeviceCookie(req, res, proof) {
+  const host = String(req.headers.host || '').split(':')[0];
+  const local = ['localhost','127.0.0.1','0.0.0.0'].includes(host);
+  res.setHeader('Set-Cookie', `${DEVICE_COOKIE}=${proof}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${local && req.headers['x-forwarded-proto'] !== 'https' ? '' : '; Secure'}`);
+}
+function approvedSessionDevice(state, req, expected) {
+  const proof = deviceProof(req);
+  if (!proof || !expected || !state.devicePolicyInstalled) return false;
+  const id = sha256Hex(proof);
+  const record = state.devices && state.devices[id];
+  return id === expected && record && record.status === 'approved';
+}
+function accountIsActive(state,username) {
+  const user=(state.db && state.db.users || []).find(u=>u && String(u.username||'').toLowerCase()===username);
+  return !user || (!user.unconfirmed && user.active!==false && !['inactive','unconfirmed','revoked'].includes(user.status));
+}
+function validTemporarySession(cred, sessionId, deviceId) {
+  return !cred.temporary || (Number(cred.temporary.expiresAt) > Date.now() &&
+    Boolean(cred.temporary.usedAt) && cred.temporary.sessionId === sessionId && cred.temporary.deviceId === deviceId);
+}
+function temporaryMetadata(state,issuedBy) {
+  return {issuedBy,issuedAt:nowISO(),expiresAt:Date.now()+systemConfig(state).temporaryPasswordDays*86400000,usedAt:null,sessionId:null,deviceId:null};
+}
+async function hydrateSecurityState(state) {
+  if (state._headOnly && !state._shardedManifest) {
+    const full = (await loadCloudState()).state;
+    Object.assign(state, full);
+    delete state._headOnly;
+  }
+}
+async function admitLoginDevice(state, req, res, body, cred, {save = true} = {}) {
+  await hydrateSecurityState(state);
+  const current = state.creds && state.creds[cred.username];
+  if (!current || current.digest !== cred.digest || current.sessionEpoch !== cred.sessionEpoch) {
+    return {ok:false,code:'state_conflict',error:'The account changed while signing in. Please retry.'};
+  }
+  let proof = deviceProof(req);
+  if (!proof) { proof = crypto.randomBytes(32).toString('base64url'); setDeviceCookie(req, res, proof); }
+  const id = sha256Hex(proof);
+  state.devices = state.devices || {};
+  let record = state.devices[id];
+  if (record && record.status === 'approved' && state.devicePolicyInstalled) return {ok:true,deviceId:id};
+  if (!record) {
+    if (Object.keys(state.devices).length >= 500) return {ok:false,code:'device_registry_full',error:'The device register is full. Ask the Chief System Administrator to review it.'};
+    const type = ['computer','tablet','phone','other'].includes(body.deviceType) ? body.deviceType : 'other';
+    record = state.devices[id] = {id, label:clipString(body.deviceLabel || (typeof body.device === 'string' ? body.device : '') || 'Staff browser',100),
+      type, firstSeen:nowISO(), requestedBy:cred.username, users:[cred.username], status:'pending'};
+    appendServerAudit(state, cred.username, 'device.requested', 'device', id, 'Verified account requested device approval.', {deviceId:id,type});
+  }
+  /* One-time migration/bootstrap only: the first password-verified Chief
+     enrolls a recovery/commissioning browser under the same atomic CAS. Once
+     installed, clearing cookies or revoking every device NEVER reopens this. */
+  if (!state.devicePolicyInstalled && cred.roleId === 'chief' &&
+      !Object.values(state.devices).some(d => d.status === 'approved')) {
+    record.status = 'approved'; record.approvedBy = cred.username; record.approvedAt = nowISO();
+    state.devicePolicyInstalled = true;
+    appendServerAudit(state, cred.username, 'device.chief_bootstrap', 'device', id,
+      'One-time Chief commissioning/migration browser enrolled. Further devices require Chief approval.', {deviceId:id});
+  }
+  const known = Array.isArray(record.users) ? record.users : [];
+  record.users = [...new Set([...known, cred.username])].slice(-100);
+  record.lastSeen = nowISO();
+  if (save) await saveCloudAuthMetadata(state);
+  if (record.status !== 'approved') return {ok:false,code:record.status === 'pending' ? 'device_pending' : 'device_rejected',
+    deviceId:id, deviceStatus:record.status,
+    error:record.status === 'pending'
+      ? `This browser is awaiting Chief System Administrator approval (device ${id.slice(0,12)}). No staff data has been opened. Keep its cookies and retry after approval.`
+      : 'This browser has been rejected or revoked. Ask the Chief System Administrator; no staff data has been opened.'};
+  return {ok:true,deviceId:id};
+}
+function rosterMailbox(state, seat) {
+  if (seat.unconfirmed) return '';
+  const attestation = state.mailboxes && state.mailboxes[seat.username];
+  const address = String(attestation && attestation.email || '').trim().toLowerCase();
+  return attestation && attestation.confirmedBy && /^[a-z0-9._-]+@lomamofoundation\.org$/.test(address) ? address : '';
+}
+
+function staffExportRoster(sess) {
+  // A commissioned Chief may have chosen a different username. Do not export
+  // a fictitious chief.admin login that does not exist on this installation.
+  return officialStructure.roster.map(seat => seat.roleId === 'chief'
+    ? {...seat, username:sess.username} : seat);
+}
+
+function credentialExportRow(state, seat) {
+  return { username:seat.username, name:seat.name, roleId:seat.roleId, department:seat.dept, county:seat.countyId,
+    jobTitle:seat.job, unconfirmed:Boolean(seat.unconfirmed), email:rosterMailbox(state,seat),
+    mailboxConfirmed:Boolean(rosterMailbox(state,seat)), temporaryPassword:'', expiresAt:null };
 }
 
 async function handleRequest(req, res) {
@@ -2819,6 +2916,11 @@ async function handleRequest(req, res) {
     ? rewritten.replace(/^\/+|\/+$/g, '')
     : urlObj.pathname.replace(/^\/?api\/?/, '').replace(/\/+$/, '');
   const method = (req.method || 'GET').toUpperCase();
+  if (!['GET','HEAD','OPTIONS'].includes(method) && req.headers.origin) {
+    let sameOrigin = false;
+    try { sameOrigin = new URL(req.headers.origin).host === req.headers.host; } catch { /* fail closed */ }
+    if (!sameOrigin) return sendJson(res, 403, {ok:false,code:'origin_denied',error:'Use this installation’s own origin for account and data changes.'});
+  }
   if ((route === '' || route === 'index') && method === 'GET') route = 'health';
 
   /* 0a. Safe Non-Sensitive KV Connection Diagnostics (never exposes tokens or PII) */
@@ -2917,10 +3019,9 @@ async function handleRequest(req, res) {
   const gateSession = extractRequestToken(req) ? getSession(state, req) : null;
   const gateCred = gateSession && state.creds && state.creds[gateSession.username];
   const allowedBeforePassword = new Set(['auth/login', 'auth/logout', 'auth/change-password', 'auth/unlock', 'session/beat', 'session/whoami']);
-  /* Only pre-activation first-run accounts are gated (they carry a session
-     epoch). Accounts issued by a rebuild sign in with the password in their
-     confidential pack and start work immediately. */
-  if (gateCred && gateCred.sessionEpoch && gateCred.mustChange && !allowedBeforePassword.has(route)) {
+  /* Every newly issued temporary credential (including legacy provisioning
+     and rebuild controls) is barred from staff data until privately replaced. */
+  if (gateCred && (gateCred.temporary || gateCred.sessionEpoch) && gateCred.mustChange && !allowedBeforePassword.has(route)) {
     return sendJson(res, 403, { ok:false, code:'password_change_required', error:'Set a private password before opening the workspace.' });
   }
 
@@ -2948,10 +3049,9 @@ async function handleRequest(req, res) {
       rev: state.rev || 0,
       saved: state.saved,
       org: state.org,
-      landingTheme: (state.db && state.db.settings && (Number(state.db.settings.uiEpoch || 0) >= 691 || state.db.settings.landingThemeExplicit) && state.db.settings.landingTheme) || 'heritage',
+      landingTheme: systemConfig(state).entryTheme,
       consoleTheme: (state.db && state.db.settings && Number(state.db.settings.uiEpoch || 0) >= 690 && state.db.settings.consoleTheme) || 'foundation',
       accounts: Object.keys(state.creds || {}).length,
-      admins,
       host: req.headers.host || 'carelink-cloud',
       ai: { online: true, engine: 'CareLink Shared Online Intelligence' },
     });
@@ -3010,9 +3110,9 @@ async function handleRequest(req, res) {
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
     state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.6' }, users: [], audit: [] });
-    const chiefEmail = admin.email
-      ? normalizeEmailAlias(admin.email, username)
-      : normalizeEmailAlias('', username);
+    // Setup has no authenticated mailbox attestation yet. A client-supplied or
+    // guessed address is not evidence that an official work mailbox exists.
+    const chiefEmail = '';
     const chiefDisplayName = admin.name || 'Chief System Administrator';
     let chiefUserId = 'u-chief-admin';
     /* Only the authenticated activation endpoint may set this flag.  Ignore a
@@ -3049,6 +3149,7 @@ async function handleRequest(req, res) {
         digest,
         mustChange: Boolean(admin.mustChange),
         privacyProtected: true,
+        ...(admin.mustChange ? {sessionEpoch:crypto.randomBytes(16).toString('hex'),temporary:temporaryMetadata(state,username)} : {privateSetAt:nowISO()}),
         updatedAt: nowISO(),
       },
     };
@@ -3057,11 +3158,165 @@ async function handleRequest(req, res) {
     state.loginFailures = {};
     state.setup = true;
     state.globallyActivated = false;
+    state.devices = {};
+    state.devicePolicyInstalled = false;
+    await admitLoginDevice(state, req, res, { deviceLabel:'Commissioning browser', deviceType:'computer' }, state.creds[username], { save:false });
     state.rev = (state.rev || 0) + 1;
     appendServerAudit(state, username, 'setup.commissioned', 'installation', 'online-cloud',
       `First-Run Production Setup completed by Chief System Administrator (@${username})`);
     await saveCloudState(state);
     return sendJson(res, 200, { ok: true, rev: state.rev, admin: username });
+  }
+
+  /* Chief-owned server consoles. No normal sync patch can approve a device,
+     confirm a mailbox, alter security config or read a credential export. */
+  if(route === 'admin/reference-master' && method === 'GET') {
+    const sess=getSession(state,req);
+    if(!sess || sess.roleId!=='chief') return sendJson(res,403,{ok:false,error:'Chief session required to generate a synthetic reference export.'});
+    return sendJson(res,200,{ok:true,manifest:generateReferenceManifest()});
+  }
+
+  if (route === 'admin/system-config' && ['GET','POST'].includes(method)) {
+    const sess = getSession(state, req);
+    if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Chief System Administrator access required.'});
+    if (method === 'GET') return sendJson(res,200,{ok:true,config:systemConfig(state)});
+    const body = await readJsonBody(req);
+    const prior = systemConfig(state), next = {...prior};
+    if (Object.hasOwn(body,'entryTheme')) {
+      if (!ENTRY_THEME_IDS.has(body.entryTheme)) return sendJson(res,400,{ok:false,error:'Choose an official LOMAMO entry theme.'});
+      next.entryTheme = body.entryTheme;
+    }
+    if (Object.hasOwn(body,'temporaryPasswordDays')) {
+      const days = Number(body.temporaryPasswordDays);
+      if (!Number.isInteger(days) || days < 1 || days > 30) return sendJson(res,400,{ok:false,error:'Temporary passwords must expire in 1–30 days.'});
+      next.temporaryPasswordDays = days;
+    }
+    state.db.settings = {...(state.db.settings || {}), system:{config:next}, landingTheme:next.entryTheme, landingThemeExplicit:true, uiEpoch:691};
+    state.rev = (state.rev || 0) + 1;
+    state.deltas = []; // configuration must be read as a fresh, authoritative snapshot
+    appendServerAudit(state,sess.username,'system.config_changed','system.config','entry-and-credentials',
+      `${JSON.stringify(prior)} -> ${JSON.stringify(next)}`,{deviceId:sess.deviceId});
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,config:next,rev:state.rev});
+  }
+
+  if (route === 'admin/devices' && method === 'GET') {
+    const sess = getSession(state, req);
+    if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Only the Chief System Administrator may review devices.'});
+    return sendJson(res,200,{ok:true,currentDeviceId:sess.deviceId,devices:Object.values(state.devices || {})});
+  }
+  if (route === 'admin/devices/decision' && method === 'POST') {
+    const sess = getSession(state, req), body = await readJsonBody(req);
+    if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
+    const deviceId = String(body.deviceId || '');
+    const record = Object.hasOwn(state.devices || {},deviceId) ? state.devices[deviceId] : null;
+    if (!record || !['approved','rejected','revoked'].includes(body.decision)) return sendJson(res,400,{ok:false,error:'Choose a registered device and approval decision.'});
+    if (record.id === sess.deviceId && body.decision !== 'approved') return sendJson(res,409,{ok:false,error:'Approve and sign in on another browser before revoking this Chief device.'});
+    record.status = body.decision;
+    record.decidedBy = sess.username; record.decidedAt = nowISO();
+    state.rev = (state.rev || 0) + 1;
+    appendServerAudit(state,sess.username,`device.${body.decision}`,'device',record.id,`Device ${record.label} ${body.decision}.`,{deviceId:sess.deviceId,targetDeviceId:record.id});
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,device:record,rev:state.rev});
+  }
+
+  if (route === 'admin/staff-accounts' && method === 'GET') {
+    const sess = getSession(state,req);
+    if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Chief System Administrator access required.'});
+    return sendJson(res,200,{ok:true,domain:OFFICIAL_EMAIL_DOMAIN,config:systemConfig(state),rows:staffExportRoster(sess).map(seat => ({
+      ...credentialExportRow(state,seat), credentialStatus:state.creds[seat.username]?.revokedAt ? 'revoked' : state.creds[seat.username]?.privateSetAt ? 'private password set' : 'not yet issued / temporary'
+    }))});
+  }
+  if (route === 'admin/staff-accounts/mailbox' && method === 'POST') {
+    const sess = getSession(state,req), body = await readJsonBody(req);
+    if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
+    const seat = staffExportRoster(sess).find(r => r.username === body.username && !r.unconfirmed);
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!seat || (email && (!/^[a-z0-9._-]+@lomamofoundation\.org$/.test(email) || body.confirm !== 'MAILBOX CONFIRMED'))) {
+      return sendJson(res,400,{ok:false,error:'Use a confirmed roster seat, an existing @lomamofoundation.org mailbox and the explicit MAILBOX CONFIRMED attestation. Leave email blank to withdraw confirmation.'});
+    }
+    const user = (state.db.users || []).find(u => u && u.username === seat.username);
+    state.mailboxes = state.mailboxes || {};
+    if (email && Object.entries(state.mailboxes).some(([username,a]) => username !== seat.username && a.email === email)) return sendJson(res,409,{ok:false,error:'This confirmed mailbox already belongs to another seat.'});
+    if(email) state.mailboxes[seat.username]={email,confirmedBy:sess.username,confirmedAt:nowISO()};
+    else delete state.mailboxes[seat.username];
+    if(user){user.email = email; user.mailboxConfirmed = Boolean(email); user.mailboxConfirmedAt = nowISO(); user.mailboxConfirmedBy = sess.username;}
+    if (state.creds[seat.username]) state.creds[seat.username].email = email;
+    state.rev = (state.rev || 0) + 1;
+    appendServerAudit(state,sess.username,'staff.mailbox_confirmed','user',seat.username,email ? 'Chief attested that the official mailbox exists.' : 'Mailbox confirmation withdrawn.',{deviceId:sess.deviceId});
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,rev:state.rev});
+  }
+  if (route === 'admin/staff-accounts/export' && method === 'POST') {
+    const sess = getSession(state,req), body = await readJsonBody(req);
+    if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
+    if (body.confirm !== 'ISSUE TEMPORARY PASSWORDS') return sendJson(res,400,{ok:false,error:'Confirm ISSUE TEMPORARY PASSWORDS to generate the confidential staff export.'});
+    const wanted = Array.isArray(body.usernames) ? new Set(body.usernames.map(String)) : null;
+    if (wanted && (!wanted.size || [...wanted].some(u => !staffExportRoster(sess).some(r => r.username === u)))) return sendJson(res,400,{ok:false,error:'Export selections must come from the official roster.'});
+    const rows = [], exportId = crypto.randomUUID(), issuedAt = nowISO();
+    const expiresAt = Date.now() + systemConfig(state).temporaryPasswordDays * 86400000;
+    state.db.users = Array.isArray(state.db.users) ? state.db.users : [];
+    let issuedCount = 0;
+    for (const seat of staffExportRoster(sess).filter(r => !wanted || wanted.has(r.username))) {
+      const row = credentialExportRow(state,seat), previous = state.creds[seat.username];
+      if (seat.unconfirmed) { row.credentialStatus = 'unconfirmed seat — no credential'; rows.push(row); continue; }
+      if (seat.roleId === 'chief' || (previous && previous.privateSetAt && !previous.mustChange && !previous.revokedAt)) {
+        row.credentialStatus = 'private password retained — not exported'; rows.push(row); continue;
+      }
+      const password = generateStrongPassword(), {salt,digest} = hashPassword(password);
+      const id = previous?.id || `u-${seat.username.replace(/\./g,'-')}`;
+      state.creds[seat.username] = {id,username:seat.username,name:seat.name,roleId:seat.roleId,countyId:seat.countyId,areaIds:seat.areas || [],departmentId:seat.dept,
+        email:row.email,salt,digest,mustChange:true,active:true,issuedAt,issuedBy:sess.username,updatedAt:issuedAt,
+        sessionEpoch:crypto.randomBytes(16).toString('hex'),temporary:{...temporaryMetadata(state,sess.username),exportId,expiresAt}};
+      const index = state.db.users.findIndex(u => u && u.username === seat.username);
+      const user = {...(index >= 0 ? state.db.users[index] : {}),id,username:seat.username,name:seat.name,roleId:seat.roleId,countyId:seat.countyId,areaIds:seat.areas || [],departmentId:seat.dept,jobTitle:seat.job,
+        email:row.email,unconfirmed:false,status:'active',active:true,mustChange:true,mustChangePassword:true,demo:false,synthetic:false};
+      delete user.hash; delete user.salt;
+      if (index >= 0) state.db.users[index] = user; else state.db.users.push(user);
+      rows.push({...row,temporaryPassword:password,expiresAt:new Date(expiresAt).toISOString(),credentialStatus:'single-use temporary — change before workspace'});
+      issuedCount++;
+    }
+    /* Only ciphertext (AES-GCM under Chief reauthentication) and hashes enter
+       KV. The cleartext response is a deliberate confidential download, once;
+       no static file, log, public collection or recovery endpoint exposes it. */
+    const sealed = sealCredentialPack(rows,body.password,sess.username);
+    state.credentialExports = [...(state.credentialExports || []).slice(-9),{id:exportId,issuedAt,expiresAt,exportedAt:issuedAt,issuedBy:sess.username,deviceId:sess.deviceId,rowCount:rows.length,issuedCount,pack:{...sealed,expiresAt}}];
+    state.rev = (state.rev || 0) + 1;
+    state.deltas = [];
+    appendServerAudit(state,sess.username,'staff.credentials_exported','credential-export',exportId,
+      `Confidential roster export: ${rows.length} rows; ${issuedCount} temporary credentials; expires ${new Date(expiresAt).toISOString()}.`,{who:sess.username,when:issuedAt,rowCount:rows.length,issuedCount,deviceId:sess.deviceId});
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,exportId,domain:OFFICIAL_EMAIL_DOMAIN,issuedAt,expiresAt:new Date(expiresAt).toISOString(),rows,rev:state.rev});
+  }
+  if (route === 'admin/staff-accounts/export-log' && method === 'POST') {
+    const sess = getSession(state,req), body = await readJsonBody(req);
+    if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Chief System Administrator access required.'});
+    const formats = new Set(['html','csv','sms-text','whatsapp-text','clipboard','directory-text']);
+    const usernames = Array.isArray(body.usernames) ? [...new Set(body.usernames.map(String))] : [];
+    const rosterNames = new Set(staffExportRoster(sess).map(seat => seat.username));
+    if (!formats.has(body.format) || !usernames.length || usernames.length > 500 || usernames.some(username =>
+      !rosterNames.has(username) || (body.format !== 'directory-text' && !Object.hasOwn(state.creds,username)))) {
+      return sendJson(res,400,{ok:false,error:'Export only official roster seats; confidential packs require existing issued accounts.'});
+    }
+    state.rev = (state.rev || 0) + 1;
+    appendServerAudit(state,sess.username,'staff.export_download_requested','credential-export',body.format,
+      `Chief requested ${body.format} handoff for ${usernames.length} existing accounts.`,
+      {who:sess.username,when:nowISO(),rowCount:usernames.length,deviceId:sess.deviceId,format:body.format});
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,rev:state.rev});
+  }
+  if (route === 'admin/staff-accounts/revoke' && method === 'POST') {
+    const sess = getSession(state,req), body = await readJsonBody(req);
+    if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
+    const username = String(body.username || '');
+    const cred = Object.hasOwn(state.creds || {},username) ? state.creds[username] : null;
+    if (!cred || cred.roleId === 'chief') return sendJson(res,400,{ok:false,error:'Choose an issued staff account; Chief recovery is a separate procedure.'});
+    cred.revokedAt = nowISO(); cred.sessionEpoch = crypto.randomBytes(16).toString('hex');
+    delete cred.temporary;
+    state.rev = (state.rev || 0) + 1;
+    appendServerAudit(state,sess.username,'staff.password_revoked','user',cred.username,'Password and all existing sessions revoked. Re-issue from the roster console.',{deviceId:sess.deviceId});
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,rev:state.rev});
   }
 
   /* 2b. Global System Activation (Chief System Administrator) */
@@ -3073,6 +3328,8 @@ async function handleRequest(req, res) {
       return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may activate CareLink globally.' });
     }
     if (state.rebuildRevision) return sendJson(res, 409, { ok:false, code:'rebuild_already_active', error:'This installation has been rebuilt. Use the Chief reactivation controls instead.' });
+    const entryConfig = systemConfig(state);
+    const entrySystem = {...(state.db?.settings?.system || {}), config:entryConfig};
     state.globallyActivated = true;
     state.db = state.db || {};
     /* Write the activation markers into every server-side location, even when
@@ -3081,6 +3338,9 @@ async function handleRequest(req, res) {
     state.db.settings = {
       ...(state.db.settings || {}),
       ...safeObject(body.settings),
+      system: entrySystem,
+      landingTheme: entryConfig.entryTheme,
+      landingThemeExplicit: true,
       globallyActivated: true,
       awaitingGlobalActivation: false,
     };
@@ -3107,6 +3367,8 @@ async function handleRequest(req, res) {
       const uname = clipString(acc && acc.username, 120).trim().toLowerCase();
       if (!uname || uname === sess.username || FORBIDDEN_KEYS.has(uname)) continue;
       const existing = state.creds[uname];
+      const target=(state.db.users||[]).find(u=>u && u.username===uname);
+      if(acc.roleId==='chief' || target?.unconfirmed || officialStructure.roster.some(r=>r.username===uname && r.unconfirmed)) continue;
       if (existing && existing.roleId === 'chief') continue;
       if (existing && existing.privateSetAt && !existing.mustChange) {
         preserved.push(uname);
@@ -3123,7 +3385,7 @@ async function handleRequest(req, res) {
         }
         continue;
       }
-      const tempPassword = String(acc.password || acc.tempPassword || '') || generateStrongPassword();
+      const tempPassword = generateStrongPassword();
       const { salt, digest } = hashPassword(tempPassword);
       state.creds[uname] = {
         id: clipString(acc.id || `u-${uname.replace(/\./g, '-')}`, 160),
@@ -3133,10 +3395,12 @@ async function handleRequest(req, res) {
         countyId: clipString(acc.countyId || 'kisumu', 80),
         areaIds: Array.isArray(acc.areaIds) ? acc.areaIds.map((id) => clipString(id, 80)).slice(0, 20) : [],
         departmentId: clipString(acc.departmentId || '', 80),
-        email: clipString(normalizeEmailAlias(acc.email, uname), 240),
+        email: rosterMailbox(state,{username:uname}),
         salt,
         digest,
         mustChange: true,
+        sessionEpoch:crypto.randomBytes(16).toString('hex'),
+        temporary:temporaryMetadata(state,sess.username),
         updatedAt: nowISO(),
       };
       const user = (state.db.users || []).find((u) => String(u.username || '').toLowerCase() === uname);
@@ -3151,11 +3415,11 @@ async function handleRequest(req, res) {
         delete user.privacyPasswordSet;
         delete user.privacyPasswordAt;
       }
-      issued.push({ username: uname, password: tempPassword, mustChange: true });
+      issued.push({ username: uname, email:state.creds[uname].email, password: tempPassword, mustChange: true, expiresAt:new Date(state.creds[uname].temporary.expiresAt).toISOString() });
     }
     state.rev = (state.rev || 0) + 1;
     appendServerAudit(state, (sess && sess.username) || body.activatedBy || 'chief.admin', 'system.activated_globally', 'system', 'global-activation',
-      `CareLink activated globally (accounts on @${OFFICIAL_EMAIL_DOMAIN}); ${issued.length} credentials issued, ${preserved.length} private credentials preserved; demo & setup screens permanently removed.`);
+      `CareLink activated globally; ${issued.length} single-use credentials issued, ${preserved.length} private credentials preserved; only attested work mailboxes included; demo & setup screens permanently removed.`,{deviceId:sess.deviceId,who:sess.username,when:nowISO(),rowCount:issued.length});
     await saveCloudState(state);
     return sendJson(res, 200, { ok: true, globallyActivated: true, rev: state.rev, issued, preserved });
   }
@@ -3222,6 +3486,19 @@ async function handleRequest(req, res) {
         : 'Invalid username or password.';
       return sendJson(res, 401, { ok: false, code: 'invalid_credentials', error: preActHint });
     }
+    if (cred.revokedAt || cred.active === false) return sendJson(res, 403, { ok:false, code:'account_revoked', error:'This account has been revoked. Ask the Chief System Administrator.' });
+    const candidateUser = (state.db && state.db.users || []).find(u => u && String(u.username || '').toLowerCase() === username);
+    if (candidateUser && (candidateUser.unconfirmed || candidateUser.active === false || ['inactive','unconfirmed','revoked'].includes(candidateUser.status))) {
+      return sendJson(res, 403, { ok:false, code:'account_inactive', error:'This staff seat is not active.' });
+    }
+    const sessionId = loginSessionId(username, body.loginAttemptId);
+    if (cred.temporary && (Number(cred.temporary.expiresAt) <= Date.now() ||
+        (cred.temporary.usedAt && (cred.temporary.sessionId !== sessionId || cred.temporary.deviceId !== sha256Hex(deviceProof(req)))))) {
+      return sendJson(res, 403, { ok:false, code:'temporary_password_unavailable', error:'This temporary password has expired or has already been used. Ask the Chief System Administrator to re-issue it.' });
+    }
+    const admission = await admitLoginDevice(state, req, res, body, cred);
+    if (!admission.ok) return sendJson(res, 403, admission);
+    cred = state.creds[username];
     const hadPriorFailures = Boolean(
       state.loginFailures && (
         Object.prototype.hasOwnProperty.call(state.loginFailures, username) ||
@@ -3248,8 +3525,7 @@ async function handleRequest(req, res) {
       }
       await saveCloudAuthMetadata(state);
     }
-    const sessionId = loginSessionId(username, body.loginAttemptId);
-    const token = mintSignedSessionToken(cred, username, sessionId);
+    const token = mintSignedSessionToken(cred, username, sessionId, admission.deviceId);
     const dbUsers = (state.db && Array.isArray(state.db.users)) ? state.db.users : [];
     const dbMatch = dbUsers.find((u) => String(u.username).toLowerCase() === username)
       || (cred.roleId === 'chief' ? dbUsers.find((u) => u && u.roleId === 'chief') : null);
@@ -3280,7 +3556,7 @@ async function handleRequest(req, res) {
       (state.db && Array.isArray(state.db.visits) && state.db.visits.length > 800) ||
       (state.db && Array.isArray(state.db.pdcas) && state.db.pdcas.length > 800)
     );
-    if (!obviouslyLarge && !(cred.sessionEpoch && cred.mustChange)) {
+    if (!obviouslyLarge && !((cred.temporary || cred.sessionEpoch) && cred.mustChange)) {
       const loginScope = { username, userId: cred.id, roleId: cred.roleId, countyId: cred.countyId || userRec.countyId || 'kisumu' };
       const cleanClientDb = scopedDbForSession(state.db || {}, state, loginScope);
       if (state.setup && cleanClientDb && typeof cleanClientDb === 'object') {
@@ -3304,6 +3580,14 @@ async function handleRequest(req, res) {
       ok: false, code: 'session_active', retryAfterSeconds: SESSION_LEASE_SECONDS,
       error: `This account already has an active online session on another device or browser. Sign out there first. If that device is unavailable, wait up to ${Math.ceil(SESSION_LEASE_SECONDS / 60)} minutes for the idle session to expire.`,
     });
+    if (cred.temporary && !cred.temporary.usedAt) {
+      cred.temporary.usedAt = nowISO();
+      cred.temporary.sessionId = sessionId;
+      cred.temporary.deviceId = admission.deviceId;
+      appendServerAudit(state, cred.id || username, 'credentials.temporary_consumed', 'user', username,
+        'Single-use temporary password redeemed; workspace locked until private-password replacement.', { deviceId:admission.deviceId });
+      await saveCloudAuthMetadata(state);
+    }
     return sendJson(res, 200, {
       ok: true,
       token,
@@ -3312,7 +3596,7 @@ async function handleRequest(req, res) {
       user: userRec,
       username,
       mustChange: Boolean(cred.mustChange),
-      passwordBeforeWorkspace: Boolean(cred.sessionEpoch && cred.mustChange),
+      passwordBeforeWorkspace: Boolean((cred.temporary || cred.sessionEpoch) && cred.mustChange),
       idleSeconds: IDLE_SECONDS,
       ...(inlineState ? { inlineState } : {}),
     });
@@ -3377,7 +3661,7 @@ async function handleRequest(req, res) {
       roleId: sess.roleId,
       countyId: sess.countyId || 'kisumu',
     };
-    const refreshedToken = mintSignedSessionToken(cred, sess.username, sessionId);
+    const refreshedToken = mintSignedSessionToken(cred, sess.username, sessionId, sess.deviceId);
     return sendJson(res, 200, { ok: true, expiresIn: IDLE_SECONDS, token: refreshedToken });
   }
 
@@ -3403,6 +3687,7 @@ async function handleRequest(req, res) {
     cred.salt = salt;
     cred.digest = digest;
     cred.mustChange = false;
+    delete cred.temporary;
     cred.privateSetAt = nowISO();
     cred.updatedAt = nowISO();
     if (state.db && Array.isArray(state.db.users)) {
@@ -3452,19 +3737,17 @@ async function handleRequest(req, res) {
     }
     const rows = openCredentialPack(state.reactivationPack, body.password, sess.username);
     if (!rows) return sendJson(res, 404, { ok:false, code:'pack_unavailable', error:'No recoverable pack is available, or the 24-hour recovery window has expired.' });
-    /* Still-valid means "still the password on the account": a holder who has
-       since set their own password invalidates that row. Accounts issued by the
-       rebuild are not flagged for a forced change, so the flag itself is not a
-       validity test. */
+    /* Recovery excludes redeemed/expired/revoked temporaries and any account
+       whose holder has since chosen a private password. */
     const usable = rows.filter(row => {
       const cred = state.creds[row.username];
-      if (!cred) return false;
+      if (!cred || cred.revokedAt || !cred.temporary || cred.temporary.usedAt || Number(cred.temporary.expiresAt)<=Date.now()) return false;
       const issued = cred.issuedAt || state.saved || new Date().toISOString();
       const changedAfterIssue = Boolean(cred.privateSetAt && new Date(cred.privateSetAt).getTime() > new Date(issued).getTime());
       return !changedAfterIssue && verifyPassword(row.tempPassword, cred.salt, cred.digest);
     });
     appendServerAudit(state, sess.userId || sess.username, 'credentials.reactivation_pack_recovered', 'credentials', 'official-hierarchy',
-      `Chief recovered ${usable.length} still-valid temporary credentials.`);
+      `Chief recovered ${usable.length} still-valid temporary credentials.`,{deviceId:sess.deviceId,who:sess.username,when:nowISO(),rowCount:usable.length});
     await saveCloudState(state);
     return sendJson(res, 200, { ok:true, rev:state.rev, issued:usable, expiresAt:state.reactivationPack.expiresAt });
   }
@@ -3490,13 +3773,18 @@ async function handleRequest(req, res) {
       /* Never silently demote or replace another Chief System Administrator through provisioning. */
       if (state.creds[uname] && state.creds[uname].roleId === 'chief') continue;
       if (acc.roleId === 'chief' && sess.roleId !== 'chief') continue;
-      const tempPassword = (typeof acc.password === 'string' && acc.password.length >= 10) ? acc.password : generateStrongPassword();
+      const currentUser=(state.db.users||[]).find(u=>u && u.username===uname);
+      if(currentUser?.unconfirmed || officialStructure.roster.some(r=>r.username===uname && r.unconfirmed)) continue;
+      if(sess.roleId!=='chief' && (!currentUser || currentUser.roleId==='chief' ||
+        (sess.roleId==='countyadmin' && currentUser.countyId!==sess.countyId))) continue;
+      if(sess.roleId!=='chief' && ((acc.roleId && acc.roleId!==currentUser.roleId) || (acc.countyId && acc.countyId!==currentUser.countyId))) continue;
+      const tempPassword = generateStrongPassword();
       const { salt, digest } = hashPassword(tempPassword);
-      const mustChangeFlag = acc.mustChange !== undefined ? Boolean(acc.mustChange) : true;
+      const mustChangeFlag = true;
       state.creds[uname] = {
         id: acc.id || `u-${uname.replace(/\./g, '-')}`,
         username: uname,
-        email: clipString(normalizeEmailAlias(acc.email, uname), 240),
+        email: rosterMailbox(state,{username:uname}),
         name: acc.name || uname,
         roleId: acc.roleId || 'staff',
         countyId: acc.countyId || 'kisumu',
@@ -3506,6 +3794,7 @@ async function handleRequest(req, res) {
         salt,
         digest,
         mustChange: mustChangeFlag,
+        temporary:temporaryMetadata(state,sess.username),
         updatedAt: nowISO(),
       };
       if (state.db && Array.isArray(state.db.users)) {
@@ -3536,12 +3825,13 @@ async function handleRequest(req, res) {
         county: acc.county || '',
         password: tempPassword,
         mustChange: true,
+        expiresAt: new Date(state.creds[uname].temporary.expiresAt).toISOString(),
         smsText,
       });
     }
     state.rev = (state.rev || 0) + 1;
     appendServerAudit(state, sess.userId || sess.username, 'credentials.sms_pack_provisioned', 'credentials', 'bulk-sms-pack',
-      `Generated unique strong temporary passwords for ${issued.length} accounts (mandatory first-login change enforced)`);
+      `Generated unique strong temporary passwords for ${issued.length} accounts (mandatory first-login change enforced)`,{deviceId:sess.deviceId,who:sess.username,when:nowISO(),rowCount:issued.length});
     await saveCloudState(state);
     return sendJson(res, 200, { ok: true, rev: state.rev, issued });
   }
@@ -3578,6 +3868,9 @@ async function handleRequest(req, res) {
     cred.salt = salt;
     cred.digest = digest;
     cred.mustChange = true;
+    cred.temporary = temporaryMetadata(state,sess.username);
+    delete cred.revokedAt;
+    delete cred.privateSetAt;
     cred.sessionEpoch = crypto.randomBytes(16).toString('hex');
     cred.updatedAt = nowISO();
     if (state.db && Array.isArray(state.db.users)) {
@@ -3586,9 +3879,9 @@ async function handleRequest(req, res) {
     }
     state.rev = (state.rev || 0) + 1;
     appendServerAudit(state, sess.userId || sess.username, 'credentials.temp_reissued', 'user', uname,
-      `Temporary SMS reset password issued for @${uname}; mandatory first-login privacy reset armed`);
+      `Temporary SMS reset password issued for @${uname}; mandatory first-login privacy reset armed`,{deviceId:sess.deviceId,rowCount:1});
     await saveCloudState(state);
-    return sendJson(res, 200, { ok: true, username: uname, password: tempPassword, mustChange: true });
+    return sendJson(res, 200, { ok: true, username: uname, password: tempPassword, mustChange: true, expiresAt:new Date(cred.temporary.expiresAt).toISOString() });
   }
 
   /* 5c. Full reference-master import: authenticated, chunked and KV-backed.
@@ -3949,6 +4242,9 @@ async function handleRequest(req, res) {
 
     for (const p of patches) {
       if (!p || typeof p.c !== 'string' || !SAFE_COLLECTION.test(p.c) || FORBIDDEN_KEYS.has(p.c)) continue;
+      if (['devices','devicesPending','devicePolicyInstalled','creds','credentialExports','passwordVault','system','config','reactivationPack','mailboxes'].includes(p.c)) {
+        rejected.push({c:p.c, id:p.id, reason:'server_owned_security'}); continue;
+      }
       if (p.c === 'personalPrefs') {
         const prefKey = clipString(p.id || '', 160).trim();
         if (!prefKey || FORBIDDEN_KEYS.has(prefKey)) continue;
@@ -3967,9 +4263,14 @@ async function handleRequest(req, res) {
         continue;
       }
       if (p.c === 'settings') {
+        if (sess.roleId !== 'chief') { rejected.push({c:p.c,id:p.id,reason:'chief_configuration_required'}); continue; }
         let appliedPatch = p;
         if (p.set && p.set.value) {
           const incoming = safeObject(p.set.value);
+          delete incoming.system;
+          delete incoming._landingPreview;
+          delete incoming.landingTheme;
+          delete incoming.landingThemeExplicit;
           /* Global activation is controlled only by setup/activate-global.
              Ordinary browser patches may change preferences, but can neither
              switch demo mode back on nor activate the installation themselves. */
@@ -4021,6 +4322,9 @@ async function handleRequest(req, res) {
       const col = state.db[p.c];
       const idx = col.findIndex((r) => r && r.id === p.id);
       let set = safeObject(p.set);
+      if (p.c === 'users') {
+        for (const key of ['temporary','password','tempPassword','digest','mailboxConfirmed','mailboxConfirmedAt','mailboxConfirmedBy']) delete set[key];
+      }
       /* A call record keeps only a bounded, text-only handshake. Each side owns
          one half of it, so an answer can never overwrite the caller's offer. */
       if (p.c === 'teamCalls' && set.signal && typeof set.signal === 'object') {
@@ -4278,7 +4582,7 @@ async function handleRequest(req, res) {
       ...(existingCred || {}),
       id: (existingCred && existingCred.id) || (matchedUser && matchedUser.id) || `u-${uname.replace(/\./g, '-')}`,
       username: uname,
-      email: normalizeEmailAlias((existingCred && existingCred.email) || (matchedUser && matchedUser.email), uname),
+      email: (existingCred && existingCred.email) || '',
       name: (existingCred && existingCred.name) || (matchedUser && matchedUser.name) || uname,
       roleId: (existingCred && existingCred.roleId) || (matchedUser && matchedUser.roleId) || 'staff',
       countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',
@@ -4289,6 +4593,8 @@ async function handleRequest(req, res) {
       privateSetAt: nowISO(),
       updatedAt: nowISO(),
     };
+    delete state.creds[uname].temporary;
+    delete state.creds[uname].revokedAt;
     if (matchedUser) {
       matchedUser.email = state.creds[uname].email;
       matchedUser.active = true;
@@ -4342,7 +4648,7 @@ async function handleRequest(req, res) {
       ...(existingCred || {}),
       id: (existingCred && existingCred.id) || (matchedUser && matchedUser.id) || `u-${uname.replace(/\./g, '-')}`,
       username: uname,
-      email: normalizeEmailAlias((existingCred && existingCred.email) || (matchedUser && matchedUser.email), uname),
+      email: (existingCred && existingCred.email) || '',
       name: (existingCred && existingCred.name) || (matchedUser && matchedUser.name) || uname,
       roleId: (existingCred && existingCred.roleId) || (matchedUser && matchedUser.roleId) || 'staff',
       countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',
@@ -4353,6 +4659,8 @@ async function handleRequest(req, res) {
       privateSetAt: nowISO(),
       updatedAt: nowISO(),
     };
+    delete state.creds[uname].temporary;
+    delete state.creds[uname].revokedAt;
     if (matchedUser) {
       matchedUser.email = state.creds[uname].email;
       matchedUser.active = true;
@@ -4393,7 +4701,20 @@ export async function ownerListChiefs() {
   });
 }
 
-export async function ownerRecoverChief({ username, password, onProgress = null }) {
+export async function ownerListPendingDevices(username) {
+  const uname = String(username || '').trim().toLowerCase();
+  return requestSnapshot.run({ snapshotKnown: false }, async () => {
+    const { state } = await loadCloudHead();
+    if (!state.setup || state.creds[uname]?.roleId !== 'chief') {
+      throw new Error('That username is not an existing Chief account on this database.');
+    }
+    return Object.values(state.devices || {})
+      .filter(device => device && device.status === 'pending' && device.users?.includes(uname))
+      .map(({ id, label, type, firstSeen, requestedBy }) => ({ id, label, type, firstSeen, requestedBy }));
+  });
+}
+
+export async function ownerRecoverChief({ username, password, deviceId = null, onProgress = null }) {
   const uname = String(username || '').trim().toLowerCase();
   if (!uname || typeof password !== 'string') throw new Error('A Chief username and new password are required.');
   const pwError = validatePrivacyPassword(password, uname);
@@ -4417,9 +4738,18 @@ export async function ownerRecoverChief({ username, password, onProgress = null 
     if (!state.setup || !cred || cred.roleId !== 'chief' || (user && user.roleId !== 'chief')) {
       throw new Error('That username is not an existing Chief account on this database. No changes were made.');
     }
+    if(deviceId!==null){
+      const device=Object.hasOwn(state.devices || {},String(deviceId)) ? state.devices[String(deviceId)] : null;
+      if(!device || device.status!=='pending' || !device.users?.includes(uname)) throw new Error('Choose the exact pending Chief device ID from the owner register; no browser was approved.');
+      device.status='approved';device.decidedBy='database-owner';device.decidedAt=nowISO();
+      state.devicePolicyInstalled=true;
+      appendServerAudit(state,uname,'device.owner_recovery','device',device.id,'Database owner explicitly approved the pending Chief recovery browser.',{targetDeviceId:device.id});
+    }
     const { salt, digest } = hashPassword(password);
     Object.assign(cred, { salt, digest, sessionEpoch: crypto.randomBytes(16).toString('hex'),
       mustChange: false, privateSetAt: nowISO(), updatedAt: nowISO() });
+    delete cred.temporary;
+    delete cred.revokedAt;
     if (user) {
       Object.assign(user, { active: true, status: 'active', mustChange: false, mustChangePassword: false,
         dpaFirstLoginRequired: false, failedLogins: 0, failedAttempts: 0, lockedUntil: null,

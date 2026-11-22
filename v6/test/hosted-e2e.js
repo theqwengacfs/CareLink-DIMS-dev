@@ -1,3 +1,4 @@
+const {dispatchWithDeviceCookie}=require('./device-cookies.cjs');
 const requireCrypto = require('node:crypto');
 /* End-to-end hosted commissioning proof: one KV document, a PC and a fresh tablet. */
 const assert = require('node:assert/strict');
@@ -62,7 +63,7 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
       set statusCode(value) { status = value; }, get statusCode() { return status; },
       setHeader() {}, end(value) { raw = value || ''; },
     };
-    await handler(req, res);
+    await dispatchWithDeviceCookie(handler,req,res);
     return { ok: status >= 200 && status < 300, status, json: async () => raw ? JSON.parse(raw) : {} };
   }
 
@@ -105,8 +106,10 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   const pack = await pc.run('PROD_SETUP.activateSystemGlobally({})');
   assert.ok(pack && pack.count > 0, 'global activation must issue a server-backed staff pack');
   const staff = pack.rows[0];
-  pc.run(`__downloads = []; download = (name, body, type) => __downloads.push({ name, body, type });
-    PROD_SETUP.downloadCSV(); PROD_SETUP.downloadSMSText();`);
+  pc.run(`__downloads = []; download = (name, body, type) => __downloads.push({ name, body, type });`);
+  // Each hosted handoff is released only after its server audit commits.
+  await pc.run('PROD_SETUP.downloadCSV()');
+  await pc.run('PROD_SETUP.downloadSMSText()');
   const downloads = pc.run('__downloads');
   assert.equal(downloads.length, 2, 'authenticated chief can export both SMS pack formats');
   assert.match(downloads[0].name, /\.csv$/);
@@ -123,6 +126,8 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   const tabletLogin = await tablet.run(`AUTH.loginOnline(${JSON.stringify(staff.username)}, ${JSON.stringify(staff.tempPassword)}, 'tablet')`);
   assert.equal(tabletLogin.ok, true, JSON.stringify(tabletLogin));
   assert.equal(tabletLogin.mustChange, true);
+  tablet.run(`__form={current:${JSON.stringify(staff.tempPassword)},password:'Hosted#Private2027!Xy',password2:'Hosted#Private2027!Xy'};`);
+  await tablet.run('FORMS.mustchange6(new FormData())');
   assert.equal(tablet.run('DB.db.settings.globallyActivated'), true);
   assert.equal(tablet.run(`DB.db.users.some(u => u.username === ${JSON.stringify(staff.username)})`), true);
 
@@ -140,28 +145,29 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   const rebuilt = pc.run('PROD_SETUP.lastPack');
   assert.ok(rebuilt && rebuilt.rows.length > 0 && rebuilt.rows.some(r=>r.username==='director'));
   assert.equal(pc.run('DB.db.users.find(u=>u.username==="president").active'),false);
-  pc.run(`__downloads = []; PROD_SETUP.downloadCredentialDocument();`);
+  pc.run('__downloads = []');
+  await pc.run('PROD_SETUP.downloadCredentialDocument()');
   assert.ok(pc.run('__downloads[0].body.includes(esc(PROD_SETUP.lastPack.rows[0].tempPassword))'));
   const director = rebuilt.rows.find(r=>r.username==='director');
   const newTablet = client();
   newTablet.run('SYNC.queue = () => {}; DB.load();');
   const currentHealth = await newTablet.run('hostProbe()');
   newTablet.run(`APPX.host = ${JSON.stringify(currentHealth)}; SYNC.server = APPX.host;`);
-  /* A re-issued seat signs in on the official alias and works immediately:
-     the pack password is a working credential, not a preview of a change gate. */
-  assert.match(director.email, /@lomamofoundation\.org$/);
-  const newLogin = await newTablet.run(`AUTH.loginOnline(${JSON.stringify(director.email)}, ${JSON.stringify(director.tempPassword)}, 'tablet')`);
+  /* A re-issued seat signs in by username. Its single-use password grants
+     only the mandatory replacement screen, never an immediate workspace. */
+  assert.equal(director.email,'','unconfirmed mailboxes must not be invented');
+  const newLogin = await newTablet.run(`AUTH.loginOnline(${JSON.stringify(director.username)}, ${JSON.stringify(director.tempPassword)}, 'tablet')`);
   assert.equal(newLogin.ok,true,JSON.stringify(newLogin));
-  assert.equal(newLogin.mustChange,false);
-  assert.equal(newTablet.run('SYNC._passwordBeforeWorkspace'),false,'no forced first-login password change');
-  assert.ok(newTablet.run('DB.db.users.length')>1,'the real scoped workspace loads straight away');
+  assert.equal(newLogin.mustChange,true);
+  assert.equal(newTablet.run('SYNC._passwordBeforeWorkspace'),true,'server gates every new temporary password');
+  assert.equal(newTablet.run('DB.db.patients.length'),0,'no workspace is loaded before private replacement');
   assert.equal(newTablet.run('AUTH.user.username'),'director');
-  /* Setting a private password later is optional and still rotates cleanly. */
+  /* Private replacement is compulsory, and the issued temporary is retired. */
   newTablet.run(`__form = {current:${JSON.stringify(director.tempPassword)}, password:'River#Lake2027!Qw', password2:'River#Lake2027!Qw'};`);
   await newTablet.run('FORMS.mustchange6(new FormData())');
   assert.equal(newTablet.run('AUTH.mustChange'),false);
   assert.equal(newTablet.run('AUTH.user.username'),'director');
-  console.log(`hosted-e2e: PC setup + chief activation + rebuild and immediate official-alias sign-in passed (${rebuilt.count} issued accounts)`);
+  console.log(`hosted-e2e: PC setup + Chief activation + audited downloads + rebuild and mandatory private-password sign-in passed (${rebuilt.count} issued accounts)`);
 })().catch((error) => {
   console.error(error);
   process.exit(1);

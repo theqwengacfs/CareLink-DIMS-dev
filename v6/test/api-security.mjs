@@ -1,3 +1,4 @@
+import { dispatchWithDeviceCookie } from './device-cookies.cjs';
 import * as requireCrypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import zlib from 'node:zlib';
@@ -75,7 +76,7 @@ async function call(route, { method = 'GET', body, token } = {}) {
   };
   let status = 0; let raw = '';
   const res = { set statusCode(v) { status = v; }, get statusCode() { return status; }, setHeader() {}, end(s) { raw = s || ''; } };
-  await handler(req, res);
+  await dispatchWithDeviceCookie(handler,req,res);
   return { status, body: raw ? JSON.parse(raw) : {} };
 }
 
@@ -259,6 +260,18 @@ await check('public setup cannot self-declare global activation', async () => {
   assert.equal(health.body.globallyActivated, false);
 });
 
+const issuedPasswords=new Map();
+async function personalLogin(username){
+  const password=issuedPasswords.get(username);
+  const login=await call('auth/login',{method:'POST',body:{username,password}});
+  assert.equal(login.status,200,JSON.stringify(login.body));
+  if(login.body.passwordBeforeWorkspace){
+    const next='Private#2027!'+requireCrypto.createHash('sha256').update(username).digest('hex').slice(0,8);
+    const change=await call('auth/change-password',{method:'POST',token:login.body.token,body:{current:password,password:next}});
+    assert.equal(change.status,200,JSON.stringify(change.body));issuedPasswords.set(username,next);
+  }
+  return login;
+}
 let chiefToken = '';
 let staffToken = '';
 let caregiverToken = '';
@@ -303,20 +316,21 @@ await check('global activation is committed to top-level and nested authoritativ
         { id: 'u-caregiver-one', username: 'caregiver.one', name: 'Caregiver One', roleId: 'caregiver', countyId: 'kisumu', areaIds: ['nyalenda'], status: 'pending_activation', active: true },
         { id: 'u-finance-one', username: 'finance.one', name: 'Finance One', roleId: 'finance', countyId: 'kisumu', status: 'pending_activation', active: true },
         { id: 'u-mcm-kisumu', username: 'mcm.kisumu', name: 'Lead MCM', roleId: 'mcm', countyId: 'kisumu', status: 'pending_activation', active: true },
-        { id: 'u-mcm-homabay', username: 'mcm.homabay', name: 'Homa Bay MCM', roleId: 'mcm', countyId: 'homabay', status: 'pending_activation', active: true },
+        { id: 'u-mcm-homabay', username: 'mcm.localtest', name: 'Homa Bay MCM', roleId: 'mcm', countyId: 'homabay', status: 'pending_activation', active: true },
       ],
       accounts: [
         { id: 'u-staff-one', username: 'staff.one', name: 'Staff One', roleId: 'me', countyId: 'kisumu', password: 'TempStaff#2026!' },
         { id: 'u-caregiver-one', username: 'caregiver.one', name: 'Caregiver One', roleId: 'caregiver', countyId: 'kisumu', password: 'TempCaregiver#2026!' },
         { id: 'u-finance-one', username: 'finance.one', name: 'Finance One', roleId: 'finance', countyId: 'kisumu', password: 'TempFinance#2026!' },
         { id: 'u-mcm-kisumu', username: 'mcm.kisumu', name: 'Lead MCM', roleId: 'mcm', countyId: 'kisumu', password: 'TempLeadMcm#2026!' },
-        { id: 'u-mcm-homabay', username: 'mcm.homabay', name: 'Homa Bay MCM', roleId: 'mcm', countyId: 'homabay', password: 'TempHomaMcm#2026!' },
+        { id: 'u-mcm-homabay', username: 'mcm.localtest', name: 'Homa Bay MCM', roleId: 'mcm', countyId: 'homabay', password: 'TempHomaMcm#2026!' },
       ],
     },
   });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.issued.length, 5);
-  assert.deepEqual(r.body.issued.map((u) => u.username).sort(), ['caregiver.one', 'finance.one', 'mcm.homabay', 'mcm.kisumu', 'staff.one']);
+  r.body.issued.forEach(row=>issuedPasswords.set(row.username,row.password));
+  assert.deepEqual(r.body.issued.map((u) => u.username).sort(), ['caregiver.one', 'finance.one', 'mcm.kisumu', 'mcm.localtest', 'staff.one']);
   const health = await call('health');
   assert.equal(health.body.globallyActivated, true);
   const stored = JSON.parse(kv.get('carelink_cloud_v66'));
@@ -328,18 +342,19 @@ await check('global activation is committed to top-level and nested authoritativ
 });
 
 await check('globally issued staff credentials work from a fresh online session', async () => {
-  const first = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'TempStaff#2026!', device: 'tablet-test' } });
+  const first = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: issuedPasswords.get('staff.one'), device: 'tablet-test' } });
   assert.equal(first.status, 200, JSON.stringify(first.body));
   assert.equal(first.body.mustChange, true);
-  const state = await call('state', { token: first.body.token });
-  assert.equal(state.status, 200, JSON.stringify(state.body));
-  const staff = state.body.db.users.find((u) => u.username === 'staff.one');
+  const blocked = await call('state', { token: first.body.token });
+  assert.equal(blocked.status,403);
+  assert.equal(blocked.body.code,'password_change_required');
+  const staff = first.body.user;
   assert.ok(staff);
   assert.equal(Object.hasOwn(staff, 'hash'), false);
   assert.equal(Object.hasOwn(staff, 'salt'), false);
   const changed = await call('auth/change-password', {
     method: 'POST', token: first.body.token,
-    body: { current: 'TempStaff#2026!', password: 'PrivateStaff#2027!' },
+    body: { current: issuedPasswords.get('staff.one'), password: 'PrivateStaff#2027!' },
   });
   assert.equal(changed.status, 200, JSON.stringify(changed.body));
   const concurrent = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', device: 'pc-test' } });
@@ -354,8 +369,8 @@ await check('globally issued staff credentials work from a fresh online session'
 });
 
 await check('only the Kisumu lead MCM receives two-county clinical oversight', async () => {
-  const lead = await call('auth/login', { method: 'POST', body: { username: 'mcm.kisumu', password: 'TempLeadMcm#2026!' } });
-  const local = await call('auth/login', { method: 'POST', body: { username: 'mcm.homabay', password: 'TempHomaMcm#2026!' } });
+  const lead = await personalLogin('mcm.kisumu');
+  const local = await personalLogin('mcm.localtest');
   assert.equal(lead.status, 200); assert.equal(local.status, 200);
   const leadState = await call('state', { token: lead.body.token });
   const localState = await call('state', { token: local.body.token });
@@ -409,7 +424,7 @@ await check('server-side state and paged collection reads deny clinical records 
 });
 
 await check('finance receives county-limited accounting data with patient fields redacted and can only update financial fields', async () => {
-  const login = await call('auth/login', { method: 'POST', body: { username: 'finance.one', password: 'TempFinance#2026!' } });
+  const login = await personalLogin('finance.one');
   assert.equal(login.status, 200, JSON.stringify(login.body));
   const financeToken = login.body.token;
   const snapshot = await call('state', { token: financeToken });
@@ -443,7 +458,7 @@ await check('meeting invite links are visible only to invitees/managers; non-man
 });
 
 await check('clinical state is county/area scoped and out-of-scope writes are refused by the API', async () => {
-  const login = await call('auth/login', { method: 'POST', body: { username: 'caregiver.one', password: 'TempCaregiver#2026!' } });
+  const login = await personalLogin('caregiver.one');
   assert.equal(login.status, 200, JSON.stringify(login.body));
   caregiverToken = login.body.token;
   const preDemotionPackResponse = await call('state?fast=1', { token: caregiverToken });
@@ -510,7 +525,7 @@ await check('clinical state is county/area scoped and out-of-scope writes are re
     { c: 'notifications', id: 'n-safe', set: { id: 'n-safe', userId: 'u-finance-one', title: 'Meeting reminder', body: 'Please confirm the department meeting time.', kind: 'info' } },
   ] } });
   assert.equal(safeNotification.body.rejected.length, 0);
-  const financeLogin = await call('auth/login', { method: 'POST', body: { username: 'finance.one', password: 'TempFinance#2026!' } });
+  const financeLogin = await personalLogin('finance.one');
   const financeMessageView = await call('state', { token: financeLogin.body.token });
   assert.ok(financeMessageView.body.db.messages.some((m) => m.id === 'msg-valid-direct'), 'the notified participant can read the server-authorized message');
   assert.ok(financeMessageView.body.db.notifications.some((n) => n.id === 'n-safe'), 'only the addressed account receives the permitted notification');
@@ -670,7 +685,7 @@ await check('a call invitation can only ring the people the server says are in t
 });
 
 await check('call records are readable and writable only by their two sides', async () => {
-  const guest = await call('auth/login', { method: 'POST', body: { username: 'caregiver.one', password: 'TempCaregiver#2026!' } });
+  const guest = await personalLogin('caregiver.one');
   assert.equal(guest.status, 200, JSON.stringify(guest.body));
   callCaregiverToken = guest.body.token;
   const snapshot = await call('state', { token: callCaregiverToken });

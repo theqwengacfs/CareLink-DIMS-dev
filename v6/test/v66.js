@@ -217,9 +217,12 @@ test('6. Standard Foundation Daylight default on Samsung A11+ 5G / Wi-Fi Tablet 
     const railOnHome = NAVP.effectiveRail(u, 'home');
     globalThis.navigator = prevNav;
 
-    /* Desktop Console Home starts expanded; scrolling or clicking features on #content folds automatically to widescreen */
+    /* A fresh first-login Home starts expanded. Actual navigation is tested
+       separately: go() now correctly ends a held expansion on every route. */
     AUTH.login('caregiver.manyatta', 'LOMAMO2026');
-    go('home', {});
+    APPX.view='home'; APPX.params={};
+    NAVP._tempOpen=false; NAVP._workspaceEngaged=false;
+    render();
     const desktopHomeInitialRail = NAVP.effectiveRail(AUTH.user, 'home');
     const domTargets = {};
     const mkMock = () => {
@@ -339,8 +342,10 @@ test('8. 4-Step Live Host Setup -> Official Login -> Must-Change Password -> Act
 
   /* Step D: Chief Admin clicks Activate System Globally -> generates WhatsApp sheet for all organogram accounts */
   const actRes = await JA(`PROD_SETUP.activateSystemGlobally({ emailDomain:'lomamo.org', portalUrl:'https://carelink.lomamo.org' })`);
-  ok('Activate System Globally generates credentials for all organogram staff accounts + WhatsApp text sheet',
-    actRes.ok === true && actRes.count >= 50 && /WhatsApp|Temporary Password|lomamofoundation\.org/i.test(actRes.whatsappText));
+  const issuable = J(`OFFICIAL_ROSTER.filter(r=>!r.unconfirmed && r.roleId!=='chief').map(r=>r.username)`);
+  ok('Activation issues only confirmed actual-roster staff, never the Chief or unconfirmed seats',
+    actRes.ok === true && actRes.count === issuable.length && actRes.rows.every(r=>issuable.includes(r.username)) &&
+    /Temporary Password/i.test(actRes.whatsappText), `issued=${actRes.count}, confirmed non-Chief seats=${issuable.length}`);
   ok('System is now permanently marked Globally Activated', run('PROD_SETUP.isGloballyActivated()') === true);
 
   /* Step E: Verify ALL demo & setup UI is permanently removed from Landing & Sign-In */
@@ -383,7 +388,8 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
   const vm = require('vm');
   const html = fs.readFileSync(path.join(REPO, 'public', 'carelink-v6.html'), 'utf8');
   const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
-  ok('public/carelink-v6.html embeds app assets, application code and PWA installer scripts', scripts.length === 3);
+  ok('public/carelink-v6.html embeds retired-host guard, assets, application code and PWA installer',
+    scripts.length === 4 && scripts[0][1].includes('theqwengacfs.github.io') && scripts[1][1].includes('window.LOGO') && scripts[2][1].includes('const APPX'));
 
   const store = new Map();
   const el = (tag = 'div') => ({
@@ -423,9 +429,7 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
   };
   bctx.window = bctx; bctx.globalThis = bctx; bctx.self = bctx;
   vm.createContext(bctx);
-  vm.runInContext(scripts[0][1], bctx, { filename: 'carelink-assets.js' });
-  vm.runInContext(scripts[1][1], bctx, { filename: 'carelink-bundle.js' });
-  vm.runInContext(scripts[2][1], bctx, { filename: 'carelink-pwa.js' });
+  scripts.forEach((script,index)=>vm.runInContext(script[1], bctx, { filename: `carelink-inline-${index}.js` }));
   for (const l of winListeners) { if (l.ev === 'DOMContentLoaded') await l.fn(); }
 
   const landingHtml = root.innerHTML;
