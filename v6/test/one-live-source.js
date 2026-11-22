@@ -25,6 +25,14 @@ function check(name, condition) {
 
   check('host globallyActivated flag wins without any local demo/activation marker', run('PROD_SETUP.isGloballyActivated()') === true);
 
+  const commissionedLanding = String(run('renderLanding6()'));
+  check('activated landing explains why setup is unavailable and offers recovery rather than a misleading setup button',
+    commissionedLanding.includes('already commissioned') && commissionedLanding.includes('data-act="login-recovery"') &&
+    !commissionedLanding.includes('data-act="goto-onboard"'));
+  run(`ACTIONS['login-recovery']()`);
+  check('landing recovery opens the recovery form', run("APPX.screen === 'login' && LOGIN6.tab === 'forgot'") && String(run('renderLogin6()')).includes('data-form="forgot6"'));
+  run(`LOGIN6.tab = 'demo'`);
+
   const login = String(run('renderLogin6()'));
   check('server-activated Sign-In forces the demo tab back to official sign-in', run('LOGIN6.tab') === 'signin');
   check('server-activated Sign-In hides demo accounts, demo loading and host setup',
@@ -53,6 +61,15 @@ function check(name, condition) {
   check('the latest SYNC health snapshot also hides demo immediately', run('PROD_SETUP.isGloballyActivated()') === true);
 
   run(`(()=>{ APPX.host={setup:false,globallyActivated:false}; SYNC.server=null; LOGIN6.tab='signin'; })()`);
+  const freshLanding = String(run('renderLanding6()'));
+  check('a verified fresh installation offers first-run setup', freshLanding.includes('data-act="goto-onboard"') && !freshLanding.includes('already commissioned'));
+  run(`ACTIONS['goto-onboard']()`);
+  check('fresh first-run opens commissioning without requiring a login', run("APPX.screen === 'onboard' && ONB.step === 1"));
+  run(`APPX.host={setup:true,commissioned:true,globallyActivated:false}; SYNC.server=null;`);
+  check('commissioned but not activated host never advertises fresh setup', !String(run('renderLanding6()')).includes('data-act="goto-onboard"'));
+  run(`APPX.host=null; SYNC.server=null; SYNC.available=()=>true;`);
+  check('unverified hosted installation does not advertise fresh setup', !String(run('renderLanding6()')).includes('data-act="goto-onboard"'));
+  run(`APPX.host={setup:false,globallyActivated:false}; SYNC.server=null;`);
   const evaluationLogin = String(run('renderLogin6()'));
   check('pre-activation evaluation mode also keeps the demo tab hidden until commissioned accounts are issued', !evaluationLogin.includes('data-tab="demo"'));
 

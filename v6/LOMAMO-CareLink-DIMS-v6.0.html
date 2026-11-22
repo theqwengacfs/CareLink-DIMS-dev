@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0E234A">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.2) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="theme-color" content="#202020">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.3) - LOMAMO Foundation Kenya Data & Information Management System">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -2601,6 +2601,84 @@ html[data-kpistyle="outlined"] .kpi.info{ border-left-color:var(--info) !importa
 
 
 
+
+/* LOMAMO front door: calm paper, charcoal and a restrained red accent.
+   Scoped to the default identity so optional landing themes remain available. */
+.ld[data-theme="heritage"]{
+  --ld-bg:#F7F7F6; --ld-surface:#FFFFFF; --ld-surface-2:#F2F2F2;
+  --ld-ink:#202020; --ld-dim:#595959; --ld-border:#E0E0E0;
+  background:#F7F7F6; color:var(--ld-ink);
+}
+.ld[data-theme="heritage"] .ld-aurora,
+.ld[data-theme="heritage"] .ld-weave{display:none}
+.ld[data-theme="heritage"] .ld-top{background:#FFFFFF;border-top:4px solid #BC1C2B;border-bottom:1px solid #E5E5E5;backdrop-filter:none}
+.ld[data-theme="heritage"] .ld-logo{width:54px;height:54px;border-radius:4px;border:0;box-shadow:none;padding:0}
+.ld[data-theme="heritage"] .ld-org{color:#202020}
+.ld[data-theme="heritage"] .ld-eyebrow{color:#A71726;background:#FBEFF0;border-color:#F0D8DB;letter-spacing:.04em}
+.ld[data-theme="heritage"] .ld-hero h1{color:#1D1D1D;letter-spacing:-.045em}
+.ld[data-theme="heritage"] .ld-hero h1 em{color:#B7192B}
+.ld[data-theme="heritage"] .ld-subhead{color:#303030}
+.ld[data-theme="heritage"] .ld-lede,.ld[data-theme="heritage"] .ld-assure{color:#595959}
+.ld[data-theme="heritage"] .ld-assure svg{color:#B7192B;flex:none}
+.ld[data-theme="heritage"] .ld-canvas-card{background:#202020;border:1px solid #343434;box-shadow:0 16px 40px rgba(0,0,0,.13);padding:18px;border-radius:16px}
+.ld[data-theme="heritage"] .ld-scene-svg{background:#262626}
+.ld[data-theme="heritage"] .ld-fact{background:#303030;border-color:#454545}
+.ld[data-theme="heritage"] .ld-fact b{color:#FFFFFF}
+.ld[data-theme="heritage"] .ld-fact span{color:#D2D2D2}
+.ld[data-theme="heritage"] .ld-foot{background:#FFFFFF}
+.ld[data-theme="heritage"] .ld-btn-primary{background:#B7192B !important;border:1px solid #B7192B !important;color:#FFFFFF !important;box-shadow:none !important}
+.ld[data-theme="heritage"] .ld-btn-primary:hover{background:#951523 !important}
+.ld[data-theme="heritage"] .ld-btn-secondary,.ld[data-theme="heritage"] .ld-btn-arch{background:#FFFFFF !important;color:#292929 !important;border:1px solid #CFCFCF !important;box-shadow:none !important}
+.ld[data-theme="heritage"] .ld-btn-secondary:hover,.ld[data-theme="heritage"] .ld-btn-arch:hover{background:#F2F2F2 !important;border-color:#A4A4A4 !important}
+.ld-setup-status{max-width:54ch;margin:12px 0 0;color:var(--ld-dim);font-size:12px;line-height:1.5}
+.ld-recovery-link{padding:0;border:0;background:none;color:inherit;text-decoration:underline;font:inherit;font-weight:700;cursor:pointer}
+.ld[data-theme="heritage"] .ld-recovery-link{color:#A81728}
+.ld[data-theme="heritage"] button:focus-visible,.lg6 button:focus-visible,.lg6 input:focus-visible{outline:3px solid #D02A3A;outline-offset:3px}
+
+/* Quiet, readable sign-in; neutral surfaces also apply to setup and recovery. */
+.lg6-brand,html[data-wmode="dark"] .lg6-brand{background:#242424;color:#FFFFFF;border-right:4px solid #B7192B;box-shadow:none}
+.lg6-brand::after{display:none}
+.lg6-brand h1 em,html[data-wmode="dark"] .lg6-brand h1 em{color:#FFFFFF}
+.lg6-brand h1{font-size:clamp(25px,2.6vw,36px)}
+.lg6-brand-foot,html[data-wmode="dark"] .lg6-brand-foot{color:#CFCFCF;border-color:#555}
+.lg6-copy,html[data-wmode="dark"] .lg6-copy{color:#E0E0E0}
+.lg6-photo-frame{border-color:#555;box-shadow:none}
+.lg6-photo-frame img{filter:grayscale(100%)}
+.lg6-photo-overlay{background:linear-gradient(180deg,transparent,rgba(0,0,0,.9))}
+.lg6-photo-overlay span:last-child{color:#E0E0E0}
+.lg6-thumb,html[data-wmode="dark"] .lg6-thumb{background:#303030;border-color:#4B4B4B;color:#E5E5E5}
+.lg6-thumb img{filter:grayscale(100%)}
+.lg6-thumb.on,html[data-wmode="dark"] .lg6-thumb.on{background:#454545;border-color:#F1F1F1;color:#FFFFFF}
+.lg6-panel,html[data-wmode="dark"] .lg6-panel{
+  background:#F5F5F4;color:#242424;
+  --surface:#FFFFFF;--surface-2:#F4F4F4;--field:#FFFFFF;--field-line:#BDBDBD;
+  --border:#DEDEDE;--border-strong:#BDBDBD;--line:#DEDEDE;--line-2:#EEEEEE;
+  --text:#202020;--text-2:#444444;--text-3:#616161;--ink:#202020;--ink-2:#444444;--ink-3:#555555;--muted:#616161;--muted-2:#616161;
+  --accent:#A91828;--accent-fg:#A91828;--accent-ink:#FFFFFF;--accent-soft:#FBEEEE;
+  --action:#B7192B;--action-2:#B7192B;--action-ink:#FFFFFF;
+}
+.lg6-card{background:#FFFFFF;color:#202020;border-color:#E0E0E0;box-shadow:0 16px 42px rgba(0,0,0,.08);border-radius:14px}
+.lg-tab.on{background:#252525;color:#FFFFFF;box-shadow:none}
+.lg-tab:hover{background:#E5E5E5;color:#202020}
+.lg-host.ok{background:#F5F5F5;color:#444;border-color:#E0E0E0}
+.lg-host.ok svg{color:#A91828}
+@media (max-width:920px){
+  .lg6-mobile-hero{background:#FFFFFF;color:#202020;border-color:#E0E0E0;box-shadow:none}
+  .lg6-mobile-hero img{filter:grayscale(100%);border-color:#DDD}
+  .lg6-mobile-hero-txt b{color:#202020}
+  .lg6-mobile-hero-txt em{color:#A91828}
+}
+@media (max-width:1180px), (max-height:700px){
+  .ld[data-front="1"]{height:auto;max-height:none;min-height:100dvh;overflow:visible !important}
+  .ld[data-front="1"] .ld-front-main{overflow:visible}
+  .lg6:not(.one){height:auto;max-height:none;min-height:100dvh;overflow:visible}
+  .lg6:not(.one) .lg6-panel,.lg6:not(.one) .lg6-body{overflow:visible}
+}
+.ld[data-front="1"][data-theme="heritage"] .ld-hero-tight h1{font-size:clamp(36px,4.2vw,56px);line-height:1.04;margin-top:16px}
+.ld[data-front="1"][data-theme="heritage"] .ld-lede{font-size:clamp(14px,1.2vw,16px);line-height:1.65;margin-top:14px}
+.ld[data-front="1"][data-theme="heritage"] .ld-cta-row{margin-top:20px}
+.ld[data-front="1"][data-theme="heritage"] .ld-assure{margin-top:20px}
+.ld[data-theme="heritage"] .ld-top .btn{font-size:12px}
 
 /* ============================================================
    portal6.css - The LOMAMO Foundation public portal
@@ -6586,7 +6664,7 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,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";
-window.BUILD_STAMP = "2026-11-22 02:33";
+window.BUILD_STAMP = "2026-11-22 08:06";
 </script>
 <script>
 /* ============================================================
@@ -6611,7 +6689,7 @@ const APP = {
   shortName: 'CareLink',
   formerName: 'LOMAMO C-DIMS',
   full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
-  version: '6.9.2',
+  version: '6.9.3',
   build: '2026.10.29',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
@@ -20836,7 +20914,7 @@ const ROLE_CTX = {
    recolour of one page. The workspace accent is deliberately separate: a theme
    changes only the public front door. */
 const LANDING_THEMES = [
-{ id:'heritage', name:'LOMAMO Red', blurb:'LOMAMO Foundation red and white. The official LOMAMO brand front door, built from the logo colours.', accent:'#ED0000', mode:'dark' },
+{ id:'heritage', name:'LOMAMO Red', blurb:'LOMAMO Foundation black, white and grey with a red accent, inspired by the Foundation emblem.', accent:'#ED0000', mode:'dark' },
   { id:'clinic',   name:'Foundation White', blurb:'Luminous architectural pure white with crisp slate typography and royal sapphire accent.', accent:'#1E3A8A', mode:'light' },
   { id:'dawn',     name:'Dawn',          blurb:'Warm sunrise gradient, centred hero, soft cards. Optimistic and open.', accent:'#F97316', mode:'dark' },
   { id:'editorial',name:'Editorial',     blurb:'Magazine layout: oversized serif headline, rule lines, one column of text.', accent:'#7C2D12', mode:'light' },
@@ -25265,7 +25343,7 @@ function settingsAppearance(user){
 /* ---------------- 14. Landing page theme ---------------- */
 function themeSwatchCss(id){
   const map = {
-    heritage:'linear-gradient(150deg,#7A0000,#ED0000,#3A0000)',
+    heritage:'linear-gradient(150deg,#FFFFFF 0%,#E5E5E5 45%,#242424 46%,#242424 83%,#C91B2B 84%)',
     dawn:'linear-gradient(160deg,#2A1206,#B4430F,#1A0C05)',
     clinic:'linear-gradient(160deg,#FFFFFF,#E6F4F7)',
     editorial:'linear-gradient(160deg,#F7F3EC,#E4D8C6)',
@@ -34871,6 +34949,8 @@ function renderLanding6(){
   const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#ED0000' };
   const isLight = (th.mode || 'dark') === 'light';
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+  const isCommissioned = isActivated || commissionedEntryActive();
+  const setupPending = hostedEntryPending();
   const facts = [
     { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.length:2), l:'County Offices' },
@@ -34980,7 +35060,7 @@ function renderLanding6(){
         </div>
       </div>
       <nav class="row ld-nav" aria-label="Public and institutional navigation" style="gap:8px;flex-wrap:wrap">
-        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> Platform Architecture &amp; Departments Working Together</button>
+        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> How CareLink works</button>
         <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Public Impact Portal</button>
         ${!isActivated ? `<button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request Access</button>` : ''}
       </nav>
@@ -34992,14 +35072,15 @@ function renderLanding6(){
           <div class="ld-eyebrow">${ic('heart',14)} LOMAMO Foundation Kenya · Loving Hands Management &amp; Medical Organization</div>
           <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
           <div class="ld-subhead">One Foundation. One Operating System.</div>
-          <p class="ld-lede">CareLink unites clinical care, field ministry, hospital referrals, finance, human resources, media governance and partner oversight in one least-privilege operating system across Kisumu and Homa Bay.</p>
+          <p class="ld-lede">One secure place for care teams and departments to coordinate their work, support families and serve communities across Kisumu and Homa Bay.</p>
           <div class="row ld-cta-row" style="align-items:center">
-            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff Sign In · My CareLink Console ${ic('chevron',16)}</button>
-            <button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>
+            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff sign in ${ic('chevron',16)}</button>
+            ${!isCommissioned && !setupPending ? `<button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>` : ''}
           </div>
+          ${isCommissioned ? `<p class="ld-setup-status">This installation is already commissioned. Use your existing account to sign in, or select <button type="button" class="ld-recovery-link" data-act="login-recovery">password recovery</button> if you need help.</p>` : setupPending ? `<p class="ld-setup-status">Checking the shared installation before first-run setup can be offered.</p>` : ''}
           <div class="ld-assure">
             <span>${ic('database',14)} Shared live online database</span>
-            <span>${ic('wifi',14)} Zero-scroll PC &amp; tablet consoles</span>
+            <span>${ic('wifi',14)} Available across devices</span>
             <span>${ic('shieldcheck',14)} SHA-256 tamper-evident audit</span>
             <span>${ic('sparkles',14)} Role-scoped workflows &amp; QA</span>
           </div>
@@ -35182,7 +35263,7 @@ function renderLogin6(){
   const pCount = (DB.db && DB.db.patients) ? DB.db.patients.length : 0;
   const uCount = (DB.db && DB.db.users) ? DB.db.users.length : 0;
   const hostLine = isActivated
-    ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Official Production System Active · ${num(uCount)} organogram accounts governed across Kisumu &amp; Homa Bay</span></div>`
+    ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Official production system active · Sign in with your issued account</span></div>`
     : (isAwaitingAct
       ? `<div class="lg-host warn">${ic('key',13)}<span>4-Step Online Setup complete — sign in as Chief System Administrator to change password &amp; <b>Activate System Globally</b></span></div>`
       : (host
@@ -35194,7 +35275,7 @@ function renderLogin6(){
 
   const signIn = `
     <p class="lg-note">${isActivated
-      ? 'Sign in with your assigned CareLink username or official email and your personal password (or your WhatsApp temporary password on first sign-in to activate your account).'
+      ? 'This installation has already been set up. Sign in with your assigned username and password, or choose Recover if you cannot access your account.'
       : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
       <div class="field"><label for="lg-u">Username or mock email alias</label>
@@ -35286,12 +35367,12 @@ function renderLogin6(){
         <div class="row" style="gap:11px;margin-bottom:8px">
           <img src="${window.LOGO||''}" alt="LOMAMO Foundation" class="lg6-logo" style="margin:0">
           <div>
-            <div class="xs bold" style="letter-spacing:.11em;text-transform:uppercase;color:#F5C451">CareLink Operating System · LOMAMO Foundation</div>
-            <div class="xs" style="color:#CBD6E8">Orphan Prevention, Clinical Care &amp; Partner Governance</div>
+            <div class="xs bold" style="letter-spacing:.11em;text-transform:uppercase;color:#F2F2F2">CareLink Operating System · LOMAMO Foundation</div>
+            <div class="xs" style="color:#CCCCCC">Orphan Prevention, Clinical Care &amp; Partner Governance</div>
           </div>
         </div>
         <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
-        <div class="xs bold" style="color:#E2E8F0;margin:-4px 0 7px">One Foundation. One Operating System.</div>
+        <div class="xs bold" style="color:#E5E5E5;margin:-4px 0 7px">One Foundation. One Operating System.</div>
 
         <figure class="lg6-showcase">
           <div class="lg6-photo-frame">
@@ -35323,7 +35404,7 @@ function renderLogin6(){
       <div class="lg6-mobile-hero">
         <img src="${carelinkPhoto(curSlide.key)}" alt="">
         <div class="lg6-mobile-hero-txt">
-          <div class="xs bold" style="color:#F5C451;text-transform:uppercase;letter-spacing:.08em">LOMAMO Foundation</div>
+          <div class="xs bold" style="color:#B7192B;text-transform:uppercase;letter-spacing:.08em">LOMAMO Foundation</div>
           <b>CareLink. <em>Saving lives, preventing orphans.</em></b>
         </div>
       </div>
@@ -35534,6 +35615,7 @@ Object.assign(ACTIONS, {
   'login-slide': d => { LOGIN6.slide = Number(d.idx)||0; render(); },
   'demo-filter': d => { LOGIN6.demoFilter = d.f || 'all'; render(); },
   'login-request': () => { LOGIN6.tab='request'; APPX.screen='login'; LOGIN6.error=''; render(); },
+  'login-recovery': () => { LOGIN6.tab='forgot'; APPX.screen='login'; LOGIN6.error=''; LOGIN6.notice=''; render(); },
   'goto-login': () => { APPX.screen='login'; LOGIN6.tab='signin'; LOGIN6.error=''; LOGIN6.notice=''; render(); },
   'open-signin': () => { APPX.screen='login'; LOGIN6.tab='signin'; LOGIN6.error=''; LOGIN6.notice=''; render(); window.scrollTo({top:0}); },
   'goto-landing': () => { APPX.screen='landing'; LOGIN6.error=''; render(); window.scrollTo({top:0}); },
@@ -46489,6 +46571,9 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.9.3', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Refined the LOMAMO black, white, grey and red front door and sign-in; clarified commissioning status and secure account recovery.',
+      changes:['Logo-inspired neutral front door with restrained red accents','Clear distinction between fresh setup and an already commissioned installation','Updated application, API and build version identifiers'] },
     { tag:'v6.9.2', date:'2026-10-29', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
       summary:'Restored the Heritage Sapphire blue sign-in identity with deep sapphire brand panel, subtle radial depth, and blue-white access console while preserving readable white sign-in forms.',
       changes:['Deep sapphire gradient and radial depth on desktop sign-in brand panel','Blue-white sign-in canvas, refined card shadows and mobile sign-in treatment','Preserved accessible white sign-in form controls and Foundation White role consoles'] },
@@ -50402,7 +50487,7 @@ const ROLE_CONSOLES_68 = {
   installButton.textContent = 'Install CareLink';
   installButton.setAttribute('aria-label', 'Install CareLink on this device');
   Object.assign(installButton.style, { position:'fixed', right:'16px', bottom:'16px', zIndex:'10000', display:'none',
-    border:'0', borderRadius:'999px', padding:'12px 17px', background:'#0E234A', color:'#fff', font:'700 14px system-ui',
+    border:'0', borderRadius:'999px', padding:'12px 17px', background:'#B7192B', color:'#fff', font:'700 14px system-ui',
     boxShadow:'0 5px 18px rgba(15,23,42,.25)', cursor:'pointer' });
   installButton.addEventListener('click', async () => {
     if (installEvent) {
@@ -50422,6 +50507,6 @@ const ROLE_CONSOLES_68 = {
   document.body.appendChild(installButton);
 })();
 </script>
-<!-- Build 2026-11-22 02:33 · CareLink C-DIMS v6.9.2 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-11-22 08:06 · CareLink C-DIMS v6.9.3 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

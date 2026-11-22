@@ -1094,6 +1094,9 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.9.3', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Refined the LOMAMO black, white, grey and red front door and sign-in; clarified commissioning status and secure account recovery.',
+      changes:['Logo-inspired neutral front door with restrained red accents','Clear distinction between fresh setup and an already commissioned installation','Updated application, API and build version identifiers'] },
     { tag:'v6.9.2', date:'2026-10-29', channel:'Production Stable', schema:63, author:'CareLink OS Core Engineering',
       summary:'Restored the Heritage Sapphire blue sign-in identity with deep sapphire brand panel, subtle radial depth, and blue-white access console while preserving readable white sign-in forms.',
       changes:['Deep sapphire gradient and radial depth on desktop sign-in brand panel','Blue-white sign-in canvas, refined card shadows and mobile sign-in treatment','Preserved accessible white sign-in form controls and Foundation White role consoles'] },
