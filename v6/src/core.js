@@ -38,6 +38,15 @@ const roleObj = id => (DB.db?.roles||[]).find(r=>r.id===id) || (DB.db?.customRol
 const userById = id => DB.db?.users.find(u=>u.id===id) || null;
 const userName = id => userById(id)?.name || '-';
 const capLabel = c => (CAPS[c]?.l) || c;
+/* The Kisumu lead MCM's hospital oversight spans Kisumu and Homa Bay,
+   without elevating the MCM role or granting national/financial authority. */
+function leadMcmClinicalCounty(user, countyId){
+  return !!user && user.roleId==='mcm' && String(user.username||'').toLowerCase()==='mcm.kisumu' &&
+    ['kisumu','homabay'].includes(String(countyId||''));
+}
+function leadMcmClinicalCap(cap){
+  return /^(patient\.|condition\.|care\.|visit\.|pdca\.|hosp\.|report\.(patient_days|patient_figures|referral))/.test(cap);
+}
 /* True when the signed-in role spans more than one county. */
 function isGlobal(user){
   const role = roleObj(user.roleId)||{scope:{}}; const s=role.scope||{};
@@ -621,7 +630,7 @@ const RBAC = {
       return {ok:false, reason:'Read-only role'};
 
     const countySplit = scope.geo!=='global' && !scope.crossCounty;
-    if(ctx.countyId && countySplit && ctx.countyId!==user.countyId)
+    if(ctx.countyId && countySplit && ctx.countyId!==user.countyId && !(leadMcmClinicalCap(cap) && leadMcmClinicalCounty(user,ctx.countyId)))
       return {ok:false, reason:`Record belongs to ${countyName(ctx.countyId)}; your authority is ${countyName(user.countyId)}`};
 
     if(ctx.areaId && (scope.records==='areas'||scope.geo==='areas')){
@@ -657,7 +666,7 @@ const RBAC = {
       return DB.db.requests.some(r=>r.patientId===patient.id && r.assignedTo===user.id);
     }
     if(scope.geo==='global'||scope.crossCounty) return true;
-    if(scope.records==='county') return patient.countyId===user.countyId;
+    if(scope.records==='county') return patient.countyId===user.countyId || leadMcmClinicalCounty(user,patient.countyId);
     if(scope.records==='areas') return (user.areaIds||[]).includes(patient.areaId);
     return false;
   },
@@ -706,7 +715,7 @@ const repo = {
     const role = roleObj(user.roleId)||{scope:{}}; const s=role.scope||{};
     if(s.records==='assigned') rows = rows.filter(r=>r.assignedTo===user.id);
     else if(s.records==='areas') rows = rows.filter(r=>(user.areaIds||[]).includes(r.areaId));
-    else if(s.records==='county'||s.geo==='county') rows = rows.filter(r=>r.countyId===user.countyId);
+    else if(s.records==='county'||s.geo==='county') rows = rows.filter(r=>r.countyId===user.countyId || leadMcmClinicalCounty(user,r.countyId));
     return rows.sort((a,b)=>new Date(b.submittedAt)-new Date(a.submittedAt));
   },
   transactions(user){

@@ -877,6 +877,66 @@ const PROD_SETUP = {
     return this.lastPack;
   },
 
+  openReactivationModal(recover = false) {
+    if(!AUTH.user || AUTH.user.roleId !== 'chief') return toast('Chief only', '', 'err');
+    openModal({ title: recover ? 'Recover confidential credential pack' : 'Rebuild and reactivate the official hierarchy', narrow:true,
+      sub:'Chief System Administrator authorisation',
+      body:`<div class="alert warn"><div><b>${recover ? 'Recovery is available for 24 hours' : 'This resets non-Chief accounts'}</b>
+        <p class="small">${recover
+          ? 'Only temporary passwords that are still valid are included. Personalised passwords cannot be recovered. Changing the Chief password also makes the recovery copy unreadable.'
+          : 'Existing non-Chief credentials and sessions are replaced. Named officers receive new temporary passwords; unconfirmed seats remain disabled. The current Chief sign-in and non-account records are preserved.'}</p>
+        <p class="small">Email addresses are mock login aliases, not mailboxes. Distribute credentials privately to individual officers.</p></div></div>
+        <div class="field"><label for="reactivationPassword">Current Chief password</label>
+          <input class="input" id="reactivationPassword" type="password" autocomplete="current-password"></div>
+        ${recover ? '' : '<div class="field"><label for="reactivationConfirm">Type REBUILD to confirm</label><input class="input" id="reactivationConfirm" autocomplete="off"></div>'}`,
+      footer:`<button type="button" class="btn btn-ghost" data-act="close-modal">Cancel</button>
+        <button type="button" class="btn ${recover?'btn-primary':'btn-danger'}" data-act="${recover?'dev-recover-reactivation':'dev-confirm-reactivation'}">${recover?'Recover pack':'Rebuild accounts'}</button>` });
+  },
+
+  async runReactivation(recover = false) {
+    const actor = AUTH.user;
+    if(!actor || actor.roleId !== 'chief' || !SYNC.available()) return toast('Chief online session required', '', 'err');
+    if(this._reactivating) return;
+    const password = String(document.querySelector('#reactivationPassword')?.value || '');
+    const confirmation = String(document.querySelector('#reactivationConfirm')?.value || '');
+    if(!password || (!recover && confirmation !== 'REBUILD')) return toast('Confirmation required', 'Enter your password and, when rebuilding, type REBUILD.', 'warn');
+    if(!recover && (SYNC._inflight || APPX.dirty)) return toast('Save pending work first', 'Wait for the current save to finish, then retry the rebuild.', 'warn');
+    this._reactivating = true;
+    clearTimeout(SYNC._timer);
+    try {
+      const r = await SYNC._json(recover ? 'api/admin/reactivation-pack' : 'api/admin/reactivate', {
+        method:'POST', headers:{'Content-Type':'application/json'}, timeoutMs:55000,
+        body:JSON.stringify({password, ...(recover ? {} : {confirm:confirmation})})
+      });
+      if(!r.ok || !Array.isArray(r.body.issued)) {
+        const detail = r.body.error || 'The server did not confirm this operation.';
+        toast('Reactivation not confirmed', detail + (r.status >= 500 && !recover ? ' Use Recover recent pack before trying another rebuild.' : ''), 'err');
+        return;
+      }
+      const rows = r.body.issued.map(row=>({ ...row, county:countyName(row.county),
+        loginUrl:location.origin, smsText:`CareLink: Sign in at ${location.origin} with ${row.username} and the temporary password shown in your private handoff. Set a private password on first login.` }));
+      this.lastPack = { generatedAt:todayISO(), chiefUsername:actor.username, siteUrl:location.origin,
+        count:rows.length, rows, expiresAt:r.body.expiresAt };
+      this.lastWhatsappSheet = '';
+      closeAllModals();
+      /* Never discard edits made while the rebuild request was in flight. */
+      const hasPending = APPX.dirty || SYNC._inflight;
+      const refreshed = !hasPending && await SYNC.pullFull({minRev:r.body.rev});
+      if(!refreshed){
+        SYNC.stopPolling();
+        toast('Pack ready; refresh needed', hasPending
+          ? 'Download the pack. Pending device edits were kept; resolve them before refreshing the rebuilt hierarchy.'
+          : 'Download the pack. Reload or sign in again before editing the shared workspace.', 'warn');
+      } else {
+        AUTH.user = (DB.db.users||[]).find(u=>u.username===actor.username) || actor;
+        toast(recover ? 'Credential pack recovered' : 'Hierarchy rebuilt', `${rows.length} still-valid temporary passwords available. Download the confidential document now.`, 'ok');
+      }
+      render();
+    } catch(_e) {
+      toast('Result not confirmed', 'If the connection dropped, use Recover credential pack before trying another rebuild.', 'err');
+    } finally { this._reactivating = false; }
+  },
+
   downloadCredentialDocument() {
     if (!this.requireCredentialPackAccess()) return;
     const p = this.lastPack;
@@ -1413,6 +1473,10 @@ const DEV_CONSOLE = {
         <b>Production First-Run &amp; Strict Privacy Password Architecture (Kenya Data Protection Act, 2019)</b>
         <span class="small">1) Commissioning configures the <b>Chief System Administrator</b> and auto-generates unique 14-character strong passwords for every staff account as a downloadable <b>SMS Dispatch Pack</b>. 2) On <b>first login</b>, every user is forced to create a private 12+ character complex password stored only as a salted one-way hash — so <b>not even the Chief System Administrator knows any user's personal password</b>.</span>
       </div></div>`
+      + (isChief && PROD_SETUP.isGloballyActivated() ? card('Rebuild the official hierarchy', `<p class="small">Reconcile the latest Kisumu and Homa Bay roster on the shared server and issue new temporary passwords to named officers. Unconfirmed seats stay disabled; the Chief sign-in and non-account records are retained.</p>
+          <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-danger" data-act="dev-open-reactivation">Rebuild &amp; reactivate</button>
+          <button class="btn btn-ghost" data-act="dev-open-recover-reactivation">Recover recent pack</button></div>
+          <p class="hint">The Chief password is required. If the response is interrupted, recover the encrypted pack within 24 hours before retrying.</p>`) : '')
       + `<div class="grid g2" style="margin-bottom:16px">
         ${card('SMS Credential Pack Generator', `<p class="small muted" style="margin-top:0">Generate one-time strong SMS credentials for all accounts currently awaiting first-login activation, or launch the full 4-step First-Run Commissioning Wizard.</p>
           <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
@@ -1499,6 +1563,10 @@ const DEV_CONSOLE = {
 Object.assign(ACTIONS, {
   'dev-tab': d => { DEV_CONSOLE_STATE.tab = d.tab || 'telemetry'; render(); },
   'dev-probe-cloud': () => DEV_CONSOLE.probeCloud(),
+  'dev-open-reactivation': () => PROD_SETUP.openReactivationModal(false),
+  'dev-open-recover-reactivation': () => PROD_SETUP.openReactivationModal(true),
+  'dev-confirm-reactivation': () => PROD_SETUP.runReactivation(false),
+  'dev-recover-reactivation': () => PROD_SETUP.runReactivation(true),
   'dev-gen-sms-pack': async () => {
     const pack = await PROD_SETUP.regeneratePackForMustChangeUsers();
     if (pack) { toast('SMS Credential Pack Generated', `${pack.count} unique strong passwords ready for SMS export.`, 'ok'); render(); }

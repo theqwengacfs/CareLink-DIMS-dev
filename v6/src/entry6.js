@@ -1292,7 +1292,7 @@ Object.assign(FORMS, {
     LOGIN6.error = '';
     if(!current){ LOGIN6.error = 'Enter your current temporary password.'; return render(); }
     if(next !== again){ LOGIN6.error = 'The new passwords do not match.'; toast('The passwords do not match','Re-type the same new password.','err'); return render(); }
-    const uRec = AUTH.user ? ((DB.db && Array.isArray(DB.db.users) && DB.db.users.find(x => x.id===AUTH.user.id || x.username===AUTH.user.username)) || AUTH.user) : null;
+    let uRec = AUTH.user ? ((DB.db && Array.isArray(DB.db.users) && DB.db.users.find(x => x.id===AUTH.user.id || x.username===AUTH.user.username)) || AUTH.user) : null;
     const policyErr = (typeof PROD_SETUP!=='undefined') ? PROD_SETUP.validatePrivacyPassword(next, AUTH.user, current) : '';
     if(policyErr){ LOGIN6.error = policyErr; toast('Privacy password requirement', policyErr, 'err'); return render(); }
     const strength = passwordStrength(next);
@@ -1314,6 +1314,19 @@ Object.assign(FORMS, {
           LOGIN6.mustChangeBusy = false;
           LOGIN6.error = r.error || 'The shared online source refused the password change. No local password change was made.';
           return render();
+        }
+        /* The first-login gate intentionally withheld the workspace. Replace
+           it only with a fresh authorised snapshot after the password commits. */
+        if(SYNC._passwordBeforeWorkspace){
+          clearTimeout(SYNC._timer); APPX.dirty = false;
+          const pulled = await SYNC.pullFull({minRev:r.rev || 0});
+          if(!pulled){
+            await SYNC.logout(); AUTH.logout(); LOGIN6.mustChangeBusy = false;
+            APPX.screen='login'; LOGIN6.error='Your private password was saved, but the workspace could not load. Sign in again with your new password.';
+            return render();
+          }
+          AUTH.user = (DB.db.users||[]).find(u=>u.username===AUTH.user.username) || AUTH.user;
+          uRec = AUTH.user; SYNC._passwordBeforeWorkspace = false;
         }
       } else if(!r.ok){
         const currentValid = (AUTH._pw && current === AUTH._pw) || (uRec && uRec.salt && uRec.hash && strongHash(current, uRec.salt) === uRec.hash);

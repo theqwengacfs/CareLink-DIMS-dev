@@ -66,12 +66,12 @@ ok('Caregiver sees clinical (authorised)', run(`RBAC.can(DB.db.users.find(u=>u.u
 ok('HR officer cannot see clinical', !run(`RBAC.can(DB.db.users.find(u=>u.username==='hr.officer'),'patient.view.clinical').ok`));
 ok('Media head cannot see clinical', !run(`RBAC.can(DB.db.users.find(u=>u.username==='media.head'),'patient.view.clinical').ok`));
 
-/* 12. county isolation holds for every non-global role */
+/* 12. County isolation holds except for the named lead MCM clinical remit. */
 const leaks=run(`(()=>{const bad=[];
   DB.db.users.forEach(u=>{
     const r=roleObj(u.roleId)||{}; const s=r.scope||{};
     if(s.geo==='global'||s.crossCounty) return;
-    repo.patientList(u).forEach(p=>{ if(p.countyId!==u.countyId || (s.geo==='areas' && !(u.areaIds||[]).includes(p.areaId))) bad.push(u.username+':'+p.id); });
+    repo.patientList(u).forEach(p=>{ if((p.countyId!==u.countyId && !leadMcmClinicalCounty(u,p.countyId)) || (s.geo==='areas' && !(u.areaIds||[]).includes(p.areaId))) bad.push(u.username+':'+p.id); });
   });
   return bad})()`);
 ok('No cross-county or cross-area patient leakage', leaks.length===0, leaks.slice(0,4).join(', '));

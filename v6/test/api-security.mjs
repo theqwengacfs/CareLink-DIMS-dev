@@ -1,3 +1,4 @@
+import * as requireCrypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import zlib from 'node:zlib';
 
@@ -27,8 +28,8 @@ globalThis.fetch = async (input, init = {}) => {
     return response({ result: 'OK' });
   }
   if (url.pathname === '/' && init.method === 'POST') {
-    if (failWrites) return response({ error: 'write unavailable' }, 503);
     const [op, ...args] = JSON.parse(init.body);
+    if (failWrites && !(op === 'EVAL' && args[0] === "return redis.call('GET', KEYS[1])")) return response({ error: 'write unavailable' }, 503);
     if (op === 'SET') {
       const [key, value, ...options] = args;
       if (options.includes('NX') && kv.has(key)) return response({ result: null });
@@ -39,6 +40,14 @@ globalThis.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (failReads && script === "return redis.call('GET', KEYS[1])") return response({ error: 'read unavailable' }, 503);
+      if (script.includes('redis.sha1hex')) {
+        const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
+        if (actual !== value) return response({ result: kv.get(key) === String(args[3 + keyCount]) ? 2 : 0 });
+        kv.set(key, String(args[3 + keyCount]));
+        return response({ result: 1 });
+      }
+      if (script === "return redis.call('GET', KEYS[1])") return response({ result: kv.has(key) ? kv.get(key) : null });
       if (kv.get(key) !== String(value)) return response({ result: 0 });
       if (/EXPIRE/.test(script)) return response({ result: 1 });
       if (/DEL/.test(script)) { kv.delete(key); return response({ result: 1 }); }
@@ -110,6 +119,7 @@ await check('first-run setup succeeds', async () => {
       patients: [
         { id: 'ksm-patient-1', code: 'KSM-1', name: 'Private Kisumu Case', countyId: 'kisumu', areaId: 'nyalenda', demo: false },
         { id: 'hby-patient-2', code: 'HBY-2', name: 'Private Homa Bay Case', countyId: 'homabay', areaId: 'makongeni', demo: false },
+        { id: 'other-patient-3', code: 'OTHER-3', name: 'Other County Case', countyId: 'other', areaId: 'elsewhere', demo: false },
       ],
       visits: [
         { id: 'v-ksm-1', patientId: 'ksm-patient-1', countyId: 'kisumu', areaId: 'nyalenda' },
@@ -196,6 +206,7 @@ await check('public setup cannot self-declare global activation', async () => {
       patients: [
         { id: 'ksm-patient-1', code: 'KSM-1', name: 'Private Kisumu Case', countyId: 'kisumu', areaId: 'nyalenda', demo: false },
         { id: 'hby-patient-2', code: 'HBY-2', name: 'Private Homa Bay Case', countyId: 'homabay', areaId: 'makongeni', demo: false },
+        { id: 'other-patient-3', code: 'OTHER-3', name: 'Other County Case', countyId: 'other', areaId: 'elsewhere', demo: false },
       ],
       visits: [
         { id: 'v-ksm-1', patientId: 'ksm-patient-1', countyId: 'kisumu', areaId: 'nyalenda' },
@@ -277,17 +288,21 @@ await check('global activation is committed to top-level and nested authoritativ
         { id: 'u-staff-one', username: 'staff.one', name: 'Staff One', roleId: 'me', countyId: 'kisumu', status: 'pending_activation', active: true },
         { id: 'u-caregiver-one', username: 'caregiver.one', name: 'Caregiver One', roleId: 'caregiver', countyId: 'kisumu', areaIds: ['nyalenda'], status: 'pending_activation', active: true },
         { id: 'u-finance-one', username: 'finance.one', name: 'Finance One', roleId: 'finance', countyId: 'kisumu', status: 'pending_activation', active: true },
+        { id: 'u-mcm-kisumu', username: 'mcm.kisumu', name: 'Lead MCM', roleId: 'mcm', countyId: 'kisumu', status: 'pending_activation', active: true },
+        { id: 'u-mcm-homabay', username: 'mcm.homabay', name: 'Homa Bay MCM', roleId: 'mcm', countyId: 'homabay', status: 'pending_activation', active: true },
       ],
       accounts: [
         { id: 'u-staff-one', username: 'staff.one', name: 'Staff One', roleId: 'me', countyId: 'kisumu', password: 'TempStaff#2026!' },
         { id: 'u-caregiver-one', username: 'caregiver.one', name: 'Caregiver One', roleId: 'caregiver', countyId: 'kisumu', password: 'TempCaregiver#2026!' },
         { id: 'u-finance-one', username: 'finance.one', name: 'Finance One', roleId: 'finance', countyId: 'kisumu', password: 'TempFinance#2026!' },
+        { id: 'u-mcm-kisumu', username: 'mcm.kisumu', name: 'Lead MCM', roleId: 'mcm', countyId: 'kisumu', password: 'TempLeadMcm#2026!' },
+        { id: 'u-mcm-homabay', username: 'mcm.homabay', name: 'Homa Bay MCM', roleId: 'mcm', countyId: 'homabay', password: 'TempHomaMcm#2026!' },
       ],
     },
   });
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.equal(r.body.issued.length, 3);
-  assert.deepEqual(r.body.issued.map((u) => u.username).sort(), ['caregiver.one', 'finance.one', 'staff.one']);
+  assert.equal(r.body.issued.length, 5);
+  assert.deepEqual(r.body.issued.map((u) => u.username).sort(), ['caregiver.one', 'finance.one', 'mcm.homabay', 'mcm.kisumu', 'staff.one']);
   const health = await call('health');
   assert.equal(health.body.globallyActivated, true);
   const stored = JSON.parse(kv.get('carelink_cloud_v66'));
@@ -322,6 +337,33 @@ await check('globally issued staff credentials work from a fresh online session'
   assert.equal(second.status, 200, JSON.stringify(second.body));
   assert.equal(second.body.mustChange, false);
   staffToken = second.body.token;
+});
+
+await check('only the Kisumu lead MCM receives two-county clinical oversight', async () => {
+  const lead = await call('auth/login', { method: 'POST', body: { username: 'mcm.kisumu', password: 'TempLeadMcm#2026!' } });
+  const local = await call('auth/login', { method: 'POST', body: { username: 'mcm.homabay', password: 'TempHomaMcm#2026!' } });
+  assert.equal(lead.status, 200); assert.equal(local.status, 200);
+  const leadState = await call('state', { token: lead.body.token });
+  const localState = await call('state', { token: local.body.token });
+  assert.deepEqual(leadState.body.db.patients.map(p => p.id).sort(), ['hby-patient-2', 'ksm-patient-1']);
+  assert.deepEqual(localState.body.db.patients.map(p => p.id), ['hby-patient-2']);
+  assert.deepEqual(leadState.body.db.waitingList.map(p => p.id).sort(), ['waiting-hby', 'waiting-ksm']);
+  assert.deepEqual(localState.body.db.waitingList.map(p => p.id), ['waiting-hby']);
+  const page = await call('state/collection?name=patients&offset=0', { token: lead.body.token });
+  assert.deepEqual(page.body.records.map(p => p.id).sort(), ['hby-patient-2', 'ksm-patient-1']);
+  const update = await call('state', { method:'PUT', token: lead.body.token, body:{ patches:[
+    { c:'patients', id:'hby-patient-2', set:{ review:'lead reviewed' } },
+    { c:'patients', id:'other-patient-3', set:{ review:'outside remit' } },
+  ] } });
+  assert.equal(update.status, 200);
+  assert.equal(update.body.rejected.length, 1);
+  assert.equal(update.body.rejected[0].id, 'other-patient-3');
+  const localUpdate = await call('state', { method:'PUT', token: local.body.token, body:{ patches:[
+    { c:'patients', id:'ksm-patient-1', set:{ review:'outside remit' } },
+  ] } });
+  assert.equal(localUpdate.body.rejected.length, 1);
+  await call('auth/logout', { method:'POST', token:lead.body.token });
+  await call('auth/logout', { method:'POST', token:local.body.token });
 });
 
 await check('server-side state and paged collection reads deny clinical records to non-clinical M&E roles', async () => {

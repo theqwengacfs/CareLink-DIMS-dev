@@ -1,3 +1,4 @@
+const requireCrypto = require('node:crypto');
 /* End-to-end hosted commissioning proof: one KV document, a PC and a fresh tablet. */
 const assert = require('node:assert/strict');
 const { makeCtx } = require('./dom');
@@ -29,6 +30,13 @@ globalThis.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (script.includes('redis.sha1hex')) {
+        const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
+        if (actual !== value) return kvResponse({ result: kv.get(key) === String(args[3 + keyCount]) ? 2 : 0 });
+        kv.set(key, String(args[3 + keyCount]));
+        return kvResponse({ result: 1 });
+      }
+      if (script === "return redis.call('GET', KEYS[1])") return kvResponse({ result: kv.has(key) ? kv.get(key) : null });
       if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
       if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
       if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }
@@ -124,7 +132,33 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   assert.equal(tablet.run("LOGIN6.tab"), 'signin');
   assert.ok(!/data-tab="demo"|data-act="load-demo"|First-run online setup|Live host setup/i.test(loginHtml));
 
-  console.log(`hosted-e2e: PC setup + chief activation + fresh tablet staff login passed (${pack.count} issued accounts)`);
+  /* The Chief's actual post-activation UI issues the server-owned roster and
+     a fresh device is blocked until its holder changes their password. */
+  pc.run(`APPX.dirty=false; __originalQuery = document.querySelector.bind(document);
+    document.querySelector = sel => sel==='#reactivationPassword' ? {value:'Private#2027!xQ'} : sel==='#reactivationConfirm' ? {value:'REBUILD'} : __originalQuery(sel);`);
+  await pc.run('PROD_SETUP.runReactivation(false)');
+  const rebuilt = pc.run('PROD_SETUP.lastPack');
+  assert.ok(rebuilt && rebuilt.rows.length > 0 && rebuilt.rows.some(r=>r.username==='director'));
+  assert.equal(pc.run('DB.db.users.find(u=>u.username==="president").active'),false);
+  pc.run(`__downloads = []; PROD_SETUP.downloadCredentialDocument();`);
+  assert.ok(pc.run('__downloads[0].body.includes(esc(PROD_SETUP.lastPack.rows[0].tempPassword))'));
+  const director = rebuilt.rows.find(r=>r.username==='director');
+  const newTablet = client();
+  newTablet.run('SYNC.queue = () => {}; DB.load();');
+  const currentHealth = await newTablet.run('hostProbe()');
+  newTablet.run(`APPX.host = ${JSON.stringify(currentHealth)}; SYNC.server = APPX.host;`);
+  const newLogin = await newTablet.run(`AUTH.loginOnline(${JSON.stringify(director.email)}, ${JSON.stringify(director.tempPassword)}, 'tablet')`);
+  assert.equal(newLogin.ok,true,JSON.stringify(newLogin));
+  assert.equal(newLogin.mustChange,true);
+  assert.equal(newTablet.run('SYNC._passwordBeforeWorkspace'),true);
+  assert.equal(newTablet.run('DB.db.users.length'),1,'only the account record is present before password replacement');
+  newTablet.run(`__form = {current:${JSON.stringify(director.tempPassword)}, password:'River#Lake2027!Qw', password2:'River#Lake2027!Qw'};`);
+  await newTablet.run('FORMS.mustchange6(new FormData())');
+  assert.equal(newTablet.run('AUTH.mustChange'),false);
+  assert.equal(newTablet.run('SYNC._passwordBeforeWorkspace'),false);
+  assert.ok(newTablet.run('DB.db.users.length')>1,'the real scoped workspace loads after the password change');
+  assert.equal(newTablet.run('AUTH.user.username'),'director');
+  console.log(`hosted-e2e: PC setup + chief activation + rebuild and fresh tablet staff password change passed (${rebuilt.count} issued accounts)`);
 })().catch((error) => {
   console.error(error);
   process.exit(1);

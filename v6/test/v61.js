@@ -35,6 +35,18 @@ function test(name, fn){
 const as = u => { run(`AUTH.logout(); AUTH.login('${u}','LOMAMO2026');`); return run(`AUTH.user.id`); };
 const J = code => run(`JSON.stringify(${code})`);
 
+test('Kisumu lead MCM clinical oversight spans two counties without national authority', ()=>{
+  const result=run(`(()=>{ const lead=DB.db.users.find(u=>u.username==='mcm.kisumu'),
+    local=DB.db.users.find(u=>u.username==='mcm.homabay');
+    const hb={id:'scope-hb',countyId:'homabay',areaId:'makongeni'}, ksm={id:'scope-ksm',countyId:'kisumu',areaId:'nyalenda'};
+    return { leadHb:RBAC.patientVisible(lead,hb), localKsm:RBAC.patientVisible(local,ksm),
+      clinical:RBAC.can(lead,'patient.view.clinical',{countyId:'homabay'}).ok,
+      other:RBAC.patientVisible(lead,{countyId:'other'}), reach:ACCESS.reachOf(lead) }; })()`);
+  ok('lead sees Homa Bay clinical records',result.leadHb && result.clinical);
+  ok('local MCM remains county scoped',!result.localKsm);
+  ok('oversight does not grant national reach or another county',!result.other && result.reach==='county');
+});
+
 /* ============================== 1. staff, visit days, Monday ============= */
 test('Administration\'s own staff list is loaded, seat by seat', ()=>{
   const named = run(`(()=>{ const m={}; DB.db.users.forEach(u=>{ m[u.username]=u; }); return {
