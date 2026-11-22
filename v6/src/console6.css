@@ -1133,3 +1133,12 @@ html[data-kpistyle="outlined"] .kpi.info{ border-left-color:var(--info) !importa
 .ld[data-front="1"][data-theme="heritage"] .ld-cta-row{margin-top:20px}
 .ld[data-front="1"][data-theme="heritage"] .ld-assure{margin-top:20px}
 .ld[data-theme="heritage"] .ld-top .btn{font-size:12px}
+
+/* A softer red accent, balanced with warm neutral space at the public entry. */
+.ld[data-theme="heritage"] .ld-hero h1 em{color:#9F3540}
+.ld[data-theme="heritage"] .ld-btn-primary{background:#A63C47 !important;border-color:#A63C47 !important}
+.ld[data-theme="heritage"] .ld-btn-primary:hover{background:#842D37 !important}
+.ld[data-theme="heritage"] .ld-eyebrow{background:#F8F1F0;color:#8E3440;border-color:#EAD9DA}
+.ld[data-theme="heritage"] .ld-top{border-top-color:#A63C47}
+.lg6-panel,html[data-wmode="dark"] .lg6-panel{--action:#A63C47;--action-2:#A63C47;--accent:#97343F;--accent-fg:#97343F}
+.lg6-brand,html[data-wmode="dark"] .lg6-brand{border-right-color:#A63C47}

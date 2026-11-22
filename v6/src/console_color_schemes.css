@@ -103,3 +103,41 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):
 .aops-section-tab:nth-child(5n){--aops-tab-accent:var(--aops-c5);}
 .aops-section-tab:not(.is-current):hover .aops-section-index{color:#FFFFFF;background:var(--aops-tab-accent);}
 .aops-section-tab.is-current{border-color:color-mix(in srgb,var(--aops-c1) 42%,#D9E3EF);box-shadow:0 2px 7px color-mix(in srgb,var(--aops-c1) 12%,transparent);}
+
+/* Role workspaces: a clear introductory banner, with comfortable, distinct
+   navigation and restrained colour. Status/alert cards retain their semantics. */
+html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero.ctx-strip{
+  background:linear-gradient(118deg,#18344a 0%,#244b5b 58%,#4c3447 100%) !important;
+  border:1px solid #294858 !important; color:#fff !important;
+  box-shadow:0 14px 34px rgba(26,53,68,.16) !important;
+  border-radius:18px; padding:24px 26px 16px !important;
+}
+html[data-wmode="light"] .ws67-hero .ws67-greeting{color:#fff !important;font-size:clamp(23px,2vw,28px);letter-spacing:-.025em}
+html[data-wmode="light"] .ws67-hero .ws67-sub{color:#e1ebef !important;font-size:13.5px;line-height:1.6}
+html[data-wmode="light"] .ws67-hero .ws67-arch-pill.hero-dept-pill,
+html[data-wmode="light"] .ws67-hero .ws67-scope-pill{background:rgba(255,255,255,.13) !important;color:#fff !important;border:1px solid rgba(255,255,255,.24) !important}
+html[data-wmode="light"] .ws67-hero .ws67-actions .btn{background:rgba(255,255,255,.13) !important;color:#fff !important;border:1px solid rgba(255,255,255,.3) !important;box-shadow:none}
+html[data-wmode="light"] .ws67-hero .ws67-actions .btn:hover{background:rgba(255,255,255,.23) !important}
+html[data-wmode="light"] .ws67-hero .ws67-role-tabs{border-top-color:rgba(255,255,255,.22);padding-top:15px;margin-top:18px}
+html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero .ctx-rtab:not(.on){
+  background:#edf4f5 !important;border:1px solid #d9e6e8 !important;color:#244355 !important;
+  padding:8px 13px;box-shadow:none !important;border-radius:9px;
+}
+html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero .ctx-rtab:not(.on):nth-child(3n+2){background:#f2edfa !important;border-color:#e3dcf1 !important;color:#554471 !important}
+html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero .ctx-rtab:not(.on):nth-child(3n){background:#faf2e9 !important;border-color:#ecded0 !important;color:#704e31 !important}
+html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero .ctx-rtab.on{background:#fff !important;border-color:#fff !important;color:#173b4a !important;box-shadow:0 3px 12px rgba(0,0,0,.14) !important;padding:8px 13px;border-radius:9px}
+html[data-wmode="light"] .ws67-hero .ws67-mode-seg{background:#f4f6f6;border:1px solid #d8e0e1;border-radius:10px;padding:3px}
+html[data-wmode="light"] .ws67-hero .ws67-mode-seg button{color:#40545c;border-radius:7px}
+html[data-wmode="light"] .ws67-hero .ws67-mode-seg button.on{background:#274b59;color:#fff}
+html[data-wmode="light"] .ws67-hero .ws67-qcard:not(.is-alert){background:#fff !important;border-color:#e5ebee !important;border-top:3px solid var(--console-q-accent) !important;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+html[data-wmode="light"] .ws67-hero .ws67-qcard .ws67-qlbl{color:#415660}
+html[data-wmode="light"] .ws67-hero .ws67-qcard.is-alert{background:#fff4df !important;border-color:#edd4a6 !important;color:#573c15}
+html[data-wmode="light"] .ws67-hero .ws67-qcard.is-alert .ws67-qnum{color:#79510b}
+html[data-wmode="light"] .ws67-kpi-row .kpi:not(.ok):not(.warn):not(.crit):not(.info){background:color-mix(in srgb,var(--console-kpi-accent,var(--console-c1)) 5%,#fff) !important}
+html[data-wmode="light"] .rc68-tile{background:color-mix(in srgb,var(--console-c2) 5%,#fff);border-color:color-mix(in srgb,var(--console-c2) 18%,#e1e7e9)}
+html[data-wmode="light"] .ws67-hero button:focus-visible{outline:3px solid #f6cb7c;outline-offset:3px}
+@media(max-width:720px){
+  html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero.ctx-strip{padding:19px 16px 16px !important}
+  .ws67-role-tabs .row{width:100%}
+  .ws67-mode-seg{max-width:100%;overflow-x:auto}
+}

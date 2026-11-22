@@ -46,7 +46,7 @@ const { makeCtx } = require('./dom');
     };
   })())`));
 
-  ok('APP.version is 6.9.3', themeAudit.appVersion === '6.9.3', themeAudit.appVersion);
+  ok('APP.version is 6.9.4', themeAudit.appVersion === '6.9.4', themeAudit.appVersion);
   ok('Global Landing Default is LOMAMO Red (deep red with dimensional topology)',
     themeAudit.defaultLandingId === 'heritage' &&
     themeAudit.firstLanding.id === 'heritage' &&
