@@ -68,7 +68,7 @@ ok('Zero-transaction state remains legible, budgeted and palette-aware',
 const studio = run(`studioHtml(AUTH.user)`);
 const schemeCss = fs.readFileSync(path.join(SRC, 'console_color_schemes.css'), 'utf8');
 ok('Theme Studio offers eight visual console schemes with labelled six-colour swatches',
-  ['Department signature','Heritage Sapphire','Lake &amp; sky','Forest &amp; fern','Orchid &amp; plum','Harvest &amp; clay','Graphite &amp; teal','Citrus &amp; ink'].every(name=>studio.includes(name)) &&
+  ['Role signature','Heritage Sapphire','Lake &amp; sky','Forest &amp; fern','Orchid &amp; plum','Harvest &amp; clay','Graphite &amp; teal','Citrus &amp; ink'].every(name=>studio.includes(name)) &&
   (studio.match(/class=\"console-scheme-choice/g)||[]).length===8 && studio.includes('aria-pressed=\"true\"'));
 run(`WTHEME.setStudio(AUTH.user,'colorScheme','orchid'); WTHEME.apply(AUTH.user);`);
 ok('A selected scheme persists across rendering and retains Foundation White surfaces',

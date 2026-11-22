@@ -777,6 +777,63 @@ const WORKSPACE_LAYOUTS = {
     return m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 42) || fallback;
   },
 
+  renderHomeHero(user, ctx = {}){
+    const archKey = this.archetypeFor(user);
+    const arch = this.ARCHETYPES[archKey] || this.ARCHETYPES['command-grid'];
+    const mode = this.modeFor(user);
+    const role = roleObj(user.roleId) || {};
+    const dept = deptObj(user.departmentId) || { name:'Operations', accent:'#1E3A8A' };
+    const countyLabel = user.countyId ? countyName(user.countyId) : 'Kisumu HQ & Homa Bay';
+    const roleSpec = (typeof ROLE_CONSOLES_68 !== 'undefined' && ROLE_CONSOLES_68.specFor) ? ROLE_CONSOLES_68.specFor(user) : null;
+    const scopeLabel = (typeof ROLE_CONSOLES_68 !== 'undefined' && ROLE_CONSOLES_68.scopeBadge)
+      ? ROLE_CONSOLES_68.scopeBadge(user)
+      : `${countyLabel} · ${dept.name}`;
+    const qtabs = Array.isArray(ctx.qtabs) ? ctx.qtabs.slice(0, 4) : [];
+    const barCfg = (typeof ROLE_CTX !== 'undefined' && ROLE_CTX.roleBarConfig) ? ROLE_CTX.roleBarConfig(user) : { tabs: [] };
+    const roleTabs = Array.isArray(barCfg.tabs) ? barCfg.tabs.slice(0, 6) : [];
+    const roleTabsHtml = `<div class="ctx-role-tabs ws67-role-tabs" style="justify-content:space-between;gap:10px" role="navigation" aria-label="Role contextual workspace tabs">
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          ${roleTabs.map(t => `<button type="button" class="ctx-rtab ${t.v === (ctx.currentView || 'home') ? 'on' : ''}" data-act="go" data-v="${esc(t.v)}">${ic(t.ic || 'file', 13)}<span>${esc(t.l)}</span></button>`).join('')}
+        </div>
+        ${(!ctx.currentView || ctx.currentView === 'home') ? `<div class="seg ws67-mode-seg no-print" role="group" aria-label="Console workspace layout mode">
+          <button type="button" class="${mode === 'smart' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="smart">Decongested Deck</button>
+          <button type="button" class="${mode === 'tabbed' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="tabbed">Focused Tabs</button>
+          <button type="button" class="${mode === 'full' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="full">Expanded Stack</button>
+        </div>` : ''}
+      </div>`;
+    const introText = (roleSpec && roleSpec.summary) || `${role.consoleTitle || 'Department Console'} — ${ctx.dateStr}. ${ctx.scopeText}`;
+    const quickMetricsHtml = qtabs.length ? `<div class="ws67-qgrid hero-qtabs" role="group" aria-label="Key console metrics">
+      ${qtabs.map(qt => `<button type="button" class="ws67-qcard ${qt.alert ? 'is-alert' : ''}" data-act="go" data-v="${esc(qt.v)}">
+        <span class="ws67-qlbl">${ic(qt.icon || 'activity', 13)} <span>${esc(qt.label)}</span></span>
+        <b class="ws67-qnum">${num(qt.count)}</b></button>`).join('')}
+    </div>` : '';
+    const headerHtml = `<section class="ws67-hero ctx-strip" data-archetype="${esc(arch.id)}" data-dept="${esc(role.dept || 'exec')}" data-role="${esc(user.roleId)}" style="${roleSpec && roleSpec.color ? `--ws-accent:${esc(roleSpec.color)}` : ''}">
+      <div class="ws67-hero-main">
+        <div class="ws67-hero-copy">
+          <div class="ws67-eyebrow">
+            <span class="ws67-arch-pill hero-dept-pill">${esc((roleSpec && roleSpec.code) || arch.tag)}</span>
+            <span class="ws67-scope-pill">${ic('globe', 12)} ${esc(scopeLabel)}</span>
+          </div>
+          <h2 class="ws67-greeting">${esc(ctx.greeting)}, ${esc(user.name.replace(/^Demo - /, ''))}</h2>
+          <p class="ws67-sub">${esc(introText)}</p>
+          <div class="ws67-actions">
+            ${ctx.actionsHtml || ''}
+            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="open-switch-account">${ic('users', 13)} Switch Account</button>
+            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="wtheme-open" data-tab="studio">${ic('palette', 13)} Themes &amp; Style</button>
+            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="arrange-home">${ic('settings', 13)} Arrange</button>
+          </div>
+          <details class="ws67-mobile-extra"><summary>Role details &amp; metrics</summary>
+            <p>${esc(introText)}</p>${quickMetricsHtml}
+          </details>
+        </div>
+        ${quickMetricsHtml}
+      </div>
+      ${roleTabsHtml}
+    </section>`;
+
+    return headerHtml;
+  },
+
   renderHomeWorkspace(user, ctx){
     const archKey = this.archetypeFor(user);
     const arch = this.ARCHETYPES[archKey] || this.ARCHETYPES['command-grid'];
@@ -793,48 +850,7 @@ const WORKSPACE_LAYOUTS = {
       else contentCards.push(item);
     });
 
-    const roleSpec = (typeof ROLE_CONSOLES_68 !== 'undefined' && ROLE_CONSOLES_68.specFor) ? ROLE_CONSOLES_68.specFor(user) : null;
-    const scopeLabel = (typeof ROLE_CONSOLES_68 !== 'undefined' && ROLE_CONSOLES_68.scopeBadge)
-      ? ROLE_CONSOLES_68.scopeBadge(user)
-      : `${countyLabel} · ${dept.name}`;
-    const qtabs = Array.isArray(ctx.qtabs) ? ctx.qtabs.slice(0, 4) : [];
-    const barCfg = (typeof ROLE_CTX !== 'undefined' && ROLE_CTX.roleBarConfig) ? ROLE_CTX.roleBarConfig(user) : { tabs: [] };
-    const roleTabs = Array.isArray(barCfg.tabs) ? barCfg.tabs.slice(0, 6) : [];
-    const roleTabsHtml = `<div class="ctx-role-tabs ws67-role-tabs" style="justify-content:space-between;gap:10px" role="navigation" aria-label="Role contextual workspace tabs">
-        <div class="row" style="gap:6px;flex-wrap:wrap">
-          ${roleTabs.map(t => `<button type="button" class="ctx-rtab ${t.v === 'home' ? 'on' : ''}" data-act="go" data-v="${esc(t.v)}">${ic(t.ic || 'file', 13)}<span>${esc(t.l)}</span></button>`).join('')}
-        </div>
-        <div class="seg ws67-mode-seg no-print" role="group" aria-label="Console workspace layout mode">
-          <button type="button" class="${mode === 'smart' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="smart">Decongested Deck</button>
-          <button type="button" class="${mode === 'tabbed' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="tabbed">Focused Tabs</button>
-          <button type="button" class="${mode === 'full' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="full">Expanded Stack</button>
-        </div>
-      </div>`;
-    const headerHtml = `<section class="ws67-hero ctx-strip" data-archetype="${esc(arch.id)}" data-dept="${esc(role.dept || 'exec')}" data-role="${esc(user.roleId)}" style="${roleSpec && roleSpec.color ? `--ws-accent:${esc(roleSpec.color)}` : ''}">
-      <div class="ws67-hero-main">
-        <div class="ws67-hero-copy">
-          <div class="ws67-eyebrow">
-            <span class="ws67-arch-pill hero-dept-pill">${esc((roleSpec && roleSpec.code) || arch.tag)}</span>
-            <span class="ws67-scope-pill">${ic('globe', 12)} ${esc(scopeLabel)}</span>
-          </div>
-          <h2 class="ws67-greeting">${esc(ctx.greeting)}, ${esc(user.name.replace(/^Demo - /, ''))}</h2>
-          <p class="ws67-sub">${esc((roleSpec && roleSpec.summary) || `${role.consoleTitle || 'Department Console'} — ${ctx.dateStr}. ${ctx.scopeText}`)}</p>
-          <div class="ws67-actions">
-            ${ctx.actionsHtml || ''}
-            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="open-switch-account">${ic('users', 13)} Switch Account</button>
-            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="wtheme-open" data-tab="studio">${ic('palette', 13)} Themes &amp; Style</button>
-            <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="arrange-home">${ic('settings', 13)} Arrange</button>
-          </div>
-        </div>
-        ${qtabs.length ? `<div class="ws67-qgrid hero-qtabs" role="group" aria-label="Key console metrics">
-          ${qtabs.map(qt => `<button type="button" class="ws67-qcard ${qt.alert ? 'is-alert' : ''}" data-act="go" data-v="${esc(qt.v)}">
-            <span class="ws67-qlbl">${ic(qt.icon || 'activity', 13)} <span>${esc(qt.label)}</span></span>
-            <b class="ws67-qnum">${num(qt.count)}</b>
-          </button>`).join('')}
-        </div>` : ''}
-      </div>
-      ${roleTabsHtml}
-    </section>`;
+    const headerHtml = ctx.omitHeader ? '' : this.renderHomeHero(user, ctx);
 
     const kpiHtml = kpiTiles.length
       ? `<div class="grid ${kpiTiles.length === 3 ? 'g3' : 'g4'} ws67-kpi-row">${kpiTiles.slice(0, 4).join('')}</div>`

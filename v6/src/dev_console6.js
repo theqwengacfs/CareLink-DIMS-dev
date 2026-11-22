@@ -782,6 +782,13 @@ const PROD_SETUP = {
     return { chiefRec, pack: this.lastPack };
   },
 
+  pendingPackTargets(actor = (typeof AUTH !== 'undefined' ? AUTH.user : null)) {
+    if (!actor || !DB.db) return [];
+    return (DB.db.users || []).filter(u => u && u.id !== actor.id && u.roleId !== 'chief' &&
+      !u.unconfirmed && !u.archivedByRebuild && u.status !== 'inactive' &&
+      !u.privacyPasswordSet && (u.mustChange || u.mustChangePassword || u.demo || !u.lastLogin));
+  },
+
   async regeneratePackForMustChangeUsers() {
     const actor = AUTH.user;
     if (!actor || actor.roleId !== 'chief') {
@@ -795,7 +802,7 @@ const PROD_SETUP = {
       try{ DB.db = JSON.parse(previousRaw); DB.migrate(); Store.set(DB.KEY, previousRaw); }catch(_e){}
       if(typeof APPX !== 'undefined') APPX.dirty = previousDirty;
     };
-    const targets = (DB.db.users || []).filter(u => u.id !== actor.id && (u.mustChange || u.mustChangePassword || u.demo || !u.lastLogin));
+    const targets = this.pendingPackTargets(actor);
     if (!targets.length) {
       toast('All accounts already personalised', 'Every active user has already set their private password. Use per-user reset in Users & Accounts if an individual forgot theirs.', 'info');
       return null;
@@ -830,7 +837,7 @@ const PROD_SETUP = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accounts: targets.map(u => ({
-            id: u.id, username: u.username, name: u.name.replace(/^Demo - /, ''),
+            id: u.id, username: u.username, email:u.email || undefined, name: u.name.replace(/^Demo - /, ''),
             roleId: u.roleId, departmentId: u.departmentId, countyId: u.countyId,
             areaIds: u.areaIds, jobTitle: u.jobTitle
           })) })
@@ -857,6 +864,8 @@ const PROD_SETUP = {
         packRows.push({
           name: cp.name,
           username: cp.username,
+          email: cp.email || (match && match.email) || `${cp.username}@${this.defaultEmailDomain()}`,
+          department: cp.departmentId || (match && match.departmentId) || '',
           tempPassword: pw,
           role: cp.roleName || (roleObj(cp.roleId) || {}).name || cp.role || cp.roleId || '',
           county: cp.county || (cp.countyId ? countyName(cp.countyId) : 'Head Office'),
@@ -873,7 +882,7 @@ const PROD_SETUP = {
       detail: `Generated one-time SMS credential pack for ${packRows.length} account(s); first-login private password enforced.`
     });
     DB.save();
-    this.lastPack = { generatedAt: todayISO(), chiefUsername: actor.username, siteUrl: location.origin, count: packRows.length, rows: packRows };
+    this.lastPack = { kind:'pending-only', generatedAt: todayISO(), chiefUsername: actor.username, siteUrl: location.origin, count: packRows.length, rows: packRows };
     return this.lastPack;
   },
 
@@ -884,7 +893,7 @@ const PROD_SETUP = {
       body:`<div class="alert warn"><div><b>${recover ? 'Recovery is available for 24 hours' : 'This resets non-Chief accounts'}</b>
         <p class="small">${recover
           ? 'Only temporary passwords that are still valid are included. Personalised passwords cannot be recovered. Changing the Chief password also makes the recovery copy unreadable.'
-          : 'Existing non-Chief credentials and sessions are replaced. Named officers receive new temporary passwords; unconfirmed seats remain disabled. The current Chief sign-in and non-account records are preserved.'}</p>
+          : 'All other existing accounts and sessions, including any other Chief accounts, are replaced or deactivated. Only your current Chief sign-in and non-account records are preserved. Named officers receive new temporary passwords; unconfirmed seats remain disabled.'}</p>
         <p class="small">Email addresses are mock login aliases, not mailboxes. Distribute credentials privately to individual officers.</p></div></div>
         <div class="field"><label for="reactivationPassword">Current Chief password</label>
           <input class="input" id="reactivationPassword" type="password" autocomplete="current-password"></div>
@@ -915,7 +924,7 @@ const PROD_SETUP = {
       }
       const rows = r.body.issued.map(row=>({ ...row, county:countyName(row.county),
         loginUrl:location.origin, smsText:`CareLink: Sign in at ${location.origin} with ${row.username} and the temporary password shown in your private handoff. Set a private password on first login.` }));
-      this.lastPack = { generatedAt:todayISO(), chiefUsername:actor.username, siteUrl:location.origin,
+      this.lastPack = { kind:recover ? 'recovered-rebuild' : 'official-rebuild', generatedAt:todayISO(), chiefUsername:actor.username, siteUrl:location.origin,
         count:rows.length, rows, expiresAt:r.body.expiresAt };
       this.lastWhatsappSheet = '';
       closeAllModals();
@@ -942,6 +951,7 @@ const PROD_SETUP = {
     const p = this.lastPack;
     if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a credential sheet first.', 'warn');
     const html = v => esc(String(v ?? ''));
+    const packDescription = p.kind === 'official-rebuild' ? 'Official hierarchy rebuild — newly issued named officers' : p.kind === 'recovered-rebuild' ? 'Recovered rebuild pack — only still-valid temporary passwords' : 'Pending-account pack — not the full official hierarchy';
     const rows = p.rows.map((r, i) => `<tr>
       <td>${i + 1}</td><td><strong>${html(r.name)}</strong></td><td>${html(r.username)}</td>
       <td>${html(r.email || `${r.username}@${this.defaultEmailDomain()}`)}</td>
@@ -958,7 +968,7 @@ const PROD_SETUP = {
       .meta{color:#475569}.footer{margin-top:20px;color:#475569;font-size:12px}@media print{body{margin:12mm;padding:0}.notice{break-inside:avoid}tr{break-inside:avoid}button{display:none}}
       </style></head><body><header><h1>CareLink C-DIMS · Initial Account Provisioning</h1>
       <div>${html((DB.db.settings.org && DB.db.settings.org.name) || 'LOMAMO Foundation Kenya')}</div>
-      <div class="meta">Generated ${html(p.generatedAt)} · Portal ${html(p.siteUrl)} · ${p.rows.length} accounts</div></header>
+      <div class="meta">${html(packDescription)} · Generated ${html(p.generatedAt)} · Portal ${html(p.siteUrl)} · ${p.rows.length} accounts</div></header>
       <section class="notice"><strong>CONFIDENTIAL — ONE-TIME PASSWORDS</strong><br>
       This document contains temporary account credentials. The Chief System Administrator must distribute each account holder’s credentials privately through an approved channel. Never post this file to a shared group, public repository, or unapproved storage. Each user must replace the temporary password at first sign-in. Securely delete this document after dispatch; retain no reusable password copy. This document is not a substitute for account authorization or access controls.</section>
       <table><thead><tr><th>#</th><th>Account holder / seat</th><th>Username</th><th>Mock email alias</th><th>One-time password</th><th>Role</th><th>Department</th><th>Office / county</th></tr></thead><tbody>${rows}</tbody></table>
@@ -1358,6 +1368,8 @@ const DEV_CONSOLE = {
     const users = DB.db.users || [];
     const personalised = users.filter(u => !u.mustChangePassword && !u.demo).length;
     const awaitingFirstLogin = users.filter(u => u.mustChangePassword).length;
+    const pendingPackCount = PROD_SETUP.pendingPackTargets(real).length;
+    const namedRosterCount = typeof OFFICIAL_ROSTER !== 'undefined' ? OFFICIAL_ROSTER.filter(r=>!r.unconfirmed && r.roleId!=='chief').length : 0;
     const overrideLogs = (DB.db.audit || []).filter(a => String(a.action || '').startsWith('system.silent_override')).slice(-30).reverse();
 
     VERSION_CONTROL.ensureStore();
@@ -1471,21 +1483,21 @@ const DEV_CONSOLE = {
       const pack = PROD_SETUP.ownsCredentialPack(real) ? PROD_SETUP.lastPack : null;
       body = `<div class="alert info" style="margin-bottom:16px">${ic('shield', 18)}<div>
         <b>Production First-Run &amp; Strict Privacy Password Architecture (Kenya Data Protection Act, 2019)</b>
-        <span class="small">1) Commissioning configures the <b>Chief System Administrator</b> and auto-generates unique 14-character strong passwords for every staff account as a downloadable <b>SMS Dispatch Pack</b>. 2) On <b>first login</b>, every user is forced to create a private 12+ character complex password stored only as a salted one-way hash — so <b>not even the Chief System Administrator knows any user's personal password</b>.</span>
+        <span class="small">The official rebuild issues a new confidential document for the named roster; the separate pending-account generator is only a subset. Officers change their temporary password privately on first sign-in.</span>
       </div></div>`
-      + (isChief && PROD_SETUP.isGloballyActivated() ? card('Rebuild the official hierarchy', `<p class="small">Reconcile the latest Kisumu and Homa Bay roster on the shared server and issue new temporary passwords to named officers. Unconfirmed seats stay disabled; the Chief sign-in and non-account records are retained.</p>
+      + (isChief && PROD_SETUP.isGloballyActivated() ? card('Rebuild the official hierarchy', `<p class="small">Reconcile the Kisumu and Homa Bay roster and issue ${num(namedRosterCount)} named officers new temporary passwords. Unconfirmed seats stay disabled. Your current Chief sign-in and non-account records are retained; all other legacy accounts, including any other Chief accounts, are replaced or deactivated.</p>
           <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-danger" data-act="dev-open-reactivation">Rebuild &amp; reactivate</button>
           <button class="btn btn-ghost" data-act="dev-open-recover-reactivation">Recover recent pack</button></div>
           <p class="hint">The Chief password is required. If the response is interrupted, recover the encrypted pack within 24 hours before retrying.</p>`) : '')
       + `<div class="grid g2" style="margin-bottom:16px">
-        ${card('SMS Credential Pack Generator', `<p class="small muted" style="margin-top:0">Generate one-time strong SMS credentials for all accounts currently awaiting first-login activation, or launch the full 4-step First-Run Commissioning Wizard.</p>
+        ${card('Pending accounts only — not the full roster', `<p class="small muted" style="margin-top:0">This creates credentials only for ${num(pendingPackCount)} eligible pending accounts, not the ${num(namedRosterCount)}-officer official rebuild. Previously personalised and unconfirmed accounts are excluded. To issue the complete named roster use <b>Rebuild &amp; reactivate</b> above.</p>
           <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
-            ${isChief ? `<button class="btn btn-sm btn-primary" data-act="dev-gen-sms-pack">${ic('key', 14)} Generate One-Time SMS Pack (${num(awaitingFirstLogin || users.length - 1)} accounts)</button>` : ''}
+            ${isChief ? `<button class="btn btn-sm btn-primary" data-act="dev-gen-sms-pack">${ic('key', 14)} Generate pending-only pack (${num(pendingPackCount)} accounts)</button>` : ''}
             <button class="btn btn-sm btn-ghost" data-act="goto-onboard">${ic('sparkles', 14)} Open First-Run Setup Wizard</button>
           </div>
           ${pack ? `<div class="divider"></div>
             <div class="alert ok" style="margin-top:10px">${ic('check', 16)}<div>
-              <b>One-Time SMS Credential Pack Ready (${num(pack.count)} staff accounts)</b>
+              <b>${pack.kind === 'official-rebuild' ? 'Official rebuild' : pack.kind === 'recovered-rebuild' ? 'Recovered rebuild (still-valid only)' : 'Pending accounts only'} credential pack ready (${num(pack.count)} accounts)</b>
               <span class="small">Generated ${fmtDateTime(pack.generatedAt)}. Download now for SMS dispatch; temporary passwords are never persisted in cleartext.</span>
             </div></div>
             <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
