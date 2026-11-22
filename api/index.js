@@ -4149,6 +4149,66 @@ async function handleRequest(req, res) {
   return sendJson(res, 404, { ok: false, error: `Unknown CareLink API endpoint: /api/${route}` });
 }
 
+/* Local owner-maintenance entry point, not an HTTP route. Possession of the
+   writable database credentials is required. Use the interactive tool in
+   tools/; never expose this function as an unauthenticated web endpoint. */
+export async function ownerListChiefs() {
+  return requestSnapshot.run({ snapshotKnown: false }, async () => {
+    const { state } = await loadCloudHead();
+    if (!state.setup) throw new Error('No commissioned CareLink installation was found in this database.');
+    return Object.entries(state.creds || {})
+      .filter(([username, cred]) => cred && cred.roleId === 'chief' &&
+        username === String(cred.username || '').trim().toLowerCase())
+      .map(([username, cred]) => ({ username, name: String(cred.name || 'Chief System Administrator') }));
+  });
+}
+
+export async function ownerRecoverChief({ username, password }) {
+  const uname = String(username || '').trim().toLowerCase();
+  if (!uname || typeof password !== 'string') throw new Error('A Chief username and new password are required.');
+  const pwError = validatePrivacyPassword(password, uname);
+  if (pwError) throw new Error(pwError);
+  return requestSnapshot.run({ snapshotKnown: false }, async () => {
+    const { state: head } = await loadCloudHead();
+    const ctx = requestSnapshot.getStore();
+    const expectedSnapshot = ctx.snapshot;
+    const { state } = await loadCloudState({ readOnly: false });
+    if (ctx.snapshot !== expectedSnapshot) throw new Error('The database changed during recovery. Run the tool again.');
+    if (head._shardedManifest && !state._shardedManifest) {
+      throw new Error('The current database shards could not be verified. No recovery was performed.');
+    }
+    if (state._shardedManifest && state._shardedManifest.head) {
+      // Auth-only writes can update the manifest without changing its shards.
+      state.creds = state._shardedManifest.head.creds || {};
+    }
+    const cred = state.creds && state.creds[uname];
+    const user = (state.db && Array.isArray(state.db.users) ? state.db.users : [])
+      .find(u => u && String(u.username || '').toLowerCase() === uname);
+    if (!state.setup || !cred || cred.roleId !== 'chief' || (user && user.roleId !== 'chief')) {
+      throw new Error('That username is not an existing Chief account on this database. No changes were made.');
+    }
+    const { salt, digest } = hashPassword(password);
+    Object.assign(cred, { salt, digest, sessionEpoch: crypto.randomBytes(16).toString('hex'),
+      mustChange: false, privateSetAt: nowISO(), updatedAt: nowISO() });
+    if (user) {
+      Object.assign(user, { active: true, status: 'active', mustChange: false, mustChangePassword: false,
+        dpaFirstLoginRequired: false, failedLogins: 0, failedAttempts: 0, lockedUntil: null,
+        privacyPasswordSet: true, privacyPasswordAt: cred.privateSetAt });
+      delete user.hash; delete user.salt;
+    }
+    if (state.loginFailures) delete state.loginFailures[uname];
+    for (const field of ['emergencyCodes', 'pendingActivations']) {
+      if (Array.isArray(state.db[field])) state.db[field] = state.db[field]
+        .filter(item => String(item && item.username || '').toLowerCase() !== uname);
+    }
+    state.rev = (Number(state.rev) || 0) + 1;
+    appendServerAudit(state, cred.id || uname, 'auth.owner_recovery', 'user', cred.id || uname,
+      'Chief password reset by database owner; previous sessions and recovery codes invalidated');
+    await saveCloudState(state);
+    return { username: uname, rev: state.rev };
+  });
+}
+
 /* Convert storage/configuration failures into an explicit unavailable response.
    Most importantly, a failed KV read/write must never be reported as a successful
    online save or silently diverted to an ephemeral local copy. */
