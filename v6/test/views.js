@@ -66,7 +66,7 @@ for(const uname of users){
     }catch(e){ bad.push([uname,'care-resident',e.message]); }
   }
   // report documents
-  for(const t of ['patient_figures','patient_days','expenditure','referral','executive','quality']){
+  for(const t of ['weekly_indicators','patient_figures','patient_days','expenditure','referral','executive','quality','home_visits','hospital_ops','donor','condition_summary']){
     try{ const h=run(`buildReportDoc('${t}',{countyId:'all'},AUTH.user)`); if(typeof h!=='string'||h.length<100) throw new Error('short'); ok++; }
     catch(e){ bad.push([uname,'doc:'+t,e.message]); }
   }

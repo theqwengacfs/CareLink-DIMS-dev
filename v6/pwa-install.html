@@ -1,32 +1,188 @@
 <script>
+/* CareLink PWA shell. Three jobs, all of them defensive:
+   1. register the offline application shell;
+   2. offer the install prompt, without ever losing the button because of
+      where this script happens to be injected;
+   3. tell the clinician when the device has lost the network, and when a new
+      build is ready to load.
+   Nothing here touches a record: it only reads navigator.onLine and the
+   service-worker registration. */
 (() => {
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
-  }
+  const doc = document;
   let installEvent = null;
+  let installButton = null;
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-  const installButton = document.createElement('button');
-  installButton.type = 'button';
-  installButton.textContent = 'Install CareLink';
-  installButton.setAttribute('aria-label', 'Install CareLink on this device');
-  Object.assign(installButton.style, { position:'fixed', right:'16px', bottom:'16px', zIndex:'10000', display:'none',
-    border:'0', borderRadius:'999px', padding:'12px 17px', background:'#B7192B', color:'#fff', font:'700 14px system-ui',
-    boxShadow:'0 5px 18px rgba(15,23,42,.25)', cursor:'pointer' });
-  installButton.addEventListener('click', async () => {
-    if (installEvent) {
-      installEvent.prompt();
-      await installEvent.userChoice;
-      installEvent = null;
-      installButton.style.display = 'none';
-    } else if (isIOS) {
-      window.alert('To install CareLink on iPhone or iPad: open the Share menu, choose “Add to Home Screen”, then confirm.');
+
+  /* ---- 1. offline shell ------------------------------------------------ */
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    const register = () => navigator.serviceWorker.register('./sw.js').catch(() => {});
+    if (doc.readyState === 'complete') register();
+    else window.addEventListener('load', register);
+    /* A worker that is already waiting means a newer build is on this device. */
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event && event.data && event.data.type === 'CARELINK_UPDATE') armUpdateNotice();
+    });
+  }
+
+  /* ---- small fixed-position notice strip ------------------------------ */
+  function strip(id) {
+    let el = doc.getElementById(id);
+    if (!el) {
+      el = doc.createElement('div');
+      el.id = id;
+      Object.assign(el.style, { position: 'fixed', left: '12px', right: '12px', bottom: '76px', zIndex: '10000',
+        display: 'none', gap: '10px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap',
+        borderRadius: '12px', padding: '10px 13px', font: '600 13px system-ui', lineHeight: '1.35',
+        boxShadow: '0 6px 20px rgba(15,23,42,.22)', maxWidth: '560px', margin: '0 auto' });
+      doc.body && doc.body.appendChild(el);
     }
+    return el;
+  }
+  function action(label, onClick, colours) {
+    const b = doc.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    Object.assign(b.style, { border: '0', borderRadius: '999px', padding: '6px 12px', cursor: 'pointer',
+      font: '700 12.5px system-ui', background: colours[0], color: colours[1], whiteSpace: 'nowrap' });
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  /* ---- 2. offline / back-online notice -------------------------------- */
+  /* The sync chip already carries the authoritative state; this strip exists
+     because on a phone the chip may be scrolled off the top of a long form.
+     It is deliberately quiet: it never blocks, and it disappears the moment
+     the network returns. */
+  let offlineStrip = null;
+  function syncOnlineNotice() {
+    if (!doc.body) return;
+    if (!offlineStrip) offlineStrip = strip('carelink-offline');
+    const online = navigator.onLine !== false;
+    offlineStrip.textContent = '';
+    offlineStrip.style.display = online ? 'none' : 'flex';
+    offlineStrip.style.background = '#3F1D1D';
+    offlineStrip.style.color = '#FFE4E6';
+    if (!online) {
+      const text = doc.createElement('span');
+      text.textContent = isIOS
+        ? 'No network. CareLink is running from this device; changes are kept here until it reconnects.'
+        : 'No network. CareLink is running from this device; changes are kept here until it reconnects.';
+      offlineStrip.appendChild(text);
+      offlineStrip.appendChild(action('Details', () => tell('carelink:open-sync'), ['#7F1D1D', '#FFE4E6']));
+    }
+  }
+  /* The console listens for these two events: it owns the sync engine and the
+     modal, this file owns the shell. Nothing is called across that line. */
+  const tell = (name) => { try { window.dispatchEvent(new CustomEvent(name)); } catch (_) { } };
+  window.addEventListener('online', () => {
+    syncOnlineNotice();
+    tell('carelink:network-online');
   });
+  window.addEventListener('offline', syncOnlineNotice);
+  doc.addEventListener('visibilitychange', () => { if (!doc.hidden) syncOnlineNotice(); });
+  window.addEventListener('load', () => { syncOnlineNotice(); setTimeout(syncOnlineNotice, 1500); });
+
+  /* ---- 3. new build waiting ------------------------------------------- */
+  let updateStrip = null;
+  function armUpdateNotice() {
+    if (!doc.body) return;
+    if (updateStrip && updateStrip.style.display === 'flex') return;
+    if (!updateStrip) updateStrip = strip('carelink-update');
+    updateStrip.textContent = '';
+    updateStrip.style.display = 'flex';
+    updateStrip.style.background = '#0F2A44';
+    updateStrip.style.color = '#E0F2FE';
+    const text = doc.createElement('span');
+    text.textContent = 'A newer version of CareLink is ready on this device.';
+    updateStrip.appendChild(text);
+    updateStrip.appendChild(action('Reload', () => {
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'CARELINK_SKIP_WAITING' });
+      }
+      location.reload();
+    }, ['#1D4ED8', '#FFFFFF']));
+  }
+  if (navigator.serviceWorker) {
+    /* A registration that already has a waiting worker was installed by an
+       earlier visit; offer the reload as soon as the page has body. */
+    const checkWaiting = (reg) => {
+      if (!reg) return;
+      if (reg.waiting) armUpdateNotice();
+      reg.addEventListener('updatefound', () => {
+        const next = reg.installing;
+        if (!next) return;
+        next.addEventListener('statechange', () => {
+          if (next.state === 'installed' && navigator.serviceWorker.controller) armUpdateNotice();
+        });
+      });
+    };
+    navigator.serviceWorker.getRegistration()
+      .then(checkWaiting)
+      .catch(() => { });
+    navigator.serviceWorker.ready
+      .then(() => {
+        navigator.serviceWorker.getRegistration()
+          .then(checkWaiting)
+          .catch(() => { });
+      })
+      .catch(() => { });
+  }
+
+  /* ---- 4. install prompt ---------------------------------------------- */
+  function makeButton() {
+    const b = doc.createElement('button');
+    b.type = 'button';
+    b.textContent = 'Install CareLink';
+    b.setAttribute('aria-label', 'Install CareLink on this device');
+    Object.assign(b.style, { position: 'fixed', right: '16px', bottom: '16px', zIndex: '10000', display: 'none',
+      border: '0', borderRadius: '999px', padding: '12px 17px', background: '#B7192B', color: '#fff',
+      font: '700 14px system-ui', boxShadow: '0 5px 18px rgba(15,23,42,.25)', cursor: 'pointer' });
+    b.addEventListener('click', async () => {
+      if (installEvent) {
+        installEvent.prompt();
+        await installEvent.userChoice;
+        installEvent = null;
+        b.style.display = 'none';
+      } else if (isIOS) {
+        window.alert('To install CareLink on iPhone or iPad: open the Share menu, choose “Add to Home Screen”, then confirm.');
+      }
+    });
+    return b;
+  }
+  /* Append when the body exists. This script is injected as the last thing
+     before </body> by build.py, but it is also inlined inside <head> by hosts
+     that place it there, so never assume document.body is present. */
+  function attachInstallButton() {
+    if (!installButton) installButton = makeButton();
+    if (!doc.body) return false;
+    if (installButton.parentNode !== doc.body) doc.body.appendChild(installButton);
+    return true;
+  }
   window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault(); installEvent = event; installButton.style.display = 'block';
+    event.preventDefault();
+    installEvent = event;
+    if (attachInstallButton()) installButton.style.display = 'block';
   });
-  window.addEventListener('appinstalled', () => { installEvent = null; installButton.style.display = 'none'; });
-  if (isIOS && !window.matchMedia('(display-mode: standalone)').matches) installButton.style.display = 'block';
-  document.body.appendChild(installButton);
+  window.addEventListener('appinstalled', () => {
+    installEvent = null;
+    if (installButton) installButton.style.display = 'none';
+  });
+  if (isIOS && !window.matchMedia('(display-mode: standalone)').matches) {
+    if (attachInstallButton()) installButton.style.display = 'block';
+  }
+  if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', attachInstallButton);
+  else attachInstallButton();
+  /* If the prompt fired before the body existed, the button is created and
+     still hidden; show it once the body is there. */
+  doc.addEventListener('DOMContentLoaded', () => {
+    if (installEvent && attachInstallButton()) installButton.style.display = 'block';
+  });
+  /* Cached-shell replays and in-app navigations can replace the body. */
+  window.addEventListener('pageshow', () => {
+    if (installEvent || (isIOS && !window.matchMedia('(display-mode: standalone)').matches)) {
+      if (attachInstallButton()) installButton.style.display = 'block';
+    }
+    syncOnlineNotice();
+  });
 })();
 </script>

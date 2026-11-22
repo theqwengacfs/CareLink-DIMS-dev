@@ -113,20 +113,46 @@ for (const row of rows) {
   const login=await api('auth/login','POST',{username:row.username,password:row.tempPassword});
   assert.equal(login.status,200,`issued credential failed: ${row.username}`);
   assert.equal(login.body.user.roleId,row.roleId);
-  assert.equal(login.body.passwordBeforeWorkspace,true);
+  assert.equal(login.body.passwordBeforeWorkspace,false,'re-issued accounts start work immediately, without a forced password change');
   assert.equal((await api('auth/logout','POST',{},login.body.token)).status,200);
 }
 const director=rows.find(x=>x.username==='director');
 assert.equal(director.email,'martinchama@lomamofoundation.org');
+assert.ok(rows.every(r=>/@lomamofoundation\.org$/.test(r.email)),'every issued alias is on the official domain');
+assert.equal(stored.db.users.filter(u=>!u.archivedByRebuild&&u.roleId!=='chief').every(u=>u.mustChange===false),true,'rebuilt seats do not force a password change');
+const aliasLogin=await api('auth/login','POST',{username:director.email,password:rows.find(x=>x.username==='director').tempPassword});
+assert.equal(aliasLogin.status,200,'issued email alias signs in');
+assert.equal(aliasLogin.body.passwordBeforeWorkspace,false);
+assert.equal((await api('auth/logout','POST',{},aliasLogin.body.token)).status,200);
+/* The alias must reach the workspace straight away, not a change-password gate. */
+const stateRead=await api('state','GET',{},aliasLogin.body.token);
+assert.equal(stateRead.status,401,'signed-out session cannot read state');
 assert.equal((await api('auth/login','POST',{username:'director',password:'OldDirector#2026'})).status,401);
+/* An older credential pack printed the retired domain; that spelling still signs in. */
+assert.match(director.email,/@lomamofoundation\.org$/);
+r=await api('auth/login','POST',{username:director.email.replace('@lomamofoundation.org','@lomamo.npo'),password:director.tempPassword});
+assert.equal(r.status,200,JSON.stringify(r.body));
+assert.equal((await api('auth/logout','POST',{},r.body.token)).status,200);
 r=await api('auth/login','POST',{username:director.email,password:director.tempPassword});
-assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.mustChange,true);assert.equal(r.body.passwordBeforeWorkspace,true);
+assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.mustChange,false);
+assert.equal(r.body.passwordBeforeWorkspace,false,'no forced first-login change on re-issued accounts');
 const token=r.body.token;
-assert.equal((await api('state','GET',{},token)).body.code,'password_change_required');
-assert.equal((await api('state','PUT',{patches:[]},token)).body.code,'password_change_required');
+/* The issued password opens the workspace immediately. */
+const workspace=await api('state','GET',{},token);
+assert.equal(workspace.status,200);
+/* Changing it later is optional, and still rotates the credential cleanly. */
 r=await api('auth/change-password','POST',{current:director.tempPassword,password:'Private#New2027!'},token);assert.equal(r.status,200,JSON.stringify(r.body));
-assert.equal((await api('state','GET',{},token)).status,200);
-const attack=await api('state','PUT',{baseRev:stored.rebuildRevision,patches:[{c:'emergencyCodes',id:'forged',set:{id:'forged',username:'chief.admin',code:'EMG-FORGED',expiresAt:'2099-01-01'}}]},token);
+/* One live session per account: the change happens in-session, so sign out first. */
+assert.equal((await api('auth/login','POST',{username:'director',password:'Private#New2027!'})).status,409,'a second device cannot take the account over');
+assert.equal((await api('auth/logout','POST',{},token)).status,200);
+assert.equal((await api('auth/login','POST',{username:'director',password:director.tempPassword})).status,401,'the pack password stops working once replaced');
+r=await api('auth/login','POST',{username:'director',password:'Private#New2027!'});assert.equal(r.status,200,JSON.stringify(r.body));
+const afterChange=await api('state','GET',{},r.body.token);
+assert.equal(afterChange.status,200);
+assert.equal(r.body.mustChange,false,'the personal password is not a temporary one');
+const liveToken=r.body.token;
+assert.equal((await api('state','GET',{},token)).status,401,'the replaced session is dead');
+const attack=await api('state','PUT',{baseRev:stored.rebuildRevision,patches:[{c:'emergencyCodes',id:'forged',set:{id:'forged',username:'chief.admin',code:'EMG-FORGED',expiresAt:'2099-01-01'}}]},liveToken);
 assert.equal(attack.body.rejected[0].reason,'account_recovery_scope_denied');
 r=await api('admin/reactivation-pack','POST',{password:chiefPass},chief);assert.equal(r.status,200);
 assert.equal(r.body.issued.some(x=>x.username==='director'),false,'personalised credentials not recovered');
@@ -145,4 +171,4 @@ const damaged=await api('state','GET',{},chief);
 assert.equal(damaged.status,503,JSON.stringify(damaged.body));
 assert.equal(damaged.body.code,'kv_invalid_state');
 assert.equal(kv.get('carelink_cloud_v66'),fakeManifest,'damaged post-rebuild state must not be replaced with an older snapshot');
-console.log(`reactivation-e2e: CAS conflict, lost response recovery, ${rows.length} unique passwords, forced change, old-session invalidation and shard rollback protection passed`);
+console.log(`reactivation-e2e: CAS conflict, lost response recovery, ${rows.length} unique passwords, no forced change, optional later change, old-session invalidation and shard rollback protection passed`);

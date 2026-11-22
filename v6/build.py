@@ -16,7 +16,7 @@ JS_ORDER = ["data.js", "data6.js", "inventory_data.js", "core.js", "access_rules
             "forms.js", "pharmacy.js", "leave.js", "omaha.js", "schedule.js", "exportdocs.js", "dashboard.js", "files.js", "live.js", "themes.js",
             "ui.js", "navpane.js", "pager.js", "care6_flows.js",
             "views_entry.js", "views_patients.js", "views_ops.js", "views_admin.js",
-            "views_care.js", "views_settings.js", "care_actions.js", "import.js", "sync6.js", "backup.js",
+            "views_care.js", "calling6.js", "views_settings.js", "care_actions.js", "import.js", "sync6.js", "backup.js",
             "views_extra.js", "office_actions.js", "app.js",
             "pmi.js", "recognition.js", "workplace.js", "insight6.js", "indicators6.js", "hub6.js", "entry6.js",
             "org_teams.js", "household.js", "costing.js", "tb_dispensing.js", "master_registry.js", "master_analysis.js", "waiting_urgent.js", "portal_content.js",
@@ -45,7 +45,7 @@ def build():
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#202020">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.4) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.6) - LOMAMO Foundation Kenya Data & Information Management System">
 {pwa_head}<style>
 {css}
 </style>
@@ -63,7 +63,7 @@ window.BUILD_STAMP = "{stamp}";
 {js}
 </script>
 {pwa_install}
-<!-- Build {stamp} · CareLink C-DIMS v6.9.4 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build {stamp} · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
 """

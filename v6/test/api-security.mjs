@@ -238,6 +238,20 @@ await check('public setup cannot self-declare global activation', async () => {
         { id: 'msg-forged-legacy', thread: 'dm:u-caregiver-one:u-finance-one', kind: 'direct', from: 'u-caregiver-one', to: ['u-finance-one', 'u-staff-one'], text: 'Misrouted legacy content', readBy: [], at: '2026-10-23T10:02:00.000Z' },
       ],
       notifications: [{ id: 'n-caregiver', userId: 'u-caregiver-one', title: 'Private clinical alert', body: 'Nyalenda case requires review', kind: 'warn', read: false }],
+      teamCalls: [
+        /* A legitimate invitation between two Kisumu colleagues. */
+        { id: 'call-legit', thread: 'dm:u-caregiver-one:u-finance-one', kind: 'audio', state: 'ringing',
+          callerId: 'u-caregiver-one', callerName: 'Caregiver One', participantIds: ['u-caregiver-one', 'u-finance-one'],
+          createdAt: new Date().toISOString(), signal: { offer: 'legit-offer', callerCandidates: [] } },
+        /* A record that names an extra participant nobody may reach. */
+        { id: 'call-widened', thread: 'dm:u-caregiver-one:u-finance-one', kind: 'audio', state: 'ringing',
+          callerId: 'u-caregiver-one', participantIds: ['u-caregiver-one', 'u-finance-one', 'u-staff-one'],
+          createdAt: new Date().toISOString(), signal: {} },
+        /* A record between two other people: a third party may never see it. */
+        { id: 'call-other-pair', thread: 'dm:u-staff-one:u-mcm-kisumu', kind: 'video', state: 'ringing',
+          callerId: 'u-staff-one', participantIds: ['u-staff-one', 'u-mcm-kisumu'],
+          createdAt: new Date().toISOString(), signal: { offer: 'other-offer' } },
+      ],
     } },
   });
   assert.equal(r.status, 200, JSON.stringify(r.body));
@@ -623,6 +637,75 @@ await check('KV write failures return 503 and are never acknowledged as saves', 
   assert.equal(r.status, 503);
   assert.equal(r.body.code, 'kv_write_failed');
   assert.equal(kv.get('carelink_cloud_v66'), before);
+});
+
+/* The earlier session tests deliberately end every lease; open one for the
+   calling checks and close it again afterwards. */
+let callStaffToken = '';
+let callCaregiverToken = '';
+await check('a calling session can be opened for the coordination checks', async () => {
+  const staff = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
+  assert.equal(staff.status, 200, JSON.stringify(staff.body));
+  callStaffToken = staff.body.token;
+  /* One live session per account: the earlier clinical session is closed first. */
+  await call('auth/logout', { method: 'POST', token: caregiverToken });
+});
+
+await check('a call invitation can only ring the people the server says are in that thread', async () => {
+  const forged = await call('state', { method: 'PUT', token: callStaffToken, body: { patches: [
+    { c: 'teamCalls', id: 'call-forged', set: { id: 'call-forged', thread: 'dm:u-caregiver-one:u-finance-one',
+      kind: 'video', state: 'ringing', callerId: 'u-staff-one', participantIds: ['u-staff-one', 'u-caregiver-one', 'u-mcm-kisumu'],
+      createdAt: new Date().toISOString(), signal: {} } },
+  ] } });
+  assert.equal(forged.status, 200, JSON.stringify(forged.body));
+  assert.equal(forged.body.rejected[0].reason, 'call_scope_denied');
+  assert.equal(JSON.parse(kv.get('carelink_cloud_v66')).db.teamCalls.some((c) => c.id === 'call-forged'), false);
+  /* The audience is taken from the thread, so the caller's own list is refused. */
+  const spoofed = await call('state', { method: 'PUT', token: callStaffToken, body: { patches: [
+    { c: 'teamCalls', id: 'call-spoofed', set: { id: 'call-spoofed', thread: 'dm:u-staff-one:u-caregiver-one',
+      kind: 'audio', state: 'ringing', callerId: 'u-staff-one', participantIds: ['u-staff-one', 'u-finance-one'],
+      createdAt: new Date().toISOString(), signal: {} } },
+  ] } });
+  assert.equal(spoofed.body.rejected[0].reason, 'call_scope_denied');
+});
+
+await check('call records are readable and writable only by their two sides', async () => {
+  const guest = await call('auth/login', { method: 'POST', body: { username: 'caregiver.one', password: 'TempCaregiver#2026!' } });
+  assert.equal(guest.status, 200, JSON.stringify(guest.body));
+  callCaregiverToken = guest.body.token;
+  const snapshot = await call('state', { token: callCaregiverToken });
+  const ids = (snapshot.body.db.teamCalls || []).map((c) => c.id);
+
+  assert.equal(ids.includes('call-legit'), true, 'the invited participant receives the invitation');
+  assert.equal(ids.includes('call-other-pair'), false, 'a third party never receives someone else\'s call');
+  assert.equal(ids.includes('call-widened'), false, 'a record that widens its own audience is never served');
+  assert.equal(JSON.stringify(snapshot.body.db.teamCalls.find((c) => c.id === 'call-legit').signal).includes('legit-offer'), true,
+    'the handshake reaches the invited participant so the call can connect');
+  const outsider = await call('state', { method: 'PUT', token: callStaffToken, body: { patches: [
+    { c: 'teamCalls', id: 'call-legit', set: { state: 'ended', endedBy: 'u-staff-one' } },
+  ] } });
+  assert.equal(outsider.body.rejected[0].reason, 'call_scope_denied');
+  const rewrite = await call('state', { method: 'PUT', token: callCaregiverToken, body: { patches: [
+    { c: 'teamCalls', id: 'call-legit', set: { participantIds: ['u-caregiver-one', 'u-mcm-kisumu'] } },
+  ] } });
+  assert.equal(rewrite.body.rejected[0].reason, 'call_scope_denied', 'nobody may rewrite who took part');
+  const answered = await call('state', { method: 'PUT', token: callCaregiverToken, body: { patches: [
+    { c: 'teamCalls', id: 'call-legit', set: {
+      state: 'accepted',
+      answeredBy: ['u-finance-one'],
+      signal: { offer: 'legit-offer', answer: 'legit-answer', callerCandidates: [], calleeCandidates: ['cand-1'] },
+    } },
+  ] } });
+  assert.equal(answered.body.rejected.length, 0, JSON.stringify(answered.body));
+  const stored = JSON.parse(kv.get('carelink_cloud_v66')).db.teamCalls.find((c) => c.id === 'call-legit');
+  assert.equal(stored.signal.offer, 'legit-offer', 'answering never overwrites the caller half of the handshake');
+  assert.equal(stored.signal.answer, 'legit-answer');
+  assert.deepEqual(stored.signal.calleeCandidates, ['cand-1']);
+  const deltas = await call('state?since=1', { token: callCaregiverToken });
+  const leaked = JSON.stringify(deltas.body.patches || []).includes('call-other-pair');
+  assert.equal(leaked, false, 'live deltas never leak another pair\'s call');
+  await call('auth/logout', { method: 'POST', token: callCaregiverToken });
+  await call('auth/logout', { method: 'POST', token: callStaffToken });
 });
 
 console.log(`api-security: ${passed} checks passed`);

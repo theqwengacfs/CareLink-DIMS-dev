@@ -464,6 +464,12 @@ function renderMessages(user, params={}){
   }
 
   const colleagues = DB.db.users.filter(u=>MESSAGING.inReach(user,u));
+  /* Calling needs the installed app on a secure connection; say why not
+     rather than offering a button that cannot work. */
+  const callBlocked = (typeof CALLING !== 'undefined' && CALLING.blockedReason) ? CALLING.blockedReason() : 'Calling is unavailable in this build.';
+  const callLog = ((DB.db && DB.db.teamCalls) || [])
+    .filter(c=>c && c.thread===activeId && ['accepted','ended','declined','missed'].includes(c.state))
+    .slice(0,4);
   const online = colleagues.filter(u=>presenceOf(u.id).state==='online');
   const flagged = RBAC.has(user,'hr.view')? (DB.db.messages||[]).filter(m=>m.flagged) : [];
 
@@ -514,6 +520,7 @@ function renderMessages(user, params={}){
       <button class="tab ${mode==='global'?'active':''}" data-act="go" data-v="messages" data-mode="global" data-thread="global:all">${ic('wifi',13)} 1. Global &amp; Direct Staff Messaging</button>
       <button class="tab ${mode==='internal'?'active':''}" data-act="go" data-v="messages" data-mode="internal" data-thread="${esc(internalChannels[0]?.thread||'dept:'+myDept)}">${ic('users',13)} 2. Ministry Area &amp; Department Coordination Chat</button>
     </div>`
+  + (callBlocked ? `<div class="alert warn" id="callUnavailable" style="margin-bottom:12px">${ic('alert',16)}<div><b>Audio &amp; video calling are switched off on this device</b><span class="small"> ${esc(callBlocked)} Messaging and coordination continue to work; the call buttons explain what is needed.</span></div></div>` : '')
   + `<div class="msg-layout">
       <aside class="msg-list">
         <div class="msg-list-h">${mode==='internal'?'Area & Department Channels':mode==='global'?'Global & Direct Chats':'Active Channels & Chats'}</div>
@@ -534,8 +541,10 @@ function renderMessages(user, params={}){
               <b>${esc(threadLabel(active).title)}</b>
               <span>${esc(threadLabel(active).sub)} · ${active.msgs.length} message(s)</span>
             </div>
-            <div class="row" style="gap:8px">
+            <div class="row" style="gap:8px;flex-wrap:wrap">
               ${active.kind==='direct' && dmOtherId(active) ? presenceTag(dmOtherId(active)) : badge(active.kind==='global'?'Global Broadcast':active.kind==='area'?'Ministry Area Chat':'Department Chat','b-info','nodot')}
+              <button class="btn btn-sm btn-primary" data-act="call-start" data-thread="${esc(active.thread)}" data-kind="audio" title="Audio call ${esc(threadLabel(active).title)}"${callBlocked?' aria-describedby="callUnavailable"':''}>${ic('phone',14)} Audio call</button>
+              <button class="btn btn-sm btn-ghost" data-act="call-start" data-thread="${esc(active.thread)}" data-kind="video" title="Video call ${esc(threadLabel(active).title)}"${callBlocked?' aria-describedby="callUnavailable"':''}>${ic('video',14)} Video</button>
             </div>
           </div>
           <div class="msg-scroll">
@@ -544,6 +553,7 @@ function renderMessages(user, params={}){
               <div class="msg-body">${esc(m.text)}</div>
               ${m.flagged?`<div class="msg-flag">${ic('alert',12)} Flagged locally: ${esc(m.flagReason||'')} - a person decides what happens next.</div>`:''}
             </div>`).join('') : `<div class="note" style="margin:8px 0">${ic('send',15)}<span><b>Direct Coordination Ready:</b> Write your message to <b>${esc(threadLabel(active).title)}</b> in the chat box below and press <b>Send Message</b> (or save as a draft for later review).</span></div>`}
+            ${callLog.length? `<div class="call-log">${callLog.map(c=>`<div class="call-log-row">${ic(c.kind==='video'?'video':'phone',12)}<span>${esc(CALLING.describe(c))}</span><em>${esc(fmtDateTime(c.endedAt||c.startedAt||c.createdAt))}</em></div>`).join('')}</div>` : ''}
           </div>
           <form class="msg-compose" data-form="message" id="msgForm">
             <input type="hidden" name="thread" value="${esc(active.thread)}">
@@ -566,8 +576,12 @@ function renderMessages(user, params={}){
               <span class="avatar" style="width:24px;height:24px;font-size:10px;background:${WTHEME.safeFill((deptObj((roleObj(u.roleId)||{}).dept)||{}).accent||'#475569')}">${initials(u.name)}</span>
               <span><b>${esc(u.name.replace(/^Demo - /,''))}</b><em>${esc(roleObj(u.roleId)?.name||'')}</em></span>
             </button>
-            ${presenceTag(u.id)}
-          </div>`).join('')}</div>`, {sub:`Tap any colleague to open their direct chat box immediately.`})}
+            <span class="row" style="gap:4px">
+              ${presenceTag(u.id)}
+              <button class="icon-btn" data-act="call-person" data-u="${u.id}" data-kind="audio" title="Audio call ${esc(u.name.replace(/^Demo - /,''))}" aria-label="Audio call ${esc(u.name.replace(/^Demo - /,''))}">${ic('phone',13)}</button>
+              <button class="icon-btn" data-act="call-person" data-u="${u.id}" data-kind="video" title="Video call ${esc(u.name.replace(/^Demo - /,''))}" aria-label="Video call ${esc(u.name.replace(/^Demo - /,''))}">${ic('video',13)}</button>
+            </span>
+          </div>`).join('')}</div>`, {sub:`Tap a colleague to open their chat, or call them directly.`})}
         ${flagged.length && RBAC.has(user,'hr.view')? card('Flagged messages', `<div class="col" style="gap:8px">
           ${flagged.slice(0,5).map(m=>`<div><div class="xs muted">${esc(userName(m.from))} · ${fmtDateTime(m.at)}</div><div class="small">${esc(m.text.slice(0,140))}</div>
             <div class="xs" style="color:var(--warn)">${esc(m.flagReason||'')}</div></div>`).join('')}

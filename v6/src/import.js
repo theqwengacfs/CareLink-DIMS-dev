@@ -175,7 +175,7 @@ const REFERENCE_MASTER = {
   inspect(manifest, file){
     if(!manifest || manifest.format !== 'carelink-reference-master-v1' || manifest.encoding !== 'brotli-base64' ||
        !Array.isArray(manifest.chunks) || !manifest.chunks.length || manifest.chunks.length !== manifest.chunkCount ||
-       manifest.chunkCount > 256 || !manifest.counts || manifest.counts.patients !== 3333 ||
+       manifest.chunkCount > 256 || !manifest.counts || manifest.counts.patients !== DEMO_REGISTER.patients ||
        !manifest.quality || manifest.quality.passed !== true){
       throw new Error('Choose the unmodified CareLink full reference-master JSON file.');
     }
@@ -228,7 +228,7 @@ const REFERENCE_MASTER = {
       this.phase='done';
       if(!pulled) this.error='The master was committed in the shared online source, but this browser could not finish loading it. Use Sync retry; do not upload the file again.';
       render();
-      if(pulled) toast('Full reference master imported', '3,333 patients and all related reference collections are now loaded from the shared online source.', 'ok');
+      if(pulled) toast('Full reference master imported', `${num(DEMO_REGISTER.patients)} patients and all related reference collections are now loaded from the shared online source.`, 'ok');
     }catch(e){
       this.phase=this.result?'done':'ready';
       this.error=e.message||'The reference-master import failed.';
@@ -240,7 +240,7 @@ const REFERENCE_MASTER = {
     const silent = Boolean(opts.silent);
     if(this.phase==='uploading' || this.phase==='loading') return {ok:false, busy:true};
     if(!AUTH.user || AUTH.user.roleId!=='chief'){
-      const msg='Only the Chief System Administrator can auto-feed the complete 3,333-patient dataset.';
+      const msg=`Only the Chief System Administrator can auto-feed the complete ${num(DEMO_REGISTER.patients)}-patient dataset.`;
       this.error=msg;
       if(!silent){ toast('Restricted', msg, 'warn'); render(); }
       return {ok:false, error:msg};
@@ -249,7 +249,7 @@ const REFERENCE_MASTER = {
       /* Local browser-only evaluation fallback */
       if(typeof DB.resetToFreshReference==='function'){
         DB.resetToFreshReference();
-        if(!silent){ toast('Complete dataset loaded', '3,333 complete synthetic patients generated locally.', 'ok'); render(); }
+        if(!silent){ toast('Complete dataset loaded', `${num(DEMO_REGISTER.patients)} complete synthetic patients generated locally.`, 'ok'); render(); }
         return {ok:true, local:true};
       }
       const msg='Sign in online as Chief System Administrator before auto-feeding the cloud dataset.';
@@ -273,12 +273,12 @@ const REFERENCE_MASTER = {
         const pulled = await SYNC.pullFull({ minRev: autoRes.body.rev || 0, requireReferenceMaster: true });
         this.phase = 'done';
         if(!pulled){
-          this.error = 'The 3,333-patient dataset was committed in Cloud KV, but paged sync did not finish; click Sync retry.';
+          this.error = `The ${num(DEMO_REGISTER.patients)}-patient dataset was committed in Cloud KV, but paged sync did not finish; click Sync retry.`;
           if(!silent) render();
           return {ok:false, committed:true, error:this.error};
         }
         if(!silent){
-          toast('100% Complete Dataset Loaded', '3,333 patients, 44,995 visits, and 18,060 PDCAs fed directly from Cloud into KV.', 'ok');
+          toast('100% Complete Dataset Loaded', `${num(DEMO_REGISTER.patients)} patients, their full visit history and PDCA cycles fed directly from Cloud into KV.`, 'ok');
           render();
         }
         return {ok:true, counts:autoRes.body.counts, quality:autoRes.body.quality, importId:autoRes.body.importId};
@@ -293,7 +293,7 @@ const REFERENCE_MASTER = {
         await this.upload();
         return {ok:this.phase==='done', counts:this.result&&this.result.counts, quality:this.result&&this.result.quality, error:this.error};
       }
-      throw new Error((autoRes.body && autoRes.body.error) || 'Cloud auto-feed of the 3,333-patient reference master failed.');
+      throw new Error((autoRes.body && autoRes.body.error) || `Cloud auto-feed of the ${num(DEMO_REGISTER.patients)}-patient reference master failed.`);
     }catch(e){
       this.phase='idle';
       this.error=e.message||'Cloud auto-feed failed.';
@@ -312,7 +312,7 @@ function renderReferenceMasterImport(user){
     : r.phase==='done' ? 'Reference master committed in the shared online source'
     : 'Ready for server-side digest, structure, relationship and completeness validation';
   return pageHead('Full reference master import',
-    'One-time post-setup import of the complete synthetic 3,333-patient reference package, with live accounts and settings preserved.')
+    `One-time post-setup import of the complete synthetic ${num(DEMO_REGISTER.patients)}-patient reference package, with live accounts and settings preserved.`)
     + card(esc(r.file&&r.file.name||'CareLink reference master'), `
       <div class="grid g4" style="margin-bottom:16px">
         ${kpi('Patients',num(counts.patients||0),'Complete synthetic profiles','ok','users')}
@@ -328,7 +328,7 @@ function renderReferenceMasterImport(user){
         </tbody></table></div><p class="small muted">100% refers to the defined automated synthetic-reference checks. It is not a substitute for clinical verification of future real-world records.</p>`)}
       <div class="row" style="margin-top:16px;gap:8px;flex-wrap:wrap">
         ${r.phase!=='done'?`<button class="btn btn-primary" data-act="reference-master-upload" type="button" ${busy?'disabled':''}>${ic('upload',15)} ${busy?'Import in progress…':r.uploadId?'Resume verified upload':'Validate & upload full master'}</button>`:''}
-        ${r.phase==='done'?`<button class="btn btn-primary" data-act="go" data-v="patients" type="button">${ic('users',15)} Open 3,333-patient register</button>
+        ${r.phase==='done'?`<button class="btn btn-primary" data-act="go" data-v="patients" type="button">${ic('users',15)} Open ${num(DEMO_REGISTER.patients)}-patient register</button>
           <button class="btn btn-ghost" data-act="go" data-v="quality" type="button">${ic('check',15)} Open data quality</button>`:''}
         <button class="btn btn-ghost" data-act="reference-master-reset" type="button" ${busy?'disabled':''}>${r.phase==='done'?'Back to master import':'Choose another file'}</button>
       </div>`, {sub:`SHA-256 ${p.digest} · ${num(q.recordsChecked||0)} collection records checked`});
@@ -347,14 +347,14 @@ function renderImport(user){
     const isChief = user && user.roleId==='chief';
     const busyAuto = REFERENCE_MASTER.phase==='loading' || REFERENCE_MASTER.phase==='uploading';
     const cloudFeedBanner = masterMeta
-      ? `<div class="alert ok" style="margin-bottom:14px">${ic('check',18)}<div><b>100%-Complete 3,333-Patient Cloud Dataset Active (${esc(masterMeta.id||'REF')})</b>
-          <span class="small">All 3,333 patients, ${num((masterMeta.counts&&masterMeta.counts.visits)||44995)} visits, and ${num((masterMeta.counts&&masterMeta.counts.pdcas)||18060)} PDCA cycles are verified in Cloud KV with 100% completeness. Standard CSV/JSON Master Import below remains fully operational for incremental records.</span></div></div>`
+      ? `<div class="alert ok" style="margin-bottom:14px">${ic('check',18)}<div><b>100%-Complete ${num(DEMO_REGISTER.patients)}-Patient Cloud Dataset Active (${esc(masterMeta.id||'REF')})</b>
+          <span class="small">All ${num((masterMeta.counts&&masterMeta.counts.patients)||DEMO_REGISTER.patients)} patients, ${num((masterMeta.counts&&masterMeta.counts.visits)||0)} visits, and ${num((masterMeta.counts&&masterMeta.counts.pdcas)||0)} PDCA cycles are verified in Cloud KV with 100% completeness. Standard CSV/JSON Master Import below remains fully operational for incremental records.</span></div></div>`
       : (isChief && !isActivated
-        ? `<div class="alert info" style="margin-bottom:14px">${ic('database',18)}<div style="flex:1"><b>1-Click Cloud Auto-Feed · Complete 3,333-Patient Generated Dataset (Zero Local File Needed)</b>
-            <span class="small">Feed CareLink's built-in 100%-complete synthetic reference dataset (3,333 patients · 44,995 visits · 18,060 PDCAs · all 4 counties &amp; 12 areas · 0 gaps) directly from the server into Cloud KV — without downloading or selecting any Excel or JSON file from your drive.</span>
+        ? `<div class="alert info" style="margin-bottom:14px">${ic('database',18)}<div style="flex:1"><b>1-Click Cloud Auto-Feed · Complete ${num(DEMO_REGISTER.patients)}-Patient Generated Dataset (Zero Local File Needed)</b>
+            <span class="small">Feed CareLink's built-in 100%-complete synthetic reference dataset (${num(DEMO_REGISTER.patients)} patients · ${DEMO_REGISTER.counties.length} county offices · 10 ministry areas · 0 gaps) directly from the server into Cloud KV — without downloading or selecting any Excel or JSON file from your drive.</span>
             ${REFERENCE_MASTER.error?`<div class="xs" style="color:var(--crit);margin-top:6px"><b>Last error:</b> ${esc(REFERENCE_MASTER.error)}</div>`:''}
             <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-sm btn-primary" type="button" data-act="auto-feed-cloud-master" ${busyAuto?'disabled':''}>${ic('refresh',14)} ${busyAuto?'Feeding 3,333 patients into Cloud KV…':'Auto-Feed 3,333-Patient Complete Dataset Now'}</button>
+              <button class="btn btn-sm btn-primary" type="button" data-act="auto-feed-cloud-master" ${busyAuto?'disabled':''}>${ic('refresh',14)} ${busyAuto?`Feeding ${num(DEMO_REGISTER.patients)} patients into Cloud KV…`:`Auto-Feed ${num(DEMO_REGISTER.patients)}-Patient Complete Dataset Now`}</button>
             </div></div></div>`
         : '');
     body = `${cloudFeedBanner}<div style="margin-bottom:16px">${alertBox('warn','Sensitive patient data - offline processing','<span class="small">The master workbook contains confidential patient information. The XLSX is processed by the local Python engine on this device; it is never uploaded to a cloud service. CSV and the engine\'s JSON output can be loaded here.</span>')}</div>
@@ -366,7 +366,7 @@ function renderImport(user){
       <div class="row" style="justify-content:center;margin-top:14px">
         <span class="btn btn-sm btn-primary" data-act="trigger-file">${ic('file',14)} Select file</span>
         <span class="btn btn-sm btn-ghost" data-act="download-template">${ic('download',14)} CSV template</span>
-        <a class="btn btn-sm btn-soft" href="master/CareLink-Reference-Master-v6.6.json" download>${ic('download',14)} Full 3,333-patient reference master</a>
+        <a class="btn btn-sm btn-soft" href="master/CareLink-Reference-Master-v6.6.json" download>${ic('download',14)} Full ${num(DEMO_REGISTER.patients)}-patient reference master</a>
       </div>
       <div class="small muted" style="margin-top:10px">After the four-step setup and before global activation: download the full reference master, then select that same JSON file above. It includes all related system collections and is uploaded to the shared KV source in verified chunks.</div>
     </div>

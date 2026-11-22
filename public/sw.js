@@ -1,5 +1,9 @@
 /* CareLink application-shell offline support. Clinical/API responses are never cached. */
-const CACHE = 'carelink-shell-v5';
+const CACHE = 'carelink-shell-v6';
+/* A navigation that the network has not answered within this window falls back
+   to the cached shell. A captive portal or a stalled 3G link otherwise leaves a
+   caregiver looking at a blank screen in front of a patient. */
+const NAV_TIMEOUT_MS = 6000;
 const SCOPE_URL = new URL(self.registration.scope);
 const APP_URL = new URL('carelink-v6.html', SCOPE_URL).href;
 const SHELL_URLS = [
@@ -23,6 +27,11 @@ self.addEventListener('install', (event) => {
   })());
 });
 
+/* The page asks for this when it offers "Reload" for a new build. */
+self.addEventListener('message', (event) => {
+  if (event && event.data && event.data.type === 'CARELINK_SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
@@ -39,18 +48,27 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.includes('/api/') || request.headers.has('authorization') || request.headers.has('x-carelink-session')) return;
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
+      const cachedShell = () => caches.match(APP_URL);
       try {
-        const live = await fetch(request);
-        if (live.ok && url.href === APP_URL) {
-          const cache = await caches.open(CACHE);
-          await cache.put(APP_URL, live.clone());
+        /* Race the network against a timer so a silent link cannot hang the app. */
+        let timer = null;
+        const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), NAV_TIMEOUT_MS); });
+        let live = null;
+        try { live = await Promise.race([fetch(request), timeout]); } finally { if (timer) clearTimeout(timer); }
+        if (live && live.ok) {
+          if (url.href === APP_URL) {
+            const cache = await caches.open(CACHE);
+            await cache.put(APP_URL, live.clone());
+          }
+          return live;
         }
-        return live;
-      } catch (_) {
-        return (await caches.match(APP_URL)) || new Response('CareLink is not available offline yet. Open the app once while online to install its application shell.', {
-          status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-        });
-      }
+        const shell = await cachedShell();
+        if (shell) return shell;
+        if (live) return live;
+      } catch (_) { /* fall through to the cached shell */ }
+      return (await cachedShell()) || new Response('CareLink is not available offline yet. Open the app once while online to install its application shell.', {
+        status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+      });
     })());
     return;
   }

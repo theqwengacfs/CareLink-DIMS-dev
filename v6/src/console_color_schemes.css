@@ -142,28 +142,48 @@ html[data-wmode="light"] .ws67-hero button:focus-visible{outline:3px solid #f6cb
   .ws67-mode-seg{max-width:100%;overflow-x:auto}
 }
 
-/* Role identity leads every signed-in workspace. On wide screens it occupies
-   its own fixed grid row above both the pane and content; on small screens it
-   sticks to the viewport, with a bounded keyboard-scrollable region so content
-   remains usable at high zoom. Dialogs and the mobile navigation drawer remain
-   above the banner. */
+/* Role identity leads every signed-in workspace. The banner belongs to the
+   content column only: it sits to the RIGHT of the navigation pane, in normal
+   document flow, so scrolling the workspace moves it up and out of the way
+   instead of covering the pane or the console bar. It is unclipped (no height
+   cap, no inner scrolling) so its tabs are always discoverable. Dialogs and the
+   mobile navigation drawer still render above it. */
 .shell-role-banner{
-  position:sticky;top:0;z-index:38;min-width:0;max-height:38dvh;
-  overflow:auto;overscroll-behavior:contain;background:var(--bg);
-  padding:8px 10px 4px;scrollbar-width:thin;
+  position:relative;z-index:1;min-width:0;
+  background:var(--bg);
+  padding:6px 10px 0;margin:0;
 }
 .shell-role-banner:focus-visible{outline:3px solid var(--console-c2);outline-offset:-3px;}
 .shell-role-banner .ws67-hero.ctx-strip{margin:0 !important;}
 .app.shell > .cbar,.app.shell > .sheet{position:relative;top:auto;}
+/* Desktop: one workspace column on the right of the navigation pane. The banner
+   is its first item, the console bar follows, then the workspace. The column
+   scrolls as a whole, so the banner glides up out of the way (it is never
+   pinned over the pane) while the console bar holds at the top for search,
+   sync and identity. The pane keeps its own full-height column and scroll. */
 @media(min-width:1000px){
-  .app.shell.has-pane{grid-template-rows:auto auto minmax(0,1fr) !important;}
-  .app.shell.has-pane > .shell-role-banner{grid-column:1 / -1;grid-row:1;position:relative;max-height:38dvh;}
-  .app.shell.has-pane > .npane{grid-row:2 / 4 !important;height:100% !important;max-height:100% !important;}
-  .app.shell.has-pane > .cbar{grid-row:2 !important;}
-  .app.shell.has-pane > .content{grid-row:3 !important;}
+  .app.shell.has-pane{
+    grid-template-columns:var(--np-w) minmax(0,1fr) !important;
+    grid-template-rows:auto auto auto !important;
+    height:100dvh !important;min-height:100dvh !important;max-height:100dvh !important;
+    overflow-y:auto !important;overflow-x:hidden !important;
+    overscroll-behavior:contain;
+  }
+  .app.shell.has-pane > .npane{
+    grid-column:1 !important;grid-row:1 / 4 !important;
+    position:sticky !important;top:0 !important;
+    height:100dvh !important;max-height:100dvh !important;align-self:start !important;
+  }
+  .app.shell.has-pane > .shell-role-banner{grid-column:2 !important;grid-row:1 !important;align-self:start;position:relative;z-index:1;}
+  .app.shell.has-pane > .cbar{grid-column:2 !important;grid-row:2 !important;position:sticky;top:0;z-index:26;}
+  .app.shell.has-pane > .content{
+    grid-column:2 !important;grid-row:3 !important;
+    align-self:stretch;height:auto !important;min-height:0 !important;
+    overflow:visible !important;overscroll-behavior:auto;
+  }
 }
 @media(max-width:760px){
-  .shell-role-banner{max-height:36dvh;padding:6px 8px 3px;}
+  .shell-role-banner{padding:4px 6px 0;}
   .shell-role-banner .ws67-hero-main{gap:10px;}
   .shell-role-banner .ws67-greeting{font-size:20px !important;}
   .shell-role-banner .ws67-role-tabs{margin-top:10px;padding-top:10px;}
@@ -211,56 +231,35 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:not(.on){
 }
 html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:hover{background:color-mix(in srgb,var(--nav-colour) 23%,var(--chrome));}
 
-/* Keep the fixed banner practical: role links scroll horizontally rather than
-   wrapping under the fold. On phones the description and metrics are available
-   in a disclosure so the navigation and workspace still fit on screen. */
-.ws67-mobile-extra{display:none;}
-.shell-role-banner .ws67-role-tabs{flex-wrap:nowrap !important;}
-.shell-role-banner .ws67-role-tabs > .row{flex:1 1 auto;min-width:0;flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:thin;padding-bottom:3px;}
+/* The banner is in normal flow and never clipped, so its tabs are always
+   discoverable. Long labels may not widen the page. */
 .shell-role-banner .ctx-rtab{flex:0 0 auto;white-space:nowrap;}
-.shell-role-banner .ws67-mode-seg{flex:0 0 auto;}
-@media(max-width:760px){
-  .shell-role-banner .ws67-hero.ctx-strip{padding:12px 14px 10px !important;}
-  .shell-role-banner .ws67-eyebrow{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;}
-  .shell-role-banner .ws67-sub,.shell-role-banner .ws67-hero-main > .ws67-qgrid{display:none !important;}
-  .shell-role-banner .ws67-actions{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding-bottom:3px;}
-  .shell-role-banner .ws67-actions .btn{flex:0 0 auto;white-space:nowrap;}
-  .shell-role-banner .ws67-mobile-extra{display:block;color:#fff;margin-top:6px;font-size:12px;}
-  .shell-role-banner .ws67-mobile-extra summary{cursor:pointer;font-weight:700;}
-  .shell-role-banner .ws67-mobile-extra p{line-height:1.45;margin:8px 0;}
-  .shell-role-banner .ws67-role-tabs{flex-wrap:wrap !important;gap:5px !important;}
-  .shell-role-banner .ws67-role-tabs > .row{flex-basis:100%;}
-  .shell-role-banner .ws67-mode-seg{max-width:100%;overflow-x:auto;}
-}
-@media(min-width:761px){
-  .shell-role-banner .ws67-actions{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding-bottom:3px;}
-  .shell-role-banner .ws67-actions .btn{flex:0 0 auto;white-space:nowrap;}
+.shell-role-banner .ws67-mode-seg{flex:0 0 auto;max-width:100%;overflow-x:auto;}
+.shell-role-banner .ws67-hero{overflow-x:clip;flex-direction:column !important;align-items:stretch !important;}
+.shell-role-banner .ws67-hero > .ws67-hero-main{flex:1 1 auto;width:100%;}
+.shell-role-banner :is(.ws67-hero-main,.ws67-hero-copy,.ws67-role-tabs,.ws67-role-tabs > .row){min-width:0;}
+.shell-role-banner .ws67-hero-copy{max-width:100%;overflow-wrap:anywhere;}
+.shell-role-banner .ws67-greeting,.shell-role-banner .ws67-sub{max-width:100%;}
+/* One horizontal strip of role tabs: never a tall wrapped wall on a phone. */
+.shell-role-banner .ws67-role-tabs > .row{flex:1 1 auto;min-width:0;flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:thin;padding-bottom:3px;}
+.shell-role-banner .ws67-actions{max-width:100%;}
+.shell-role-banner .ws67-hero-main{grid-template-columns:minmax(0,1fr) !important;}
+@media(min-width:1000px){
   html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:16px 22px 10px !important;}
   html[data-wmode="light"] .shell-role-banner .ws67-hero .ws67-role-tabs{padding-top:9px;margin-top:10px;}
+  .shell-role-banner .ws67-hero-main{grid-template-columns:minmax(0,1.38fr) minmax(240px,.88fr) !important;}
 }
 @media(max-width:760px){
   html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:10px 12px 8px !important;}
   html[data-wmode="light"] .shell-role-banner .ws67-hero .ws67-role-tabs{margin-top:8px;padding-top:7px;}
+  .shell-role-banner .ws67-hero.ctx-strip{padding:12px 14px 10px !important;}
+  .shell-role-banner .ws67-actions{gap:6px;}
+  .shell-role-banner .ws67-qgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+  .shell-role-banner .ws67-role-tabs{flex-wrap:wrap !important;}
+  .shell-role-banner .ws67-role-tabs > .row{flex-basis:100%;}
 }
-/* Long labels, metric grids and tab rows must never widen the fixed banner or
-   force the page sideways; internal rows scroll instead. */
-.shell-role-banner .ws67-hero{overflow-x:clip;flex-direction:column !important;align-items:stretch !important;}
-.shell-role-banner .ws67-hero > .ws67-hero-main{flex:1 1 auto;width:100%;}
-.shell-role-banner :is(.ws67-hero-main,.ws67-hero-copy,.ws67-role-tabs,.ws67-role-tabs > .row){min-width:0;}
-.shell-role-banner .ws67-mobile-extra .ws67-qgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
-@media(max-width:760px){
-  .shell-role-banner .ws67-hero-main{grid-template-columns:minmax(0,1fr) !important;}
-  .shell-role-banner .ws67-mobile-extra .ws67-qgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:6px !important;}
-  .shell-role-banner .ws67-mobile-extra .ws67-qcard{padding:7px 8px !important;}
-  .shell-role-banner .ws67-mobile-extra .ws67-qnum{font-size:15px !important;}
-}
-/* The banner clamps to the viewport, so its copy column must also clamp rather
-   than inheriting the grid's intrinsic (nowrap label) width. */
-.shell-role-banner .ws67-hero-main{grid-template-columns:minmax(0,1fr) !important;}
-.shell-role-banner .ws67-hero-copy{max-width:100%;min-width:0;overflow-wrap:anywhere;}
-.shell-role-banner .ws67-greeting,.shell-role-banner .ws67-sub{max-width:100%;}
-@media(min-width:1000px){
-  .shell-role-banner .ws67-hero-main{grid-template-columns:minmax(0,1.38fr) minmax(240px,.88fr) !important;}
+@media(max-width:520px){
+  .shell-role-banner .ws67-sub{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 }
 /* Phones: the tool row moves to its own line instead of pushing the page
    sideways; it scrolls horizontally when it still does not fit. */
@@ -282,16 +281,10 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:hover{background:c
     overflow-x:auto;justify-content:flex-start;scrollbar-width:none;padding-bottom:2px;}
   .app.shell > .topbar.cbar :is(.cb-county-tag,.cb-console-name,h1){max-width:100%;}
 }
-/* Short screens (laptops in landscape, high browser zoom) keep the role tabs
-   reachable instead of scrolling the banner: trim the copy and metric grid. */
+/* Short laptop screens: trim the copy so the role tabs stay close to the top,
+   without hiding or scrolling anything. */
 @media(max-height:720px) and (min-width:761px){
   html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:10px 20px 8px !important;}
-  .shell-role-banner .ws67-hero-main > .ws67-qgrid{display:none !important;}
-  .shell-role-banner .ws67-sub{display:none !important;}
-  .shell-role-banner .ws67-mobile-extra{display:block;color:#fff;margin-top:8px;font-size:12px;}
-  .shell-role-banner .ws67-mobile-extra summary{cursor:pointer;font-weight:700;}
-  .shell-role-banner .ws67-mobile-extra p{line-height:1.45;margin:8px 0;}
   .shell-role-banner .ws67-greeting{font-size:clamp(19px,1.7vw,22px) !important;}
   html[data-wmode="light"] .shell-role-banner .ws67-hero .ws67-role-tabs{margin-top:8px;padding-top:8px;}
-  .app.shell > .shell-role-banner{max-height:48dvh;padding:2px 8px 2px;}
 }

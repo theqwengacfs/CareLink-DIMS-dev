@@ -3,7 +3,7 @@
    Covers Prompts 1, 2 & 3:
    - Zero-scroll Landing & Sign-In + Dedicated Architecture & Departments page
    - Organogram-faithful Secretaries, Deputies & Clerks (applicable units only)
-   - All 3,333 patients with >=12 longitudinal visits, 100% phone/height/weight/GPS & child Weight/BMI/MUAC charts
+   - All 4,000 patients with >=12 longitudinal visits, 100% phone/height/weight/GPS & child Weight/BMI/MUAC charts
    - 4-Step Live Host Setup -> Official Sign-In -> Password Change -> Activate System Globally -> WhatsApp sheet -> Permanent Demo Removal
    - County-routed urgent Sign-In Account Request & Password Recovery queues
    - Two-mode Messaging (Global + Area/Dept Chat) & Who-Is-Online instant Direct Chat fix
@@ -19,8 +19,8 @@ const { makeCtx } = require('./dom');
 const REPO = path.resolve(__dirname, '..', '..');
 const { run } = makeCtx();
 
-/* Boot full 3,333-patient dataset to verify 100% completeness across all 3,333 records */
-run('DB.load(); DB.seedOfficial({patients:3333});');
+/* Boot the full 4,000-patient dataset to verify 100% completeness across every record */
+run('DB.load(); DB.seedOfficial({patients:4000});');
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -78,8 +78,8 @@ test('2. Organogram-faithful Secretaries, Deputies & Clerks', () => {
   ok('Zero indiscriminate secretaries/deputies/clerks in non-applicable units (Media, PR, Fleet, Audit, Welfare)', nonApplicableClerks.length === 0);
 });
 
-/* 3. All 3,333 Patients: >=12 Visits, Wise Homestay/Hospital Proportions, 100% Phone/Height/Weight/GPS & Child Growth Charts */
-test('3. All 3,333 patients have >=12 visits, 100% metadata & Child Weight/BMI/MUAC charts', () => {
+/* 3. All 4,000 Patients: >=12 Visits, Wise Homestay/Hospital Proportions, 100% Phone/Height/Weight/GPS & Child Growth Charts */
+test('3. All 4,000 patients have >=12 visits, 100% metadata & Child Weight/BMI/MUAC charts', () => {
   const audit = J(`(()=>{
     const pts = DB.db.patients;
     let minVisits = Infinity, maxVisits = 0, with12 = 0, missingPhone = 0, missingId = 0, missingAnthro = 0, missingGps = 0, missingMeta = 0;
@@ -99,15 +99,19 @@ test('3. All 3,333 patients have >=12 visits, 100% metadata & Child Weight/BMI/M
       if (vs.some(v => v.type === 'hospital')) hospitalPts++;
       if (p.age < 18) childrenCount++;
     }
-    return { total: pts.length, totalVisits: DB.db.visits.length, minVisits, maxVisits, with12, missingPhone, missingId, missingAnthro, missingGps, missingMeta, homestayPts, hospitalPts, childrenCount };
+    return { total: pts.length, totalVisits: DB.db.visits.length, minVisits, maxVisits, with12, missingPhone, missingId, missingAnthro, missingGps, missingMeta,
+      homestayPts, hospitalPts, childrenCount,
+      homestayShare: homestayPts / pts.length, hospitalShare: hospitalPts / pts.length };
   })()`);
 
-  ok('Exactly 3,333 patients seeded', audit.total === 3333, String(audit.total));
-  ok('EVERY SINGLE ONE of the 3,333 patients has at least 12 visits', audit.with12 === 3333 && audit.minVisits >= 12, `with12=${audit.with12}, min=${audit.minVisits}`);
+  ok('Exactly 4,000 patients seeded', audit.total === 4000, String(audit.total));
+  ok('EVERY SINGLE ONE of the 4,000 patients has at least 12 visits', audit.with12 === 4000 && audit.minVisits >= 12, `with12=${audit.with12}, min=${audit.minVisits}`);
   ok('Total longitudinal visits >= 40,000', audit.totalVisits >= 40000, String(audit.totalVisits));
-  ok('Wise realistic Homestay proportion (~5-12%, NOT everyone in Homestay)', audit.homestayPts >= 180 && audit.homestayPts <= 400, `homestayPts=${audit.homestayPts}`);
-  ok('Realistic Hospital referral/clinic visit proportion (~20-45%)', audit.hospitalPts >= 700 && audit.hospitalPts <= 1500, `hospitalPts=${audit.hospitalPts}`);
-  ok('100% of all 3,333 patients have Telephone, ID/BirthCert, Weight/Height/BMI/MUAC, Mock GPS & Metadata',
+  ok('Wise realistic Homestay proportion (~5-12%, NOT everyone in Homestay)',
+    audit.homestayShare >= 0.05 && audit.homestayShare <= 0.12, `homestayShare=${audit.homestayShare.toFixed(3)}`);
+  ok('Realistic Hospital referral/clinic visit proportion (~20-45%)',
+    audit.hospitalShare >= 0.20 && audit.hospitalShare <= 0.45, `hospitalShare=${audit.hospitalShare.toFixed(3)}`);
+  ok('100% of all 4,000 patients have Telephone, ID/BirthCert, Weight/Height/BMI/MUAC, Mock GPS & Metadata',
     audit.missingPhone === 0 && audit.missingId === 0 && audit.missingAnthro === 0 && audit.missingGps === 0 && audit.missingMeta === 0,
     JSON.stringify(audit));
   ok('Realistic paediatric cohort (<18 yrs) present for growth surveillance', audit.childrenCount >= 700, String(audit.childrenCount));
@@ -307,7 +311,7 @@ test('8. 4-Step Live Host Setup -> Official Login -> Must-Change Password -> Act
   /* Step A: Run 4-Step Live Host Setup */
   const setupRes = await JA(`PROD_SETUP.completeFourStepHostSetup({
     orgName: 'LOMAMO Foundation Kenya',
-    emailDomain: 'lomamo.org',
+    emailDomain: 'lomamo.org', /* ignored: the domain is fixed for the organisation */
     portalUrl: 'https://carelink.lomamo.org',
     chiefName: 'Chief System Administrator',
     chiefUsername: 'chief.admin',
@@ -336,7 +340,7 @@ test('8. 4-Step Live Host Setup -> Official Login -> Must-Change Password -> Act
   /* Step D: Chief Admin clicks Activate System Globally -> generates WhatsApp sheet for all organogram accounts */
   const actRes = await JA(`PROD_SETUP.activateSystemGlobally({ emailDomain:'lomamo.org', portalUrl:'https://carelink.lomamo.org' })`);
   ok('Activate System Globally generates credentials for all organogram staff accounts + WhatsApp text sheet',
-    actRes.ok === true && actRes.count >= 50 && /WhatsApp|Temporary Password|lomamo\.org/i.test(actRes.whatsappText));
+    actRes.ok === true && actRes.count >= 50 && /WhatsApp|Temporary Password|lomamofoundation\.org/i.test(actRes.whatsappText));
   ok('System is now permanently marked Globally Activated', run('PROD_SETUP.isGloballyActivated()') === true);
 
   /* Step E: Verify ALL demo & setup UI is permanently removed from Landing & Sign-In */
@@ -426,14 +430,14 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
 
   const landingHtml = root.innerHTML;
   const appVer = vm.runInContext(`APP.version`, bctx);
-  ok('APP.version is 6.9.4 across CareLink OS', appVer === '6.9.4', `got=${appVer}`);
+  ok('APP.version is 6.9.6 across CareLink OS', appVer === '6.9.6', `got=${appVer}`);
   ok('Compiled bundle opens in LOMAMO Red with the layered depth topology graphic',
-    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="heritage" data-mode="dark"') && landingHtml.includes('linearGradient id="beamGrad"') && landingHtml.includes('v6.9.4') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
+    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="heritage" data-mode="dark"') && landingHtml.includes('linearGradient id="beamGrad"') && landingHtml.includes('v6.9.6') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'login'; render();`, bctx);
   const loginHtml = root.innerHTML;
-  ok('Compiled single-script bundle renders Sign-In page cleanly showing v6.9.4 · Schema 6',
-    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes('CareLink C-DIMS v6.9.4 · Schema 6') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
+  ok('Compiled single-script bundle renders Sign-In page cleanly showing v6.9.6 · Schema 6',
+    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes('CareLink C-DIMS v6.9.6 · Schema 6') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'architecture'; render();`, bctx);
   const archHtml = root.innerHTML;
@@ -446,7 +450,7 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
 
 /* 12. 10-Pillar Overhaul Verification: Monday AI Engine & Secretary Desk, Zero Downward Bars, Official C-DIMS PDCA (120d + Discharge), Version Control, Visual Packs & Role-Customized Smart QA */
 test('12. 10-Pillar Overhaul: Monday AI Engine & Secretary Desk, Upright Baseline Charts, Official C-DIMS PDCA, Version Control, Visual Packs & Role-Customized Consoles', () => {
-  /* Re-seed fast reference cohort after Test 8 global activation cleared demo records (3,333-patient scale already verified in Tests 1-7) */
+  /* Re-seed fast reference cohort after Test 8 global activation cleared demo records (4,000-patient scale already verified in Tests 1-7) */
   run('DB.seedOfficial({patients:120});');
 
   /* Pillar 1: Monday Management Meeting, Admin Assistant Secretary Desk & Post-Close AI Processing Engine */

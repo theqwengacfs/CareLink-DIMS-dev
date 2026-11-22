@@ -492,7 +492,7 @@ function openThemePicker(tab='themes'){
         const bStack = String((STUDIO.font.stacks && STUDIO.font.stacks[o.v]) || '"Inter","Segoe UI",system-ui,sans-serif').replace(/"/g, "'");
         return `<button class="st-pre" style="text-align:left;border:${on?'2px solid var(--accent)':'1px solid var(--line)'}" data-act="studio-font-pick" data-value="${esc(o.v)}">
           <div class="spread" style="width:100%"><b style="font-family:${esc(hStack)};font-size:15px">${esc(o.l)}</b>${on?badge('Active','b-ok',false):''}</div>
-          <span style="font-family:${esc(bStack)}">CareLink OS · Serving our Neighbours in Love · 3,333 Records</span>
+          <span style="font-family:${esc(bStack)}">CareLink OS · Serving our Neighbours in Love · ${DEMO_REGISTER.patients.toLocaleString('en-GB')} Records</span>
         </button>`;
       }).join('')}
     </div>

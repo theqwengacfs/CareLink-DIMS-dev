@@ -80,7 +80,7 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   assert.equal(Buffer.byteLength(raw), manifest.rawBytes);
   assert.equal(crypto.createHash('sha256').update(raw).digest('hex'), manifest.digest);
   const payload = JSON.parse(raw);
-  assert.equal(payload.db.patients.length, 3333);
+  assert.equal(payload.db.patients.length, 4000);
   assert.ok(payload.db.users.every((u) => !u.hash && !u.salt), 'public master must not contain credential material');
   assert.equal(payload.quality.passed, true);
   assert.equal(payload.quality.workflowMatrix.pct, 100);
@@ -129,13 +129,13 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
   pc.run(`REFERENCE_MASTER.inspect(${JSON.stringify(manifest)}, {name:'CareLink-Reference-Master-v6.6.json'});`);
   const importHtml = pc.run('renderImport(AUTH.user)');
-  assert.ok(/3,333/.test(importHtml) && /reference-master-upload/.test(importHtml) && /Automated quality evidence/.test(importHtml));
+  assert.ok(/4,000/.test(importHtml) && /reference-master-upload/.test(importHtml) && /Automated quality evidence/.test(importHtml));
   await pc.run('REFERENCE_MASTER.upload()');
   assert.equal(pc.run('REFERENCE_MASTER.phase'), 'done', pc.run('REFERENCE_MASTER.error'));
   assert.equal(pc.run('REFERENCE_MASTER.result.quality.patientRegistryCompleteness'), 100);
-  assert.equal(pc.run('DB.db.patients.length'), 3333);
-  assert.equal(pc.run('DB.db.visits.length'), 44995);
-  assert.equal(pc.run('DB.db.pdcas.length'), 18060);
+  assert.equal(pc.run('DB.db.patients.length'), 4000);
+  assert.equal(pc.run('DB.db.visits.length'), payload.counts.visits);
+  assert.equal(pc.run('DB.db.pdcas.length'), payload.counts.pdcas);
   assert.equal(pc.run('DB.db.settings.org.name'), 'Reference E2E Organisation', 'live organisation settings must be preserved');
   assert.equal(pc.run('WORKFLOW_ENGINE.completionMatrix(AUTH.user).global.pct'), 100);
   assert.equal(pc.run('REPORTS.dataQuality(AUTH.user).length'), 0);
@@ -151,7 +151,7 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   const expectedPatients = JSON.parse(pc.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda').map(p=>p.id))`));
   const expectedPatientIds = new Set(expectedPatients);
   const expectedVisitCount = Number(pc.run(`DB.db.visits.filter(v=>${JSON.stringify([...expectedPatientIds])}.includes(String(v.patientId))).length`));
-  assert.ok(expectedPatients.length > 0 && expectedPatients.length < 3333, 'test caregiver scope must be a strict subset of the reference master');
+  assert.ok(expectedPatients.length > 0 && expectedPatients.length < 4000, 'test caregiver scope must be a strict subset of the reference master');
 
   const tablet = client();
   tablet.run('SYNC.queue = () => {}; DB.load();');
@@ -168,7 +168,7 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   assert.ok(!/data-tab="demo"|data-act="load-demo"|First-run online setup|Live host setup/i.test(loginHtml));
 
   console.log(`reference-master-e2e: actual master file + ${manifest.chunkCount} chunks + PC/tablet paged sync passed`);
-  console.log(`  3,333 patients · 44,995 visits · 18,060 PDCAs · 100% workflow QA · 0 data-quality findings`);
+  console.log(`  ${payload.counts.patients.toLocaleString('en-GB')} patients · ${payload.counts.visits.toLocaleString('en-GB')} visits · ${payload.counts.pdcas.toLocaleString('en-GB')} PDCAs · 100% workflow QA · 0 data-quality findings`);
   console.log(`  largest API response ${(maxApiResponseBytes / 1048576).toFixed(2)} MiB · largest KV request ${(maxKvRequestBytes / 1048576).toFixed(2)} MiB`);
 })().catch((error) => {
   console.error(error);

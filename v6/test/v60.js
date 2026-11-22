@@ -347,23 +347,32 @@ test('Hospital Focal Person rename, JOOTRH request slip, single-click sheet canc
     ok('Staff member signs in with replacement password and mustChange is flagged', loginRes.ok === true && run(`AUTH.user.mustChange`) === true);
   }
 
-  /* Official 3,333-patient register profile check */
-  const stats3333 = run(`(()=>{
+  /* Official 4,000-patient demonstration register profile check */
+  const stats4000 = run(`(()=>{
     DB.seedOfficial({org:{name:'LOMAMO Foundation Kenya',shortName:'LOMAMO',county:'kisumu'},admin:{name:'Admin',username:'chief.admin',password:'StrongPass123!'},withReferencePatients:true});
     const ps = DB.db.patients;
     const ds = ps.map(PAT.days);
     const core = ds.filter(d=>d>=45 && d<=240).length;
     const tail = ds.filter(d=>d>=241 && d<=330).length;
-    return { n:ps.length, min:Math.min(...ds), max:Math.max(...ds), core, tail, pctCore: core/ps.length };
+    const inWindow = ds.filter(d=>d>=60 && d<=80).length;
+    const counties = ps.reduce((m,p)=>(m[p.countyId]=(m[p.countyId]||0)+1,m),{});
+    return { n:ps.length, min:Math.min(...ds), max:Math.max(...ds), core, tail, pctCore: core/ps.length,
+      inWindow, windowShare: inWindow/ps.length, counties,
+      ageMin:Math.min(...ps.map(p=>p.age)), ageMax:Math.max(...ps.map(p=>p.age)),
+      balancedSex: ps.filter(p=>p.sex==='F').length === ps.filter(p=>p.sex==='M').length,
+      quarters: [...new Set(ps.map(p=>p.age<18?'child':'adult'))].length };
   })()`);
-  ok('official register holds 3,333 patients', stats3333.n === 3333);
-  ok('no patient under 45 days or over 330 days (zero 900-day records)', stats3333.min >= 45 && stats3333.max <= 330, JSON.stringify(stats3333));
-  ok('95% in 45-240 days and 5% in 241-330 days', stats3333.pctCore >= 0.95 && stats3333.core + stats3333.tail === 3333, JSON.stringify(stats3333));
+  ok('official register holds 4,000 patients', stats4000.n === 4000);
+  ok('no patient under 45 days or over 330 days (zero 900-day records)', stats4000.min >= 45 && stats4000.max <= 330, JSON.stringify(stats4000));
+  ok('95% in 45-240 days and 5% in 241-330 days', stats4000.pctCore >= 0.95 && stats4000.core + stats4000.tail === 4000, JSON.stringify(stats4000));
+  ok('two in five patients (40%) sit in the day 60–80 review window', stats4000.windowShare >= 0.395 && stats4000.windowShare <= 0.405, JSON.stringify(stats4000));
+  ok('register is split evenly between the Kisumu and Homa Bay county offices', stats4000.counties.kisumu === 2000 && stats4000.counties.homabay === 2000, JSON.stringify(stats4000));
+  ok('ages span 5–75 with children and adults both present', stats4000.ageMin === 5 && stats4000.ageMax === 75 && stats4000.quarters === 2, JSON.stringify(stats4000));
   return true;
 });
 
 test('PC & Tablet front-door parity, 10-area active dataset, 1-click Hospital Cancel, non-hyphenated prose, 13 teamwork photos & 15 departmental AI consoles', ()=>{
-  /* 1. Brand-new device first load (PC or Tablet) auto-seeds full 3,333 register + 42 accounts and opens Landing Page */
+  /* 1. Brand-new device first load (PC or Tablet) auto-seeds the full reference register + 42 accounts and opens Landing Page */
   const freshBoot = run(`(()=>{
     AUTH.logout();
     Store.del(DB.KEY);
@@ -382,7 +391,7 @@ test('PC & Tablet front-door parity, 10-area active dataset, 1-click Hospital Ca
       hasLoadDemoAction: typeof ACTIONS['load-demo'] === 'function'
     };
   })()`);
-  ok('First-time boot on PC or Tablet seeds 3,333 patients immediately', freshBoot.patients === 3333);
+  ok('First-time boot on PC or Tablet seeds 4,000 patients immediately', freshBoot.patients === 4000);
   ok('First-time boot provisions full 42-account official roster across 10 areas & 2 counties', freshBoot.users >= 42 && freshBoot.areasCovered === 10 && freshBoot.countiesCovered === 2);
   ok('First-time boot renders the CareLink landing page', freshBoot.isLanding === true);
   ok('Landing page buttons carry explicit high-contrast styling classes', freshBoot.hasHighContrastBtns === true);
@@ -459,9 +468,9 @@ test('PC & Tablet front-door parity, 10-area active dataset, 1-click Hospital Ca
   return true;
 });
 
-test('CARELINK LATEST PROMPTS full verification: 100% 3,333-patient multi-level dataset, Discharge Summary & Referral, Post-Hospital Follow-Up & Feedback, Admin/Intl Dual Cross-Check, Zero Console Photos, Demo Switch Prompt, Role-Contextual Nav/Settings, 20 Themes & 15 Dept Palettes', ()=>{
-  /* 1. 100% completeness across all 3,333 patients across every single level */
-  const full3333 = run(`(()=>{
+test('CARELINK LATEST PROMPTS full verification: 100% 4,000-patient multi-level dataset, Discharge Summary & Referral, Post-Hospital Follow-Up & Feedback, Admin/Intl Dual Cross-Check, Zero Console Photos, Demo Switch Prompt, Role-Contextual Nav/Settings, 20 Themes & 15 Dept Palettes', ()=>{
+  /* 1. 100% completeness across all 4,000 patients across every single level */
+  const full4000 = run(`(()=>{
     DB.seedOfficial({org:{name:'LOMAMO Foundation Kenya',shortName:'LOMAMO',county:'kisumu'},admin:{name:'Admin',username:'chief.admin',password:'StrongPass123!'},withReferencePatients:true});
     const db = DB.db, ps = db.patients;
     const visitP = new Set(db.visits.map(v=>v.patientId));
@@ -495,12 +504,12 @@ test('CARELINK LATEST PROMPTS full verification: 100% 3,333-patient multi-level 
       coWorkBatchesSeeded: (db.coWorkBatches || []).length
     };
   })()`);
-  ok('3,333 / 3,333 patients (100%) have complete demographic, anthropometric, adherence & care-plan records', full3333.completeProfile === 3333, JSON.stringify(full3333));
-  ok('3,333 / 3,333 patients (100%) have populated Home Visit records (>= 6,666 visits)', full3333.visitPatients === 3333 && full3333.totalVisits >= 6666, JSON.stringify(full3333));
-  ok('3,333 / 3,333 patients (100%) have populated PDCA care cycles AND 30-day review records', full3333.pdcaPatients === 3333 && full3333.withReviews >= 3333, JSON.stringify(full3333));
-  ok('3,333 / 3,333 patients (100%) have Condition Register, Household Support & Document records', full3333.condPatients === 3333 && full3333.supPatients === 3333 && full3333.docPatients === 3333, JSON.stringify(full3333));
-  ok('100% of discharged patients carry structured Discharge Referral AND compiled Discharge Summary', full3333.dischargedCount > 0 && full3333.dischargedComplete === full3333.dischargedCount);
-  ok('Post-reconciliation Hospital Follow-Ups & Admin/Intl Dual Cross-Check batches seeded', full3333.hospFollowUpsSeeded >= 3 && full3333.coWorkBatchesSeeded >= 2);
+  ok('4,000 / 4,000 patients (100%) have complete demographic, anthropometric, adherence & care-plan records', full4000.completeProfile === 4000, JSON.stringify(full4000));
+  ok('4,000 / 4,000 patients (100%) have populated Home Visit records (>= 8,000 visits)', full4000.visitPatients === 4000 && full4000.totalVisits >= 8000, JSON.stringify(full4000));
+  ok('4,000 / 4,000 patients (100%) have populated PDCA care cycles AND 30-day review records', full4000.pdcaPatients === 4000 && full4000.withReviews >= 4000, JSON.stringify(full4000));
+  ok('4,000 / 4,000 patients (100%) have Condition Register, Household Support & Document records', full4000.condPatients === 4000 && full4000.supPatients === 4000 && full4000.docPatients === 4000, JSON.stringify(full4000));
+  ok('100% of discharged patients carry structured Discharge Referral AND compiled Discharge Summary', full4000.dischargedCount > 0 && full4000.dischargedComplete === full4000.dischargedCount);
+  ok('Post-reconciliation Hospital Follow-Ups & Admin/Intl Dual Cross-Check batches seeded', full4000.hospFollowUpsSeeded >= 3 && full4000.coWorkBatchesSeeded >= 2);
 
   /* 2. Live Discharge Recommendation WITH Referral Option -> Approval -> Printable Programme Discharge Summary */
   const disFlow = run(`(()=>{

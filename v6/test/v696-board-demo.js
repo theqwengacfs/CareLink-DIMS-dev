@@ -20,9 +20,13 @@ ok('No-login entry creates an isolated preview database', run('DEMO_PREVIEW.acti
 ok('Entry opens the console immediately with an explicit read-only synthetic-data banner', run(`document.querySelector('#root').innerHTML.includes('BOARD PREVIEW') && document.querySelector('#root').innerHTML.includes('READ ONLY')`));
 ok('Console banner displays the fixed office role and named current holder',run(`document.querySelector('#root').innerHTML.includes('Role holder:')&&document.querySelector('#root').innerHTML.includes(AUTH.user.name)`));
 ok('Unauthenticated board preview can inspect distinct synthetic role consoles without leaving read-only mode',(()=>{const id=run(`DB.db.users.find(u=>u.roleId==='caregiver'&&u.status==='active').id`);run(`DEMO_PREVIEW.switchRole('${id}')`);const ok=run(`AUTH.user.roleId==='caregiver'&&AUTH.session.token==='local-read-only-demo'&&document.querySelector('#root').innerHTML.includes('demo-role-picker')`);run(`DEMO_PREVIEW.switchRole(DB.db.users.find(u=>u.roleId==='director'&&u.status==='active').id)`);return ok;})());
-ok('Board preview seeds exactly 3,333 synthetic patients', patients.length===3333 && patients.every(p=>p.demo===true));
+ok('Board preview seeds exactly 4,000 synthetic patients', patients.length===4000 && patients.every(p=>p.demo===true));
+ok('Board preview register is balanced 50/50 between the two county offices',
+  patients.filter(p=>p.countyId==='kisumu').length===2000 && patients.filter(p=>p.countyId==='homabay').length===2000);
+ok('Two in five board-preview patients sit in the 60–80 day review window',
+  patients.filter(p=>{const d=run(`PAT.days(DB.db.patients.find(x=>x.id==='${p.id}'))`);return d>=60&&d<=80;}).length===1600);
 ok('Synthetic reference ages span 5–75 with no out-of-range records', Math.min(...patients.map(p=>p.age))===5 && Math.max(...patients.map(p=>p.age))===75 && patients.every(p=>p.age>=5 && p.age<=75));
-ok('CareLink identifiers are unique and encode ministry area and intake date', new Set(patients.map(p=>p.code)).size===3333 && patients.every(p=>p.code.startsWith('CL-'+p.areaId.toUpperCase()+'-') && p.code.includes(String(p.intake).slice(0,10).replace(/-/g,''))));
+ok('CareLink identifiers are unique and encode ministry area and intake date', new Set(patients.map(p=>p.code)).size===4000 && patients.every(p=>p.code.startsWith('CL-'+p.areaId.toUpperCase()+'-') && p.code.includes(String(p.intake).slice(0,10).replace(/-/g,''))));
 ok('Child and adult clinical profiles include height, weight, BMI and MUAC', patients.filter(p=>p.age<18).length>0 && patients.every(p=>p.clinical.heightCm>0 && p.clinical.weightKg>0 && p.clinical.bmi>0 && p.clinical.muacMm>0));
 ok('Generated longitudinal visits include anthropometry for every patient', patients.every(p=>db.visits.some(v=>v.patientId===p.id && v.heightCm>0 && v.weight>0 && v.bmi>0 && v.muacMm>0)));
 const mcmDisease=run(`renderConditions(DB.db.users.find(u=>u.roleId==='mcm'&&u.status==='active'))`);

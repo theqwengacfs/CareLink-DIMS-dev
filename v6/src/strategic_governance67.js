@@ -822,9 +822,6 @@ const WORKSPACE_LAYOUTS = {
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="wtheme-open" data-tab="studio">${ic('palette', 13)} Themes &amp; Style</button>
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="arrange-home">${ic('settings', 13)} Arrange</button>
           </div>
-          <details class="ws67-mobile-extra"><summary>Role details &amp; metrics</summary>
-            <p>${esc(introText)}</p>${quickMetricsHtml}
-          </details>
         </div>
         ${quickMetricsHtml}
       </div>

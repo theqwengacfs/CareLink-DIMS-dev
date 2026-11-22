@@ -268,18 +268,11 @@ function renderProcurement(user){
 
 /* ---------------- Report centre ---------------- */
 function renderReports(user){
-  const cards = [
-    { type:'patient_figures', cap:'report.patient_figures', icon:'file', desc:'Twenty defined indicators, caseload calculation, ministry-area breakdown and targets.', title:'Patient Figures Report' },
-    { type:'patient_days', cap:'report.patient_days', icon:'clock', desc:'Days in programme with 60/100/120/180-day milestones and discharge readiness.', title:'Patient-Days Report' },
-    { type:'expenditure', cap:'report.expenditure', icon:'wallet', desc:'Budget, committed, paid, reconciled and remaining - with evidence exceptions.', title:'Expenditure Report' },
-    { type:'referral', cap:'report.referral', icon:'link', desc:'Patients referred by recognised facilities, matched against the verified register.', title:'Master Referral Document' },
-    { type:'executive', cap:'report.executive', icon:'chart', desc:'County comparison, caseload, requests and data-integrity position.', title:'Executive Summary' },
-    { type:'home_visits', cap:['visit.view'], icon:'activity', desc:'Visit outcomes, failed visits and caregiver activity for the week.', title:'Home Visit Report' },
-    { type:'hospital_ops', cap:['hosp.request.review','hosp.visit.record','hosp.receipt.review'], icon:'hospital', desc:'Referral pipeline, transport facilitation and reconciliation position.', title:'Hospital Operations Report' },
-    { type:'quality', cap:['audit.view'], icon:'alert', desc:'Duplicate identifiers, invalid dates, missing evidence and reconciliation gaps.', title:'Data Quality Report' },
-    { type:'donor', cap:['report.patient_figures','report.executive'], icon:'heart', desc:'Aggregate programme reach, support delivered and resources, with no identifying detail.', title:'Donor Programme Summary' },
-    { type:'condition_summary', cap:['condition.aggregate','condition.sensitive'], icon:'clipboard', desc:'Recorded conditions by classification, with small-group suppression applied.', title:'Condition Summary' }
-  ].filter(c=>(Array.isArray(c.cap)?c.cap:[c.cap]).some(k=>RBAC.has(user,k)));
+  /* The cards come from the reporting engine's own list, so a report cannot be
+     generatable without also being listed, scoped and archivable. */
+  const cards = REPORTS.types()
+    .filter(c => c.caps.some(k => RBAC.has(user, k)))
+    .map(c => ({ type:c.type, icon:c.icon, desc:c.desc, title:c.title }));
   const monday = REPORTS.mondayStatus();
   return pageHead('Report centre','Every report states its period, data source, version and limitations.',
     `<button class="btn btn-sm btn-ghost" data-act="go" data-v="archive">${ic('archive',14)} Archive</button>`)
@@ -529,6 +522,80 @@ function buildReportDoc(type, params, user){
     return reportShell({ title:'Patient Figures Report', sub:`${f.period.label} · ${countyId==='all'?'All authorised counties':countyName(countyId)}`,
       meta: metaBase([{k:'Report version',v:'v1'},{k:'Target version',v:(tgt('active_caseload')?.version? 'v'+tgt('active_caseload').version:'none')},{k:'Period key',v:f.period.label}]),
       body, footerNote:'Indicator definitions are held in the DDMS indicator dictionary and are not editable by report authors.' });
+  }
+
+  /* ---- Weekly Planning Indicators ------------------------------------
+     The one page a Monday planning meeting reads. Every figure is counted
+     from a record; where the register cannot answer the question the row says
+     so rather than showing a guessed number. */
+  if(type==='weekly_indicators'){
+    const w = REPORTS.weeklyIndicators(user,{countyId});
+    const row = (label, value, note) => `<tr><td>${esc(label)}</td><td class="tnum" style="text-align:right"><b>${value===null?'<span style="font-weight:400">restricted</span>':num(value)}</b></td><td style="font-size:10px;color:#5F6B7A">${esc(note||'')}</td></tr>`;
+    const areaRows = w.byArea.map(a=>`<tr><td>${esc(a.area.name)}</td><td style="text-transform:capitalize">${esc(AREA_CLASS_LABEL[a.area.cls]||a.area.cls)}</td>
+      <td class="tnum">${num(a.patients)}</td><td class="tnum">${num(a.inProgramme)}</td><td class="tnum">${num(a.discharged)}</td>
+      <td class="tnum">${num(a.visits)}</td><td class="tnum">${num(a.weights)}</td><td class="tnum">${num(a.notFound)}</td></tr>`).join('');
+    const body = `
+      <h4>1. Programme position this week</h4>
+      <table><thead><tr><th>Indicator</th><th style="text-align:right">Value</th><th>Basis</th></tr></thead><tbody>
+        ${row('Patients in programme', w.inProgramme, 'Active, extension and discharge-recommended cases')}
+        ${row('Discharged this week', w.dischargedInPeriod, 'Discharge date inside the period')}
+        ${row('Children rescued from orphanhood', w.childrenRescued, 'Household record; counted when the parent stays in care')}
+        ${row('Children who became orphans', w.becameOrphans, 'Recorded in the household record, never inferred')}
+        ${row('Orphaned children supported', w.orphanedChildren, 'Children living in a supported household')}
+        ${row('Deceased patients', w.deceased, 'Recorded on the patient record')}
+      </tbody></table>
+
+      <h4>2. Food bags, by type and by bag number</h4>
+      <table><thead><tr><th>Code</th><th>Type</th><th style="text-align:right">Issued this week</th></tr></thead><tbody>
+        <tr><td>BG1</td><td>Bag 1 - normal and couple households</td><td class="tnum" style="text-align:right"><b>${num(w.foodBags.byBag1)}</b></td></tr>
+        <tr><td>BG2</td><td>Bag 2 - family</td><td class="tnum" style="text-align:right"><b>${num(w.foodBags.byBag2)}</b></td></tr>
+        <tr><td>SPB</td><td>Special dietary bag</td><td class="tnum" style="text-align:right"><b>${num(w.foodBags.special)}</b></td></tr>
+        <tr style="font-weight:700"><td colspan="2">Total food bags issued</td><td class="tnum" style="text-align:right">${num(w.foodBags.total)}</td></tr>
+        <tr><td colspan="2">Couple households</td><td class="tnum" style="text-align:right"><span style="font-weight:400">not separable</span></td></tr>
+      </tbody></table>
+      <p style="font-size:11px;color:#5F6B7A">${esc(w.foodBags.coupleNote)} Bags standing against the register (all periods): <b>${num(w.foodBags.assignedInRegister)}</b>. The register holds ${num(w.foodBags.hygienePacks)} hygiene pack(s) issued this week; the four-way type split the trial report asks for cannot be read from bag codes alone, so the three real codes are shown instead of an invented split.</p>
+
+      <h4>3. Support issued this week</h4>
+      <table><thead><tr><th>Item</th><th style="text-align:right">Issued</th></tr></thead><tbody>
+        <tr><td>Mattresses</td><td class="tnum" style="text-align:right">${num(w.mattresses)}</td></tr>
+        <tr><td>Blankets</td><td class="tnum" style="text-align:right">${num(w.blankets)}</td></tr>
+        <tr><td>Bibles</td><td class="tnum" style="text-align:right">${num(w.bibles)}</td></tr>
+        <tr><td>Hygiene packages</td><td class="tnum" style="text-align:right">${num(w.hygienePackages)}</td></tr>
+        <tr><td>Mosquito nets</td><td class="tnum" style="text-align:right">${num(w.mosquitoNets)}</td></tr>
+        <tr><td>Special bags</td><td class="tnum" style="text-align:right">${num(w.specialBags)}</td></tr>
+      </tbody></table>
+
+      <h4>4. Home visits, weights and hospital activity</h4>
+      <table><tbody>
+        <tr><td>Visits recorded</td><td class="tnum" style="text-align:right">${num(w.visitsRecorded)}</td></tr>
+        <tr><td>Patients seen at home</td><td class="tnum" style="text-align:right">${num(w.visitsSeen)}</td></tr>
+        <tr><td>Patients not found at home</td><td class="tnum" style="text-align:right">${num(w.notFoundAtHome)}</td></tr>
+        <tr><td>Weight measurements taken (three-weekly schedule)</td><td class="tnum" style="text-align:right">${num(w.weightsTaken)}</td></tr>
+        <tr><td>Hospital requests in the period</td><td class="tnum" style="text-align:right">${num(w.hospitalRequests)}</td></tr>
+        <tr><td>Inpatient activity</td><td class="tnum" style="text-align:right">${num(w.inpatient)}</td></tr>
+        <tr><td>Outpatient activity</td><td class="tnum" style="text-align:right">${num(w.outpatient)}</td></tr>
+      </tbody></table>
+
+      <h4>5. Recorded decisions</h4>
+      <table><tbody>
+        <tr><td>Households with a recorded decision</td><td class="tnum" style="text-align:right"><b>${w.savedInChrist===null?'Restricted':num(w.savedInChrist)}</b></td></tr>
+        <tr><td>Households with no recorded decision</td><td class="tnum" style="text-align:right">${num(w.faithNotRecorded)}</td></tr>
+      </tbody></table>
+      <p style="font-size:11px;color:#5F6B7A">${w.faithRestricted
+        ? 'This field is restricted to the ministry and leadership roles. The report shows the number of households whose record is still blank, which is the figure an audit can act on, rather than a count the reader is not entitled to see.'
+        : 'A household is counted only where a person recorded the decision. A blank field is never counted as a decision, and the blank count is reported beside it.'}</p>
+
+      <h4>6. Ministry areas, villages and slums</h4>
+      <table><thead><tr><th>Category</th><th style="text-align:right">Areas</th><th style="text-align:right">Patients</th></tr></thead><tbody>
+        <tr><td>Village-based</td><td class="tnum" style="text-align:right">${num(w.byKind.village.areas)}</td><td class="tnum" style="text-align:right"><b>${num(w.byKind.village.total)}</b></td></tr>
+        <tr><td>Slum-based (urban)</td><td class="tnum" style="text-align:right">${num(w.byKind.slum.areas)}</td><td class="tnum" style="text-align:right"><b>${num(w.byKind.slum.total)}</b></td></tr>
+      </tbody></table>
+      <table style="font-size:10.5px;margin-top:8px"><thead><tr><th>Ministry area</th><th>Category</th><th style="text-align:right">Patients</th><th style="text-align:right">In programme</th><th style="text-align:right">Discharged</th><th style="text-align:right">Visits</th><th style="text-align:right">Weights</th><th style="text-align:right">Not found</th></tr></thead>
+      <tbody>${areaRows||'<tr><td colspan="8">No ministry areas in scope</td></tr>'}</tbody></table>
+      <p style="font-size:11px;color:#5F6B7A">${esc(w.basis)}</p>`;
+    return reportShell({ title:'Weekly Planning Indicators',
+      sub:'The figures a Monday planning meeting reads, counted from the record rather than typed',
+      meta: metaBase(), body });
   }
 
   if(type==='patient_days'){

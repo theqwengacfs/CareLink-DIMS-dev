@@ -2,7 +2,7 @@ const requireCrypto = require('node:crypto');
 /* End-to-end verification of:
    1. Real Upstash REST verbatim-body KV behavior (double-JSON-string prevention & healing)
    2. Pre-activation First-Run Reset (`POST /api/setup/reset-first-run`) + permanent post-activation 409 lock
-   3. Zero-local-drive Cloud Auto-Feed of the 100%-complete 3,333-patient dataset (`POST /api/master-import/auto-seed`)
+   3. Zero-local-drive Cloud Auto-Feed of the 100%-complete 4,000-patient dataset (`POST /api/master-import/auto-seed`)
    4. Automatic Upstash Free-Tier (<1 MB per command) sharded KV fallback & paged Tablet reconstruction
    5. Intact manual CSV Master Import (`IMPORTER`) after Cloud Auto-Feed */
 const assert = require('node:assert/strict');
@@ -161,7 +161,7 @@ global.fetch = async (input, init = {}) => {
   assert.equal(pc.run('APPX.host.setup'), false);
 
   /* 3. Enforce Upstash Free-Tier 1 MB single-key cap + Upstash Global Read-Replica Lag
-        while commissioning `system.admin` + auto-feeding 3,333 patients! */
+        while commissioning `system.admin` + auto-feeding the 4,000-patient register! */
   enforceOneMegabyteFreeTierCap = true;
   const setupPw = 'Kx9!vQ2#mTz7Lp';
   const privatePw = 'Private#2027!xQ';
@@ -178,21 +178,24 @@ global.fetch = async (input, init = {}) => {
   const loginRes = await pc.run(`AUTH.loginOnline('system.admin', ${JSON.stringify(setupPw)}, 'pc')`);
   assert.equal(loginRes.ok, true, JSON.stringify(loginRes));
   const mustChangeHtml = pc.run('renderMustChange()');
-  assert.ok(/autoFeedCloudMaster/.test(mustChangeHtml), 'Chief first-login password screen must offer pre-checked 3,333-patient Cloud Auto-Feed');
+  assert.ok(/autoFeedCloudMaster/.test(mustChangeHtml), 'Chief first-login password screen must offer pre-checked 4,000-patient Cloud Auto-Feed');
 
   pc.run(`__form = { current:${JSON.stringify(setupPw)}, password:${JSON.stringify(privatePw)}, password2:${JSON.stringify(privatePw)}, autoFeedCloudMaster:'1' }; AUTH.mustChange = true;`);
   await pc.run('FORMS.mustchange6(new FormData())');
   assert.equal(pc.run('AUTH.mustChange'), false);
 
-  /* Verify all 3,333 patients, 44,995 visits & 18,060 PDCAs were auto-fed with ZERO local file upload! */
-  assert.equal(pc.run('DB.db.patients.length'), 3333, 'Chief Sign-In auto-feed must load all 3,333 patients');
-  assert.equal(pc.run('DB.db.visits.length'), 44995, 'Chief Sign-In auto-feed must load all 44,995 visits');
-  assert.equal(pc.run('DB.db.pdcas.length'), 18060, 'Chief Sign-In auto-feed must load all 18,060 PDCAs');
+  /* Verify the whole 4,000-patient register, its visits and PDCAs were auto-fed with ZERO local file upload! */
+  assert.equal(pc.run('DB.db.patients.length'), 4000, 'Chief Sign-In auto-feed must load all 4,000 patients');
+  const fedVisits = pc.run('(()=>{const c=DB.db.meta.referenceMaster.counts; return c.visits;})()');
+  assert.ok(fedVisits >= 4000 * 12, `Chief Sign-In auto-feed must load at least 12 visits per patient (${fedVisits})`);
+  assert.equal(pc.run('DB.db.visits.length'), fedVisits, 'the whole visit history must be present after auto-feed');
+  const fedPdcas = pc.run('(()=>{const c=DB.db.meta.referenceMaster.counts; return c.pdcas;})()');
+  assert.equal(pc.run('DB.db.pdcas.length'), fedPdcas, 'the whole PDCA history must be present after auto-feed');
   assert.equal(pc.run('WORKFLOW_ENGINE.completionMatrix(AUTH.user).global.pct'), 100);
   assert.equal(pc.run('REPORTS.dataQuality(AUTH.user).length'), 0);
   assert.ok(maxShardWriteBytes > 0 && maxShardWriteBytes <= 1024 * 1024, `Every Free-Tier KV shard write stayed <= 1 MiB (max ${maxShardWriteBytes})`);
 
-  /* 4. Verify manual CSV Master Import (`IMPORTER`) still works cleanly alongside the 3,333-patient dataset */
+  /* 4. Verify manual CSV Master Import (`IMPORTER`) still works cleanly alongside the 4,000-patient dataset */
   pc.run(`(()=>{
     const csv = 'Patient Name,File Number,Ministry Area,CCC Number,Phone,Sex,Age,Intake Date,Status,Referral Source,Caregiver,Weight (kg),Diagnosis,Household Children,Discharge Date\\n"Jane Atieno Test","LOM-IMP-9999","Nyalenda","CCC/99999","0712345678","F",36,"2026-04-10","Active","JOOTRH","Caregiver Nyalenda",60,"HIV - on ART",2,""';
     const parsed = IMPORTER.parseCSV(csv);
@@ -204,7 +207,7 @@ global.fetch = async (input, init = {}) => {
     IMPORTER.validate();
     IMPORTER.commit();
   })()`);
-  assert.equal(pc.run('DB.db.patients.length'), 3334, 'Manual CSV Master Import must still create incremental patient records cleanly');
+  assert.equal(pc.run('DB.db.patients.length'), 4001, 'Manual CSV Master Import must still create incremental patient records cleanly');
 
   /* 5. Activate System Globally and verify permanent First-Run Reset lock + fresh Tablet reconstruction */
   const pack = await pc.run('PROD_SETUP.activateSystemGlobally({})');
@@ -464,7 +467,7 @@ global.fetch = async (input, init = {}) => {
     'Unrecoverable integrity failure must leave the original online manifest untouched');
 
 
-  console.log('kv-recovery-and-autofeed: real Upstash verbatim KV + reset-first-run + 3,333-patient zero-file Cloud Auto-Feed + Free-Tier <1 MiB KV sharding + Verifying-hang prevention + 0ms boot/alias/path fixes + intact Master Import passed');
+  console.log('kv-recovery-and-autofeed: real Upstash verbatim KV + reset-first-run + 4,000-patient zero-file Cloud Auto-Feed + Free-Tier <1 MiB KV sharding + Verifying-hang prevention + 0ms boot/alias/path fixes + intact Master Import passed');
 })().catch((err) => {
   console.error(err);
   process.exit(1);

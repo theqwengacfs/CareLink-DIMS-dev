@@ -924,7 +924,7 @@ function overlayAuthoritativeHead(state, head, manifestRev = 0, manifestSaved = 
   }
   state.rev = targetRev;
   if (manifestSaved || head.saved) state.saved = manifestSaved || head.saved;
-  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.9.4' }, users: [], audit: [] };
+  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.9.6' }, users: [], audit: [] };
   if (Array.isArray(head.users) && head.users.length) {
     state.db.users = Array.isArray(state.db.users) ? state.db.users : [];
     for (const hu of head.users) {
@@ -1629,6 +1629,25 @@ function sanitizeDbForClient(db) {
       return clean;
     });
   }
+  /* A call record keeps only a bounded, text-only handshake. The payload is
+     read solely by the two sides of that call (callVisibleToScope), never by
+     the shared register or by anyone else's console. */
+  if (Array.isArray(db.teamCalls)) {
+    copy.teamCalls = db.teamCalls.map((call) => {
+      if (!call || typeof call !== 'object') return call;
+      const clean = { ...call };
+      const signal = call.signal && typeof call.signal === 'object' ? call.signal : null;
+      const list = (value) => (Array.isArray(value) ? value.slice(-10) : []).map((item) => callSignalText(item)).filter(Boolean);
+      clean.signal = signal ? {
+        offer: callSignalText(signal.offer), answer: callSignalText(signal.answer),
+        callerCandidates: list(signal.callerCandidates), calleeCandidates: list(signal.calleeCandidates),
+        sdp: callSignalText(signal.sdp), candidate: callSignalText(signal.candidate),
+        from: clipString(signal.from || '', 160),
+        at: typeof signal.at === 'string' ? signal.at.slice(0, 40) : '',
+      } : {};
+      return clean;
+    });
+  }
   return copy;
 }
 
@@ -1796,6 +1815,104 @@ function messagePatchAllowed(patch, state, sess) {
   return true;
 }
 
+/* ---- Team Chat audio / video calling -------------------------------------
+   Calls are signalled through the same authenticated state channel: a single
+   `teamCalls` record carries the invite (who, what kind, which thread) and the
+   short-lived SDP/ICE handshake. The server decides who may invite whom; the
+   browser never names its own participants. Media never leaves the devices
+   directly between the two people (peer-to-peer WebRTC) and nothing is recorded. */
+const CALL_KINDS = new Set(['audio', 'video']);
+const CALL_STATES = new Set(['ringing', 'accepted', 'declined', 'ended', 'missed']);
+const CALL_MAX_SIGNAL_CHARS = 20000;
+const CALL_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
+/* A signed-in account is always resolvable: the credential record carries its
+   own role and county, so a call works even where the directory row was created
+   by activation rather than by the roster import. */
+function callAccount(state, id) {
+  const user = activeServerUser(state, id);
+  if (user) return user;
+  const cred = Object.values(state.creds || {}).find((c) => c && String(c.id) === String(id));
+  if (!cred) return null;
+  const row = (state.db && Array.isArray(state.db.users) ? state.db.users : [])
+    .find((u) => u && (String(u.username || '').toLowerCase() === String(cred.username || '').toLowerCase() ||
+      String(u.id || '') === String(id)));
+  if (row && (row.active === false || row.status === 'inactive' || row.status === 'disabled' || row.archivedByRebuild)) return null;
+  return { id: cred.id, username: cred.username, roleId: cred.roleId, countyId: cred.countyId, status: 'active', active: true };
+}
+
+function callKindOf(value) { return CALL_KINDS.has(String(value || '')) ? String(value) : ''; }
+function callStateOf(value) { return CALL_STATES.has(String(value || '')) ? String(value) : ''; }
+function callSignalText(value) { return typeof value === 'string' ? value.slice(0, CALL_MAX_SIGNAL_CHARS) : ''; }
+
+/* Only a direct colleague chat or a shared channel can carry a call, so an
+   invitation can never reach someone outside the messaging reach rules. */
+function callThreadRecipients(state, sess, thread) {
+  const value = String(thread || '');
+  if (!value || value.length > 200) return null;
+  const account = callAccount(state, sess.userId);
+  if (!account) return null;
+  const resolved = { userId: account.id, roleId: account.roleId, countyId: account.countyId };
+  /* A broadcast or department channel has one recipient per member, and the
+     invitation must list exactly those people. */
+  const people = serverMessageRecipients(state, resolved, value);
+  if (people && people.length) return people;
+  /* A direct chat between the signed-in person and one colleague is the one
+     case the sender can address by name: the thread names both parties. */
+  if (value.startsWith('dm:')) {
+    const ids = value.slice(3).split(':');
+    if (ids.length !== 2 || ids[0] === ids[1] || !ids.includes(String(account.id))) return null;
+    const other = callAccount(state, ids.find((id) => id !== String(account.id)));
+    if (!other) return null;
+    return [other.id];
+  }
+  return null;
+}
+
+function callPatchAllowed(patch, state, sess) {
+  const calls = state.db && Array.isArray(state.db.teamCalls) ? state.db.teamCalls : [];
+  const current = calls.find((call) => call && String(call.id) === String(patch.id));
+  const set = patch.set && typeof patch.set === 'object' && !Array.isArray(patch.set) ? patch.set : {};
+  const me = String(sess.userId);
+  const callerId = String((current && current.callerId) || set.callerId || '');
+  const participantIds = current
+    ? (Array.isArray(current.participantIds) ? current.participantIds.map(String) : [])
+    : (Array.isArray(set.participantIds) ? set.participantIds.map(String) : []);
+  if (!current) {
+    /* A new call is always invited by the signed-in account to the people the
+       server says are in that thread. The inviter cannot choose the audience. */
+    if (patch.del) return false;
+    if (callerId !== me) return false;
+    if (!callKindOf(set.kind) || !callThreadRecipients(state, sess, set.thread)) return false;
+    const expected = callThreadRecipients(state, sess, set.thread).map(String);
+    if (!expected.length || participantIds.length !== expected.length + 1 ||
+        !participantIds.includes(me) || !expected.every((id) => participantIds.includes(id))) return false;
+    return callStateOf(set.state || 'ringing') === 'ringing';
+  }
+  /* Only the inviter or an invited person may change a call record. */
+  if (callerId !== me && !participantIds.includes(me)) return false;
+  const changed = Object.keys(set).filter((key) => key !== 'before');
+  /* Signs are the handshake itself: either party may post the other's. */
+  if (changed.length === 1 && changed[0] === 'signal') return typeof set.signal === 'object';
+  /* Anything else is a lifecycle step: nobody may rewrite who took part. */
+  if (changed.some((key) => ['callerId', 'participantIds', 'thread', 'kind', 'startedAt'].includes(key))) return false;
+  return changed.every((key) => ['state', 'signal', 'answeredBy', 'endedBy', 'endedAt', 'reason'].includes(key));
+}
+
+function callVisibleToScope(call, state, scope) {
+  if (!call || !call.id || !callStateOf(call.state)) return false;
+  const participantIds = Array.isArray(call.participantIds) ? call.participantIds.map(String) : [];
+  if (!participantIds.includes(String(scope.userId))) return false;
+  const created = Date.parse(String(call.createdAt || ''));
+  if (Number.isFinite(created) && Date.now() - created > CALL_MAX_AGE_MS) return false;
+  /* The invitation must still resolve to real, in-reach colleagues. */
+  const caller = callAccount(state, call.callerId);
+  if (!caller) return false;
+  const expected = callThreadRecipients(state, { userId: caller.id, roleId: caller.roleId, countyId: caller.countyId }, call.thread) || [];
+  const invited = participantIds.filter((id) => id !== String(caller.id));
+  return invited.length === expected.length && expected.every((id) => invited.includes(String(id)));
+}
+
 function messageVisibleToScope(message, state, scope) {
   if (!message || (String(message.from || '') !== scope.userId &&
       !(Array.isArray(message.to) && message.to.map(String).includes(scope.userId)))) return false;
@@ -1906,6 +2023,9 @@ function scopedDbForSession(db, state, sess) {
   if (Array.isArray(copy.messages)) {
     copy.messages = copy.messages.filter((message) => messageVisibleToScope(message, state, scope));
   }
+  if (Array.isArray(copy.teamCalls)) {
+    copy.teamCalls = copy.teamCalls.filter((call) => callVisibleToScope(call, state, scope));
+  }
   if (copy.drafts && typeof copy.drafts === 'object' && !Array.isArray(copy.drafts)) {
     copy.drafts = Object.fromEntries(Object.entries(copy.drafts).filter(([key]) => key.startsWith(`${scope.userId}:`)));
   }
@@ -1980,6 +2100,11 @@ function scopedPatchesForSession(patches, state, sess) {
       const current = (state.db.notifications || []).find((n) => n && String(n.id) === String(patch.id));
       const candidate = current || patch.set || {};
       return candidate && String(candidate.userId || '') === scope.userId ? [patch] : [];
+    }
+    if (patch.c === 'teamCalls') {
+      const current = (state.db.teamCalls || []).find((call) => call && String(call.id) === String(patch.id));
+      const candidate = current || patch.set || {};
+      return callVisibleToScope(candidate, state, scope) ? [patch] : [];
     }
     if (PATIENT_LINKED_COLLECTIONS.has(patch.c) || COUNTY_AREA_SCOPED_COLLECTIONS.has(patch.c)) {
       return patchInPrincipalScope(patch, state, sess) ? [patch] : [];
@@ -2123,10 +2248,14 @@ const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const SAFE_COLLECTION = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 const MASTER_PACKAGE_FORMAT = 'carelink-reference-master-v1';
 const MASTER_PAYLOAD_FORMAT = 'carelink-reference-payload-v1';
+/* The synthetic reference register this installation expects. It is the same
+   4,000-patient board register the client seeder produces; a package built from
+   a different register is refused rather than half-imported. */
+const REFERENCE_PATIENT_COUNT = 4000;
 const MASTER_ENCODING = 'brotli-base64';
 const MASTER_MAX_CHUNKS = 256;
 const MASTER_MAX_CHUNK_CHARS = 600000;
-const MASTER_MAX_RAW_BYTES = 100 * 1024 * 1024;
+const MASTER_MAX_RAW_BYTES = 160 * 1024 * 1024; /* the 4,000-patient register is ~78 MB uncompressed */
 const MASTER_MAX_COMPRESSED_BYTES = 8 * 1024 * 1024;
 const MASTER_CHUNK_PREFIX = 'carelink_reference_master_v1_';
 const STATE_PAGE_MAX_BYTES = 3 * 1024 * 1024;
@@ -2198,7 +2327,7 @@ function validateReferencePayload(payload) {
   const missing = required.filter((key) => !Array.isArray(db[key]));
   if (missing.length) throw new MasterPackageError(`The reference master is missing required collection(s): ${missing.join(', ')}.`);
   const patients = db.patients;
-  if (patients.length !== 3333) throw new MasterPackageError(`The full reference master must contain exactly 3,333 patients; it contains ${patients.length}.`);
+  if (patients.length !== REFERENCE_PATIENT_COUNT) throw new MasterPackageError(`The full reference master must contain exactly ${REFERENCE_PATIENT_COUNT.toLocaleString('en-GB')} patients; it contains ${patients.length}.`);
   if ((db.users || []).some((u) => u && (u.hash || u.salt))) {
     throw new MasterPackageError('The reference master must not contain password hashes or salts.');
   }
@@ -2262,11 +2391,11 @@ function validateReferencePayload(payload) {
   });
 
   const checks = [
-    { key: 'profiles', label: '3,333 complete demographic, identity, anthropometric, adherence and care-plan profiles', actual: patients.length - incompleteProfile, expected: 3333 },
-    { key: 'identifiers', label: 'Unique patient code, CCC number and national identifier for every patient', actual: uniqueIdentifiers, expected: 3333 },
-    { key: 'visits', label: 'At least 12 complete longitudinal visits for every patient', actual: patients.length - withoutTwelveVisits, expected: 3333 },
-    { key: 'pdcas', label: 'A PDCA cycle with a completed, structured 30-day review for every patient', actual: patients.length - withoutReviewedPdca, expected: 3333 },
-    { key: 'related', label: 'Condition, household-support and document coverage for every patient', actual: patients.length - withoutRelated, expected: 3333 },
+    { key: 'profiles', label: `${patients.length.toLocaleString('en-GB')} complete demographic, identity, anthropometric, adherence and care-plan profiles`, actual: patients.length - incompleteProfile, expected: patients.length },
+    { key: 'identifiers', label: 'Unique patient code, CCC number and national identifier for every patient', actual: uniqueIdentifiers, expected: patients.length },
+    { key: 'visits', label: 'At least 12 complete longitudinal visits for every patient', actual: patients.length - withoutTwelveVisits, expected: patients.length },
+    { key: 'pdcas', label: 'A PDCA cycle with a completed, structured 30-day review for every patient', actual: patients.length - withoutReviewedPdca, expected: patients.length },
+    { key: 'related', label: 'Condition, household-support and document coverage for every patient', actual: patients.length - withoutRelated, expected: patients.length },
     { key: 'discharges', label: 'Structured referral and discharge summary for every discharged patient', actual: discharged.length - incompleteDischarge, expected: discharged.length },
     { key: 'operations', label: 'Receipts, verified forms and clinical completion reports for operational records', actual: operationalActual, expected: operationalExpected },
   ];
@@ -2530,6 +2659,39 @@ function chiefReauthenticated(state, sess, password) {
     !cred.mustChange && typeof password === 'string' && verifyPassword(password, cred.salt, cred.digest));
 }
 
+/* --- Official account email aliases -------------------------------------------
+   Every account in the Foundation signs in with a username and an email alias on
+   the organisation's own domain. The domain is a single constant so a rebuild can
+   never reintroduce a retired spelling, and the alias local part is sanitised so
+   an accidental address can never be formed. */
+const OFFICIAL_EMAIL_DOMAIN = 'lomamofoundation.org';
+function normalizeEmailAlias(existing, fallbackLocal, domain = OFFICIAL_EMAIL_DOMAIN){
+  const clean = String(existing || '').trim().toLowerCase();
+  const at = clean.lastIndexOf('@');
+  const local = (at > 0 ? clean.slice(0, at) : clean).replace(/[^a-z0-9._-]/g, '');
+  const label = local || String(fallbackLocal || '').replace(/[^a-z0-9._-]/g, '');
+  return `${label}@${domain}`;
+}
+function officialEmailLocal(seat){
+  const source = String((seat && (seat.emailLocal || seat.username)) || '').toLowerCase();
+  return source.replace(/[^a-z0-9._-]/g, '') || 'staff';
+}
+/* Pre-rebuild installations stored aliases on retired domains (for example
+   `@lomamo.npo`). Sign-in accepts any alias on an organisation domain so the
+   address printed in an older credential pack still reaches the account, while
+   every alias is re-written to the official domain on the next rebuild. */
+const ORG_ALIAS_DOMAINS = new Set([OFFICIAL_EMAIL_DOMAIN, 'lomamo.npo', 'lomamofoundation.co.ke']);
+function aliasKey(value){
+  const clean = String(value || '').trim().toLowerCase();
+  const at = clean.lastIndexOf('@');
+  if (at < 1) return clean;
+  const local = clean.slice(0, at).replace(/[^a-z0-9._-]/g, '');
+  const domain = clean.slice(at + 1);
+  return `${local}@${ORG_ALIAS_DOMAINS.has(domain) ? '*' : domain}`;
+}
+
+function chiefUsernameOr(username){ return String(username || 'chief.admin').replace(/[^a-z0-9._-]/g, '') || 'chief.admin'; }
+
 function rebuildOfficialAccounts(state, sess) {
   const db = state.db || (state.db = {});
   const existing = Array.isArray(db.users) ? db.users : [];
@@ -2558,7 +2720,9 @@ function rebuildOfficialAccounts(state, sess) {
     const chief = r.roleId === 'chief';
     const username = chief ? sess.username : r.username;
     const id = chief ? chiefId : ids.get(r.username);
-    const email = chief ? (chiefCred.email || chiefOld.email || `${username}@lomamofoundation.org`) : `${r.emailLocal || username}@lomamofoundation.org`;
+    const email = chief
+      ? normalizeEmailAlias(chiefCred.email || chiefOld.email, chiefUsernameOr(username), OFFICIAL_EMAIL_DOMAIN)
+      : `${officialEmailLocal(r)}@${OFFICIAL_EMAIL_DOMAIN}`;
     const user = {
       id, username, name:r.name, roleId:r.roleId, countyId:r.countyId,
       areaIds:r.areas || [], departmentId:r.dept, jobTitle:r.job,
@@ -2568,8 +2732,9 @@ function rebuildOfficialAccounts(state, sess) {
       canLeaveMonday:Boolean(r.canLeaveMonday), execTeam:officialStructure.exec.includes(r.username),
       ...(r.permOverrides ? { permOverrides:r.permOverrides } : {}),
       status: r.unconfirmed ? 'unconfirmed' : 'active', active:!r.unconfirmed,
-      mustChange: !chief && !r.unconfirmed, mustChangePassword: !chief && !r.unconfirmed,
-      dpaFirstLoginRequired: !chief && !r.unconfirmed,
+      /* Re-issued accounts sign in with the password in the confidential pack
+         and go straight to work: no forced first-login password change. */
+      mustChange: false, mustChangePassword: false, dpaFirstLoginRequired: false,
       demo:false, provisioned:!r.unconfirmed, createdBy:chiefId, created:now,
     };
     if (chief) {
@@ -2583,7 +2748,8 @@ function rebuildOfficialAccounts(state, sess) {
       passwords.add(password);
       const { salt, digest } = hashPassword(password);
       nextCreds[username] = { id, username, email, name:r.name, roleId:r.roleId, countyId:r.countyId,
-        areaIds:r.areas || [], departmentId:r.dept, salt, digest, mustChange:true,
+        areaIds:r.areas || [], departmentId:r.dept, salt, digest, mustChange:false,
+        issuedAt:now, issuedBy:sess.username,
         sessionEpoch:crypto.randomBytes(16).toString('hex'), updatedAt:now };
       rows.push({ id, name:r.name, username, email, tempPassword:password, roleId:r.roleId,
         role:(officialStructure.roles.find(x=>x.id===r.roleId) || {}).name || r.roleId,
@@ -2635,8 +2801,8 @@ function rebuildOfficialAccounts(state, sess) {
   for (const field of ['activations', 'emergencies']) {
     if (Array.isArray(state[field])) state[field] = state[field].filter(x=>x && String(x.username || '').toLowerCase()===sess.username);
   }
-  state.org = { ...(state.org || {}), emailDomain:'lomamofoundation.org' };
-  db.settings = { ...(db.settings || {}), org:{ ...((db.settings && db.settings.org) || {}), emailDomain:'lomamofoundation.org' } };
+  state.org = { ...(state.org || {}), emailDomain:OFFICIAL_EMAIL_DOMAIN };
+  db.settings = { ...(db.settings || {}), org:{ ...((db.settings && db.settings.org) || {}), emailDomain:OFFICIAL_EMAIL_DOMAIN } };
   state.rev = (Number(state.rev) || 0) + 1;
   state.rebuildRevision = state.rev;
   state.deltas = [];
@@ -2751,6 +2917,9 @@ async function handleRequest(req, res) {
   const gateSession = extractRequestToken(req) ? getSession(state, req) : null;
   const gateCred = gateSession && state.creds && state.creds[gateSession.username];
   const allowedBeforePassword = new Set(['auth/login', 'auth/logout', 'auth/change-password', 'auth/unlock', 'session/beat', 'session/whoami']);
+  /* Only pre-activation first-run accounts are gated (they carry a session
+     epoch). Accounts issued by a rebuild sign in with the password in their
+     confidential pack and start work immediately. */
   if (gateCred && gateCred.sessionEpoch && gateCred.mustChange && !allowedBeforePassword.has(route)) {
     return sendJson(res, 403, { ok:false, code:'password_change_required', error:'Set a private password before opening the workspace.' });
   }
@@ -2765,7 +2934,7 @@ async function handleRequest(req, res) {
     ));
     return sendJson(res, 200, {
       ok: true,
-      version: '6.9.4',
+      version: '6.9.6',
       cloud: true,
       onlineDatabase: true,
       mode: 'online-site-db',
@@ -2840,8 +3009,10 @@ async function handleRequest(req, res) {
 
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
-    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.4' }, users: [], audit: [] });
-    const chiefEmail = admin.email || `${username}@${(body.org && body.org.emailDomain) || 'lomamofoundation.org'}`;
+    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.6' }, users: [], audit: [] });
+    const chiefEmail = admin.email
+      ? normalizeEmailAlias(admin.email, username)
+      : normalizeEmailAlias('', username);
     const chiefDisplayName = admin.name || 'Chief System Administrator';
     let chiefUserId = 'u-chief-admin';
     /* Only the authenticated activation endpoint may set this flag.  Ignore a
@@ -2962,7 +3133,7 @@ async function handleRequest(req, res) {
         countyId: clipString(acc.countyId || 'kisumu', 80),
         areaIds: Array.isArray(acc.areaIds) ? acc.areaIds.map((id) => clipString(id, 80)).slice(0, 20) : [],
         departmentId: clipString(acc.departmentId || '', 80),
-        email: clipString(acc.email || `${uname}@${body.emailDomain || 'lomamofoundation.org'}`, 240),
+        email: clipString(normalizeEmailAlias(acc.email, uname), 240),
         salt,
         digest,
         mustChange: true,
@@ -2984,7 +3155,7 @@ async function handleRequest(req, res) {
     }
     state.rev = (state.rev || 0) + 1;
     appendServerAudit(state, (sess && sess.username) || body.activatedBy || 'chief.admin', 'system.activated_globally', 'system', 'global-activation',
-      `CareLink activated globally (@${body.emailDomain || 'lomamofoundation.org'}); ${issued.length} credentials issued, ${preserved.length} private credentials preserved; demo & setup screens permanently removed.`);
+      `CareLink activated globally (accounts on @${OFFICIAL_EMAIL_DOMAIN}); ${issued.length} credentials issued, ${preserved.length} private credentials preserved; demo & setup screens permanently removed.`);
     await saveCloudState(state);
     return sendJson(res, 200, { ok: true, globallyActivated: true, rev: state.rev, issued, preserved });
   }
@@ -3001,9 +3172,24 @@ async function handleRequest(req, res) {
     const body = await readJsonBody(req);
     const rawId = String(body.username || '').trim().toLowerCase();
     const password = String(body.password || '');
+    /* A username is the canonical handle; the issued email alias signs in the
+       same account. An alias shared by two accounts must never sign anyone in. */
+    const typedAlias = aliasKey(rawId);
+    const emailMatches = Object.values(state.creds || {}).filter((c) => {
+      const stored = String((c && c.email) || '').toLowerCase();
+      if (!stored) return false;
+      return stored === rawId || aliasKey(stored) === typedAlias;
+    });
     let cred = Object.prototype.hasOwnProperty.call(state.creds || {}, rawId)
       ? state.creds[rawId]
-      : Object.values(state.creds || {}).find((c) => String(c.email || '').toLowerCase() === rawId);
+      : (emailMatches.length === 1 ? emailMatches[0] : null);
+    if (!cred && emailMatches.length > 1) {
+      return sendJson(res, 409, {
+        ok: false,
+        code: 'ambiguous_email_alias',
+        error: 'That email alias is used by more than one account. Sign in with your username instead.',
+      });
+    }
     /* Canonical Chief System Administrator alias: Step 2 historically pre-filled
        `chief.admin` while operators often sign in as `system.admin` (or vice versa).
        When there is a single `chief` credential provisioned under either canonical
@@ -3266,9 +3452,16 @@ async function handleRequest(req, res) {
     }
     const rows = openCredentialPack(state.reactivationPack, body.password, sess.username);
     if (!rows) return sendJson(res, 404, { ok:false, code:'pack_unavailable', error:'No recoverable pack is available, or the 24-hour recovery window has expired.' });
+    /* Still-valid means "still the password on the account": a holder who has
+       since set their own password invalidates that row. Accounts issued by the
+       rebuild are not flagged for a forced change, so the flag itself is not a
+       validity test. */
     const usable = rows.filter(row => {
       const cred = state.creds[row.username];
-      return cred && cred.mustChange && verifyPassword(row.tempPassword, cred.salt, cred.digest);
+      if (!cred) return false;
+      const issued = cred.issuedAt || state.saved || new Date().toISOString();
+      const changedAfterIssue = Boolean(cred.privateSetAt && new Date(cred.privateSetAt).getTime() > new Date(issued).getTime());
+      return !changedAfterIssue && verifyPassword(row.tempPassword, cred.salt, cred.digest);
     });
     appendServerAudit(state, sess.userId || sess.username, 'credentials.reactivation_pack_recovered', 'credentials', 'official-hierarchy',
       `Chief recovered ${usable.length} still-valid temporary credentials.`);
@@ -3299,15 +3492,11 @@ async function handleRequest(req, res) {
       if (acc.roleId === 'chief' && sess.roleId !== 'chief') continue;
       const tempPassword = (typeof acc.password === 'string' && acc.password.length >= 10) ? acc.password : generateStrongPassword();
       const { salt, digest } = hashPassword(tempPassword);
-      const emailDomain = (body.emailDomain)
-        || (state.org && state.org.emailDomain)
-        || (state.db && state.db.settings && state.db.settings.org && state.db.settings.org.emailDomain)
-        || 'lomamofoundation.org';
       const mustChangeFlag = acc.mustChange !== undefined ? Boolean(acc.mustChange) : true;
       state.creds[uname] = {
         id: acc.id || `u-${uname.replace(/\./g, '-')}`,
         username: uname,
-        email: clipString(acc.email || `${uname}@${emailDomain}`, 240),
+        email: clipString(normalizeEmailAlias(acc.email, uname), 240),
         name: acc.name || uname,
         roleId: acc.roleId || 'staff',
         countyId: acc.countyId || 'kisumu',
@@ -3518,7 +3707,7 @@ async function handleRequest(req, res) {
     const importId = `REF-${job.id.slice(0, 8).toUpperCase()}`;
     live.imports.unshift({
       id: importId, at: nowISO(), by: sess.userId || sess.username, file: job.fileName,
-      total: 3333, created: 3333, skipped: 0, review: 0,
+      total: verified.counts.patients, created: verified.counts.patients, skipped: 0, review: 0,
       checksum: job.digest, referenceMaster: true, quality: verified.quality,
     });
     live.meta = {
@@ -3534,7 +3723,7 @@ async function handleRequest(req, res) {
        older delta stream across this wholesale, audited reference import. */
     state.deltas = [];
     appendServerAudit(state, sess.userId || sess.username, 'data.reference_master_imported', 'import', importId,
-      `Full synthetic reference master imported: 3,333 patients; all ${verified.quality.checks.length} completeness groups passed; accounts/settings preserved.`);
+      `Full synthetic reference master imported: ${verified.counts.patients.toLocaleString('en-GB')} patients; all ${verified.quality.checks.length} completeness groups passed; accounts/settings preserved.`);
     job.status = 'completed';
     job.completedAt = nowISO();
     job.updatedAt = nowISO();
@@ -3545,7 +3734,7 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, rev: state.rev, saved: state.saved, counts: verified.counts, quality: verified.quality, importId });
   }
 
-  /* 5d. Zero-local-drive automatic cloud feed of the bundled 3,333-patient
+  /* 5d. Zero-local-drive automatic cloud feed of the bundled reference-master
      100%-complete synthetic reference master (Chief Admin, pre-activation). */
   if (route === 'master-import/auto-seed' && method === 'POST') {
     const body = await readJsonBody(req);
@@ -3605,7 +3794,7 @@ async function handleRequest(req, res) {
     live.imports.unshift({
       id: importId, at: nowISO(), by: sess.userId || sess.username,
       file: 'CareLink-Reference-Master-v6.6.json (Cloud Built-In)',
-      total: 3333, created: 3333, skipped: 0, review: 0,
+      total: verified.counts.patients, created: verified.counts.patients, skipped: 0, review: 0,
       checksum: manifest.digest, referenceMaster: true, quality: verified.quality,
     });
     live.meta = {
@@ -3619,7 +3808,7 @@ async function handleRequest(req, res) {
     state.rev = (state.rev || 0) + 1;
     state.deltas = [];
     appendServerAudit(state, sess.userId || sess.username, 'data.reference_master_autoseeded', 'import', importId,
-      `Cloud built-in 100%-complete synthetic reference master auto-fed into KV: 3,333 patients, ${verified.counts.visits} visits, ${verified.counts.pdcas} PDCAs; accounts/settings preserved.`);
+      `Cloud built-in 100%-complete synthetic reference master auto-fed into KV: ${verified.counts.patients.toLocaleString('en-GB')} patients, ${verified.counts.visits} visits, ${verified.counts.pdcas} PDCAs; accounts/settings preserved.`);
     await saveCloudState(state);
     return sendJson(res, 200, { ok: true, rev: state.rev, saved: state.saved, counts: verified.counts, quality: verified.quality, importId });
   }
@@ -3752,7 +3941,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 409, { ok:false, code:'rebuild_refresh_required', error:'The account hierarchy was rebuilt. Refresh the shared state before saving pending changes.' });
     }
     const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
-    state.db = state.db || { meta: { schema: 6, version: '6.9.4' } };
+    state.db = state.db || { meta: { schema: 6, version: '6.9.6' } };
     const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
     const applied = [];
     const rejected = [];
@@ -3820,6 +4009,10 @@ async function handleRequest(req, res) {
         rejected.push({ c: p.c, id: p.id, reason: 'message_scope_denied' });
         continue;
       }
+      if (p.c === 'teamCalls' && !callPatchAllowed(p, state, sess)) {
+        rejected.push({ c: p.c, id: p.id, reason: 'call_scope_denied' });
+        continue;
+      }
       if (p.c === 'notifications' && !notificationPatchAllowed(p, state, sess)) {
         rejected.push({ c: p.c, id: p.id, reason: 'notification_scope_denied' });
         continue;
@@ -3827,7 +4020,20 @@ async function handleRequest(req, res) {
       if (!Array.isArray(state.db[p.c])) state.db[p.c] = [];
       const col = state.db[p.c];
       const idx = col.findIndex((r) => r && r.id === p.id);
-      const set = safeObject(p.set);
+      let set = safeObject(p.set);
+      /* A call record keeps only a bounded, text-only handshake. Each side owns
+         one half of it, so an answer can never overwrite the caller's offer. */
+      if (p.c === 'teamCalls' && set.signal && typeof set.signal === 'object') {
+        const signal = set.signal;
+        const list = (value) => (Array.isArray(value) ? value.slice(-10) : []).map((item) => callSignalText(item)).filter(Boolean);
+        set = { ...set, signal: {
+          offer: callSignalText(signal.offer), answer: callSignalText(signal.answer),
+          callerCandidates: list(signal.callerCandidates), calleeCandidates: list(signal.calleeCandidates),
+          sdp: callSignalText(signal.sdp), candidate: callSignalText(signal.candidate),
+          at: typeof signal.at === 'string' ? signal.at.slice(0, 40) : nowISO(),
+          from: clipString(signal.from || sess.userId, 160),
+        } };
+      }
 
       /* Clinical records are authorized by the server against the patient's
          trusted county/area, not merely by client-side navigation guards. */
@@ -4072,7 +4278,7 @@ async function handleRequest(req, res) {
       ...(existingCred || {}),
       id: (existingCred && existingCred.id) || (matchedUser && matchedUser.id) || `u-${uname.replace(/\./g, '-')}`,
       username: uname,
-      email: (existingCred && existingCred.email) || (matchedUser && matchedUser.email) || `${uname}@${(state.org && state.org.emailDomain) || 'lomamofoundation.org'}`,
+      email: normalizeEmailAlias((existingCred && existingCred.email) || (matchedUser && matchedUser.email), uname),
       name: (existingCred && existingCred.name) || (matchedUser && matchedUser.name) || uname,
       roleId: (existingCred && existingCred.roleId) || (matchedUser && matchedUser.roleId) || 'staff',
       countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',
@@ -4084,6 +4290,7 @@ async function handleRequest(req, res) {
       updatedAt: nowISO(),
     };
     if (matchedUser) {
+      matchedUser.email = state.creds[uname].email;
       matchedUser.active = true;
       matchedUser.status = 'active';
       matchedUser.mustChange = false;
@@ -4135,7 +4342,7 @@ async function handleRequest(req, res) {
       ...(existingCred || {}),
       id: (existingCred && existingCred.id) || (matchedUser && matchedUser.id) || `u-${uname.replace(/\./g, '-')}`,
       username: uname,
-      email: (existingCred && existingCred.email) || (matchedUser && matchedUser.email) || `${uname}@${(state.org && state.org.emailDomain) || 'lomamofoundation.org'}`,
+      email: normalizeEmailAlias((existingCred && existingCred.email) || (matchedUser && matchedUser.email), uname),
       name: (existingCred && existingCred.name) || (matchedUser && matchedUser.name) || uname,
       roleId: (existingCred && existingCred.roleId) || (matchedUser && matchedUser.roleId) || 'staff',
       countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',
@@ -4147,6 +4354,7 @@ async function handleRequest(req, res) {
       updatedAt: nowISO(),
     };
     if (matchedUser) {
+      matchedUser.email = state.creds[uname].email;
       matchedUser.active = true;
       matchedUser.status = 'active';
       matchedUser.mustChange = false;

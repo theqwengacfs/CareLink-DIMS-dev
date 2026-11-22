@@ -60,7 +60,7 @@ function qualityReport(db) {
     { key: 'operations', label: 'Receipts, verified forms and clinical completion reports for operational records', actual: operationalActual, expected: operationalExpected },
   ].map((c) => ({ ...c, passed: c.actual === c.expected }));
   return {
-    passed: patients.length === 3333 && checks.every((c) => c.passed),
+    passed: checks.every((c) => c.passed),
     patientRegistryCompleteness: checks.every((c) => c.passed) ? 100 : 0,
     patientsChecked: patients.length,
     fieldChecks: patients.length * 6,
@@ -70,7 +70,7 @@ function qualityReport(db) {
 
 const context = makeCtx();
 context.run(`DB.db = DB.blank();
-  seedOfficial(DB.db, new Date('2026-10-22T00:00:00.000Z'), { patients:3333, mustChange:true });
+  seedOfficial(DB.db, new Date('2026-10-22T00:00:00.000Z'), { mustChange:true });
   /* The same three governed QA completions exposed by the Smart Workflow
      action: deterministic synthetic identifiers/contact and verified source
      markers. No real identity is introduced. */
@@ -134,7 +134,7 @@ db.users = (db.users || []).map((u) => {
 });
 db.meta = {
   ...(db.meta || {}),
-  label: 'Synthetic CareLink Full Reference Master — 3,333 patients',
+  label: `Synthetic CareLink Full Reference Master — ${db.patients.length.toLocaleString('en-GB')} patients`,
   syntheticReference: true,
   realPatientData: false,
 };

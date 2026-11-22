@@ -9,7 +9,7 @@
      photography directly beneath "One Foundation. One Operating System."
    - Justified typography with hyphenation strictly disabled (hyphens:none)
      so words never split awkwardly across lines.
-   - Full 3,333-patient & 47-account multi-department dataset active and
+   - Full 4,000-patient & 47-account multi-department dataset active and
      reloadable in one tap on both PC and Tablet.
    ============================================================ */
 
@@ -162,7 +162,7 @@ async function activateFullDemoDataset(){
   const previousRaw = JSON.stringify(DB.db);
   const previousDirty = typeof APPX !== 'undefined' ? APPX.dirty : false;
   try{
-    const count = DB.seedOfficial({ patients:3333, mustChange:false });
+    const count = DB.seedOfficial({ patients:DEMO_REGISTER.patients, mustChange:false });
     if(typeof SYNC !== 'undefined' && SYNC.available()){
       let r;
       try{
@@ -531,7 +531,7 @@ function renderLogin6(){
       : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
       <div class="field"><label for="lg-u">Username or mock email alias</label>
-        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. system.admin, chief.admin, director, caregiver.nyalenda" required></div>
+        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda or caregiver.nyalenda@lomamofoundation.org" required></div>
       <div class="field"><label for="lg-p">Password</label>
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
@@ -699,7 +699,7 @@ function renderMustChange(){
   const isChiefPreActivation = Boolean(
     u && u.roleId === 'chief' &&
     typeof PROD_SETUP !== 'undefined' && !PROD_SETUP.isGloballyActivated() &&
-    ((DB.db && Array.isArray(DB.db.patients) ? DB.db.patients.length : 0) < 3333)
+    ((DB.db && Array.isArray(DB.db.patients) ? DB.db.patients.length : 0) < DEMO_REGISTER.patients)
   );
   return `<div class="lg6 one">
     <main class="lg6-panel">
@@ -717,7 +717,7 @@ function renderMustChange(){
           <div class="field"><label>Repeat your new private password</label><div class="pw-wrap"><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
           ${isChiefPreActivation ? `<label class="lg-check" style="margin:8px 0 12px;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:9px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06))">
             <input type="checkbox" name="autoFeedCloudMaster" value="1" checked style="margin-top:2px">
-            <span><b>Auto-feed complete 3,333-patient CareLink Cloud Dataset</b> into Cloud KV immediately upon saving my password (zero local file upload)</span>
+            <span><b>Auto-feed complete ${num(DEMO_REGISTER.patients)}-patient CareLink Cloud Dataset</b> into Cloud KV immediately upon saving my password (zero local file upload)</span>
           </label>` : ''}
           <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.mustChangeBusy?'disabled':''}>${LOGIN6.mustChangeBusy?'Saving password &amp; loading Cloud Dataset...':'Save private password &amp; open my console'}</button>
         </form>
@@ -762,7 +762,7 @@ function renderOnboarding6(){
     body = `<p class="lg-note">Run the <b>4-Step Online Setup</b> to establish CareLink's institutional host &amp; organogram structure. Upon completion you return to the <b>Official Sign-In screen</b>, sign in as Chief System Administrator, change your password, and click <b>Activate System Globally</b> to generate the Team WhatsApp Credential Sheet.</p>
       <div class="grid g2" style="gap:10px">
         <div class="field"><label>Organisation name</label><input class="input" id="ob-org" value="${esc(ONB.org.name)}"></div>
-        <div class="field"><label>Mock staff email domain (account labels only)</label><input class="input mono" id="ob-domain" value="${esc(ONB.org.emailDomain||'lomamofoundation.org')}" placeholder="e.g. lomamofoundation.org"><div class="hint">No mailbox is provisioned and CareLink does not send email.</div></div>
+        <div class="field"><label>Official staff email domain</label><input class="input mono" id="ob-domain" value="${esc(OFFICIAL_EMAIL_DOMAIN)}" readonly><div class="hint">Fixed for the Foundation: every account alias is <code>username@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>. No mailbox is provisioned and CareLink does not send email.</div></div>
       </div>
       <div class="grid g2" style="gap:10px">
         <div class="field"><label>Short name</label><input class="input" id="ob-short" value="${esc(ONB.org.shortName)}"></div>
@@ -818,14 +818,14 @@ function renderOnboarding6(){
   }
   if(step===4){
     body = `${hostedSetup
-      ? `<p class="lg-note">Live Vercel commissioning starts with an <b>empty production register</b>. After these four steps, the Chief can open <b>Master data import</b> before global activation to download and upload the complete 3,333-patient reference master in verified chunks. The large package is deliberately not part of this initial request because of Vercel's 4.5 MB Function request limit.</p>`
-      : `<p class="lg-note">Choose whether to start with the full 3,333-patient synthetic reference register across all 10 ministry areas and 14 departments, or an empty production register ready for live intake.</p>`}
+      ? `<p class="lg-note">Live Vercel commissioning starts with an <b>empty production register</b>. After these four steps, the Chief can open <b>Master data import</b> before global activation to download and upload the complete reference master in verified chunks. The large package is deliberately not part of this initial request because of Vercel's 4.5 MB Function request limit.</p>`
+      : `<p class="lg-note">Choose whether to start with the full ${num(DEMO_REGISTER.patients)}-patient synthetic reference register across all 10 ministry areas and 14 departments, or an empty production register ready for live intake.</p>`}
       <div class="alert info" style="margin-bottom:12px">${ic('info',16)}<div>
         <b>Staff credential downloads follow global activation</b>
         <span class="small">Finish setup, sign in as Chief System Administrator and change your password. After you activate the system globally, download the confidential SMS CSV or text pack from the activation screen.</span>
       </div></div>
       ${hostedSetup ? '' : `<div class="ob-choice ${ONB.seed==='reference'?'on':''}" data-act="ob-seed" data-seed="reference">
-        <b>Load full 3,333-patient &amp; full-department dataset</b>
+        <b>Load full ${num(DEMO_REGISTER.patients)}-patient &amp; full-department dataset</b>
         <span>95% between 45 and 240 days, 5% between 241 and 330 days, plus clinical, hospital, pharmacy, finance, HR, fleet, media, library and 122-item equipment registers.</span>
       </div>`}
       <div class="ob-choice ${ONB.seed==='empty'?'on':''}" data-act="ob-seed" data-seed="empty">
@@ -833,8 +833,8 @@ function renderOnboarding6(){
         <span>For live clinical intake or master workbook import.</span>
       </div>
       ${hostedSetup ? `<div class="ob-choice ${ONB.autoFeedCloudMaster!==false?'on':''}" data-act="ob-toggle-autofeed" style="margin-top:8px">
-        <b>${ONB.autoFeedCloudMaster!==false?'✓ ':''}Auto-feed 100%-complete 3,333-patient CareLink Cloud Dataset on Chief Sign-In (zero local file needed)</b>
-        <span>Automatically feeds the built-in 3,333-patient / 44,995-visit / 18,060-PDCA reference dataset directly from the server into Cloud KV right after Chief System Administrator password setup — without uploading any Excel or local file.</span>
+        <b>${ONB.autoFeedCloudMaster!==false?'✓ ':''}Auto-feed 100%-complete ${num(DEMO_REGISTER.patients)}-patient CareLink Cloud Dataset on Chief Sign-In (zero local file needed)</b>
+        <span>Automatically feeds the built-in ${num(DEMO_REGISTER.patients)}-patient reference dataset (visits, PDCAs, conditions and documents) directly from the server into Cloud KV right after Chief System Administrator password setup — without uploading any Excel or local file.</span>
       </div>` : ''}`;
   }
   const footer = `<div class="ob-actions">
@@ -1040,7 +1040,7 @@ Object.assign(ACTIONS, {
       SYNC.bump();
     }
     if (!(DB.db && Array.isArray(DB.db.patients) && DB.db.patients.length >= 100)) {
-      DB.seedOfficial({ patients: 3333, mustChange: false });
+      DB.seedOfficial({ patients: DEMO_REGISTER.patients, mustChange: false });
     } else if (DB.db && Array.isArray(DB.db.users)) {
       DB.db.users.forEach(u => {
         if (u && !u.hash) {
@@ -1072,7 +1072,7 @@ Object.assign(ACTIONS, {
     const localRes = AUTH.login(target.username, 'LOMAMO2026');
     if (!localRes.ok) {
       LOGIN6.error = '';
-      LOGIN6.notice = `Switched this tab to Offline Device Mode (3,333 patients). Sign in with demonstration password LOMAMO2026 (e.g. ${target.username}).`;
+      LOGIN6.notice = `Switched this tab to Offline Device Mode (${num(DEMO_REGISTER.patients)} patients). Sign in with demonstration password LOMAMO2026 (e.g. ${target.username}).`;
       return render();
     }
     LOGIN6.error = '';
@@ -1164,7 +1164,7 @@ Object.assign(ACTIONS, {
         APPX.screen = 'login';
         LOGIN6.tab = 'signin';
         LOGIN6.error = '';
-        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername} (${res.chiefEmail}) and set your private personal password${ONB.autoFeedCloudMaster !== false ? ' — the 100%-complete 3,333-patient Cloud Dataset will auto-feed into KV immediately' : ''}, then click "Activate System Globally".`;
+        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername} (${res.chiefEmail}) and set your private personal password${ONB.autoFeedCloudMaster !== false ? ' — the 100%-complete ${num(DEMO_REGISTER.patients)}-patient Cloud Dataset will auto-feed into KV immediately' : ''}, then click "Activate System Globally".`;
         toast('Online Setup Complete', 'Sign in as Chief System Administrator to set your private password and Activate System Globally.', 'ok');
         render();
       }catch(e){ ONB.busy=false; ONB.error='Could not finish host setup: '+e.message; render(); }
@@ -1370,7 +1370,7 @@ Object.assign(FORMS, {
         } catch (_e) {}
         ONB._pendingCloudAutoFeed = false;
         const currentPatients = (DB.db && Array.isArray(DB.db.patients)) ? DB.db.patients.length : 0;
-        if (shouldAutoFeed && currentPatients < 3333 && typeof REFERENCE_MASTER !== 'undefined' && typeof REFERENCE_MASTER.autoFeedFromCloud === 'function') {
+        if (shouldAutoFeed && currentPatients < DEMO_REGISTER.patients && typeof REFERENCE_MASTER !== 'undefined' && typeof REFERENCE_MASTER.autoFeedFromCloud === 'function') {
           /* Flush any queued account/audit patch first so PUT /api/state never
              races concurrently against POST /api/master-import/auto-seed. */
           if (hosted && typeof SYNC !== 'undefined') {
@@ -1380,9 +1380,9 @@ Object.assign(FORMS, {
           render();
           const fed = await REFERENCE_MASTER.autoFeedFromCloud({ silent: true });
           if (fed && fed.ok) {
-            toast('Password Saved & 3,333-Patient Dataset Loaded', 'All 3,333 complete patients, 44,995 visits & 18,060 PDCAs are now live in Cloud KV. Click "Activate System Globally" at the top of your console.', 'ok');
+            toast(`Password Saved & ${num(DEMO_REGISTER.patients)}-Patient Dataset Loaded`, `All ${num(DEMO_REGISTER.patients)} complete patients and their visits & PDCAs are now live in Cloud KV. Click "Activate System Globally" at the top of your console.`, 'ok');
           } else {
-            toast('Password Updated - Ready for Global Activation', 'Click "Auto-Feed 3,333-Patient Dataset" or "Activate System Globally" at the top of your console.', 'warn');
+            toast('Password Updated - Ready for Global Activation', `Click "Auto-Feed ${num(DEMO_REGISTER.patients)}-Patient Dataset" or "Activate System Globally" at the top of your console.`, 'warn');
           }
         } else {
           toast('Password Updated - Ready for Global Activation','Click "Activate System Globally" at the top of your console to generate the Team WhatsApp Credential Sheet.','ok');
