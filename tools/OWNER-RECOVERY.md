@@ -26,8 +26,10 @@ will not work. Make a database backup first if one is available.
    while typing. The password must be at least 12 characters, with uppercase,
    lowercase, a number and a symbol; it cannot contain your username, the
    organisation name, or common words such as `password`.
-5. Type `RECOVER` only after confirming the correct database and account. Then
-   sign in to the normal CareLink site with the new password.
+5. Type `RECOVER` only after confirming the correct database and account. Keep
+   the terminal open; on larger databases the tool reports upload progress and
+   may take several minutes. Only after it reports `Recovery saved`, sign in to
+   the normal CareLink site with the new password.
 
 The tool changes only the named existing Chief credential and its login state,
 revokes old Chief sessions and codes, and writes an audit event. It preserves
@@ -35,7 +37,9 @@ other accounts and records. It does **not** rebuild the hierarchy or issue
 staff passwords. If the connection fails after a write, try the new password
 before rerunning; the save might have succeeded despite a lost response. If the
 database changes concurrently, rerun the tool; it will not overwrite that
-change. Resetting the Chief password makes any undownloaded, password-encrypted
+change. If an upload part fails before the commit, the password was not changed
+by that attempt. Check the internet connection and the database status before
+retrying; do not delete or re-create the database. Resetting the Chief password makes any undownloaded, password-encrypted
 reactivation pack issued under the old password unrecoverable.
 
 After sign-in, the Chief may explicitly start the hierarchy rebuild and download

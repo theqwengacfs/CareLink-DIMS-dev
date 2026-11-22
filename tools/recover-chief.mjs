@@ -59,7 +59,10 @@ try {
   if (password !== repeat) throw new Error('Passwords did not match. No changes were made.');
   const confirm = await ask('Type RECOVER to reset this Chief password: ');
   if (confirm !== 'RECOVER') throw new Error('Cancelled. No changes were made.');
-  const result = await ownerRecoverChief({ username, password });
+  console.log('Saving securely. A large database may take several minutes; please keep this window open.');
+  const result = await ownerRecoverChief({ username, password, onProgress: (done, total) => {
+    console.log(`Uploaded ${done} of ${total} secure database parts.`);
+  } });
   console.log(`Recovery saved for ${result.username}. Sign in with the new password you chose.`);
 } catch (err) {
   console.error(`Recovery could not be confirmed: ${err.message}`);

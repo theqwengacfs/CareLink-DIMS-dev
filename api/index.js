@@ -32,10 +32,10 @@ const CLOUD_CAS_LUA = "local current=redis.call('GET',KEYS[1]); local digest=cur
 function snapshotDigest(value) {
   return value == null ? 'missing' : crypto.createHash('sha1').update(String(value)).digest('hex');
 }
-async function commitCloudSnapshot(value) {
+async function commitCloudSnapshot(value, { timeoutMs = 10000 } = {}) {
   const ctx = requestSnapshot.getStore();
   if (!ctx || !ctx.snapshotKnown) throw new CloudStorageError('kv_snapshot_missing', 'The online snapshot could not be verified; no change was saved.');
-  const result = await runKvCommand(['EVAL', CLOUD_CAS_LUA, '1', CLOUD_KEY, ctx.snapshot, String(value)]);
+  const result = await runKvCommand(['EVAL', CLOUD_CAS_LUA, '1', CLOUD_KEY, ctx.snapshot, String(value)], timeoutMs);
   if (![1, 2].includes(Number(result))) {
     const err = new CloudStorageError('state_conflict', 'The online database changed while this request was running. Refresh and retry; no change was saved.');
     err.statusCode = 409;
@@ -607,7 +607,7 @@ async function readKvString(key) {
   return _manifestReadInflight;
 }
 
-async function writeKvString(key, value, { exSeconds = 0 } = {}) {
+async function writeKvString(key, value, { exSeconds = 0, timeoutMs = 10000 } = {}) {
   invalidateManifestCache();
   const candidates = boundRestCandidates({ allowReadOnlyFallback: false });
   const tcpCandidates = boundTcpCandidates();
@@ -627,9 +627,11 @@ async function writeKvString(key, value, { exSeconds = 0 } = {}) {
         method: 'POST',
         headers: hdrs,
         body: JSON.stringify(strVal),
-      }, 10000);
-    } catch {
-      lastErr = new CloudStorageError('kv_write_failed', 'CareLink could not commit to the mandatory KV store; the change was not acknowledged.');
+      }, timeoutMs);
+    } catch (err) {
+      const network = timeoutMs > 10000
+        ? (err && err.name === 'AbortError' ? ' The connection timed out.' : ' The network connection failed.') : '';
+      lastErr = new CloudStorageError('kv_write_failed', `CareLink could not commit to the mandatory KV store; the change was not acknowledged.${network}`);
       continue;
     }
     let { payload, rawText } = await parseKvHttpResponse(response);
@@ -642,7 +644,7 @@ async function writeKvString(key, value, { exSeconds = 0 } = {}) {
           method: 'POST',
           headers: hdrs,
           body: JSON.stringify(cmd),
-        }, 10000);
+        }, timeoutMs);
         if (postResp.ok) {
           response = postResp;
           ({ payload, rawText } = await parseKvHttpResponse(postResp));
@@ -1410,7 +1412,7 @@ async function loadCloudState({ readOnly = false } = {}) {
   return { state: decodeCloudState(unwrapped), driver: 'cloud-kv-redis' };
 }
 
-async function saveCloudState(state) {
+async function saveCloudState(state, { ownerRecovery = false, onProgress = null } = {}) {
   state.saved = nowISO();
   const rawJson = JSON.stringify(state);
   const rawBytes = Buffer.byteLength(rawJson);
@@ -1426,12 +1428,13 @@ async function saveCloudState(state) {
       });
 
   const currentKvUrl = (kvConfig() && kvConfig().url) || '';
-  const shouldShardDirectly = Buffer.byteLength(serialized) > 900 * 1024
-    && (Boolean(_shardedCapUrl && _shardedCapUrl === currentKvUrl) || (currentKvUrl && !isTestKvHost(currentKvUrl)));
+  const shouldShardDirectly = (ownerRecovery && Buffer.byteLength(serialized) > 256 * 1024) ||
+    (Buffer.byteLength(serialized) > 900 * 1024
+      && (Boolean(_shardedCapUrl && _shardedCapUrl === currentKvUrl) || (currentKvUrl && !isTestKvHost(currentKvUrl))));
 
   if (!shouldShardDirectly) {
     try {
-      await commitCloudSnapshot(serialized);
+      await commitCloudSnapshot(serialized, { timeoutMs: ownerRecovery ? 90000 : 10000 });
       if (rawBytes > CLOUD_COMPRESS_THRESHOLD) {
         const env = JSON.parse(serialized);
         _decodedCache = {
@@ -1466,15 +1469,30 @@ async function saveCloudState(state) {
   const shards = [];
   const shardKeys = [];
   const shardDigests = [];
-  for (let offset = 0, idx = 0; offset < b64.length; offset += CLOUD_SHARD_SIZE, idx++) {
-    const part = b64.slice(offset, offset + CLOUD_SHARD_SIZE);
+  // For the interactive owner tool, smaller sequential uploads and a longer
+  // timeout avoid saturating slow connections. Stay within the reader's 64-part
+  // limit, the 16-part previous-generation recovery limit, and the normal
+  // maximum value size; no active key is modified here.
+  const shardSize = ownerRecovery ? Math.max(128 * 1024, Math.ceil(b64.length / 16)) : CLOUD_SHARD_SIZE;
+  if (shardSize > CLOUD_SHARD_SIZE) throw new CloudStorageError('kv_payload_too_large', 'The database is too large to save safely in 16 recovery shards. No recovery was committed.');
+  for (let offset = 0, idx = 0; offset < b64.length; offset += shardSize, idx++) {
+    const part = b64.slice(offset, offset + shardSize);
     shards.push(part);
     shardKeys.push(cloudShardKey(idx, revTag, writeNonce));
     shardDigests.push(sha256Hex(part));
   }
-  await Promise.all(
-    shards.map((part, idx) => writeKvString(shardKeys[idx], part)),
-  );
+  if (ownerRecovery) {
+    for (let idx = 0; idx < shards.length; idx++) {
+      try { await writeKvString(shardKeys[idx], shards[idx], { timeoutMs: 90000 }); }
+      catch (err) {
+        if (err && err.name === 'CloudStorageError') err.message = `Upload part ${idx + 1} of ${shards.length} failed before the password change was committed. ${err.message}`;
+        throw err;
+      }
+      if (typeof onProgress === 'function') onProgress(idx + 1, shards.length);
+    }
+  } else {
+    await Promise.all(shards.map((part, idx) => writeKvString(shardKeys[idx], part)));
+  }
   const headObj = headSnapshot || buildStateHead(state);
   const keepPrev = prevShardKeys.filter((k) => !shardKeys.includes(k)).slice(0, 16);
   let manifestPayload = JSON.stringify({
@@ -1499,7 +1517,7 @@ async function saveCloudState(state) {
       head: { ...headObj, users: [] },
     });
   }
-  await commitCloudSnapshot(manifestPayload);
+  await commitCloudSnapshot(manifestPayload, { timeoutMs: ownerRecovery ? 90000 : 10000 });
   Object.defineProperty(state, '_activeShardKeys', { value: shardKeys, enumerable: false, configurable: true });
   Object.defineProperty(state, '_prevShardKeys', { value: keepPrev, enumerable: false, configurable: true });
   _decodedCache = {
@@ -4163,7 +4181,7 @@ export async function ownerListChiefs() {
   });
 }
 
-export async function ownerRecoverChief({ username, password }) {
+export async function ownerRecoverChief({ username, password, onProgress = null }) {
   const uname = String(username || '').trim().toLowerCase();
   if (!uname || typeof password !== 'string') throw new Error('A Chief username and new password are required.');
   const pwError = validatePrivacyPassword(password, uname);
@@ -4204,7 +4222,7 @@ export async function ownerRecoverChief({ username, password }) {
     state.rev = (Number(state.rev) || 0) + 1;
     appendServerAudit(state, cred.id || uname, 'auth.owner_recovery', 'user', cred.id || uname,
       'Chief password reset by database owner; previous sessions and recovery codes invalidated');
-    await saveCloudState(state);
+    await saveCloudState(state, { ownerRecovery: true, onProgress });
     return { username: uname, rev: state.rev };
   });
 }
