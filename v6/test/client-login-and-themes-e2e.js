@@ -8,7 +8,7 @@ const requireCrypto = require('node:crypto');
       - Zero data wipe & zero false logout under `SYNC.tick()` + `LIVE.start()` (`unchanged: true`, incremental `patches`, `pagedCollections` -> `pullFull()`, and lightweight `DB.persistState()`)
    2. Themes System:
       - Complete CSS variable coverage (`--text`, `--text-2`, `--text-3`, `--border`, `--border-strong`, `--ok-bd`, `--warn-bd`, `--crit-bd`, `--info-bd`) across all 20 themes
-      - All 10 `LANDING_THEMES` `.ld[data-theme="..."]` palettes + unauthenticated client `GET /api/health` `landingTheme` inheritance
+      - Both official `LANDING_THEMES` `.ld[data-theme="..."]` palettes + unauthenticated client `GET /api/health` `landingTheme` inheritance
       - Cloud `personalPrefs` sync (`wtheme`, `font`, `textScale`, studio) across Tablet A -> PC B + survival across `SYNC.pullFull()`
       - Custom Visual Pack JSON `theme` persistence, rehydration on a fresh client (`WTHEME.syncCustomThemes()`), Default Inter font preview, and balanced CSS braces */
 

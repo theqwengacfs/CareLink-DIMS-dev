@@ -1,20 +1,21 @@
 /* ============================================================
    views_entry.js - Public landing page and sign-in entry
-   The landing page is the organisation's front door: navy and
-   gold, one screen, one action. The sign-in page is separate,
-   quiet and white. No console data appears on either.
+   The landing page is the organisation's letterhead front door:
+   white space, emblem red and one clear action. The separate
+   sign-in form stays white in both official entry identities. No console data appears on either.
    ============================================================ */
 
 /* Exactly two official entry identities; both landing and sign-in read the
    same Chief-owned system.config value. Preview state never enters the DB. */
 const LANDING_THEMES = ENTRY_THEMES;
-const DEFAULT_THEME = 'heritage';
+const DEFAULT_THEME = 'clinic';
 function landingTheme(){
   if(ENTRY_THEME.previewId) return ENTRY_THEME.tokens(ENTRY_THEME.previewId);
   const settings=DB.db && DB.db.settings || {};
   const config=settings.system && settings.system.config || {};
   const host=typeof APPX!=='undefined' && APPX.host;
-  const saved=config.entryTheme || settings.landingTheme;
+  const saved=ENTRY_THEMES.some(t=>t.id===config.entryTheme) ? config.entryTheme :
+    (settings.landingThemeExplicit ? settings.landingTheme : null);
   const id=(host && host.landingTheme) || saved || DEFAULT_THEME;
   return ENTRY_THEME.tokens(id);
 }

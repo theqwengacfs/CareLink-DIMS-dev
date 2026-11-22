@@ -97,7 +97,7 @@ const DB = {
         care:{ capacity:12, handoverHour:19 },
         notifications:{ mondayReport:true, overdueReviews:true, pendingApprovals:true, incidents:true, weeklyDigest:false },
         accessibility:{ reducedMotion:false, highContrast:false },
-        landingTheme:'heritage', consoleTheme:'foundation', workspaceTheme:'foundation', uiEpoch:691,
+        landingTheme:'clinic', consoleTheme:'foundation', workspaceTheme:'foundation', uiEpoch:691,
         sync:{ mode:'auto', live:true, liveMs:500 }
       },
       users:[], roles:[], patients:[], visits:[], pdcas:[], pdcaDiscussions:[], requests:[], transactions:[],
@@ -236,12 +236,12 @@ const DB = {
       this.db.meta.migratedAt = new Date().toISOString();
       this.db.meta.migratedFrom = was;
     }
-    /* v6.9.1 visual architecture migration: restores the LOMAMO Red front door
+    /* Legacy visual migration: use the light letterhead front door by default
        while keeping signed-in workspaces on clean Foundation White by default. */
     if(this.db.settings && prevUiEpoch < 691){
       this.db.settings.uiEpoch = 691;
       if(!this.db.settings.landingThemeExplicit){
-        this.db.settings.landingTheme = 'heritage';
+        this.db.settings.landingTheme = 'clinic';
         delete this.db.settings.landingThemeExplicit;
       }
       if(prevUiEpoch < 690){

@@ -804,12 +804,12 @@ const WTHEME = {
    The saturated emblem red is corrected by the PR #35 safeFill gate; text and
    badge pairs are measured at runtime rather than chosen by appearance. */
 const ENTRY_THEMES = [
-  {id:'heritage',name:'LOMAMO Emblem Dark',mode:'dark',accent:'#EE0000',
-    blurb:'Black and charcoal, emblem red and clean white. The official letterhead identity.',
-    bg:'#202020',surface:'#292929',ink:'#FFFFFF',muted:'#D9D9D9',line:'#737373'},
   {id:'clinic',name:'LOMAMO Letterhead Light',mode:'light',accent:'#EE0000',
-    blurb:'White letterhead, charcoal ink and emblem red. A bright, restrained front door.',
-    bg:'#F5F5F5',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#737373'}
+    blurb:'The default: warm white space, charcoal typography and a clear emblem-red action.',
+    bg:'#F7F7F7',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#E1E1E1',soft:'#F0F0F0',emphasis:'#B31C2B'},
+  {id:'heritage',name:'LOMAMO Emblem Dark',mode:'dark',accent:'#EE0000',
+    blurb:'A refined charcoal front door with soft red highlights and the same readable white sign-in form.',
+    bg:'#1C1C1C',surface:'#252525',ink:'#FFFFFF',muted:'#CCCCCC',line:'#454545',soft:'#303030',emphasis:'#FFB8B8'}
 ];
 const ENTRY_THEME = {
   previewId:null, previewed:new Set(),
@@ -826,12 +826,17 @@ const ENTRY_THEME = {
       {label:'Main text / background',ratio:WTC.contrast(t.ink,t.bg)},
       {label:'Supporting text / background',ratio:WTC.contrast(t.muted,t.bg)},
       {label:'Main text / card',ratio:WTC.contrast(t.ink,t.surface)},
-      {label:'Supporting text / card',ratio:WTC.contrast(t.muted,t.surface)}
+      {label:'Supporting text / card',ratio:WTC.contrast(t.muted,t.surface)},
+      {label:'Headline accent / background',ratio:WTC.contrast(t.emphasis,t.bg)},
+      {label:'Sign-in text / white form',ratio:WTC.contrast('#202020','#FFFFFF')},
+      {label:'Sign-in supporting text / white form',ratio:WTC.contrast('#595959','#FFFFFF')},
+      {label:'Input placeholder / white field',ratio:WTC.contrast('#6B6B6B','#FFFFFF')},
+      {label:'Brand text / charcoal panel',ratio:WTC.contrast('#CCCCCC','#202020')}
     ];
   },
   style(id){
     const t=this.tokens(id);
-    return `--entry-bg:${t.bg};--entry-surface:${t.surface};--entry-ink:${t.ink};--entry-muted:${t.muted};--entry-line:${t.line};--entry-fill:${t.fill};--entry-badge:${t.badge};--accent:${t.fill};--accent-ink:#FFFFFF`;
+    return `--entry-bg:${t.bg};--entry-surface:${t.surface};--entry-ink:${t.ink};--entry-muted:${t.muted};--entry-line:${t.line};--entry-soft:${t.soft};--entry-emphasis:${t.emphasis};--entry-fill:${t.fill};--entry-badge:${t.badge};--accent:${t.fill};--accent-ink:#FFFFFF`;
   },
   async apply(id){
     if(!AUTH.user || AUTH.user.roleId!=='chief' || !RBAC.has(AUTH.user,'system.config')) throw new Error('Only the Chief System Administrator may change the public entry theme.');

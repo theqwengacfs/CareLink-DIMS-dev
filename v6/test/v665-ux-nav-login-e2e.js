@@ -145,13 +145,13 @@ function ok(name, cond, detail = '') {
     defaults.wtDefault === 'foundation' && defaults.devWtheme === 'foundation' &&
     defaults.foundation && defaults.foundation.name === 'Foundation White' &&
     defaults.foundation.mode === 'light' && defaults.foundation.t.surface === '#FFFFFF');
-  const console6CssRaw = fs.readFileSync(path.join(REPO, 'v6', 'src', 'console6.css'), 'utf8');
-  ok('Default landing theme is LOMAMO Red with layered topology depth',
-    defaults.landingDefault && defaults.landingDefault.id === 'heritage' &&
-    defaults.landingDefault.name === 'LOMAMO Emblem Dark' &&
-    defaults.landingDefault.mode === 'dark' &&
+  const entryCssRaw = fs.readFileSync(path.join(REPO, 'v6', 'src', 'entry_theme.css'), 'utf8');
+  ok('Default landing theme is the light LOMAMO letterhead with programme photography',
+    defaults.landingDefault && defaults.landingDefault.id === 'clinic' &&
+    defaults.landingDefault.name === 'LOMAMO Letterhead Light' &&
+    defaults.landingDefault.mode === 'light' &&
     defaults.landingDefault.accent === '#EE0000' &&
-    /\.ld\[data-theme="heritage"\][\s\S]*?linear-gradient/.test(console6CssRaw));
+    /\.ld\[data-front="1"\] \.ld-programme img/.test(entryCssRaw));
   ok('45 workspace themes (including 10 new themes) pass 100% of contrast audits',
     defaults.wthemeCount === 45 && defaults.auditFails === 0,
     `count=${defaults.wthemeCount}, auditFails=${defaults.auditFails}`);
