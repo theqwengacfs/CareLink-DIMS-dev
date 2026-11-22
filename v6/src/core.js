@@ -225,7 +225,7 @@ const DB = {
       this.db.meta.migratedAt = new Date().toISOString();
       this.db.meta.migratedFrom = was;
     }
-    /* v6.9.1 visual architecture migration: restores Heritage Sapphire blue front door
+    /* v6.9.1 visual architecture migration: restores the LOMAMO Red front door
        while keeping signed-in workspaces on clean Foundation White by default. */
     if(this.db.settings && prevUiEpoch < 691){
       this.db.settings.uiEpoch = 691;

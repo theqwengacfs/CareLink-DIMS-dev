@@ -40,15 +40,7 @@ export function buildCareLinkBundle() {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0E234A">
 <meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.2) - LOMAMO Foundation Kenya Data & Information Management System">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="CareLink">
-<title>CareLink C-DIMS</title>
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="192x192" href="./icons/carelink-192.png">
-<link rel="apple-touch-icon" href="./icons/carelink-192.png">
-<style>
+${fs.readFileSync(path.join(V6_ROOT, 'pwa-head.html'), 'utf8')}<style>
 ${css}
 </style>
 </head>
@@ -64,38 +56,7 @@ window.BUILD_STAMP = "${stamp}";
 <script>
 ${js}
 </script>
-<script>
-(() => {
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
-  }
-  let installEvent = null;
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-  const installButton = document.createElement('button');
-  installButton.type = 'button';
-  installButton.textContent = 'Install CareLink';
-  installButton.setAttribute('aria-label', 'Install CareLink on this device');
-  Object.assign(installButton.style, { position:'fixed', right:'16px', bottom:'16px', zIndex:'10000', display:'none',
-    border:'0', borderRadius:'999px', padding:'12px 17px', background:'#0E234A', color:'#fff', font:'700 14px system-ui',
-    boxShadow:'0 5px 18px rgba(15,23,42,.25)', cursor:'pointer' });
-  installButton.addEventListener('click', async () => {
-    if (installEvent) {
-      installEvent.prompt();
-      await installEvent.userChoice;
-      installEvent = null;
-      installButton.style.display = 'none';
-    } else if (isIOS) {
-      window.alert('To install CareLink on iPhone or iPad: open the Share menu, choose “Add to Home Screen”, then confirm.');
-    }
-  });
-  window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault(); installEvent = event; installButton.style.display = 'block';
-  });
-  window.addEventListener('appinstalled', () => { installEvent = null; installButton.style.display = 'none'; });
-  if (isIOS && !window.matchMedia('(display-mode: standalone)').matches) installButton.style.display = 'block';
-  document.body.appendChild(installButton);
-})();
-</script>
+${fs.readFileSync(path.join(V6_ROOT, 'pwa-install.html'), 'utf8').trimEnd()}
 <!-- Build ${stamp} · CareLink C-DIMS v6.9.2 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

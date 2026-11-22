@@ -594,7 +594,7 @@ function settingsAppearance(user){
 /* ---------------- 14. Landing page theme ---------------- */
 function themeSwatchCss(id){
   const map = {
-    heritage:'linear-gradient(150deg,#132A4F,#1F3864,#0C1B33)',
+    heritage:'linear-gradient(150deg,#7A0000,#ED0000,#3A0000)',
     dawn:'linear-gradient(160deg,#2A1206,#B4430F,#1A0C05)',
     clinic:'linear-gradient(160deg,#FFFFFF,#E6F4F7)',
     editorial:'linear-gradient(160deg,#F7F3EC,#E4D8C6)',

@@ -35,7 +35,9 @@ def build():
     css = "\n".join(read(f) for f in CSS_ORDER)
     js = "\n".join(read(f) for f in JS_ORDER)
     logo = logo_data_uri()
-    stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    pwa_head = (ROOT / "pwa-head.html").read_text(encoding="utf-8")
+    pwa_install = (ROOT / "pwa-install.html").read_text(encoding="utf-8").rstrip()
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M")
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -44,9 +46,7 @@ def build():
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0E234A">
 <meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.2) - LOMAMO Foundation Kenya Data & Information Management System">
-<title>CareLink C-DIMS</title>
-<link rel="icon" href="{logo}">
-<style>
+{pwa_head}<style>
 {css}
 </style>
 </head>
@@ -62,6 +62,7 @@ window.BUILD_STAMP = "{stamp}";
 <script>
 {js}
 </script>
+{pwa_install}
 <!-- Build {stamp} · CareLink C-DIMS v6.9.2 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

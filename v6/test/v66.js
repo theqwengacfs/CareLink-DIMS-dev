@@ -427,7 +427,7 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
   const landingHtml = root.innerHTML;
   const appVer = vm.runInContext(`APP.version`, bctx);
   ok('APP.version is 6.9.2 across CareLink OS', appVer === '6.9.2', `got=${appVer}`);
-  ok('Compiled bundle opens in Heritage Sapphire blue with the layered depth topology graphic',
+  ok('Compiled bundle opens in LOMAMO Red with the layered depth topology graphic',
     landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="heritage" data-mode="dark"') && landingHtml.includes('linearGradient id="beamGrad"') && landingHtml.includes('v6.9.2') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'login'; render();`, bctx);

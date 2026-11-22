@@ -1,0 +1,32 @@
+<script>
+(() => {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  }
+  let installEvent = null;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  const installButton = document.createElement('button');
+  installButton.type = 'button';
+  installButton.textContent = 'Install CareLink';
+  installButton.setAttribute('aria-label', 'Install CareLink on this device');
+  Object.assign(installButton.style, { position:'fixed', right:'16px', bottom:'16px', zIndex:'10000', display:'none',
+    border:'0', borderRadius:'999px', padding:'12px 17px', background:'#0E234A', color:'#fff', font:'700 14px system-ui',
+    boxShadow:'0 5px 18px rgba(15,23,42,.25)', cursor:'pointer' });
+  installButton.addEventListener('click', async () => {
+    if (installEvent) {
+      installEvent.prompt();
+      await installEvent.userChoice;
+      installEvent = null;
+      installButton.style.display = 'none';
+    } else if (isIOS) {
+      window.alert('To install CareLink on iPhone or iPad: open the Share menu, choose “Add to Home Screen”, then confirm.');
+    }
+  });
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault(); installEvent = event; installButton.style.display = 'block';
+  });
+  window.addEventListener('appinstalled', () => { installEvent = null; installButton.style.display = 'none'; });
+  if (isIOS && !window.matchMedia('(display-mode: standalone)').matches) installButton.style.display = 'block';
+  document.body.appendChild(installButton);
+})();
+</script>
