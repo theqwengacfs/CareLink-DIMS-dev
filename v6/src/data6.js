@@ -156,12 +156,12 @@ const OFFICIAL_ROSTER = [
      ============================================================ */
 
   /* Executive & Foundation Leadership */
-  { name:'Martin Mito Chamah',             username:'director',            roleId:'director',          countyId:'kisumu',  areas:[], dept:'exec',     job:'Organisation Director, LOMAMO Foundation' },
+  { name:'Martin Mito Chamah',             username:'director', emailLocal:'martinchama', roleId:'director',          countyId:'kisumu',  areas:[], dept:'exec',     job:'Organisation Director, LOMAMO Foundation' },
   { name:'President / Board Chair (seat to be confirmed)', username:'president', roleId:'president',   countyId:'kisumu',  areas:[], dept:'exec',     job:'President, LOMAMO Foundation', unconfirmed:true },
-  { name:'Irene Otieno',                   username:'program.admin',       roleId:'program.admin',     countyId:'kisumu',  areas:[], dept:'exec',     job:'Internal Operations Manager' },
+  { name:'Irene Atieno Omondi',                   username:'program.admin',       roleId:'program.admin',     countyId:'kisumu',  areas:[], dept:'exec',     job:'Internal Operations Manager' },
   { name:'Programme Office Assistant (seat to be confirmed)', username:'program.assistant', roleId:'program.assistant', countyId:'kisumu', areas:[], dept:'exec', job:'Program Administrator Assistant', unconfirmed:true },
 
-  /* Chief Administration - Kisumu Admin is also the Chief Admin */
+  /* Chief system administration and distinct county administration seats */
   { name:'Daniel Naphtaly Ombija',         username:'chief.admin',         roleId:'chief',             countyId:'kisumu',  areas:[], dept:'admin',    job:'Chief System Administrator, LOMAMO Foundation' },
   { name:'Moses Otieno',                   username:'kisumu.admin',        roleId:'countyadmin',       countyId:'kisumu',  areas:[], dept:'admin',    job:'County Office Administrator (Kisumu)' },
   { name:'Julie Oguta',                    username:'kisumu.assistant',    roleId:'assistant',         countyId:'kisumu',  areas:[], dept:'admin',    job:'Chief Admin Assistant / Kisumu Admin Assistant' },
@@ -174,27 +174,35 @@ const OFFICIAL_ROSTER = [
   { name:'Daniel Naphtaly Ombija',         username:'coord.nyalenda',      roleId:'coordinator',       countyId:'kisumu',  areas:['nyalenda'], dept:'ministry', job:'Ministry Area Coordinator · Nyalenda', visitDays:[2,3], visitDaysNote:'Provisional: carried over from the previous schedule until Administration fixes a Nyalenda day.' },
   { name:'Catherine Awuor Obila',          username:'coord.nairobird',     roleId:'coordinator',       countyId:'kisumu',  areas:['nairobird'], dept:'ministry', job:'Ministry Area Coordinator · Nairobi Road', visitDays:[2,4], visitDaysNote:'Home visits Tuesday and Thursday.' },
   { name:'Washington Ayub Odero',          username:'coord.manyatta',      roleId:'coordinator',       countyId:'kisumu',  areas:['manyatta'], dept:'ministry', job:'Ministry Area Coordinator · Manyatta', visitDays:[3], visitDaysNote:'Home visits Wednesday only.' },
-  { name:'Allan Dennis Wayodi',            username:'coord.ombeyi',        roleId:'coordinator',       countyId:'kisumu',  areas:['ombeyi','ahero','chiga'], dept:'ministry', job:'Ministry Area Coordinator · Ombeyi (drives for Ahero & Chiga when available)', visitDays:[2,4,5], visitDaysNote:'Ombeyi Tuesday; alternate driver for Ahero Thursday and Chiga Friday.',
+  { name:'Allan Denis Wayodi',            username:'coord.ombeyi',        roleId:'coordinator',       countyId:'kisumu',  areas:['ombeyi','ahero','chiga'], dept:'ministry', job:'Ministry Area Coordinator · Ombeyi (drives for Ahero & Chiga when available)', visitDays:[2,4,5], visitDaysNote:'Ombeyi Tuesday; alternate driver for Ahero Thursday and Chiga Friday.',
     permOverrides:{ grant:['procurement.view','procurement.manage','vehicle.view','vehicle.manage','trip.log','finance.view'] } },
-  { name:'John Shikuku Omolo',             username:'coord.nyahera',       roleId:'coordinator',       countyId:'kisumu',  areas:['nyahera','ahero','chiga'], dept:'ministry', job:'Ministry Area Coordinator · Nyahera (drives for Ahero & Chiga when available)', visitDays:[3,4,5], visitDaysNote:'Nyahera Wednesday; assists Ahero Thursday and Chiga Friday.',
+  { name:'John Shikuku Omollo',             username:'coord.nyahera',       roleId:'coordinator',       countyId:'kisumu',  areas:['nyahera','ahero','chiga'], dept:'ministry', job:'Ministry Area Coordinator · Nyahera (drives for Ahero & Chiga when available)', visitDays:[3,4,5], visitDaysNote:'Nyahera Wednesday; assists Ahero Thursday and Chiga Friday.',
     permOverrides:{ grant:['procurement.view','procurement.manage','vehicle.view','vehicle.manage','trip.log'] } },
   { name:'Evans Omondi Odiyo',             username:'coord.ahero',         roleId:'coordinator',       countyId:'kisumu',  areas:['ahero','ombeyi'], dept:'ministry', job:'Ministry Area Coordinator · Ahero', visitDays:[4,2], visitDaysNote:'Ahero Thursday; assists Ombeyi Tuesday.' },
-  { name:'Wycliff Otieno',                 username:'coord.chiga',         roleId:'coordinator',       countyId:'kisumu',  areas:['chiga'], dept:'ministry', job:'Ministry Area Coordinator · Chiga (hospital ministry duties)', visitDays:[5], visitDaysNote:'Chiga Friday. May leave on a Monday to assist patients at the hospital.', canLeaveMonday:true },
-  { name:'Daniel Ondu',                    username:'coord.homabay',       roleId:'coordinator',       countyId:'homabay', areas:['makongeni','shauriyako','sofia'], dept:'ministry', job:'Homa Bay County Coordinator (the Director\u2019s eyes in Homa Bay County)', visitDays:[], visitDaysNote:'Homa Bay field days will be added later.' },
+  { name:'Wycliff Otieno Odhiambo',                 username:'coord.chiga',         roleId:'coordinator',       countyId:'kisumu',  areas:['chiga'], dept:'ministry', job:'Ministry Area Coordinator · Chiga (hospital ministry duties)', visitDays:[5], visitDaysNote:'Chiga Friday. May leave on a Monday to assist patients at the hospital.', canLeaveMonday:true },
+  { name:'Daniel Odhiambo Ondu',                    username:'coord.homabay',       roleId:'coordinator',       countyId:'homabay', areas:['makongeni','shauriyako','sofia'], dept:'ministry', job:'Homa Bay County Coordinator (the Director\u2019s eyes in Homa Bay County)', visitDays:[], visitDaysNote:'Homa Bay field days will be added later.' },
+
+
+  /* Homa Bay area leads report through the county coordinator. Their separate
+     seats preserve area-specific responsibilities even when a person has more
+     than one position. */
+  { name:'Oscar Lubalo', username:'coord.makongeni', roleId:'coordinator', countyId:'homabay', areas:['makongeni'], dept:'ministry', job:'Ministry Area Coordinator · Makongeni' },
+  { name:'Julia Orwa', username:'coord.shauriyako', roleId:'coordinator', countyId:'homabay', areas:['shauriyako'], dept:'ministry', job:'Ministry Area Coordinator · Shauri Yako' },
+  { name:'Daniel Odhiambo Ondu', username:'coord.sofia', roleId:'coordinator', countyId:'homabay', areas:['sofia'], dept:'ministry', job:'Ministry Area Coordinator · Sofia' },
 
   /* Supporting caregivers - one seat per ministry area. Seats Administration has
      not yet named keep a seat label; nobody is invented. */
-  { name:'Ashar Anyango Omondi',           username:'caregiver.nairobird', roleId:'caregiver',         countyId:'kisumu',  areas:['nairobird','nyahera'], dept:'ministry', job:'Supporting Caregiver · Nairobi Road (Tue & Thu) and Nyahera (Wed)', visitDays:[2,3,4] },
+  { name:'Ashar Omondi',           username:'caregiver.nairobird', roleId:'caregiver',         countyId:'kisumu',  areas:['nairobird','nyahera'], dept:'ministry', job:'Supporting Caregiver · Nairobi Road (Tue & Thu) and Nyahera (Wed)', visitDays:[2,3,4] },
   { name:'Evans Omondi Odiyo',             username:'caregiver.ombeyi',    roleId:'caregiver',         countyId:'kisumu',  areas:['ombeyi'],   dept:'ministry', job:'Supporting Caregiver · Ombeyi (Tuesday)', visitDays:[2] },
   { name:'Manyatta Care Team (rotating caregiver, casual worker or CHV)', username:'caregiver.manyatta', roleId:'caregiver', countyId:'kisumu', areas:['manyatta'], dept:'ministry', job:'Supporting Caregiver · Manyatta (Wednesday)', visitDays:[3], unconfirmed:true,
     note:'Assisted by any available caregiver, casual worker or Community Health Volunteer registered by the concerned admin office.' },
-  { name:'Ahero Care Team (John Shikuku Omolo or Allan Dennis Wayodi)', username:'caregiver.ahero', roleId:'caregiver', countyId:'kisumu', areas:['ahero'], dept:'ministry', job:'Supporting Caregiver · Ahero (Thursday)', visitDays:[4], unconfirmed:true,
+  { name:'Ahero Care Team (John Shikuku Omollo or Allan Denis Wayodi)', username:'caregiver.ahero', roleId:'caregiver', countyId:'kisumu', areas:['ahero'], dept:'ministry', job:'Supporting Caregiver · Ahero (Thursday)', visitDays:[4], unconfirmed:true,
     note:'Whoever of the two drivers is available assists Evans.' },
-  { name:'Chiga Care Team (John Shikuku Omolo or Allan Dennis Wayodi)', username:'caregiver.chiga', roleId:'caregiver', countyId:'kisumu', areas:['chiga'], dept:'ministry', job:'Supporting Caregiver · Chiga (Friday)', visitDays:[5], unconfirmed:true,
+  { name:'Chiga Care Team (John Shikuku Omollo or Allan Denis Wayodi)', username:'caregiver.chiga', roleId:'caregiver', countyId:'kisumu', areas:['chiga'], dept:'ministry', job:'Supporting Caregiver · Chiga (Friday)', visitDays:[5], unconfirmed:true,
     note:'Whoever of the two drivers is available assists Wycliff.' },
   { name:'Nyalenda Care Team (caregiver seat to be confirmed)', username:'caregiver.nyalenda', roleId:'caregiver', countyId:'kisumu', areas:['nyalenda'], dept:'ministry', job:'Supporting Caregiver · Nyalenda', visitDays:[2,3], unconfirmed:true },
   { name:'Nyahera Care Team (caregiver seat to be confirmed)', username:'caregiver.nyahera', roleId:'caregiver', countyId:'kisumu', areas:['nyahera'], dept:'ministry', job:'Supporting Caregiver · Nyahera (Wednesday)', visitDays:[3], unconfirmed:true },
-  { name:'Julia Orwa',                     username:'caregiver.makongeni', roleId:'caregiver',         countyId:'homabay', areas:['makongeni'], dept:'ministry', job:'Supporting Caregiver · Homa Bay (Makongeni)', visitDays:[] },
+  { name:'Makongeni Care Team (seat to be confirmed)', username:'caregiver.makongeni', roleId:'caregiver', countyId:'homabay', areas:['makongeni'], dept:'ministry', job:'Supporting Caregiver · Homa Bay (Makongeni)', visitDays:[], unconfirmed:true },
   { name:'Shauri Yako Care Team (seat to be confirmed)', username:'caregiver.shauriyako', roleId:'caregiver', countyId:'homabay', areas:['shauriyako'], dept:'ministry', job:'Supporting Caregiver · Shauri Yako', visitDays:[], unconfirmed:true },
   { name:'Sofia Care Team (seat to be confirmed)', username:'caregiver.sofia', roleId:'caregiver', countyId:'homabay', areas:['sofia'], dept:'ministry', job:'Supporting Caregiver · Sofia', visitDays:[], unconfirmed:true },
 
@@ -210,27 +218,29 @@ const OFFICIAL_ROSTER = [
   { name:'Homestay Coordinator, Homa Bay (seat to be confirmed)',username:'homestay.homabay', roleId:'homestay', countyId:'homabay', areas:[], dept:'ministry', job:'Homestay & Care Centre Coordinator (Homa Bay)', unconfirmed:true },
 
   /* Hospital Ministry / Department - Washington heads it and may assign Susan */
-  { name:'Washington Ayub Odero',          username:'focal.kisumu',        roleId:'liaison',           countyId:'kisumu',  areas:[], dept:'hospital', job:'Head of Hospital Department · Hospital Focal Person (Friday hospital visits)' },
+  { name:'Wycliff Otieno Odhiambo',        username:'focal.kisumu',        roleId:'liaison',           countyId:'kisumu',  areas:[], dept:'hospital', job:'Hospital Liaison / Focal Person · Kisumu' },
   { name:'Susan Mildred',                  username:'liaison.kisumu',      roleId:'liaison',           countyId:'kisumu',  areas:[], dept:'hospital', job:'Hospital Focal Person (Kisumu) - assigned by the Head of Hospital Department when he is unavailable' },
   { name:'Hospital Focal Person, Homa Bay (seat to be confirmed)', username:'focal.homabay', roleId:'liaison', countyId:'homabay', areas:[], dept:'hospital', job:'Hospital Focal Person · Homa Bay Referral', unconfirmed:true },
   { name:'Hospital Focal Person, Homa Bay (seat to be confirmed)', username:'liaison.homabay', roleId:'liaison', countyId:'homabay', areas:[], dept:'hospital', job:'Hospital Focal Person (Homa Bay)', unconfirmed:true },
 
   /* Medical, Clinical & Pharmacy */
   { name:'Head of Medical Department (seat to be confirmed)', username:'depthead.medical', roleId:'depthead', countyId:'kisumu', areas:[], dept:'medical', job:'Head of Medical Department', unconfirmed:true },
-  { name:'Medical Case Manager, Kisumu (seat to be confirmed)', username:'mcm.kisumu', roleId:'mcm', countyId:'kisumu', areas:[], dept:'medical', job:'Medical Case Manager (Kisumu) - answers TB pyridoxine requests', unconfirmed:true },
+  { name:'Washington Ayub Odero', username:'mcm.kisumu', roleId:'mcm', countyId:'kisumu', areas:[], dept:'medical', job:'Medical Case Manager · Kisumu and Hospital Department Lead' },
   { name:'Medical Case Manager, Homa Bay (seat to be confirmed)', username:'mcm.homabay', roleId:'mcm', countyId:'homabay', areas:[], dept:'medical', job:'Medical Case Manager (Homa Bay)', unconfirmed:true },
   { name:'Clinical Officer, Kisumu (seat to be confirmed)', username:'nurse.kisumu', roleId:'nurse', countyId:'kisumu', areas:[], dept:'medical', job:'Clinical Officer & Pharmacy Lead (Kisumu)', unconfirmed:true },
   { name:'Clinical Officer, Homa Bay (seat to be confirmed)', username:'nurse.homabay', roleId:'nurse', countyId:'homabay', areas:[], dept:'medical', job:'Clinical Officer & Nurse (Homa Bay)', unconfirmed:true },
   { name:'Clinical Pharmacist, Kisumu (seat to be confirmed)', username:'pharmacy.kisumu', roleId:'nurse', countyId:'kisumu', areas:[], dept:'pharmacy', job:'Clinical Pharmacist & FEFO Officer (Kisumu)', unconfirmed:true },
 
   /* Department heads named by Administration */
-  { name:'Allan Dennis Wayodi',            username:'procurement',         roleId:'procurement',       countyId:'kisumu',  areas:[], dept:'procure',  job:'Head of Procurement Department' },
-  { name:'John Shikuku Omolo',             username:'vehicle.officer',     roleId:'vehicle',           countyId:'kisumu',  areas:[], dept:'vehicle',  job:'Deputy Head of Vehicle & Transport and of Procurement (Allan Dennis Wayodi heads both)',
+  { name:'Allan Denis Wayodi',            username:'procurement',         roleId:'procurement',       countyId:'kisumu',  areas:[], dept:'procure',  job:'Head of Procurement Department' },
+  { name:'Allan Denis Wayodi', username:'vehicle.head', roleId:'vehicle', countyId:'kisumu', areas:[], dept:'vehicle', job:'Head of Vehicle, Transport & Logistics' },
+  { name:'Daniel Odhiambo Ondu', username:'procurement.homabay', roleId:'procurement', countyId:'homabay', areas:[], dept:'procure', job:'Procurement Officer · Homa Bay' },
+  { name:'John Shikuku Omollo',             username:'vehicle.officer',     roleId:'vehicle',           countyId:'kisumu',  areas:[], dept:'vehicle',  job:'Deputy Head of Vehicle & Transport and of Procurement (Allan Denis Wayodi heads both)',
     permOverrides:{ grant:['procurement.view','procurement.manage'] } },
   { name:'Daniel Naphtaly Ombija',         username:'media.head',          roleId:'mediahead',         countyId:'kisumu',  areas:[], dept:'media',    job:'Head of Media Department (Kisumu)' },
-  { name:'Oscar Lubalo',                   username:'media.homabay',       roleId:'mediahead',         countyId:'homabay', areas:[], dept:'media',    job:'Head of Media Department (Homa Bay) - equal privileges in the department workspace' },
+  { name:'Oscar Lubalo',                   username:'media.homabay',       roleId:'mediahead',         countyId:'homabay', areas:[], dept:'media',    job:'Media support · Homa Bay County' },
   { name:'Catherine Awuor Obila',          username:'pr.officer',          roleId:'pr',                countyId:'kisumu',  areas:[], dept:'pr',       job:'In charge of the Public Relations Office' },
-  { name:'Ashar Anyango Omondi',           username:'welfare.officer',     roleId:'welfare',           countyId:'kisumu',  areas:[], dept:'welfare',  job:'Head of Staff Welfare Department' },
+  { name:'Ashar Omondi',           username:'welfare.officer',     roleId:'welfare',           countyId:'kisumu',  areas:[], dept:'welfare',  job:'Head of Staff Welfare Department' },
 
   /* Finance, M&E, Audit, HR, ICT & International Data */
   { name:'Finance Officer, Kisumu (seat to be confirmed)', username:'finance.kisumu', roleId:'finance', countyId:'kisumu', areas:[], dept:'finance', job:'Finance Officer (Kisumu)', unconfirmed:true },
@@ -259,7 +269,7 @@ const OFFICIAL_ROSTER = [
   { name:'County Office Secretary · Homa Bay (seat to be confirmed)', username:'secretary.homabay', roleId:'assistant', countyId:'homabay', areas:[], dept:'admin', job:'County Office Secretary & Receptionist · Homa Bay Office', seatTier:'secretary', unconfirmed:true },
   { name:'Records & Hard-Copy Intake Clerk · Kisumu (seat to be confirmed)', username:'clerk.records.kisumu', roleId:'assistant', countyId:'kisumu', areas:[], dept:'admin', job:'Records & Hard-Copy Assessment Filing Clerk · Kisumu Head Office', seatTier:'clerk', unconfirmed:true },
   { name:'Records & Hard-Copy Intake Clerk · Homa Bay (seat to be confirmed)', username:'clerk.records.homabay', roleId:'assistant', countyId:'homabay', areas:[], dept:'admin', job:'Records & Hard-Copy Assessment Filing Clerk · Homa Bay Office', seatTier:'clerk', unconfirmed:true },
-  { name:'John Shikuku Omolo', username:'deputy.procurement', roleId:'procurement', countyId:'kisumu', areas:[], dept:'procure', job:'Deputy Head of Procurement Department (deputises Allan Dennis Wayodi)', seatTier:'deputy',
+  { name:'John Shikuku Omollo', username:'deputy.procurement', roleId:'procurement', countyId:'kisumu', areas:[], dept:'procure', job:'Deputy Head of Procurement Department (deputises Allan Denis Wayodi)', seatTier:'deputy',
     permOverrides:{ grant:['vehicle.view','trip.log'] } },
   { name:'Procurement & Foodbag Stores Clerk · Kisumu (seat to be confirmed)', username:'clerk.stores.kisumu', roleId:'procurement', countyId:'kisumu', areas:[], dept:'procure', job:'Procurement & Foodbag Stores Clerk (Bag 1 / Bag 2 / Special tally)', seatTier:'clerk', unconfirmed:true },
   { name:'Deputy Finance Officer · Head Office (seat to be confirmed)', username:'deputy.finance', roleId:'finance', countyId:'kisumu', areas:[], dept:'finance', job:'Deputy Finance Officer · Kisumu Head Office', seatTier:'deputy', unconfirmed:true },
@@ -281,6 +291,26 @@ const STAFF_NAMES = new Set([
     return w.length >= 2 ? [n, w[0]+' '+w[1], w[0]+' '+w[w.length-1]] : [n];
   })
 ]);
+
+/* Reporting is organisational metadata, never a substitute for RBAC. */
+function officialReportsTo(r){
+  const u = r.username;
+  const id = username => 'u-' + username.replace(/[.]/g, '-');
+  if(u === 'president') return null;
+  if(u === 'director') return id('president');
+  if(u === 'chief.admin') return id('director');
+  if(u === 'kisumu.assistant') return id('kisumu.admin');
+  if(u === 'homabay.admin' || u === 'coord.homabay') return id('director');
+  if(u === 'homabay.assistant') return id('homabay.admin');
+  if(u === 'mcm.homabay' || u === 'focal.kisumu' || u === 'liaison.kisumu') return id('mcm.kisumu');
+  if(u === 'focal.homabay' || u === 'liaison.homabay') return id('mcm.homabay');
+  if(u.startsWith('coord.') && r.countyId === 'homabay') return id('coord.homabay');
+  if((u.startsWith('caregiver.') || u.startsWith('chw.')) && r.areas && r.areas.length){
+    const coord = 'coord.' + r.areas[0];
+    if(OFFICIAL_ROSTER.some(x => x.username === coord)) return id(coord);
+  }
+  return id('director');
+}
 
 /* ---------------- 6. Names for the reference register ---------------- */
 const KENYAN_GIVEN_F = ['Addah','Anyango','Akinyi','Achieng','Atieno','Awuor','Adhiambo','Njeri','Wanjiku','Amina','Faith','Grace','Mercy','Esther','Linet','Millicent','Pamela','Rosemary','Beatrice','Caroline','Hellen','Jane','Judith','Keziah','Lydia','Margaret','Nancy','Purity','Rachael','Sarah','Sharon','Susan','Tabitha','Violet','Winnie','Zainabu'];
@@ -725,10 +755,10 @@ function seedOfficial(db, now, opts={}){
       id: r.username==='chief.admin' ? 'u-chief-admin' : ('u-' + r.username.replace(/[.]/g,'-')),
       name:r.name, username:r.username, roleId:r.roleId, countyId:r.countyId, areaIds:r.areas||[],
       departmentId:r.dept, jobTitle:r.job,
-      reportsTo:r.roleId==='president'||r.username==='chief.admin'?null:'u-chief-admin',
+      reportsTo:officialReportsTo(r),
       status:'active', active:true, mustChange:mustChangeFlag, provisioned:true, demo:true,
       salt, hash:strongHash('LOMAMO2026', salt),
-      email:r.username+'@lomamofoundation.org', phone:'0700' + String(300000 + (i*13799) % 99999).padStart(6,'0'),
+      email:(r.emailLocal||r.username)+'@lomamofoundation.org', phone:'0700' + String(300000 + (i*13799) % 99999).padStart(6,'0'),
       createdBy:'u-chief-admin', created:iso(new Date(T.getTime()-420*DAY)), lastLogin:iso(new Date(T.getTime()-(i%7)*DAY)),
       execTeam:EXEC_DEFAULT.includes(r.username),
       /* Administration's own scheduling data, carried on the account so the

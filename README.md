@@ -1,7 +1,7 @@
 # LOMAMO LOMAMO C-DIMS — LOMAMO C-DIMS
 
 **Data & Information Management System for LOMAMO Foundation Kenya** (Love Matters Most)
-Kisumu & Homa Bay County Offices · version 6.9.3 · schema 6
+Kisumu & Homa Bay County Offices · version 6.9.4 · schema 6
 
 One operating system for the whole Foundation: patient registration and the
 assessment pipeline, home visits and PDCA follow-up, hospital coordination,

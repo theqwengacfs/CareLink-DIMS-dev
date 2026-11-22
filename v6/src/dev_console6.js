@@ -266,7 +266,7 @@ const PROD_SETUP = {
       const deptId = r.dept || (roleObj(r.roleId) || {}).dept || 'admin';
       const jobTitle = r.job || r.title || (roleObj(r.roleId) || {}).name || r.roleId;
       const cleanName = String(r.name || (u && u.name) || uname).replace(/^Demo - /, '');
-      const officialEmail = `${uname}@${domain}`;
+      const officialEmail = `${r.emailLocal || uname}@${domain}`;
       const tempPassword = this.generateStrongPassword(12);
       const salt = newSalt();
       const hash = strongHash(tempPassword, salt);
@@ -1094,6 +1094,8 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.9.4', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Refined role workspace banners and navigation, balanced the public front door, and updated the fresh-install roster with the supplied county and department instructions.' },
     { tag:'v6.9.3', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Refined the LOMAMO black, white, grey and red front door and sign-in; clarified commissioning status and secure account recovery.',
       changes:['Logo-inspired neutral front door with restrained red accents','Clear distinction between fresh setup and an already commissioned installation','Updated application, API and build version identifiers'] },

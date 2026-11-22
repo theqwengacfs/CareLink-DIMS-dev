@@ -1,5 +1,5 @@
 /* CareLink application-shell offline support. Clinical/API responses are never cached. */
-const CACHE = 'carelink-shell-v2';
+const CACHE = 'carelink-shell-v3';
 const SCOPE_URL = new URL(self.registration.scope);
 const APP_URL = new URL('carelink-v6.html', SCOPE_URL).href;
 const SHELL_URLS = [
