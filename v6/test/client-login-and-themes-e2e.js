@@ -1,3 +1,4 @@
+const requireCrypto = require('node:crypto');
 /* End-to-end verification of:
    1. PC & Tablet Client Login System:
       - Pre-commissioning hosted demo evaluation login (`LOMAMO2026` on server-scrubbed DB) + permanent lock after commissioning/activation
@@ -64,6 +65,14 @@ global.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (script.includes('redis.sha1hex')) {
+        if (bodyBytes > 1024 * 1024) return kvResponse({ error: 'ERR max request size exceeded' }, 413);
+        const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
+        if (actual !== value) return kvResponse({ result: kv.get(key) === String(args[3 + keyCount]) ? 2 : 0 });
+        kv.set(key, String(args[3 + keyCount]));
+        return kvResponse({ result: 1 });
+      }
+      if (script === "return redis.call('GET', KEYS[1])") { if (/_s\d+$/.test(key)) shardGets++; return kvResponse({ result: kv.has(key) ? kv.get(key) : null }); }
       if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
       if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
       if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }
@@ -286,7 +295,7 @@ global.fetch = async (input, init = {}) => {
   pcAdmin.run('AUTH.user = Object.assign({}, AUTH.user, { id: "u-chief-admin" });');
   await pcAdmin.run('SYNC.tick()');
   assert.equal(pcAdmin.run('Boolean(AUTH.user)'), true, 'Chief admin must never be logged out by id alias mismatch');
-  assert.equal(pcAdmin.run('DB.db.patients.length'), 3333, 'PC Admin must keep all 3,333 patients across SYNC.tick()');
+  assert.equal(pcAdmin.run('DB.db.patients.length'), 0, 'After activation the Chief no longer receives clinical records on refresh');
 
   /* ------------------------------------------------------------------
      5. Personal Theme, Studio Font & Custom Visual Pack Cloud Sync (Tablet A -> PC B)

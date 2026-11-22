@@ -192,7 +192,7 @@ const ACCESS = {
       if(level==='national' && !this.reaches(user,'national'))
         return { ok:false, rule:'level', reason:`${capLabel(cap)} is a national act. Your authority reaches ${this.reachOf(user)} level only.` };
       if(level==='county'){
-        if(ctx.countyId && ctx.countyId!=='all' && ctx.countyId!==user.countyId && !this.reaches(user,'national'))
+        if(ctx.countyId && ctx.countyId!=='all' && ctx.countyId!==user.countyId && !this.reaches(user,'national') && !(leadMcmClinicalCap(cap) && leadMcmClinicalCounty(user,ctx.countyId)))
           return { ok:false, rule:'level', reason:`${capLabel(cap)} applies to ${countyName(ctx.countyId)}; your authority is ${countyName(user.countyId)}.` };
         if(!this.reaches(user,'county'))
           return { ok:false, rule:'level', reason:`${capLabel(cap)} is a county-office act. Your authority reaches ${this.reachOf(user)} level only.` };

@@ -19,8 +19,32 @@ import path from 'node:path';
 import tls from 'node:tls';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import officialStructure from './official-structure.mjs';
 
 const CLOUD_KEY = 'carelink_cloud_v66';
+/* Every request remembers the exact primary snapshot it read. Atomic compare-
+   and-swap prevents a long-running/stale request from replacing newer accounts
+   or records, including saves that do not increment the public revision. */
+const requestSnapshot = new AsyncLocalStorage();
+const PRIMARY_READ_LUA = "return redis.call('GET', KEYS[1])";
+const CLOUD_CAS_LUA = "local current=redis.call('GET',KEYS[1]); local digest=current and redis.sha1hex(current) or 'missing'; if digest~=ARGV[1] then if current==ARGV[2] then return 2 else return 0 end end; redis.call('SET',KEYS[1],ARGV[2]); return 1";
+function snapshotDigest(value) {
+  return value == null ? 'missing' : crypto.createHash('sha1').update(String(value)).digest('hex');
+}
+async function commitCloudSnapshot(value) {
+  const ctx = requestSnapshot.getStore();
+  if (!ctx || !ctx.snapshotKnown) throw new CloudStorageError('kv_snapshot_missing', 'The online snapshot could not be verified; no change was saved.');
+  const result = await runKvCommand(['EVAL', CLOUD_CAS_LUA, '1', CLOUD_KEY, ctx.snapshot, String(value)]);
+  if (![1, 2].includes(Number(result))) {
+    const err = new CloudStorageError('state_conflict', 'The online database changed while this request was running. Refresh and retry; no change was saved.');
+    err.statusCode = 409;
+    throw err;
+  }
+  ctx.snapshot = snapshotDigest(value);
+  invalidateManifestCache();
+}
+
 const PBKDF2_ROUNDS = 160000;
 const IDLE_SECONDS = 1800;
 
@@ -195,6 +219,23 @@ function redisTcpCandidates() {
     } catch { /* ignore malformed URL */ }
   }
   return out;
+}
+
+/* A request that has selected a backing store must never read its snapshot
+   from one database and commit it to a different failover database. */
+function restStorageId(kv) { return `rest:${kv.url}|${kv.token}`; }
+function tcpStorageId(kv) { return `tcp:${kv.protocol}|${kv.host}|${kv.port}|${kv.username}|${kv.password}|${kv.db}`; }
+function boundRestCandidates(options = {}) {
+  const selected = requestSnapshot.getStore()?.storageId;
+  return kvCandidates(options).filter(kv => !selected || restStorageId(kv) === selected);
+}
+function boundTcpCandidates() {
+  const selected = requestSnapshot.getStore()?.storageId;
+  return redisTcpCandidates().filter(kv => !selected || tcpStorageId(kv) === selected);
+}
+function bindRequestStore(id) {
+  const ctx = requestSnapshot.getStore();
+  if (ctx && !ctx.storageId) ctx.storageId = id;
 }
 
 function encodeRespCommand(args) {
@@ -508,6 +549,16 @@ async function readKvStringFromCandidate(kv, key) {
 }
 
 async function readKvString(key) {
+  if (requestSnapshot.getStore()) {
+    /* Lua executes on the writable primary, avoiding lagging replica snapshots
+       for both authorization and mutations. */
+    let value;
+    try { value = await runKvCommand(['EVAL', PRIMARY_READ_LUA, '1', key]); }
+    catch (err) { if (err && err.code === 'kv_required') throw err; throw new CloudStorageError('kv_unavailable', (err && err.message) || 'The writable online database could not be read; no local fallback is used.'); }
+    const ctx = requestSnapshot.getStore();
+    if (key === CLOUD_KEY) { ctx.snapshot = snapshotDigest(value); ctx.snapshotKnown = true; }
+    return unwrapUpstashStringResult(value);
+  }
   const candidates = kvCandidates({ allowReadOnlyFallback: true });
   const tcpCandidates = redisTcpCandidates();
   if (!candidates.length && !tcpCandidates.length) requireKv();
@@ -558,9 +609,9 @@ async function readKvString(key) {
 
 async function writeKvString(key, value, { exSeconds = 0 } = {}) {
   invalidateManifestCache();
-  const candidates = kvCandidates({ allowReadOnlyFallback: false });
-  const tcpCandidates = redisTcpCandidates();
-  if (!candidates.length && !tcpCandidates.length) requireKv();
+  const candidates = boundRestCandidates({ allowReadOnlyFallback: false });
+  const tcpCandidates = boundTcpCandidates();
+  if (!candidates.length && !tcpCandidates.length) { if (requestSnapshot.getStore()?.storageId) throw new CloudStorageError('kv_unavailable', 'The selected online store is unavailable; retry the request.'); requireKv(); }
   const strVal = String(value);
   let lastErr = null;
   for (let idx = 0; idx < candidates.length; idx++) {
@@ -627,8 +678,8 @@ async function writeKvString(key, value, { exSeconds = 0 } = {}) {
 
 async function deleteKvKey(key) {
   invalidateManifestCache();
-  const candidates = kvCandidates({ allowReadOnlyFallback: false });
-  const tcpCandidates = redisTcpCandidates();
+  const candidates = boundRestCandidates({ allowReadOnlyFallback: false });
+  const tcpCandidates = boundTcpCandidates();
   for (const kv of candidates) {
     try {
       const response = await fetchKvWithRetry(`${kv.url}/del/${key}`, {
@@ -651,9 +702,9 @@ async function deleteKvKey(key) {
 /* Atomic Redis commands back the per-account online session lease. These
    commands deliberately use the writable primary, never a read replica. */
 async function runKvCommand(args, timeoutMs = 10000) {
-  const candidates = kvCandidates({ allowReadOnlyFallback: false });
-  const tcpCandidates = redisTcpCandidates();
-  if (!candidates.length && !tcpCandidates.length) requireKv();
+  const candidates = boundRestCandidates({ allowReadOnlyFallback: false });
+  const tcpCandidates = boundTcpCandidates();
+  if (!candidates.length && !tcpCandidates.length) { if (requestSnapshot.getStore()?.storageId) throw new CloudStorageError('kv_unavailable', 'The selected online store is unavailable; retry the request.'); requireKv(); }
   let lastErr = null;
   for (const kv of candidates) {
     try {
@@ -673,13 +724,14 @@ async function runKvCommand(args, timeoutMs = 10000) {
         continue;
       }
       if (!kv.readOnly) _pinnedKvIndex = Math.max(_pinnedKvIndex, candidates.indexOf(kv));
+      bindRequestStore(restStorageId(kv));
       return payload.result;
     } catch (err) {
       lastErr = err instanceof CloudStorageError ? err : new CloudStorageError('kv_unavailable', 'CareLink could not reach the mandatory KV store.');
     }
   }
   for (const tcpCfg of tcpCandidates) {
-    try { return await execRedisTcpCommand(tcpCfg, args, timeoutMs); }
+    try { const result = await execRedisTcpCommand(tcpCfg, args, timeoutMs); bindRequestStore(tcpStorageId(tcpCfg)); return result; }
     catch (err) { if (!lastErr) lastErr = classifyKvFailure('write', 503, String((err && err.message) || ''), tcpCfg.host); }
   }
   throw lastErr || new CloudStorageError('kv_write_failed', 'CareLink KV refused an atomic session command.');
@@ -689,9 +741,9 @@ const SESSION_LEASE_SECONDS = IDLE_SECONDS + 60;
 const SESSION_LEASE_RENEW_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('EXPIRE', KEYS[1], ARGV[2]) else return 0 end";
 const SESSION_LEASE_RELEASE_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end";
 
-function sessionLeaseKey(username) {
+function sessionLeaseKey(username, epoch = '') {
   const canonical = String(username || '').trim().toLowerCase();
-  const digest = crypto.createHash('sha256').update(canonical).digest('hex').slice(0, 40);
+  const digest = crypto.createHash('sha256').update(epoch ? `${canonical}:${epoch}` : canonical).digest('hex').slice(0, 40);
   return `carelink_active_session_v1_${digest}`;
 }
 
@@ -705,8 +757,8 @@ function loginSessionId(username, attemptId) {
   return crypto.randomBytes(32).toString('base64url');
 }
 
-async function reserveLoginSession(username, sessionId) {
-  const key = sessionLeaseKey(username);
+async function reserveLoginSession(username, sessionId, epoch = '') {
+  const key = sessionLeaseKey(username, epoch);
   const result = await runKvCommand(['SET', key, sessionId, 'NX', 'EX', String(SESSION_LEASE_SECONDS)]);
   if (result === 'OK') return true;
   /* A retried login request is idempotent when it carries the same unpredictable
@@ -714,17 +766,17 @@ async function reserveLoginSession(username, sessionId) {
   return (await runKvCommand(['GET', key])) === sessionId;
 }
 
-async function renewSessionLease(username, sessionId) {
+async function renewSessionLease(username, sessionId, epoch = '') {
   if (!sessionId) return false;
   return Number(await runKvCommand([
-    'EVAL', SESSION_LEASE_RENEW_LUA, '1', sessionLeaseKey(username), sessionId, String(SESSION_LEASE_SECONDS),
+    'EVAL', SESSION_LEASE_RENEW_LUA, '1', sessionLeaseKey(username, epoch), sessionId, String(SESSION_LEASE_SECONDS),
   ])) === 1;
 }
 
-async function releaseSessionLease(username, sessionId) {
+async function releaseSessionLease(username, sessionId, epoch = '') {
   if (!sessionId) return false;
   return Number(await runKvCommand([
-    'EVAL', SESSION_LEASE_RELEASE_LUA, '1', sessionLeaseKey(username), sessionId,
+    'EVAL', SESSION_LEASE_RELEASE_LUA, '1', sessionLeaseKey(username, epoch), sessionId,
   ])) === 1;
 }
 
@@ -734,14 +786,14 @@ async function ensureSessionLease(sess) {
   const sessionId = sess.sessionId || crypto.createHash('sha256').update(sess.token).digest('base64url');
   if (!sess.sessionId) {
     const acquired = await runKvCommand([
-      'SET', sessionLeaseKey(sess.username), sessionId, 'NX', 'EX', String(SESSION_LEASE_SECONDS),
+      'SET', sessionLeaseKey(sess.username, sess.sessionEpoch), sessionId, 'NX', 'EX', String(SESSION_LEASE_SECONDS),
     ]);
     if (acquired !== 'OK') {
-      const current = await runKvCommand(['GET', sessionLeaseKey(sess.username)]);
+      const current = await runKvCommand(['GET', sessionLeaseKey(sess.username, sess.sessionEpoch)]);
       if (current !== sessionId) return null;
     }
   }
-  if (!await renewSessionLease(sess.username, sessionId)) return null;
+  if (!await renewSessionLease(sess.username, sessionId, sess.sessionEpoch)) return null;
   return sessionId;
 }
 
@@ -998,6 +1050,9 @@ async function recoverShardedCloudState(unwrapped, currentParts) {
      production shard set. If no intact stored snapshot exists, fail closed and
      preserve the manifest and online records exactly as they are. */
   if (!recovered) return null;
+  /* A pre-rebuild shard snapshot cannot reconstruct the wholesale account
+     hierarchy from compact head data; fail closed rather than roll it back. */
+  if (head && head.rebuildRevision && (Number(recovered.rebuildRevision) || 0) < Number(head.rebuildRevision)) return null;
 
   overlayAuthoritativeHead(recovered, head, manifestRev, unwrapped.saved);
   recovered.rev = Math.max(Number(recovered.rev) || 0, manifestRev) + 1;
@@ -1009,9 +1064,7 @@ async function recoverShardedCloudState(unwrapped, currentParts) {
     'cloud-kv-sharded',
     `Automatically healed degraded KV shard set from authoritative manifest state (rev ${manifestRev} -> ${recovered.rev}).`,
   );
-  try {
-    await saveCloudState(recovered);
-  } catch { /* if using read-only fallback token, still serve recovered state */ }
+  await saveCloudState(recovered);
   return recovered;
 }
 
@@ -1060,6 +1113,7 @@ function buildStateHead(state) {
       /synthetic|demonstration/i.test(String(state.db.meta.label || ''))
     )),
     rev: state.rev || 0,
+    rebuildRevision: Number(state.rebuildRevision) || 0,
     saved: state.saved,
     org: state.org,
     landingTheme: (state.db && state.db.settings && (Number(state.db.settings.uiEpoch || 0) >= 691 || state.db.settings.landingThemeExplicit) && state.db.settings.landingTheme) || 'heritage',
@@ -1104,9 +1158,9 @@ function getClientFastPack(state, targetRev = 0, sess = null) {
   const currentRev = Number(state.rev) || 0;
   const principal = sess ? principalScope(state, sess) : null;
   const scopeKey = principal
-    ? `${String(sess.username || 'anonymous').toLowerCase()}|${principal.roleId}|${principal.countyId}|${principal.areaIds.slice().sort().join(',')}`
+    ? `${String(sess.username || 'anonymous').toLowerCase()}|${sess.sessionEpoch || ''}|${principal.roleId}|${principal.countyId}|${principal.areaIds.slice().sort().join(',')}`
     : 'anonymous';
-  if (targetRev > 0) {
+  if (targetRev > 0 && (!state.rebuildRevision || targetRev >= state.rebuildRevision)) {
     const hit = _clientFastPackRing.find((e) => e.rev === targetRev && e.scopeKey === scopeKey);
     if (hit) return hit;
   }
@@ -1155,15 +1209,15 @@ async function loadCloudHead() {
       throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains an invalid sharded online manifest; it was not replaced.');
     }
     const cacheKey = `sharded:${unwrapped.rev || 0}:${unwrapped.saved || ''}:${digests.join(',')}`;
-    if (_decodedCache && _decodedCache.cacheKey === cacheKey && _decodedCache.state) {
-      return { state: _decodedCache.state, driver: 'cloud-kv-redis' };
-    }
+    /* Always take authentication metadata from the just-read primary head;
+       a cached full snapshot may predate a logout or account change. */
     if (unwrapped.head && typeof unwrapped.head === 'object') {
       const h = unwrapped.head;
       const headState = {
         setup: Boolean(h.setup),
         globallyActivated: Boolean(h.globallyActivated),
         rev: Number(unwrapped.rev || h.rev) || 0,
+        rebuildRevision: Number(h.rebuildRevision) || 0,
         saved: unwrapped.saved || h.saved || null,
         org: h.org || null,
         creds: h.creds || {},
@@ -1206,6 +1260,7 @@ async function loadCloudHead() {
         setup: Boolean(h.setup),
         globallyActivated: Boolean(h.globallyActivated),
         rev: Number(unwrapped.rev || h.rev) || 0,
+        rebuildRevision: Number(h.rebuildRevision) || 0,
         saved: unwrapped.saved || h.saved || null,
         org: h.org || null,
         creds: h.creds || {},
@@ -1376,7 +1431,7 @@ async function saveCloudState(state) {
 
   if (!shouldShardDirectly) {
     try {
-      await writeKvString(CLOUD_KEY, serialized);
+      await commitCloudSnapshot(serialized);
       if (rawBytes > CLOUD_COMPRESS_THRESHOLD) {
         const env = JSON.parse(serialized);
         _decodedCache = {
@@ -1444,7 +1499,7 @@ async function saveCloudState(state) {
       head: { ...headObj, users: [] },
     });
   }
-  await writeKvString(CLOUD_KEY, manifestPayload);
+  await commitCloudSnapshot(manifestPayload);
   Object.defineProperty(state, '_activeShardKeys', { value: shardKeys, enumerable: false, configurable: true });
   Object.defineProperty(state, '_prevShardKeys', { value: keepPrev, enumerable: false, configurable: true });
   _decodedCache = {
@@ -1481,7 +1536,7 @@ async function saveCloudAuthMetadata(state) {
       ...mf,
       head: updatedHead,
     };
-    await writeKvString(CLOUD_KEY, JSON.stringify(nextManifest));
+    await commitCloudSnapshot(JSON.stringify(nextManifest));
     Object.defineProperty(state, '_shardedManifest', { value: nextManifest, enumerable: false, configurable: true });
     if (_decodedCache && _decodedCache.state) {
       _decodedCache.state.loginFailures = updatedHead.loginFailures;
@@ -1569,6 +1624,7 @@ function principalScope(state, sess) {
   const areas = Array.isArray(user.areaIds) ? user.areaIds : (Array.isArray(cred.areaIds) ? cred.areaIds : []);
   return {
     userId: String((sess && sess.userId) || cred.id || user.id || ''),
+    username,
     roleId: String((sess && sess.roleId) || cred.roleId || user.roleId || 'staff'),
     countyId: String((sess && sess.countyId) || cred.countyId || user.countyId || ''),
     areaIds: areas.map(String),
@@ -1579,9 +1635,16 @@ function canManageServerMeetings(roleId) {
   return roleId === 'assistant' || roleId === 'mediahead';
 }
 
+/* The lead MCM oversees clinical work in these two counties only. This is an
+   account-specific clinical exception, not an organisation-wide role grant. */
+function leadMcmClinicalCounty(scope, countyId) {
+  return scope.roleId === 'mcm' && scope.username === 'mcm.kisumu' &&
+    ['kisumu', 'homabay'].includes(String(countyId || ''));
+}
+
 function patientInPrincipalScope(patient, scope) {
   if (!patient || typeof patient !== 'object' || !scope.countyId) return false;
-  if (String(patient.countyId || '') !== scope.countyId) return false;
+  if (String(patient.countyId || '') !== scope.countyId && !leadMcmClinicalCounty(scope, patient.countyId)) return false;
   if (AREA_SCOPED_ROLES.has(scope.roleId)) return scope.areaIds.includes(String(patient.areaId || ''));
   if (scope.roleId === 'intl.medical') return true;
   return CLINICAL_READ_ROLES.has(scope.roleId);
@@ -1592,7 +1655,7 @@ function countyAreaRecordInScope(record, scope, collection) {
   const roleSet = collection === 'waitingList' ? WAITING_LIST_READ_ROLES : URGENT_CASE_READ_ROLES;
   if (!roleSet.has(scope.roleId)) return false;
   if (GLOBAL_DATA_ROLES.has(scope.roleId)) return true;
-  if (!scope.countyId || String(record.countyId || '') !== scope.countyId) return false;
+  if (!scope.countyId || (String(record.countyId || '') !== scope.countyId && !leadMcmClinicalCounty(scope, record.countyId))) return false;
   if (AREA_SCOPED_ROLES.has(scope.roleId)) return scope.areaIds.includes(String(record.areaId || ''));
   return true;
 }
@@ -1776,6 +1839,12 @@ function scopedDbForSession(db, state, sess) {
     ? patients
     : (CLINICAL_READ_ROLES.has(scope.roleId)
       ? patients.filter((p) => patientInPrincipalScope(p, scope)) : []);
+  if (!ACCOUNT_ADMIN_ROLES.has(scope.roleId)) {
+    for (const name of ['pendingActivations', 'emergencyCodes']) if (Array.isArray(copy[name])) copy[name] = [];
+    for (const name of ['accountRequests', 'recoveryRequests']) if (Array.isArray(copy[name])) {
+      copy[name] = copy[name].map(item => { const safe = { ...item }; delete safe.code; delete safe.activationCode; return safe; });
+    }
+  }
   const patientIds = new Set(visiblePatients.map((p) => String(p.id)));
   const scopedResidentIds = new Set((Array.isArray(db.careResidents) ? db.careResidents : [])
     .filter((r) => r && patientIds.has(String(r.patientId))).map((r) => String(r.id)));
@@ -1869,6 +1938,14 @@ function scopedPatchesForSession(patches, state, sess) {
   const events = state.db && Array.isArray(state.db.calendarEvents) ? state.db.calendarEvents : [];
   return (patches || []).flatMap((patch) => {
     if (!patch) return [patch];
+    if (!ACCOUNT_ADMIN_ROLES.has(scope.roleId)) {
+      if (['pendingActivations','emergencyCodes'].includes(patch.c)) return [];
+      if (['accountRequests','recoveryRequests'].includes(patch.c)) {
+        const safe = { ...patch };
+        for (const part of ['set','before']) if (safe[part]) { safe[part] = { ...safe[part] }; delete safe[part].code; delete safe[part].activationCode; }
+        return [safe];
+      }
+    }
     if (['transactions', 'adminOpsPayg'].includes(patch.c) && FINANCIAL_DATA_ROLES.has(scope.roleId) && !CLINICAL_READ_ROLES.has(scope.roleId)) {
       if (!financialPatchInScope(patch, state, sess)) return [];
       const safePatch = { ...patch };
@@ -1934,6 +2011,7 @@ function mintSignedSessionToken(cred, username, sessionId) {
     r: cred.roleId || 'staff',
     c: cred.countyId || 'kisumu',
     ...(sessionId ? { sid: sessionId } : {}),
+    ...(cred.sessionEpoch ? { e: cred.sessionEpoch } : {}),
     iat: Math.floor(Date.now() / 1000),
     n: crypto.randomBytes(9).toString('base64url'),
   };
@@ -1976,6 +2054,7 @@ function getSession(state, req) {
     if (age > IDLE_SECONDS) return null;
     const username = String(s.username || '').toLowerCase();
     const cred = state.creds && state.creds[username] || null;
+    if (!cred || (cred.sessionEpoch && s.sessionEpoch !== cred.sessionEpoch)) return null;
     const user = state.db && Array.isArray(state.db.users)
       ? state.db.users.find((u) => String(u.username || '').toLowerCase() === username)
       : null;
@@ -2002,9 +2081,11 @@ function getSession(state, req) {
   const cred = state.creds && Object.prototype.hasOwnProperty.call(state.creds, verified.u)
     ? state.creds[verified.u]
     : null;
+  if (!cred || (cred.sessionEpoch && verified.e !== cred.sessionEpoch)) return null;
   return {
     token: tok,
     username: verified.u,
+    sessionEpoch: cred.sessionEpoch || '',
     userId: (cred && cred.id) || verified.uid,
     roleId: (cred && cred.roleId) || verified.r,
     countyId: (cred && cred.countyId) || verified.c || 'kisumu',
@@ -2402,6 +2483,150 @@ async function ensureFreshStateMinRev(currentState, minRev) {
   return s;
 }
 
+/* The one-time handoff is encrypted with a key derived from the Chief's
+   reauthentication password. It is never written in cleartext. A short-lived
+   recovery copy protects against a lost HTTP response after a successful CAS. */
+function sealCredentialPack(rows, password, chiefUsername) {
+  const salt = crypto.randomBytes(16), iv = crypto.randomBytes(12);
+  const key = crypto.pbkdf2Sync(password, salt, PBKDF2_ROUNDS, 32, 'sha256');
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  cipher.setAAD(Buffer.from(chiefUsername));
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify(rows), 'utf8'), cipher.final()]);
+  return { chiefUsername, expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    salt: salt.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: ciphertext.toString('base64') };
+}
+function openCredentialPack(pack, password, chiefUsername) {
+  if (!pack || pack.chiefUsername !== chiefUsername || !Number.isFinite(pack.expiresAt) || pack.expiresAt <= Date.now()) return null;
+  try {
+    const key = crypto.pbkdf2Sync(password, Buffer.from(pack.salt, 'base64'), PBKDF2_ROUNDS, 32, 'sha256');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(pack.iv, 'base64'));
+    decipher.setAAD(Buffer.from(chiefUsername));
+    decipher.setAuthTag(Buffer.from(pack.tag, 'base64'));
+    const rows = JSON.parse(Buffer.concat([decipher.update(Buffer.from(pack.data, 'base64')), decipher.final()]).toString('utf8'));
+    return Array.isArray(rows) ? rows : null;
+  } catch { return null; }
+}
+function chiefReauthenticated(state, sess, password) {
+  const cred = sess && state.creds && state.creds[sess.username];
+  return Boolean(sess && sess.roleId === 'chief' && cred && cred.roleId === 'chief' &&
+    !cred.mustChange && typeof password === 'string' && verifyPassword(password, cred.salt, cred.digest));
+}
+
+function rebuildOfficialAccounts(state, sess) {
+  const db = state.db || (state.db = {});
+  const existing = Array.isArray(db.users) ? db.users : [];
+  const chiefCred = state.creds[sess.username];
+  const chiefOld = existing.find(u => u && String(u.username || '').toLowerCase() === sess.username) || {};
+  const chiefId = String(chiefCred.id || chiefOld.id || 'u-chief-admin');
+  const byName = new Map(existing.filter(Boolean).map(u => [String(u.username || '').toLowerCase(), u]));
+  const used = new Set([chiefId]);
+  const ids = new Map([['chief.admin', chiefId]]);
+  for (const r of officialStructure.roster) {
+    if (r.roleId === 'chief') continue;
+    const old = byName.get(r.username);
+    const preferred = old && old.id ? String(old.id) : `u-${r.username.replace(/\./g, '-')}`;
+    let id = preferred;
+    if (used.has(id)) id = `u-rebuild-${r.username.replace(/[^a-z0-9]/g, '-')}`;
+    if (used.has(id)) throw new Error('Duplicate official account identifier');
+    used.add(id); ids.set(r.username, id);
+  }
+  const idByOfficialId = new Map([...ids].map(([username, id]) => [username === 'chief.admin' ? 'u-chief-admin' : `u-${username.replace(/\./g, '-')}`, id]));
+  const now = nowISO();
+  const nextCreds = { [sess.username]: { ...chiefCred } };
+  const nextUsers = [];
+  const rows = [];
+  const passwords = new Set();
+  for (const r of officialStructure.roster) {
+    const chief = r.roleId === 'chief';
+    const username = chief ? sess.username : r.username;
+    const id = chief ? chiefId : ids.get(r.username);
+    const email = chief ? (chiefCred.email || chiefOld.email || `${username}@lomamofoundation.org`) : `${r.emailLocal || username}@lomamofoundation.org`;
+    const user = {
+      id, username, name:r.name, roleId:r.roleId, countyId:r.countyId,
+      areaIds:r.areas || [], departmentId:r.dept, jobTitle:r.job,
+      reportsTo: idByOfficialId.get(r.reportsTo) || null,
+      email, unconfirmed:Boolean(r.unconfirmed), surnamePending:Boolean(r.surnamePending),
+      seatNote:r.note || '', visitDays:r.visitDays || [], visitDaysNote:r.visitDaysNote || '',
+      canLeaveMonday:Boolean(r.canLeaveMonday), execTeam:officialStructure.exec.includes(r.username),
+      ...(r.permOverrides ? { permOverrides:r.permOverrides } : {}),
+      status: r.unconfirmed ? 'unconfirmed' : 'active', active:!r.unconfirmed,
+      mustChange: !chief && !r.unconfirmed, mustChangePassword: !chief && !r.unconfirmed,
+      dpaFirstLoginRequired: !chief && !r.unconfirmed,
+      demo:false, provisioned:!r.unconfirmed, createdBy:chiefId, created:now,
+    };
+    if (chief) {
+      user.mustChange = Boolean(chiefCred.mustChange);
+      user.mustChangePassword = Boolean(chiefCred.mustChange);
+      user.created = chiefOld.created || now;
+      nextCreds[username].name = r.name;
+    } else if (!r.unconfirmed) {
+      let password;
+      do { password = generateStrongPassword(); } while (passwords.has(password));
+      passwords.add(password);
+      const { salt, digest } = hashPassword(password);
+      nextCreds[username] = { id, username, email, name:r.name, roleId:r.roleId, countyId:r.countyId,
+        areaIds:r.areas || [], departmentId:r.dept, salt, digest, mustChange:true,
+        sessionEpoch:crypto.randomBytes(16).toString('hex'), updatedAt:now };
+      rows.push({ id, name:r.name, username, email, tempPassword:password, roleId:r.roleId,
+        role:(officialStructure.roles.find(x=>x.id===r.roleId) || {}).name || r.roleId,
+        department:r.dept, county:r.countyId, jobTitle:r.job });
+    }
+    nextUsers.push(user);
+  }
+  /* Keep legacy identities as inactive attribution records; no credential or
+     role authority survives for them. Preserve the old IDs used in demo data. */
+  const newNames = new Set(nextUsers.map(u=>u.username));
+  for (const old of existing) {
+    if (!old || newNames.has(String(old.username || '').toLowerCase()) || used.has(String(old.id || ''))) continue;
+    const clean = { ...old, status:'inactive', active:false, archivedByRebuild:true };
+    delete clean.hash; delete clean.salt; delete clean.permOverrides;
+    nextUsers.push(clean);
+  }
+  db.users = nextUsers;
+  /* Relink the employee directory while preserving leave and other records. */
+  const officialUsers = nextUsers.filter(u=>!u.archivedByRebuild);
+  const employeeByName = new Map(officialUsers.map(u=>[u.username, u]));
+  const oldUsernameById = new Map(existing.filter(Boolean).map(u=>[String(u.id || ''), String(u.username || '').toLowerCase()]));
+  const linked = new Set();
+  db.employees = Array.isArray(db.employees) ? db.employees : [];
+  for (const employee of db.employees) {
+    if (!employee) continue;
+    const uname = String(employee.username || oldUsernameById.get(String(employee.userId || '')) || '').toLowerCase();
+    const u = employeeByName.get(uname);
+    if (!u) continue;
+    employee.userId = u.id; employee.username = u.username; employee.name = u.name;
+    employee.dept = u.departmentId; employee.county = u.countyId; employee.role = u.jobTitle;
+    employee.unconfirmed = u.unconfirmed; employee.visitDays = u.visitDays;
+    employee.visitDaysNote = u.visitDaysNote; employee.canLeaveMonday = u.canLeaveMonday;
+    linked.add(u.id);
+  }
+  for (const u of officialUsers) if (!linked.has(u.id)) db.employees.push({
+    id:`emp-official-${u.username.replace(/[^a-z0-9]/g, '-')}`, userId:u.id, username:u.username,
+    name:u.name, dept:u.departmentId, county:u.countyId, role:u.jobTitle,
+    status:u.unconfirmed ? 'unconfirmed' : 'active', unconfirmed:u.unconfirmed,
+    visitDays:u.visitDays, visitDaysNote:u.visitDaysNote, canLeaveMonday:u.canLeaveMonday,
+  });
+  const officialRoleIds = new Set(officialStructure.roles.map(r=>r.id));
+  db.roles = [...officialStructure.roles, ...(Array.isArray(db.roles) ? db.roles.filter(r=>r && !officialRoleIds.has(r.id)) : [])];
+  state.creds = nextCreds;
+  state.sessions = Object.fromEntries(Object.entries(state.sessions || {}).filter(([,s])=>s && String(s.username || '').toLowerCase()===sess.username));
+  state.loginFailures = {};
+  for (const field of ['pendingActivations', 'emergencyCodes']) {
+    if (Array.isArray(db[field])) db[field] = db[field].filter(x=>x && String(x.username || '').toLowerCase()===sess.username);
+  }
+  for (const field of ['activations', 'emergencies']) {
+    if (Array.isArray(state[field])) state[field] = state[field].filter(x=>x && String(x.username || '').toLowerCase()===sess.username);
+  }
+  state.org = { ...(state.org || {}), emailDomain:'lomamofoundation.org' };
+  db.settings = { ...(db.settings || {}), org:{ ...((db.settings && db.settings.org) || {}), emailDomain:'lomamofoundation.org' } };
+  state.rev = (Number(state.rev) || 0) + 1;
+  state.rebuildRevision = state.rev;
+  state.deltas = [];
+  appendServerAudit(state, chiefId, 'system.accounts_rebuilt', 'installation', 'official-hierarchy',
+    `Official hierarchy rebuilt; ${rows.length} named staff credentials issued, ${officialStructure.roster.filter(r=>r.unconfirmed).length} unconfirmed seats disabled. Chief credential preserved; non-account records retained.`);
+  return rows;
+}
+
 async function handleRequest(req, res) {
   const urlObj = new URL(req.url || '/api/health', `http://${req.headers.host || 'localhost'}`);
   const queryPath = req.query && typeof req.query.__path === 'string' ? req.query.__path : null;
@@ -2482,9 +2707,8 @@ async function handleRequest(req, res) {
         error: 'This installation is globally activated; First-Run setup reset is permanently locked.',
       });
     }
-    if (hadCorruptedKey) {
-      await deleteKvKey(CLOUD_KEY);
-    }
+    /* Replace corrupt data with the same atomic snapshot check; never delete
+       a key another request may have repaired after our read. */
     const fresh = blankStore();
     fresh.rev = existing && Number.isFinite(existing.rev) ? existing.rev + 1 : 1;
     appendServerAudit(fresh, 'setup-reset', 'setup.reset_first_run', 'installation', 'online-cloud',
@@ -2502,6 +2726,16 @@ async function handleRequest(req, res) {
   let { state, driver } = isHeadRoute
     ? await loadCloudHead()
     : await loadCloudState({ readOnly: method === 'GET' });
+
+  /* Newly issued credentials cannot access a workspace or modify records until
+     their holder replaces the temporary password. Public login and recovery
+     remain available; the signed-in user can only change password or sign out. */
+  const gateSession = extractRequestToken(req) ? getSession(state, req) : null;
+  const gateCred = gateSession && state.creds && state.creds[gateSession.username];
+  const allowedBeforePassword = new Set(['auth/login', 'auth/logout', 'auth/change-password', 'auth/unlock', 'session/beat', 'session/whoami']);
+  if (gateCred && gateCred.sessionEpoch && gateCred.mustChange && !allowedBeforePassword.has(route)) {
+    return sendJson(res, 403, { ok:false, code:'password_change_required', error:'Set a private password before opening the workspace.' });
+  }
 
   /* 1. Health, bootstrap & revision probes */
   if ((route === 'health' || route === 'bootstrap') && method === 'GET') {
@@ -2649,6 +2883,7 @@ async function handleRequest(req, res) {
     if (!sess || sess.roleId !== 'chief') {
       return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may activate CareLink globally.' });
     }
+    if (state.rebuildRevision) return sendJson(res, 409, { ok:false, code:'rebuild_already_active', error:'This installation has been rebuilt. Use the Chief reactivation controls instead.' });
     state.globallyActivated = true;
     state.db = state.db || {};
     /* Write the activation markers into every server-side location, even when
@@ -2792,6 +3027,11 @@ async function handleRequest(req, res) {
     if (hadPriorFailures) {
       if (state._headOnly && !state._shardedManifest) {
         ({ state, driver } = await loadCloudState({ readOnly: false }));
+        const current = state.creds && state.creds[username];
+        if (!current || current.digest !== cred.digest || current.sessionEpoch !== cred.sessionEpoch) {
+          return sendJson(res, 409, { ok:false, code:'state_conflict', error:'The account changed while signing in. Please retry.' });
+        }
+        cred = current;
       }
       if (state.loginFailures) {
         delete state.loginFailures[username];
@@ -2836,7 +3076,7 @@ async function handleRequest(req, res) {
       (state.db && Array.isArray(state.db.visits) && state.db.visits.length > 800) ||
       (state.db && Array.isArray(state.db.pdcas) && state.db.pdcas.length > 800)
     );
-    if (!obviouslyLarge) {
+    if (!obviouslyLarge && !(cred.sessionEpoch && cred.mustChange)) {
       const loginScope = { username, userId: cred.id, roleId: cred.roleId, countyId: cred.countyId || userRec.countyId || 'kisumu' };
       const cleanClientDb = scopedDbForSession(state.db || {}, state, loginScope);
       if (state.setup && cleanClientDb && typeof cleanClientDb === 'object') {
@@ -2854,7 +3094,7 @@ async function handleRequest(req, res) {
       }
     }
     let sessionReserved = false;
-    try { sessionReserved = await reserveLoginSession(username, sessionId); }
+    try { sessionReserved = await reserveLoginSession(username, sessionId, cred.sessionEpoch); }
     catch { return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' }); }
     if (!sessionReserved) return sendJson(res, 409, {
       ok: false, code: 'session_active', retryAfterSeconds: SESSION_LEASE_SECONDS,
@@ -2868,6 +3108,7 @@ async function handleRequest(req, res) {
       user: userRec,
       username,
       mustChange: Boolean(cred.mustChange),
+      passwordBeforeWorkspace: Boolean(cred.sessionEpoch && cred.mustChange),
       idleSeconds: IDLE_SECONDS,
       ...(inlineState ? { inlineState } : {}),
     });
@@ -2887,7 +3128,7 @@ async function handleRequest(req, res) {
         appendServerAudit(state, sess.userId || sess.username, 'auth.logout', 'user', sess.userId || sess.username, 'Signed out from online database');
       }
       await saveCloudAuthMetadata(state);
-      try { await releaseSessionLease(sess.username, sess.sessionId || crypto.createHash('sha256').update(sess.token).digest('base64url')); } catch { /* lease expires automatically if KV is temporarily unavailable */ }
+      try { await releaseSessionLease(sess.username, sess.sessionId || crypto.createHash('sha256').update(sess.token).digest('base64url'), sess.sessionEpoch); } catch { /* lease expires automatically if KV is temporarily unavailable */ }
     }
     return sendJson(res, 200, { ok: true });
   }
@@ -2981,6 +3222,42 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, rev: state.rev });
   }
 
+  /* Chief-authorised post-activation rebuild; the structure is compiled into
+     the server, never accepted from a browser. */
+  if (route === 'admin/reactivate' && method === 'POST') {
+    const sess = getSession(state, req);
+    const body = await readJsonBody(req);
+    if (!sess || sess.roleId !== 'chief') return sendJson(res, 403, { ok:false, error:'Only the Chief System Administrator may rebuild the hierarchy.' });
+    if (!isGloballyActivated(state)) return sendJson(res, 409, { ok:false, error:'Complete initial commissioning before rebuilding this installation.' });
+    if (body.confirm !== 'REBUILD') return sendJson(res, 400, { ok:false, error:'Type REBUILD to confirm the account reset.' });
+    if (!chiefReauthenticated(state, sess, body.password)) return sendJson(res, 403, { ok:false, code:'reauth_failed', error:'Chief password verification failed.' });
+    if (state.reactivationPack && Number(state.reactivationPack.expiresAt) > Date.now()) {
+      return sendJson(res, 409, { ok:false, code:'reactivation_pack_pending', error:'A recent rebuild already issued a pack. Recover it rather than resetting the accounts again; a new rebuild is available after the 24-hour recovery window.' });
+    }
+    const rows = rebuildOfficialAccounts(state, sess);
+    state.reactivationPack = sealCredentialPack(rows, body.password, sess.username);
+    await saveCloudState(state);
+    return sendJson(res, 200, { ok:true, rev:state.rev, issued:rows, expiresAt:state.reactivationPack.expiresAt });
+  }
+
+  if (route === 'admin/reactivation-pack' && method === 'POST') {
+    const sess = getSession(state, req);
+    const body = await readJsonBody(req);
+    if (!sess || sess.roleId !== 'chief' || !chiefReauthenticated(state, sess, body.password)) {
+      return sendJson(res, 403, { ok:false, code:'reauth_failed', error:'Chief session and password are required.' });
+    }
+    const rows = openCredentialPack(state.reactivationPack, body.password, sess.username);
+    if (!rows) return sendJson(res, 404, { ok:false, code:'pack_unavailable', error:'No recoverable pack is available, or the 24-hour recovery window has expired.' });
+    const usable = rows.filter(row => {
+      const cred = state.creds[row.username];
+      return cred && cred.mustChange && verifyPassword(row.tempPassword, cred.salt, cred.digest);
+    });
+    appendServerAudit(state, sess.userId || sess.username, 'credentials.reactivation_pack_recovered', 'credentials', 'official-hierarchy',
+      `Chief recovered ${usable.length} still-valid temporary credentials.`);
+    await saveCloudState(state);
+    return sendJson(res, 200, { ok:true, rev:state.rev, issued:usable, expiresAt:state.reactivationPack.expiresAt });
+  }
+
   /* 5. Provision Unique Strong SMS Credential Pack (Chief System Admin or Account Admin) */
   if (route === 'credentials/provision' && method === 'POST') {
     const sess = getSession(state, req);
@@ -3018,6 +3295,7 @@ async function handleRequest(req, res) {
         countyId: acc.countyId || 'kisumu',
         areaIds: Array.isArray(acc.areaIds) ? acc.areaIds.map((id) => clipString(id, 80)).slice(0, 20) : [],
         departmentId: clipString(acc.departmentId || '', 80),
+        sessionEpoch: crypto.randomBytes(16).toString('hex'),
         salt,
         digest,
         mustChange: mustChangeFlag,
@@ -3089,6 +3367,7 @@ async function handleRequest(req, res) {
     cred.salt = salt;
     cred.digest = digest;
     cred.mustChange = true;
+    cred.sessionEpoch = crypto.randomBytes(16).toString('hex');
     cred.updatedAt = nowISO();
     if (state.db && Array.isArray(state.db.users)) {
       const u = state.db.users.find((x) => String(x.username).toLowerCase() === uname);
@@ -3356,11 +3635,13 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'state' && method === 'GET') {
-    const sess = getSession(state, req);
+    let sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to read the online database.' });
     const since = Number(urlObj.searchParams.get('since') || '0');
     if (since > 0 && since < (state.rev || 0) && state._headOnly) {
       state = (await loadCloudState({ readOnly: true })).state;
+      sess = getSession(state, req);
+      if (!sess) return sendJson(res, 401, { ok:false, error:'Session changed while loading the online database. Sign in again.' });
     }
     if (since > 0 && since >= (state.rev || 0)) {
       return sendJson(res, 200, {
@@ -3375,6 +3656,8 @@ async function handleRequest(req, res) {
         const currentDeltas = (state.deltas || []).filter((d) => d.rev > since).sort((a, b) => a.rev - b.rev);
         if (!(currentDeltas.length > 0 && currentDeltas[0].rev <= since + 1)) {
           state = (await loadCloudState({ readOnly: true })).state;
+      sess = getSession(state, req);
+      if (!sess) return sendJson(res, 401, { ok:false, error:'Session changed while loading the online database. Sign in again.' });
         }
       }
       const deltas = (state.deltas || []).filter((d) => d.rev > since).sort((a, b) => a.rev - b.rev);
@@ -3396,10 +3679,13 @@ async function handleRequest(req, res) {
       }
       if (state._headOnly) {
         state = (await loadCloudState({ readOnly: true })).state;
+      sess = getSession(state, req);
+      if (!sess) return sendJson(res, 401, { ok:false, error:'Session changed while loading the online database. Sign in again.' });
       }
     }
     if (urlObj.searchParams.get('fast') === '1') {
       const targetRev = Number(urlObj.searchParams.get('targetRev') || '0');
+      if (targetRev && state.rebuildRevision && targetRev < state.rebuildRevision) return sendJson(res, 409, { ok:false, code:'rebuild_refresh_required', error:'The requested snapshot predates the hierarchy rebuild.' });
       const partParam = urlObj.searchParams.get('part');
       const pack = getClientFastPack(state, targetRev, sess);
       if (partParam !== null) {
@@ -3440,6 +3726,9 @@ async function handleRequest(req, res) {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to write to the online database.' });
     const body = await readJsonBody(req);
+    if (state.rebuildRevision && (!Number.isSafeInteger(body.baseRev) || body.baseRev < state.rebuildRevision)) {
+      return sendJson(res, 409, { ok:false, code:'rebuild_refresh_required', error:'The account hierarchy was rebuilt. Refresh the shared state before saving pending changes.' });
+    }
     const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
     state.db = state.db || { meta: { schema: 6, version: '6.9.4' } };
     const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
@@ -3496,6 +3785,14 @@ async function handleRequest(req, res) {
         }
         applied.push(p);
         continue;
+      }
+      if (['pendingActivations', 'emergencyCodes'].includes(p.c)) {
+        const current = (Array.isArray(state.db[p.c]) ? state.db[p.c] : []).find(x=>x && String(x.id || '') === String(p.id || ''));
+        const username = String((p.set && p.set.username) || (current && current.username) || '').toLowerCase();
+        const target = (state.db.users || []).find(u=>u && String(u.username || '').toLowerCase() === username);
+        const allowed = canAdminAccounts && target && (sess.roleId === 'chief' ||
+          (target.roleId !== 'chief' && (sess.roleId !== 'countyadmin' || target.countyId === sess.countyId)));
+        if (!allowed) { rejected.push({c:p.c, id:p.id, reason:'account_recovery_scope_denied'}); continue; }
       }
       if (p.c === 'messages' && !messagePatchAllowed(p, state, sess)) {
         rejected.push({ c: p.c, id: p.id, reason: 'message_scope_denied' });
@@ -3759,6 +4056,7 @@ async function handleRequest(req, res) {
       countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',
       salt,
       digest,
+      sessionEpoch: crypto.randomBytes(16).toString('hex'),
       mustChange: false,
       privateSetAt: nowISO(),
       updatedAt: nowISO(),
@@ -3821,6 +4119,7 @@ async function handleRequest(req, res) {
       countyId: (existingCred && existingCred.countyId) || (matchedUser && matchedUser.countyId) || 'kisumu',
       salt,
       digest,
+      sessionEpoch: crypto.randomBytes(16).toString('hex'),
       mustChange: false,
       privateSetAt: nowISO(),
       updatedAt: nowISO(),
@@ -3862,7 +4161,7 @@ export function __resetCloudCachesForTests() {
 
 export default async function handler(req, res) {
   try {
-    return await handleRequest(req, res);
+    return await requestSnapshot.run({ snapshotKnown: false }, () => handleRequest(req, res));
   } catch (err) {
     if (res.writableEnded || res.finished) return;
     const storage = err && err.name === 'CloudStorageError';

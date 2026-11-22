@@ -1,3 +1,4 @@
+const requireCrypto = require('node:crypto');
 /* ============================================================================
    v665-ux-nav-login-e2e.js — End-to-End Verification for CareLink v6.6.5:
    1. Default White Themes ('foundation' & 'heritage'), Zero White-Haze &
@@ -55,6 +56,10 @@ global.fetch = async (input, init = {}) => {
       secondaryKv.delete(key);
       return kvResponse({ result: 1 });
     }
+    if (url.pathname === '/' && init.method === 'POST') {
+      const cmd = JSON.parse(rawBody);
+      if (cmd[0] === 'EVAL' && cmd[1] === "return redis.call('GET', KEYS[1])") return kvResponse({result:secondaryKv.get(cmd[3]) ?? null});
+    }
   }
   if (url.origin !== 'https://kv-v665.test') throw new Error('Unexpected fetch: ' + url.href);
   if (kvRefusalOverride) {
@@ -92,6 +97,14 @@ global.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (script.includes('redis.sha1hex')) {
+        if (Buffer.byteLength(rawBody) > 1024 * 1024) return kvResponse({error:'ERR max request size exceeded'}, 413);
+        const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
+        if (actual !== value) return kvResponse({ result: kv.get(key) === String(args[3 + keyCount]) ? 2 : 0 });
+        kv.set(key, String(args[3 + keyCount]));
+        return kvResponse({ result: 1 });
+      }
+      if (script === "return redis.call('GET', KEYS[1])") { if (/:s\d+$|_s\d+$/.test(key)) shardGets++; return kvResponse({ result: kv.has(key) ? kv.get(key) : null }); }
       if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
       if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
       if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }
@@ -441,8 +454,8 @@ function ok(name, cond, detail = '') {
     if ((init.method || '').toUpperCase() === 'POST' && (url.pathname === '/' || url.pathname === '')) {
       if (/upstash-redis-js/i.test(ua)) sawRootPostWithUa = true;
       const cmd = JSON.parse(String(init.body || '[]'));
-      if (cmd[0] === 'GET') {
-        const k = cmd[1];
+      if (cmd[0] === 'GET' || (cmd[0] === 'EVAL' && cmd[1] === "return redis.call('GET', KEYS[1])")) {
+        const k = cmd[0] === 'GET' ? cmd[1] : cmd[3];
         const val = liveMap.has(k) ? liveMap.get(k) : null;
         return { ok: true, status: 200, text: async () => JSON.stringify({ result: val }), json: async () => ({ result: val }) };
       }
@@ -457,8 +470,8 @@ function ok(name, cond, detail = '') {
   process.env.KV_REST_API_TOKEN = 'live-upstash-token';
   const rootPostDiag = await rawApiFetch('api/kv-diagnostics');
   const rootPostBody = await rootPostDiag.json();
-  ok('HTTP 403 on Upstash GET /get/<key> automatically retries canonical root POST ["GET", key] with User-Agent and succeeds',
-    rootPostDiag.ok === true && rootPostBody.ok === true && sawGet403 === true && sawRootPostWithUa === true,
+  ok('Primary atomic read uses root POST with User-Agent and succeeds without replica GET',
+    rootPostDiag.ok === true && rootPostBody.ok === true && sawGet403 === false && sawRootPostWithUa === true,
     JSON.stringify({ rootPostBody, sawGet403, sawRootPostWithUa }));
 
   /* 8b. Exact HTTP 403 diagnostics (archived/paused/quota/Cloudflare + target hostname) when both GET and POST fail */
@@ -523,6 +536,11 @@ function ok(name, cond, detail = '') {
           const pw = cmd.length >= 3 ? cmd[2] : cmd[1];
           if (pw === 'tcp-secret') sock.write('+OK\r\n');
           else sock.write('-WRONGPASS invalid username-password pair\r\n');
+        } else if (op === 'EVAL' && cmd[1] === "return redis.call('GET', KEYS[1])") {
+          tcpGetCount++;
+          const value = tcpStore.get(cmd[3]);
+          if (value == null) sock.write('$-1\r\n');
+          else { const buf = Buffer.from(String(value)); sock.write(`$${buf.length}\r\n`); sock.write(buf); sock.write('\r\n'); }
         } else if (op === 'GET') {
           tcpGetCount++;
           const k = cmd[1];

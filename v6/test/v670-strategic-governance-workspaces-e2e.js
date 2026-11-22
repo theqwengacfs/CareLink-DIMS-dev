@@ -1,3 +1,4 @@
+const requireCrypto = require('node:crypto');
 /* ============================================================================
    v670-strategic-governance-workspaces-e2e.js — End-to-End Verification for
    CareLink C-DIMS v6.7.0 (5-Pillar Overhaul):
@@ -56,6 +57,13 @@ global.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (script.includes('redis.sha1hex')) {
+        const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
+        if (actual !== value) return kvResponse({ result: kv.get(key) === String(args[3 + keyCount]) ? 2 : 0 });
+        kv.set(key, String(args[3 + keyCount]));
+        return kvResponse({ result: 1 });
+      }
+      if (script === "return redis.call('GET', KEYS[1])") return kvResponse({ result: kv.has(key) ? kv.get(key) : null });
       if (kv.get(key) !== String(value)) return kvResponse({ result: 0 });
       if (/EXPIRE/.test(script)) return kvResponse({ result: 1 });
       if (/DEL/.test(script)) { kv.delete(key); return kvResponse({ result: 1 }); }

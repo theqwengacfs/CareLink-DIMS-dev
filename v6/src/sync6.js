@@ -158,12 +158,21 @@ const SYNC = {
       return {ok:false, code:'offline', error:this.message, status:0};
     }
     if(r.ok && r.body.token){
+      this._passwordBeforeWorkspace = false;
       this.storeToken(r.body.token);
       this.rev = r.body.rev || 0;
       this.state = 'connected';
       this.message = 'Signed in on the shared online source';
       this.authError = null;
       this.bump();
+      if(r.body.passwordBeforeWorkspace){
+        /* Do not load or retain a previous user's workspace before password
+           replacement. The server permits only the password-change screen. */
+        DB.db = DB.blank();
+        this._passwordBeforeWorkspace = true;
+        if(typeof APPX !== 'undefined') APPX.dirty = false;
+        return {ok:true, user:r.body.user, mustChange:true, passwordBeforeWorkspace:true, idleSeconds:r.body.idleSeconds, username:r.body.username};
+      }
       /* Authentication alone is not enough: a fresh tablet must not render
          its old/empty browser document while it waits for the next poll. */
       const pulled = await this.pullFull({ minRev: r.body.rev || 0, inlineState: r.body.inlineState || null });
@@ -801,7 +810,7 @@ const SYNC = {
         const slice = patches.slice(i, i+chunk);
         const r = await this._json('api/state', {
           method:'PUT', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({patches: slice, opId: 'op-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),
+          body: JSON.stringify({patches: slice, baseRev: this.rev, opId: 'op-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),
                                 ts: new Date().toISOString()})
         });
         if(!r.ok){

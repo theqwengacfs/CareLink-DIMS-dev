@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { generateOfficialStructure } from './official-structure.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -25,6 +26,7 @@ export const JS_ORDER = [
 
 export function buildCareLinkBundle() {
   if (!fs.existsSync(SRC)) return false;
+  generateOfficialStructure();
   const css = CSS_ORDER.map((f) => fs.readFileSync(path.join(SRC, f), 'utf8')).join('\n');
   const js = JS_ORDER.map((f) => fs.readFileSync(path.join(SRC, f), 'utf8')).join('\n');
   const logoBytes = fs.readFileSync(path.join(V6_ROOT, 'assets', 'lomamo-logo.png'));
