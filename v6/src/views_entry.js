@@ -9,7 +9,7 @@
    recolour of one page. The workspace accent is deliberately separate: a theme
    changes only the public front door. */
 const LANDING_THEMES = [
-  { id:'heritage', name:'Heritage Sapphire', blurb:'Deep sapphire royal blue and burnished gold. The LOMAMO Foundation signature front door.', accent:'#E9C765', mode:'dark' },
+{ id:'heritage', name:'LOMAMO Red', blurb:'LOMAMO Foundation red and white. The official LOMAMO brand front door, built from the logo colours.', accent:'#ED0000', mode:'dark' },
   { id:'clinic',   name:'Foundation White', blurb:'Luminous architectural pure white with crisp slate typography and royal sapphire accent.', accent:'#1E3A8A', mode:'light' },
   { id:'dawn',     name:'Dawn',          blurb:'Warm sunrise gradient, centred hero, soft cards. Optimistic and open.', accent:'#F97316', mode:'dark' },
   { id:'editorial',name:'Editorial',     blurb:'Magazine layout: oversized serif headline, rule lines, one column of text.', accent:'#7C2D12', mode:'light' },
