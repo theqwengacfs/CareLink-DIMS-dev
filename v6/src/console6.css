@@ -20,25 +20,25 @@
 /* ---------- Landing front door (deep sapphire-midnight heritage palette) */
 .ld{
   min-height:100vh; position:relative; overflow-x:clip;
-  --accent:#E9C765;
-  --ld-bg:#071124; --ld-surface:#0D1C38; --ld-surface-2:#122548;
-  --ld-ink:#F8FAFC; --ld-dim:#CBD5E1; --ld-border:rgba(148,197,255,.16);
+  --accent:#F44336;
+  --ld-bg:#1A0303; --ld-surface:#3D0A0A; --ld-surface-2:#7A0000;
+  --ld-ink:#FFFFFF; --ld-dim:#FFB3B3; --ld-border:rgba(244,67,54,.16);
   background:var(--ld-bg); color:var(--ld-ink);
   display:flex; flex-direction:column;
 }
 .ld[data-mode="light"]{
-  --accent:#1E3A8A;
-  --ld-bg:#F8FAFC; --ld-surface:#FFFFFF; --ld-surface-2:#EEF3FA;
-  --ld-ink:#0F172A; --ld-dim:#334155; --ld-border:#CBD5E1;
+  --accent:#F44336;
+  --ld-bg:#FFFFFF; --ld-surface:#FFEBEE; --ld-surface-2:#FFCDD2;
+  --ld-ink:#3A0000; --ld-dim:#7A0000; --ld-border:rgba(244,67,54,.16);
 }
 /* Ten complete front-door palettes matching LANDING_THEMES */
 .ld[data-theme="heritage"]{
-  --accent:#E9C765;
-  --ld-bg:#071124; --ld-surface:#0D1C38; --ld-surface-2:#122548;
-  --ld-ink:#F8FAFC; --ld-dim:#CBD5E1; --ld-border:rgba(148,197,255,.18);
+  --accent:#F44336;
+  --ld-bg:#1A0303; --ld-surface:#3D0A0A; --ld-surface-2:#7A0000;
+  --ld-ink:#FFFFFF; --ld-dim:#FFB3B3; --ld-border:rgba(244,67,54,.18);
   background:
-    radial-gradient(1100px 700px at 78% -10%, rgba(233,199,101,.16), transparent 60%),
-    linear-gradient(158deg, #0E234A 0%, #1B3668 46%, #071124 100%);
+    radial-gradient(1300px 900px at 85% -12%,rgba(229,57,53,.18),transparent 60%),
+    linear-gradient(165deg,#1A0303 0%,#3D0A0A 40%,#7A0000 75%,#2E0000 100%);
 }
 .ld[data-theme="dawn"]{
   --accent:#FDBA74;
@@ -284,14 +284,14 @@
 
 /* Hero architecture canvas */
 .ld-hero-art{ position:relative; }
-.ld-canvas-card{ position:relative; border-radius:18px; border:1px solid rgba(148,197,255,.22);
-  background:linear-gradient(160deg, rgba(14,31,62,.95), rgba(8,19,40,.97));
-  padding:16px 18px 18px; box-shadow:0 22px 52px rgba(2,6,18,.58); }
+.ld-canvas-card{ position:relative; border-radius:18px; border:1px solid rgba(244,67,54,.22);
+  background:linear-gradient(160deg, rgba(26,3,3,.95), rgba(58,0,0,.97));
+  padding:16px 18px 18px; box-shadow:0 22px 52px rgba(26,3,3,.58); }
 .ld[data-mode="light"] .ld-canvas-card{
   background:#FFFFFF;
-  border:1px solid #E2E8F0;
-  box-shadow:0 1px 3px rgba(15,23,42,.04), 0 20px 44px -14px rgba(15,23,42,.08);
-  color:#0F172A;
+  border:1px solid #F44336;
+  box-shadow:0 1px 3px rgba(26,3,3,.04), 0 20px 44px -14px rgba(26,3,3,.08);
+  color:#3A0000;
 }
 .ld-canvas-head{
   display:flex; align-items:center; justify-content:space-between; gap:8px;
@@ -304,10 +304,10 @@
 }
 .ld-canvas-live i{ width:6px; height:6px; border-radius:50%; background:#10B981; display:inline-block; }
 .ld-scene-svg{ width:100%; height:auto; display:block; border-radius:12px;
-  background:radial-gradient(circle at 50% 48%, rgba(30,64,135,.32), rgba(7,15,32,.9)); }
+  background:radial-gradient(circle at 50% 48%, rgba(229,57,53,.32), rgba(26,3,3,.9)); }
 .ld[data-mode="light"] .ld-scene-svg{
-  background:#F8FAFC;
-  border:1px solid #EDF2F7;
+  background:#FFEBEE;
+  border:1px solid #FFCDD2;
 }
 .ld-facts{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:10px; }
 @media (max-width:540px){ .ld-facts{ grid-template-columns:repeat(2,1fr); } }
@@ -1051,4 +1051,7 @@ html[data-kpistyle="outlined"] .kpi.info{ border-left-color:var(--info) !importa
   .no-print, .topbar, .navpane, .ai-dock, .demo-view-bar, .coedit-bar, .ctx-strip{ display:none !important; }
   .ds-sheet{ border:none; padding:0; }
 }
+
+
+
 
