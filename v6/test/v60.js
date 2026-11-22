@@ -378,15 +378,15 @@ test('PC & Tablet front-door parity, 10-area active dataset, 1-click Hospital Ca
       countiesCovered: new Set(DB.db.patients.map(p=>p.countyId)).size,
       isLanding: /class="ld"/.test(html),
       hasHighContrastBtns: /ld-btn-secondary/.test(html) && /ld-btn-primary/.test(html),
-      hasTeamworkSection: /Departments Working Together/.test(html) && html.includes('data:image/jpeg;base64'),
+      hasTeamworkSection: /How CareLink works/.test(html) && html.includes('data-act="goto-architecture"') && html.includes('data:image/jpeg;base64'),
       hasLoadDemoAction: typeof ACTIONS['load-demo'] === 'function'
     };
   })()`);
   ok('First-time boot on PC or Tablet seeds 3,333 patients immediately', freshBoot.patients === 3333);
   ok('First-time boot provisions full 42-account official roster across 10 areas & 2 counties', freshBoot.users >= 42 && freshBoot.areasCovered === 10 && freshBoot.countiesCovered === 2);
-  ok('First-time boot renders identical Bluish Front-Door Landing Page', freshBoot.isLanding === true);
+  ok('First-time boot renders the CareLink landing page', freshBoot.isLanding === true);
   ok('Landing page buttons carry explicit high-contrast styling classes', freshBoot.hasHighContrastBtns === true);
-  ok('Landing page lower section displays spacious Cross-Departmental Teamwork showcase', freshBoot.hasTeamworkSection === true);
+  ok('Landing page provides a visual link to the platform architecture', freshBoot.hasTeamworkSection === true);
   ok('load-demo action is registered globally for instant dataset reload', freshBoot.hasLoadDemoAction === true);
 
   /* 2. All 13 community/teamwork photos embedded & Sign-In screen showcase directly below H1 */

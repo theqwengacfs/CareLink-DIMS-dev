@@ -201,6 +201,8 @@ function renderLanding6(){
   const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#ED0000' };
   const isLight = (th.mode || 'dark') === 'light';
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+  const isCommissioned = isActivated || commissionedEntryActive();
+  const setupPending = hostedEntryPending();
   const facts = [
     { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.length:2), l:'County Offices' },
@@ -310,7 +312,7 @@ function renderLanding6(){
         </div>
       </div>
       <nav class="row ld-nav" aria-label="Public and institutional navigation" style="gap:8px;flex-wrap:wrap">
-        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> Platform Architecture &amp; Departments Working Together</button>
+        <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> How CareLink works</button>
         <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Public Impact Portal</button>
         ${!isActivated ? `<button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request Access</button>` : ''}
       </nav>
@@ -322,14 +324,15 @@ function renderLanding6(){
           <div class="ld-eyebrow">${ic('heart',14)} LOMAMO Foundation Kenya · Loving Hands Management &amp; Medical Organization</div>
           <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
           <div class="ld-subhead">One Foundation. One Operating System.</div>
-          <p class="ld-lede">CareLink unites clinical care, field ministry, hospital referrals, finance, human resources, media governance and partner oversight in one least-privilege operating system across Kisumu and Homa Bay.</p>
+          <p class="ld-lede">One secure place for care teams and departments to coordinate their work, support families and serve communities across Kisumu and Homa Bay.</p>
           <div class="row ld-cta-row" style="align-items:center">
-            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff Sign In · My CareLink Console ${ic('chevron',16)}</button>
-            <button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>
+            <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff sign in ${ic('chevron',16)}</button>
+            ${!isCommissioned && !setupPending ? `<button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>` : ''}
           </div>
+          ${isCommissioned ? `<p class="ld-setup-status">This installation is already commissioned. Use your existing account to sign in, or select <button type="button" class="ld-recovery-link" data-act="login-recovery">password recovery</button> if you need help.</p>` : setupPending ? `<p class="ld-setup-status">Checking the shared installation before first-run setup can be offered.</p>` : ''}
           <div class="ld-assure">
             <span>${ic('database',14)} Shared live online database</span>
-            <span>${ic('wifi',14)} Zero-scroll PC &amp; tablet consoles</span>
+            <span>${ic('wifi',14)} Available across devices</span>
             <span>${ic('shieldcheck',14)} SHA-256 tamper-evident audit</span>
             <span>${ic('sparkles',14)} Role-scoped workflows &amp; QA</span>
           </div>
@@ -512,7 +515,7 @@ function renderLogin6(){
   const pCount = (DB.db && DB.db.patients) ? DB.db.patients.length : 0;
   const uCount = (DB.db && DB.db.users) ? DB.db.users.length : 0;
   const hostLine = isActivated
-    ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Official Production System Active · ${num(uCount)} organogram accounts governed across Kisumu &amp; Homa Bay</span></div>`
+    ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Official production system active · Sign in with your issued account</span></div>`
     : (isAwaitingAct
       ? `<div class="lg-host warn">${ic('key',13)}<span>4-Step Online Setup complete — sign in as Chief System Administrator to change password &amp; <b>Activate System Globally</b></span></div>`
       : (host
@@ -524,7 +527,7 @@ function renderLogin6(){
 
   const signIn = `
     <p class="lg-note">${isActivated
-      ? 'Sign in with your assigned CareLink username or official email and your personal password (or your WhatsApp temporary password on first sign-in to activate your account).'
+      ? 'This installation has already been set up. Sign in with your assigned username and password, or choose Recover if you cannot access your account.'
       : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
     <form data-form="login6" autocomplete="on">
       <div class="field"><label for="lg-u">Username or mock email alias</label>
@@ -616,12 +619,12 @@ function renderLogin6(){
         <div class="row" style="gap:11px;margin-bottom:8px">
           <img src="${window.LOGO||''}" alt="LOMAMO Foundation" class="lg6-logo" style="margin:0">
           <div>
-            <div class="xs bold" style="letter-spacing:.11em;text-transform:uppercase;color:#F5C451">CareLink Operating System · LOMAMO Foundation</div>
-            <div class="xs" style="color:#CBD6E8">Orphan Prevention, Clinical Care &amp; Partner Governance</div>
+            <div class="xs bold" style="letter-spacing:.11em;text-transform:uppercase;color:#F2F2F2">CareLink Operating System · LOMAMO Foundation</div>
+            <div class="xs" style="color:#CCCCCC">Orphan Prevention, Clinical Care &amp; Partner Governance</div>
           </div>
         </div>
         <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
-        <div class="xs bold" style="color:#E2E8F0;margin:-4px 0 7px">One Foundation. One Operating System.</div>
+        <div class="xs bold" style="color:#E5E5E5;margin:-4px 0 7px">One Foundation. One Operating System.</div>
 
         <figure class="lg6-showcase">
           <div class="lg6-photo-frame">
@@ -653,7 +656,7 @@ function renderLogin6(){
       <div class="lg6-mobile-hero">
         <img src="${carelinkPhoto(curSlide.key)}" alt="">
         <div class="lg6-mobile-hero-txt">
-          <div class="xs bold" style="color:#F5C451;text-transform:uppercase;letter-spacing:.08em">LOMAMO Foundation</div>
+          <div class="xs bold" style="color:#B7192B;text-transform:uppercase;letter-spacing:.08em">LOMAMO Foundation</div>
           <b>CareLink. <em>Saving lives, preventing orphans.</em></b>
         </div>
       </div>
@@ -864,6 +867,7 @@ Object.assign(ACTIONS, {
   'login-slide': d => { LOGIN6.slide = Number(d.idx)||0; render(); },
   'demo-filter': d => { LOGIN6.demoFilter = d.f || 'all'; render(); },
   'login-request': () => { LOGIN6.tab='request'; APPX.screen='login'; LOGIN6.error=''; render(); },
+  'login-recovery': () => { LOGIN6.tab='forgot'; APPX.screen='login'; LOGIN6.error=''; LOGIN6.notice=''; render(); },
   'goto-login': () => { APPX.screen='login'; LOGIN6.tab='signin'; LOGIN6.error=''; LOGIN6.notice=''; render(); },
   'open-signin': () => { APPX.screen='login'; LOGIN6.tab='signin'; LOGIN6.error=''; LOGIN6.notice=''; render(); window.scrollTo({top:0}); },
   'goto-landing': () => { APPX.screen='landing'; LOGIN6.error=''; render(); window.scrollTo({top:0}); },

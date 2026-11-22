@@ -1,7 +1,7 @@
 # LOMAMO LOMAMO C-DIMS — LOMAMO C-DIMS
 
 **Data & Information Management System for LOMAMO Foundation Kenya** (Love Matters Most)
-Kisumu & Homa Bay County Offices · version 6.1.0 · schema 6
+Kisumu & Homa Bay County Offices · version 6.9.3 · schema 6
 
 One operating system for the whole Foundation: patient registration and the
 assessment pipeline, home visits and PDCA follow-up, hospital coordination,
@@ -29,10 +29,11 @@ Open the single file directly, with no server at all:
 v6/LOMAMO-CareLink-DIMS-v6.0.html
 ```
 
-In the explicitly offline/static file, sign in on the **Demo** tab, or use any
-account with the password `LOMAMO2026`. The demonstration dataset is synthetic
-and labelled `DEMO`: 3,333 patients, 59 accounts, 10 ministry areas, 18
-departments. This local mode is not the hosted live installation.
+The offline file and the hosted service have separate installations. A fresh
+installation offers first-run commissioning, where the chief administrator
+chooses a setup password. Once an installation is commissioned, first-run setup
+is locked; use the issued account or the sign-in recovery flow. Do not use a
+shared demonstration password or reset an active database to regain access.
 
 ### Vercel online host (one shared source, mandatory KV)
 

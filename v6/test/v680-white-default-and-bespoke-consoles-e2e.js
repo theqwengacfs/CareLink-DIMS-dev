@@ -46,7 +46,7 @@ const { makeCtx } = require('./dom');
     };
   })())`));
 
-  ok('APP.version is 6.9.2', themeAudit.appVersion === '6.9.2', themeAudit.appVersion);
+  ok('APP.version is 6.9.3', themeAudit.appVersion === '6.9.3', themeAudit.appVersion);
   ok('Global Landing Default is LOMAMO Red (deep red with dimensional topology)',
     themeAudit.defaultLandingId === 'heritage' &&
     themeAudit.firstLanding.id === 'heritage' &&
@@ -59,10 +59,10 @@ const { makeCtx } = require('./dom');
     !themeAudit.landingHtml.includes('stop-color="#F5C451"'));
 
   const signInCss = fs.readFileSync(path.join(REPO, 'v6', 'src', 'console6.css'), 'utf8');
-  ok('Sign-In uses LOMAMO Red visual identity with a deep-red brand panel, subtle radial depth and readable white console card',
+  ok('Sign-In uses charcoal, neutral and red brand colours with a readable white console card',
     themeAudit.loginHtml.includes('class="lg6"') &&
-    /\.lg6-brand\{[\s\S]*?linear-gradient\(152deg, #3A0000 0%, #7A0000 56%, #ED0000 100%\)/.test(signInCss) &&
-    /\.lg6-panel\{[\s\S]*?radial-gradient\(680px 480px at 96% 2%/.test(signInCss) &&
+    /\.lg6-brand,html\[data-wmode="dark"\] \.lg6-brand\{background:#242424/.test(signInCss) &&
+    /\.lg6-panel,html\[data-wmode="dark"\] \.lg6-panel\{\s*background:#F5F5F4/.test(signInCss) &&
     /\.lg6-card\{[\s\S]*?background:#FFFFFF/.test(signInCss));
 
   const epochAudit = JSON.parse(run(`JSON.stringify((() => {

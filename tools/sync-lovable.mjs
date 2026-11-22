@@ -38,8 +38,8 @@ export function buildCareLinkBundle() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0E234A">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.2) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="theme-color" content="#202020">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.3) - LOMAMO Foundation Kenya Data & Information Management System">
 ${fs.readFileSync(path.join(V6_ROOT, 'pwa-head.html'), 'utf8')}<style>
 ${css}
 </style>
@@ -57,7 +57,7 @@ window.BUILD_STAMP = "${stamp}";
 ${js}
 </script>
 ${fs.readFileSync(path.join(V6_ROOT, 'pwa-install.html'), 'utf8').trimEnd()}
-<!-- Build ${stamp} · CareLink C-DIMS v6.9.2 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build ${stamp} · CareLink C-DIMS v6.9.3 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
 `;
