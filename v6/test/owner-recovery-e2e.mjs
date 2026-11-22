@@ -5,11 +5,20 @@ import zlib from 'node:zlib';
 const kv = new Map();
 let pauseCommit = null;
 let loseCommitResponse = 0;
+let maxShardBytes = Infinity, failShards = false, activeUploads = 0, peakUploads = 0, uploadedSizes = [];
 const reply = (result, status = 200) => ({ ok:status >= 200 && status < 300, status, json:async()=>result });
 globalThis.fetch = async (input, init={}) => {
   const url = new URL(String(input));
   if (url.pathname.startsWith('/get/')) return reply({result:kv.get(decodeURIComponent(url.pathname.slice(5))) ?? null});
-  if (url.pathname.startsWith('/set/')) { kv.set(decodeURIComponent(url.pathname.slice(5)), JSON.parse(init.body)); return reply({result:'OK'}); }
+  if (url.pathname.startsWith('/set/')) {
+    const value=JSON.parse(init.body);
+    activeUploads++; peakUploads=Math.max(peakUploads,activeUploads); uploadedSizes.push(value.length);
+    try {
+      await new Promise(resolve=>setImmediate(resolve));
+      if (failShards || value.length > maxShardBytes) throw new Error('simulated network failure');
+      kv.set(decodeURIComponent(url.pathname.slice(5)), value); return reply({result:'OK'});
+    } finally { activeUploads--; }
+  }
   if (url.pathname.startsWith('/del/')) { kv.delete(decodeURIComponent(url.pathname.slice(5))); return reply({result:1}); }
   const [op,...a] = JSON.parse(init.body);
   if (op==='GET') return reply({result:kv.get(a[0]) ?? null});
@@ -86,4 +95,27 @@ assert.equal((await api('auth/login','POST',{username:'chief.admin',password:'Fi
 await ownerRecoverChief({username:'second.chief',password:'Legacy#Private2032'});
 r=await api('auth/login','POST',{username:'second.chief',password:'Legacy#Private2032'});assert.equal(r.status,200,JSON.stringify(r.body));
 assert.equal(r.body.username,'second.chief');
-console.log('owner-recovery-e2e: Chief discovery, legacy and sharded recovery, validation, session invalidation, audit, data retention and concurrent-write protection passed');
+// On constrained links the owner path writes smaller shards serially, with an
+// atomic head switch only after every part succeeds.
+stored=JSON.parse(kv.get('carelink_cloud_v66'));
+if(stored.format==='carelink-cloud-gzip-v1') stored=JSON.parse(zlib.gunzipSync(Buffer.from(stored.data,'base64')));
+assert.ok(stored.db);
+stored.db.patients[0].blob=crypto.randomBytes(1_500_000).toString('base64');
+kv.set('carelink_cloud_v66',JSON.stringify(stored));
+const beforeLarge=kv.get('carelink_cloud_v66');
+failShards=true; uploadedSizes=[]; peakUploads=0;
+await assert.rejects(ownerRecoverChief({username:'chief.admin',password:'Fail#Private2033'}),/Upload part 1.*before the password change was committed/);
+assert.equal(kv.get('carelink_cloud_v66'),beforeLarge,'failed part must not switch active head');
+failShards=false; maxShardBytes=220*1024; uploadedSizes=[]; peakUploads=0;
+const progress=[];
+await ownerRecoverChief({username:'chief.admin',password:'Slow#Private2034',onProgress:(done,total)=>progress.push([done,total])});
+const manifest=JSON.parse(kv.get('carelink_cloud_v66'));
+assert.equal(manifest.format,'carelink-cloud-gzip-sharded-v1');
+assert.ok(manifest.shardCount>1 && manifest.shardCount<=16);
+assert.equal(peakUploads,1,'recovery parts must be sent sequentially');
+assert.ok(uploadedSizes.every(size=>size<=maxShardBytes));
+assert.equal(progress.length,manifest.shardCount);
+r=await api('auth/login','POST',{username:'chief.admin',password:'Slow#Private2034'});assert.equal(r.status,200,JSON.stringify(r.body));
+const rebuilt=JSON.parse(zlib.gunzipSync(Buffer.from(manifest.shardKeys.map(k=>kv.get(k)).join(''),'base64')));
+assert.equal(rebuilt.db.patients[0].blob,stored.db.patients[0].blob);
+console.log('owner-recovery-e2e: discovery, data retention, session invalidation, sharded uploads, write failure and concurrent-write protection passed');
