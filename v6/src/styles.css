@@ -631,11 +631,17 @@ html[data-calm="on"] *{animation:none!important;transition:none!important;scroll
 .landing[data-mode="light"] .landing-public{color:#4B5563}
 .landing[data-mode="light"] .landing-public:hover{color:#111827}
 
-/* 1 Heritage navy (default) */
+/* 1 Heritage LOMAMO Red (default) */
 .landing[data-theme="heritage"]{background:
-  radial-gradient(1100px 700px at 78% -10%,rgba(201,162,39,.16),transparent 60%),
-  linear-gradient(158deg,#132A4F 0%,#1F3864 46%,#0C1B33 100%)}
-
+  radial-gradient(1100px 700px at 78% -10%,rgba(237,0,0,.18),transparent 60%),
+  linear-gradient(158deg,#7A0000 0%,#ED0000 46%,#3A0000 100%)}
+.landing[data-theme="heritage"] .landing-eyebrow{color:#F9A6A6}
+.landing[data-theme="heritage"] .landing h1 em{color:#F5C451}
+.landing[data-theme="heritage"] .landing-mandate{border-color:rgba(249,166,166,.42);color:#F9C4C4;background:rgba(249,166,166,.08)}
+.landing[data-theme="heritage"] .landing-cta{background:linear-gradient(180deg,#F57171,#ED0000);color:#FFFFFF;border:0}
+.landing[data-theme="heritage"] .landing-cta:hover{box-shadow:0 18px 40px rgba(237,0,0,.34),inset 0 1px 0 rgba(255,255,255,.45)}
+.landing[data-theme="heritage"] .landing-cta:active{transform:translateY(1px)}
+.landing[data-theme="heritage"] .dot.gold{background:#ED0000;box-shadow:0 0 0 4px rgba(237,0,0,.14)}
 /* 2 Dawn - centred, warm */
 .landing[data-theme="dawn"]{background:
   radial-gradient(900px 520px at 50% -8%,rgba(249,115,22,.42),transparent 62%),
