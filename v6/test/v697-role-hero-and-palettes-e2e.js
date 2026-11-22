@@ -234,8 +234,8 @@ ok('Credential packs are labelled by what they contain (pending-only vs official
   devConsole.includes("kind === 'official-rebuild'") &&
   devConsole.includes("kind === 'recovered-rebuild'") &&
   devConsole.includes('including any other Chief accounts, are replaced or deactivated') &&
-  devConsole.includes('Official email alias'));
-ok('Issued credentials carry the actual server email alias so the private document matches sign-in',
+  devConsole.includes('Confirmed work mailbox') && !devConsole.includes('<th>Official email alias</th>'));
+ok('Issued credentials carry the confirmed server mailbox so the private document matches sign-in',
   apiIndex.includes('email: state.creds[uname].email') &&
   devConsole.includes('email: cp.email ||'));
 

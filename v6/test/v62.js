@@ -151,7 +151,7 @@ test('the waiting list keeps the workbook columns and its own reasons', ()=>{
   ok('it carries the intake-balancing reason', run(`WAITLIST.reasons().some(r=>/monthly intake/i.test(r.label))`)===true);
   ok('it carries the relocation reason', run(`WAITLIST.reasons().some(r=>/Relocated to the village/i.test(r.label))`)===true);
   as('coord.nairobird');
-  ok('a coordinator may add to the list', run(`WAITLIST.add(AUTH.user,{name:'Test Household One',phone:'0700000001',areaId:'nairobird',reason:'budget',note:'Balancing against the October budget',household:3}).ok`)===true);
+  ok('a coordinator may add to the list', run(`WAITLIST.add(AUTH.user,{name:'Test Household One',phone:'0700100001',areaId:'nairobird',reason:'budget',note:'Balancing against the October budget',household:3}).ok`)===true);
   ok('a name is required', run(`WAITLIST.add(AUTH.user,{name:'',areaId:'nairobird',reason:'budget'}).ok`)===false);
   ok('a reason is required', run(`WAITLIST.add(AUTH.user,{name:'Test Two',areaId:'nairobird',reason:''}).ok`)===false);
   ok('an "other" reason must be written out', run(`WAITLIST.add(AUTH.user,{name:'Test Three',areaId:'nairobird',reason:'other',note:'x'}).ok`)===false);
@@ -168,7 +168,7 @@ test('promotion carries the household into an assessment without retyping', ()=>
   const r = run(`WAITLIST.promote(AUTH.user,'${id}',{plannedDays:180})`);
   ok('promotion succeeds', r.ok===true, r.msg||'');
   ok('the name is carried', r.patient.name==='Test Household One', r.patient.name);
-  ok('the telephone number is carried', r.patient.phone==='0700000001', r.patient.phone);
+  ok('the telephone number is carried', r.patient.phone==='0700100001', r.patient.phone);
   ok('the ministry area is carried', r.patient.areaId==='nairobird');
   ok('the household size is carried', r.patient.household.children===3, String(r.patient.household.children));
   ok('the days waited stay on the record', r.patient.master.daysOnWaitingList>=0, String(r.patient.master.daysOnWaitingList));
@@ -181,7 +181,7 @@ test('promotion carries the household into an assessment without retyping', ()=>
 
 test('closing a waiting-list entry needs a written reason', ()=>{
   as('caregiver.nairobird');
-  run(`WAITLIST.add(AUTH.user,{name:'Test Household Four',phone:'0700000004',areaId:'nairobird',reason:'relocated',note:'Moved to the village'})`);
+  run(`WAITLIST.add(AUTH.user,{name:'Test Household Four',phone:'0700100004',areaId:'nairobird',reason:'relocated',note:'Moved to the village'})`);
   const id = run(`WAITLIST.rows(AUTH.user,{}).find(r=>r.name==='Test Household Four').id`);
   ok('closing without a reason is refused', run(`WAITLIST.close(AUTH.user,'${id}',{status:'closed',note:''}).ok`)===false);
   ok('closing with a reason works', run(`WAITLIST.close(AUTH.user,'${id}',{status:'withdrawn',note:'Household withdrew after relocation'}).ok`)===true);

@@ -169,7 +169,7 @@ fresh_history() {
   fi
   echo "Running the verifier first - a fresh history is only worth having if it is clean ..."
   if ! python3 v6/tools/verify_no_patient_data.py; then
-    echo "REFUSING: the tree is not clean. Fix the failures above before starting a new history."
+    echo "REFUSING: the tree is not clean or full verification is blocked. Resolve the failed/blocked checks above; repository-only checks cannot authorise a new history."
     exit 1
   fi
   local BR="main-clean"

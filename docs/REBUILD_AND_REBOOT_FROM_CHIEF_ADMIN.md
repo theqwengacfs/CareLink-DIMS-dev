@@ -24,7 +24,7 @@ exactly what will happen.
 | You are signed in as the **Chief System Administrator** on the live online address (not the downloaded file, not a demo). | Accounts live in the shared online vault. A rebuild on a device-only copy fixes nothing. |
 | Your own Chief password is to hand. | The rebuild asks for it again — a stolen session cannot reset every account by itself. |
 | No colleague is mid-form. | The rebuild bumps the shared revision, so tablets must refresh before they save pending fieldwork. |
-| You have a private channel ready (WhatsApp/SMS/printed sheet). | The pack is the only copy of the new passwords. CareLink cannot re-send it. |
+| You have a private channel ready (WhatsApp/SMS/printed sheet). | The handoff is confidential; an encrypted recovery receipt lasts 24 hours. |
 | It is not within 24 hours of a previous rebuild. | A recent pack is still recoverable; the server deliberately refuses a second rebuild so a lost response cannot destroy the first pack. |
 
 ---
@@ -42,18 +42,21 @@ exactly what will happen.
    tab while the request is in flight.
 7. When it succeeds, the credential pack appears in memory. Immediately click
    **Download credential document** (HTML), and/or **Download CSV** / **SMS
-   dispatch text**. The pack is deliberately *not* stored in the database and
-   disappears when you sign out.
+   dispatch text**. Only an encrypted receipt is stored in the database. The
+   plaintext browser copy disappears when you sign out.
 8. Hand each officer only their own line. Never post the file in a group chat.
 
-**What the pack contains:** full name / organogram seat, username, official email
-alias on `@lomamofoundation.org`, the issued password, role, department and
-office.
+**What the pack contains:** the actual roster name, username, explicitly
+confirmed existing work mailbox (otherwise blank), single-use temporary
+password and its expiry, role, department and office. Unconfirmed seats remain
+disabled; CareLink never invents a person or provisions a mailbox.
 
-**What every officer does next:** nothing mandatory. They sign in with the
-username (or the email alias) and the password in their line, and the workspace
-opens immediately. A private password is optional — anyone who wants one can set
-it from their account menu whenever they choose.
+**What every officer does next:** use an approved registered browser. An unknown
+browser creates a pending request for **System → Devices**, not a staff session.
+After approval, redeem the temporary password once before it expires (seven days
+by default, governed by `system.config.temporaryPasswordDays`) and choose a new
+private password. **The API refuses workspace data until private replacement.**
+A stolen token without its browser cookie is not a session.
 
 ### What a rebuild does and does not touch
 
@@ -63,7 +66,7 @@ it from their account menu whenever they choose.
 | Every session on every device (signed out) | The **Chief's own** sign-in and password |
 | Other Chief accounts (deactivated, archived for attribution) | Non-account records: rosters, leave, assets, audit history |
 | Legacy and demo accounts (archived, no authority) | The organisation's name, counties, departments and settings |
-| Email aliases (rewritten on `@lomamofoundation.org`) | Unconfirmed roster seats — these stay **disabled** until confirmed |
+| Only attested existing work mailboxes are included; otherwise blank | Device admission policy and approvals; unconfirmed seats stay **disabled** |
 
 An archived account keeps its name against historic records (an audit trail must
 still say who did what) but can no longer sign in.
@@ -99,7 +102,8 @@ that fixes the problem:
 | A device is signed in as the wrong person | **Sign out**, then sign in again. | None |
 | A lost response during a save | The change is held on the device and retried; wait for the sync chip to say *Shared online source*. | None |
 | One officer forgot their password | **County Administrator → Account recovery** issues a 24-hour recovery code, or the Chief issues one from the Development Console. | Only that officer |
-| An officer's tablet was lost | Development Console → the account → deactivate, then re-issue that seat. | Only that officer |
+| An officer's tablet was lost | **System → Devices → Revoke** that browser; use **Staff credential export → Revoke password** and reissue if its password is also compromised. | Lost browser; optionally that account |
+| The last approved Chief browser was lost | Owner-only [`tools/OWNER-RECOVERY.md`](../tools/OWNER-RECOVERY.md); approve only the exact pending Chief browser. | Named Chief only; device enforcement stays on |
 | The whole roster changed (new organogram, new official email domain, corrupted account vault) | **Rebuild & reactivate** (section 2). | Everyone |
 
 A per-account re-issue is always preferable to a rebuild: it leaves every other
@@ -128,9 +132,11 @@ performed silently.
 1. **Health:** open `https://<your-domain>/api/health`. It must report
    `globallyActivated: true`, `storageMode: cloud-kv-redis` and the expected
    number of accounts.
-2. **One known officer:** sign in on a phone with the username from the pack, then
-   again with the email alias on `@lomamofoundation.org`. Both must reach the
-   workspace with no password-change gate.
+2. **One known officer:** on their browser, verify a pending request grants no
+   staff data; approve its exact device in the Chief Devices console. Redeem the
+   temporary password, set a private password, then confirm scoped workspace
+   access. The temporary password must not sign in again. Test email sign-in
+   only if that officer has a Chief-confirmed existing mailbox.
 3. **Old password:** confirm a password from the previous pack is refused.
 4. **Register:** open the patient register and confirm the programme totals are
    unchanged (a rebuild never touches records).

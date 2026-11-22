@@ -9,8 +9,12 @@ pharmacy and TB dispensing control, cost per patient, finance and procurement,
 fleet, people and leave, media governance, M&E and reporting — with every record
 scoped by county, ministry area and department, and every refusal audited.
 
-Live site (GitHub Pages): <https://theqwengacfs.github.io/CareLink-DIMS-dev/>
-That address opens `public/carelink-v6.html`, which is built from `v6/src/`.
+**Official host:** <https://care-link-dims-dev.vercel.app/>
+
+The former GitHub Pages address redirects to that host. It is **not** another
+commissioning/data-entry installation. The direct HTML/PWA entry points also
+stop boot on the retired Pages host, even if a redirect is blocked. Existing
+browser-local records are not silently deleted or uploaded.
 
 ---
 
@@ -20,8 +24,36 @@ That address opens `public/carelink-v6.html`, which is built from `v6/src/`.
 npm install
 npm run dev          # Vite dev server on 0.0.0.0:5173, rebuilds the bundle on every edit in v6/src
 npm run build        # type-check + production build (also rebuilds the bundle)
-npm run test:all     # lint, acceptance, API security, and actual-master PC/tablet workflow tests
+npm run test:all     # lint, acceptance, API/device security, runtime-synthetic and PC/tablet workflow tests
 ```
+
+`npm run test:phase1` runs the focused device/export, entry-theme/navigation,
+and deterministic 4,000-patient checks (also included in `test:all`). Optional
+real-browser coverage uses a local in-memory API/KV and separate cookie jars;
+it never calls the live service:
+
+```bash
+npm install --no-save --package-lock=false playwright-core@1.65.1
+CHROMIUM_PATH=/absolute/path/to/chrome npm run test:browser:phase1
+```
+
+An npm-only Linux binary is also supported by installing
+`@sparticuz/chromium@153.0.0` without saving it and omitting `CHROMIUM_PATH`;
+its platform shared libraries must be available. Browser binaries are test-only,
+not deployment dependencies. The browser check measures rendered text contrast
+on both entry themes and exercises preview/apply, responsive controls,
+rail-expand/hold/collapse, pending-device approval/revocation, mandatory private
+password replacement, confidential download and the retired-host redirect.
+
+Privacy is a **separate gate**. `npm run privacy:check` is the default full
+check: a missing authorised comparison source reports **BLOCKED / exit 2**, not
+a detected leak and never clearance. `npm run privacy:repository` explicitly
+runs only the independent repository checks and cannot grant full clearance.
+Use the authorised workbook only in ephemeral storage, never commit it, and
+purge the source afterwards. See [Privacy verification](docs/PRIVACY_VERIFICATION.md)
+for private reader setup, exact scopes/exit codes and the JSON contract.
+`test:all` includes Python 3 standard-library verifier regressions; passing
+functional tests or a limited scan is not patient-identity certification.
 
 Open the single file directly, with no server at all:
 
@@ -29,11 +61,12 @@ Open the single file directly, with no server at all:
 v6/LOMAMO-CareLink-DIMS-v6.0.html
 ```
 
-The offline file and the hosted service have separate installations. A fresh
-installation offers first-run commissioning, where the chief administrator
-chooses a setup password. Once an installation is commissioned, first-run setup
-is locked; use the issued account or the sign-in recovery flow. Do not use a
-shared demonstration password or reset an active database to regain access.
+The downloaded file is an isolated evaluation/offline tool, not an alternative
+production installation and not a way around hosted device approval. Use only
+the official host for the shared staff/patient register. A fresh hosted
+installation offers first-run commissioning once; an already commissioned
+installation must never be reset or populated with demo data to regain access.
+Use an issued account or the owner-only recovery runbook instead.
 
 ### Vercel online host (one shared source, mandatory KV)
 
@@ -60,66 +93,85 @@ before opening the console; a failed hosted login, setup, activation or password
 change never falls back to a device-local account or demo register. Browser
 storage is a cache for the online client, not a second installation.
 
-Live first-run commissioning starts with an **empty production register**. The
-full 4,000-patient synthetic reference package is deliberately separate because
-its related visits, PDCA cycles and departmental records total roughly 80 MB of
-JSON, exceeding Vercel's 4.5 MB Function request/response limit and Upstash's
-10 MB free-tier request limit. After the four steps and before global
-activation, the Chief opens **System → Master data import**, downloads
-`master/CareLink-Reference-Master-v6.6.json`, and selects that same file for a
-one-time, authenticated, chunked import. The server verifies SHA-256 digests,
-every required collection and relationship, unique identifiers and all defined
-completeness checks before committing. Live accounts, private passwords,
-organisation settings and activation flags are preserved.
+### Phase 1 entry identity and registered-device sign-in
 
-Large online states are gzip-compressed in KV and downloaded through bounded
-collection pages, so a fresh PC or tablet can reconstruct the complete shared
-record without an oversized Vercel response. The hosted wizard refuses an
-oversized initial setup before it can claim success or leave a device-only
-commissioned document behind. Rebuild the public master with
-`npm run build:reference-master`; its source is the official synthetic seeder,
-never a real patient workbook.
+The Chief System Administrator selects one of **two official entry themes** in
+organisation settings: **LOMAMO Emblem Dark** and **LOMAMO Letterhead Light**.
+Preview either the landing or sign-in page without saving; **Apply to landing &
+sign-in** saves the shared `system.config.entryTheme` and a server audit event.
+Both palettes use the root letterhead's red/black/white/grey and pass the
+`safeFill` / `badgeOnFill` text contrast gates. Workspace palettes are unchanged.
 
-### PC setup → full master → tablets
+Staff sign-in is enforced by the API, not a browser fingerprint or a local flag:
 
-1. On a PC, open the live Vercel URL and complete all four first-run steps once.
-   Wait for the shared-online confirmation; do not treat a cached screen as a
-   successful setup.
-2. Sign in as **Chief / System Administrator** and complete the mandatory
-   private-password change.
-3. Open **System → Master data import**. Under step 1, click **Full
-   4,000-patient reference master** to download the JSON file. Keep it unchanged.
-4. Click **Select file** and choose that downloaded JSON. Review the automated
-   quality evidence, then click **Validate & upload full master**. Leave the PC
-   online until every chunk and the final shared-KV commit have been confirmed.
-5. Confirm that the register shows **4,000 patients**, the quality view has no
-   findings, and the import is recorded in the online audit trail.
-6. Use **Global activation** to issue staff credentials. Give each tablet user
-   their own credentials; every tablet opens the same Vercel URL and downloads
-   the same paged online state. Demo and setup entry points remain locked after
-   activation.
+1. A correct password on an unknown browser creates a **pending** device entry
+   (label, type, first seen, verified requesting account), not a staff session.
+2. The Chief opens **System → Devices**, confirms the device code with its user
+   through a trusted channel, and approves or rejects it after reauthentication.
+3. An approved browser can sign in; every authenticated API operation rechecks
+   approval and the opaque HttpOnly cookie. Revoking a device blocks its existing
+   tokens too. Clearing cookies requires approval again.
 
-The reference package is synthetic evaluation content, not real patient data.
-Its import is one-time and is refused after global activation. A real master
-workbook continues through the separate governed row-import/reconciliation
-workflow; it must never be published as a static file.
+The commissioning browser (or the first password-verified Chief browser on a
+legacy installation) is enrolled once. Removing every device never reopens that
+bootstrap. If the last Chief browser is lost, follow
+[`tools/OWNER-RECOVERY.md`](tools/OWNER-RECOVERY.md). The public portal remains
+open without device admission. **Phase 2 email/SMS one-time codes are deferred**;
+no provider is configured and provider secrets belong only in Vercel environment
+variables.
 
-`POST /api/public/demo-bootstrap` is limited to a fresh, uncommissioned
-evaluation installation. It is refused once live setup exists and permanently
-after `globallyActivated`; the Landing, Sign-In and first-run setup UI use the
-same server-provided activation/commissioning flags to remove demo controls.
+### Chief staff-account export
 
-### Rebuilding or rebooting from the Chief System Administrator account
+Open **System → Staff credential export** on the official host. The CSV comes
+from the actual `OFFICIAL_ROSTER`, not generated people. Unconfirmed seats retain
+their seat labels and `unconfirmed:true` and receive no credential.
 
-Passwords are stored as one-way hashes, so re-issuing them is a deliberate,
-audited operation rather than a lookup. The full procedure — what a rebuild
-replaces, what it preserves, how to recover a pack you did not download, what
-counts as a "reboot" instead, and the three-minute health check afterwards — is in
+- Work mail is blank unless the Chief has explicitly attested that an existing
+  `@lomamofoundation.org` mailbox is real. CareLink does not create mailboxes or
+  infer addresses from names. Sign in by username when no mailbox is confirmed.
+- After Chief reauthentication, the API generates temporary passwords, stores
+  salted hashes and a server-only encrypted receipt in KV, and returns the
+  confidential download. No plaintext password file is stored on the server or
+  in the repository/browser storage.
+- Temporary passwords are **single-use**, expire in **seven days** by default
+  (`system.config.temporaryPasswordDays`, Chief-configurable 1–30), and require a
+  private replacement **before any workspace data**. A same-attempt/device
+  network retry is idempotent; a new attempt cannot reuse a redeemed password.
+- Chief/private credentials are retained, not exported. Use **Revoke password**
+  for a compromised staff account; it invalidates existing sessions. A subsequent
+  issuance creates a fresh temporary password.
+- Every issuance/export is audited with actor, time, row count and acting device.
+  Give each recipient only their own row; never post a pack in a group chat.
+
+A full hierarchy rebuild remains a separate, deliberately destructive account
+operation. Its procedure and 24-hour encrypted-pack recovery are documented in
 [`docs/REBUILD_AND_REBOOT_FROM_CHIEF_ADMIN.md`](docs/REBUILD_AND_REBOOT_FROM_CHIEF_ADMIN.md).
-In short: **Development Console → Provisioning → Rebuild & reactivate** (Chief
-password + type `REBUILD`), then download the confidential pack immediately;
-**Recover recent pack** covers a lost download for 24 hours. Every issued account
-signs in and works straight away — a personal password is optional.
+Use the smallest per-account/device action rather than rebuilding everyone.
+
+### Runtime synthetic evaluation register (never production data)
+
+Live commissioning starts with an **empty production register**. Use the
+4,000-patient synthetic reference only in an explicitly isolated evaluation
+installation **before global activation**, never in the existing live database.
+The reference and related programme/departmental records are generated at runtime
+by `api/synthetic-reference.mjs`; no dataset is committed, bundled, or published
+under `public/master/`.
+
+The Chief's authenticated **System → Master data import → Full 4,000-patient
+reference master** download calls the generator. The same JSON may be inspected
+and imported through the governed, digest-verified chunked upload, or explicitly
+auto-fed by the Chief for evaluation. The API preserves live accounts, private
+passwords and organisation settings and refuses a repeat/post-activation import.
+Every generated record carries `synthetic:true`; patient/staff/roster phones use
+only `07001xxxxx` / `07003xxxxx` / `07005xxxxx`, national IDs `9x,xxx,xxx`, CCC
+`CCC/9xxxxx`, and mail `@lomamo.example`. The seed and anchor are fixed; see
+[`docs/DEMO_REGISTER_SPECIFICATION.md`](docs/DEMO_REGISTER_SPECIFICATION.md).
+
+Large online states use verified immutable KV shards and bounded/compressed
+client responses. `npm run build:reference-master` is an **optional local
+export**, written under ignored `v6/data/`; it is not a deployment build input.
+Anonymous `POST /api/public/demo-bootstrap` is disabled. No verification step in
+this change writes demo content to the live deployment.
 
 ### What happens when a tablet loses the network
 
@@ -203,9 +255,9 @@ Vite plugin hot-reloads the preview when anything in `v6/src/` changes.
 
 ## Personal data
 
-This repository is public. It contains **no real patient record**. The generated
-4,000-patient reference register is synthetic evaluation content with reserved
-contact details and no credential secrets. The Administration's master patient
+This repository is public: **never add a real patient record or sensitive
+internal document**. The generated 4,000-patient reference register is synthetic
+evaluation content with reserved contact details and no credential secrets. The Administration's master patient
 workbook was studied, mapped field by field into the system
 (`v6/docs/20_MASTER_WORKBOOK_MAPPING.md`) and then removed from the repository;
 what remains is its structure, vocabulary, formulas and mapping. Real records are
@@ -228,8 +280,17 @@ recorded consent under the LOMAMO Ethical Storytelling Policy.
 
 ## Privacy tooling
 
+The verifier distinguishes **failed checks (exit 1)** from **blocked checks
+(exit 2)**. The full default fails closed when the authorised identity source is
+unavailable. An explicitly limited structural/contact scan is **not** full
+patient-identity or deep-history certification. Private setup, source cleanup
+and automation requirements are in [Privacy verification](docs/PRIVACY_VERIFICATION.md).
+No workbook or extracted identity corpus belongs in Git.
+
 ```bash
-python3 v6/tools/verify_no_patient_data.py     # prove no patient identity is in the repository
+npm run privacy:check                         # full defined check; BLOCKED without the authorised source
+npm run privacy:repository                    # limited scope only; identity comparison NOT RUN
+npm run test:privacy-verifier                 # synthetic regression tests, not a real-patient sweep
 bash v6/tools/purge_patient_data.sh            # report what a history rewrite would erase
 bash v6/tools/purge_patient_data.sh --rewrite  # rewrite local history (backup bundle first)
 python3 v6/tools/pack_portal_media.py          # repack the public-portal photography

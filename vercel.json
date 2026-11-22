@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/index.js": {
-      "includeFiles": "public/master/CareLink-Reference-Master-v6.6.json",
+      "includeFiles": "v6/src/{data.js,data6.js,inventory_data.js,core.js}",
       "maxDuration": 60
     }
   },

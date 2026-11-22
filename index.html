@@ -6,15 +6,16 @@
     <meta name="theme-color" content="#202020" />
     <meta name="description" content="CareLink · LOMAMO Foundation Unified Operating System for Departments & Partners (CareLink C-DIMS v6.9.6)" />
     <title>CareLink C-DIMS</title>
+    <link rel="canonical" href="https://care-link-dims-dev.vercel.app/" />
     <!--
-      The application lives at public/carelink-v6.html when this repository is
-      served as it stands (GitHub Pages), and at carelink-v6.html when a build
-      tool flattens public/ into the site root (Vercel, Netlify, Lovable).
-      The loader below tries the first, then the second, so one entry page works
-      on every host. With scripting off, both links are on the page.
+      GitHub Pages is retired: redirect before probing any local app bundle.
+      The official host serves carelink-v6.html at its root; a local repository
+      preview may still need public/carelink-v6.html. With scripting off, show
+      only the official-service link and the no-commissioning notice.
     -->
     <script>
       (function () {
+        if (window.location.hostname === 'theqwengacfs.github.io') { window.location.replace('https://care-link-dims-dev.vercel.app/'); return; }
         var paths = ['carelink-v6.html?v=6.9.6', 'public/carelink-v6.html?v=6.9.6'];
         var i = 0;
         function go(p) { window.location.replace(p); }
@@ -32,7 +33,6 @@
         if (window.location.protocol === 'file:') { go(paths[1]); } else { tryNext(); }
       })();
     </script>
-    <noscript><meta http-equiv="refresh" content="0; url=public/carelink-v6.html" /></noscript>
     <style>
       :root{ color-scheme:dark; }
       *{ box-sizing:border-box; }
@@ -70,8 +70,9 @@
       <h1>Opening CareLink C-DIMS</h1>
       <p>Unified Operating System Uniting All Foundation Departments &amp; Partners · Saving Lives, Preventing Orphans</p>
       <div class="bar" aria-hidden="true"><i></i></div>
-      <a class="cta" href="carelink-v6.html?v=6.9.6">Open the application &rarr;</a>
-      <div class="alt"><a href="public/carelink-v6.html?v=6.9.6">If that does not open, try the repository layout</a></div>
+      <a class="cta" href="https://care-link-dims-dev.vercel.app/">Open official CareLink &rarr;</a>
+      <div class="alt">GitHub Pages is a redirect only. Never commission or enter data there.</div>
+      <noscript><p>JavaScript is disabled. Use the official service link above. Do not commission or enter data on GitHub Pages.</p></noscript>
       <div class="foot">
         If the application does not open on its own, use the button above.<br />
         Serving our neighbours in love · Kisumu &amp; Homa Bay County Offices

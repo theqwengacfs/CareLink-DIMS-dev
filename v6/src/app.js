@@ -18,7 +18,7 @@ const DEMO_PREVIEW = {
     this.savedDb = DB.db;
     this.savedUser = AUTH.user; this.savedSession = AUTH.session;
     const isolated = DB.blank();
-    seedOfficial(isolated, new Date(), {patients:DEMO_REGISTER.patients, mustChange:false});
+    seedSyntheticDataset(isolated, new Date('2026-11-22T00:00:00.000Z'), {patients:DEMO_REGISTER.patients, mustChange:false});
     isolated.meta = Object.assign(isolated.meta||{}, {label:'Isolated synthetic board preview', demoPreview:true, demoSeeded:true, seeded:'official'});
     DB.db = isolated; DB._vIdx=null;
     const user = (isolated.users||[]).find(u=>u.roleId==='director' && u.status==='active')
@@ -184,6 +184,7 @@ let _booted = false;
 async function boot(){
   if(_booted) return;
   _booted = true;
+  if(typeof CANONICAL_HOST!=='undefined' && CANONICAL_HOST.enforce()) return;
   DB.load();
   applyTheme();
   /* Attach click, submit, change and hash listeners synchronously at 0 ms
@@ -262,7 +263,7 @@ function go(view, params={}){
   APPX.view = view; APPX.params = params;
   if(typeof NAVP!=='undefined'){
     NAVP._tempOpen = false;
-    NAVP._workspaceEngaged = (view !== 'home');
+    NAVP._workspaceEngaged = true;
   }
   if(typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.isActive()) SILENT_OVERRIDE.recordView(view);
   const q = Object.keys(params).length? '?'+Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&'):'';
@@ -609,6 +610,8 @@ function contentFor(view, params, user, options = {}){
   try{
     const html = (()=>{
     switch(view){
+      case 'devices': return user.roleId==='chief' ? renderDevicesConsole(user) : deniedPanel('system.config');
+      case 'staffaccounts': return user.roleId==='chief' ? renderStaffAccountsConsole(user) : deniedPanel('system.config');
       case 'home': return renderHome(user, {omitHeader:options.omitHomeHeader});
       case 'attention': return guard('patient.list')||renderAttention(user);
       case 'patients': return guard('patient.list')||renderPatients(user,params);
@@ -770,6 +773,13 @@ function onClick(e){
   const el = e.target.closest('[data-act]');
   if(!el) return;
   const act = el.dataset.act;
+  if(AUTH.user && typeof NAVP!=='undefined' && !NAVP.narrow() && ['go','nav-group'].includes(act) &&
+      el.closest && el.closest('#npane') && NAVP.effectiveRail(AUTH.user,APPX.view)){
+    e.preventDefault();
+    NAVP.expandTemporarily();
+    render();
+    return;
+  }
   if(el.disabled && act!=='noop') return;
   if(el.dataset.skip) return;
   const fn = ACTIONS[act];
@@ -893,33 +903,23 @@ const ACTIONS = {
     toast('Draft saved','Stored on this device. Returned cleanly to your console.','ok');
   },
   'discard-draft':(d)=>{ const fid=d.draftid||d.form; clearDraft(fid); closeModal(true); toast('Draft discarded','It will not be restored.','warn'); },
-  'set-landing-theme':(d)=>{
-    if(!(RBAC.has(AUTH.user,'system.config')||RBAC.has(AUTH.user,'org.manage')))
-      return toast('Not permitted','Only a system administrator may change the landing page identity.','err');
-    const t = LANDING_THEMES.find(x=>x.id===d.id);
-    if(!t) return toast('Unknown theme','The selected theme is not available. The default remains in use.','err');
-    const before = DB.db.settings.landingTheme||DEFAULT_THEME;
-    DB.db.settings.uiEpoch = 691;
-    DB.db.settings.landingTheme = t.id;
-    DB.db.settings.landingThemeExplicit = true;
-    AUDIT.append({actor:AUTH.user.id,action:'landing.theme_changed',entity:'setting',entityId:'landingTheme',
-      detail:`${before} to ${t.id}`});
-    DB.save(); toast('Landing page updated', t.name+' is now the front door.','ok');
-    render();
+  'set-landing-theme':async(d)=>{
+    try{ await ENTRY_THEME.apply(d.id); closeModal(true); render(); toast('Entry theme applied','Landing and sign-in now use the shared, audited setting.','ok'); }
+    catch(error){ toast('Theme not changed',error.message,'err'); }
   },
   'preview-theme':(d)=>{
-    const t = LANDING_THEMES.find(x=>x.id===d.id)||LANDING_THEMES[0];
-    const cur = landingTheme().id;
-    /* A preview must not change what anyone else sees, so it is drawn from the
-       same renderer into a frame rather than by saving the setting. */
-    DB.db.settings._landingPreview = t.id;
-    let html='';
-    try{ html = renderLanding(); } finally { delete DB.db.settings._landingPreview; }
-    openModal({title:'Landing preview', sub:`${t.name} · ${t.mode==='dark'?'dark':'light'} · nothing has been saved`, wide:true,
-      body:`<div class="theme-preview-wrap"><div class="theme-preview-inner">${html}</div></div>
-        <div class="row" style="margin-top:12px"><span class="chip">${esc(t.blurb)}</span></div>`,
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
-        <button class="btn btn-primary" data-act="set-landing-theme" data-id="${t.id}" ${cur===t.id?'disabled':''}>${cur===t.id?'Already in use':'Apply this theme'}</button>`});
+    if(!AUTH.user || AUTH.user.roleId!=='chief') return toast('Chief access required','Only the Chief may preview or apply the public entry identity.','err');
+    const t=ENTRY_THEMES.find(x=>x.id===d.id)||ENTRY_THEMES[0], page=d.page==='signin'?'signin':'landing';
+    let html=''; ENTRY_THEME.previewId=t.id;
+    try{html=page==='signin'?renderLogin6():renderLanding6();}finally{ENTRY_THEME.previewId=null;}
+    ENTRY_THEME.previewed.add(t.id);
+    const measured=ENTRY_THEME.measurements(t.id), passed=measured.every(m=>m.ratio>=4.5);
+    closeModal(true);
+    openModal({title:'Official entry preview',sub:t.name+' · nothing saved · '+page,wide:true,
+      body:`<div class="seg" aria-label="Preview page"><button data-act="preview-theme" data-id="${t.id}" data-page="landing" class="${page==='landing'?'on':''}">Landing</button><button data-act="preview-theme" data-id="${t.id}" data-page="signin" class="${page==='signin'?'on':''}">Sign-in</button></div>
+        <div class="theme-preview-wrap"><div class="theme-preview-inner" inert>${html}</div></div>
+        <ul class="entry-contrast-evidence">${measured.map(m=>`<li>${esc(m.label)}: <b>${m.ratio.toFixed(2)}:1</b> ${m.ratio>=4.5?'PASS':'FAIL'}</li>`).join('')}</ul>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="set-landing-theme" data-id="${t.id}" ${passed?'':'disabled'}>Apply to landing &amp; sign-in</button>`});
   },
   'goto-public':()=>{ APPX.screen='public'; APPX.params={}; refreshPublicFeed(); render(); window.scrollTo({top:0}); },
   'my-profile':()=>{
@@ -1403,7 +1403,7 @@ const ACTIONS = {
   'load-reference':()=>{
     if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return toast('Reference data locked', 'Synthetic reference data cannot be loaded into the globally activated installation.', 'err');
     if(!RBAC.has(AUTH.user,'system.import')) return toast('Not permitted','Only a system administrator may load the reference register.','err');
-    const n = DB.seedOfficial({patients:DEMO_REGISTER.patients});
+    const n = DB.seedSynthetic({patients:DEMO_REGISTER.patients});
     AUDIT.append({actor:AUTH.user.id,action:'register.reference_loaded',entity:'system',entityId:'register',
       detail:`${n} synthetic patients loaded as the reference register`});
     DB.save();

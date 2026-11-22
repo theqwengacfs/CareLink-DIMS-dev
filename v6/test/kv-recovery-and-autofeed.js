@@ -1,3 +1,4 @@
+const {dispatchWithDeviceCookie}=require('./device-cookies.cjs');
 const requireCrypto = require('node:crypto');
 /* End-to-end verification of:
    1. Real Upstash REST verbatim-body KV behavior (double-JSON-string prevention & healing)
@@ -117,7 +118,7 @@ global.fetch = async (input, init = {}) => {
       setHeader() {},
       end(v) { rawResponse = v || ''; },
     };
-    await handler(req, res);
+    await dispatchWithDeviceCookie(handler,req,res);
     const bytes = Buffer.byteLength(rawResponse);
     assert.ok(bytes <= 4.5 * 1024 * 1024, `Vercel response exceeded 4.5 MB for ${url}: ${bytes}`);
     return {
@@ -178,7 +179,8 @@ global.fetch = async (input, init = {}) => {
   const loginRes = await pc.run(`AUTH.loginOnline('system.admin', ${JSON.stringify(setupPw)}, 'pc')`);
   assert.equal(loginRes.ok, true, JSON.stringify(loginRes));
   const mustChangeHtml = pc.run('renderMustChange()');
-  assert.ok(/autoFeedCloudMaster/.test(mustChangeHtml), 'Chief first-login password screen must offer pre-checked 4,000-patient Cloud Auto-Feed');
+  assert.ok(/autoFeedCloudMaster/.test(mustChangeHtml), 'Chief first-login password screen must offer explicit opt-in synthetic evaluation feed');
+  assert.ok(!/name="autoFeedCloudMaster"[^>]*checked/.test(mustChangeHtml),'production setup must not opt into synthetic data by default');
 
   pc.run(`__form = { current:${JSON.stringify(setupPw)}, password:${JSON.stringify(privatePw)}, password2:${JSON.stringify(privatePw)}, autoFeedCloudMaster:'1' }; AUTH.mustChange = true;`);
   await pc.run('FORMS.mustchange6(new FormData())');
@@ -197,7 +199,7 @@ global.fetch = async (input, init = {}) => {
 
   /* 4. Verify manual CSV Master Import (`IMPORTER`) still works cleanly alongside the 4,000-patient dataset */
   pc.run(`(()=>{
-    const csv = 'Patient Name,File Number,Ministry Area,CCC Number,Phone,Sex,Age,Intake Date,Status,Referral Source,Caregiver,Weight (kg),Diagnosis,Household Children,Discharge Date\\n"Jane Atieno Test","LOM-IMP-9999","Nyalenda","CCC/99999","0712345678","F",36,"2026-04-10","Active","JOOTRH","Caregiver Nyalenda",60,"HIV - on ART",2,""';
+    const csv = 'Patient Name,File Number,Ministry Area,CCC Number,Phone,Sex,Age,Intake Date,Status,Referral Source,Caregiver,Weight (kg),Diagnosis,Household Children,Discharge Date\\n"Jane Atieno Test","LOM-IMP-9999","Nyalenda","CCC/999999","0700109999","F",36,"2026-04-10","Active","JOOTRH","Caregiver Nyalenda",60,"HIV - on ART",2,""';
     const parsed = IMPORTER.parseCSV(csv);
     IMPORTER.reset();
     IMPORTER.file = { name:'incremental-intake.csv' };
@@ -222,9 +224,9 @@ global.fetch = async (input, init = {}) => {
 
   /* Turn off replica lag before synchronous single-call health probe on fresh tablet, then re-enable for tablet login! */
   simulateReadReplicaLag = false;
-  const staff = pack.rows.find((r) => r.username === 'caregiver.nyalenda');
+  const staff = pack.rows.find((r) => r.username === 'caregiver.ombeyi');
   assert.ok(staff, 'a ministry-area clinical account must be available for scoped reconstruction');
-  const expectedPatientIds = JSON.parse(pc.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda' && !String(p.id).startsWith('imp')).map(p=>p.id))`));
+  const expectedPatientIds = JSON.parse(pc.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='ombeyi' && !String(p.id).startsWith('imp')).map(p=>p.id))`));
   assert.ok(expectedPatientIds.length > 0 && expectedPatientIds.length < 3334, 'caregiver receives a scoped subset, not the full database');
   const expectedVisitCount = Number(pc.run(`DB.db.visits.filter(v=>${JSON.stringify(expectedPatientIds)}.includes(String(v.patientId))).length`));
   const tablet = client();
@@ -235,6 +237,8 @@ global.fetch = async (input, init = {}) => {
   simulateReadReplicaLag = true;
   const tabletLogin = await tablet.run(`AUTH.loginOnline(${JSON.stringify(staff.username)}, ${JSON.stringify(staff.tempPassword)}, 'tablet')`);
   assert.equal(tabletLogin.ok, true, JSON.stringify(tabletLogin));
+  tablet.run(`__form={current:${JSON.stringify(staff.tempPassword)},password:'Replica#Private2027!Xy',password2:'Replica#Private2027!Xy'};`);
+  await tablet.run('FORMS.mustchange6(new FormData())');
   const actualPatientIds = JSON.parse(tablet.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`));
   assert.equal(tablet.run('DB.db.patients.length'), expectedPatientIds.length, `Fresh tablet pulls only its assigned-area patients under replica lag (expected ${expectedPatientIds.length}, actual ${actualPatientIds.length}; missing ${expectedPatientIds.filter(id=>!actualPatientIds.includes(id)).slice(0,3).join(',')})`);
   assert.deepEqual(JSON.parse(tablet.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), expectedPatientIds, 'no cross-area patient records are reconstructed on the tablet');
@@ -285,7 +289,7 @@ global.fetch = async (input, init = {}) => {
     };
     let status = 0; let raw = '';
     const res = { set statusCode(v) { status = v; }, get statusCode() { return status; }, setHeader() {}, end(v) { raw = v || ''; } };
-    await handler(req, res);
+    await dispatchWithDeviceCookie(handler,req,res);
     return { status, body: JSON.parse(raw) };
   })();
   assert.equal(beatEmptyStream.status, 200, 'Pre-drained readableEnded stream must resolve immediately without hanging');
@@ -307,12 +311,19 @@ global.fetch = async (input, init = {}) => {
     };
     let status = 0; let raw = '';
     const res = { set statusCode(v) { status = v; }, get statusCode() { return status; }, setHeader() {}, end(v) { raw = v || ''; } };
-    await handler(req, res);
+    await dispatchWithDeviceCookie(handler,req,res);
     return { status, body: JSON.parse(raw) };
   })();
   assert.equal(bufferLogin.status, 200, 'Buffer req.body on /api/auth/login must parse cleanly');
   assert.equal(bufferLogin.body.ok, true);
   assert.equal(kvSetCounter, setsBeforeLogin, 'Login must not rewrite the large cloud manifest; its small session lease uses an atomic Redis command');
+  assert.equal(bufferLogin.body.passwordBeforeWorkspace, true, 'A temporary password cannot open a staff workspace');
+  const secondPrivatePassword = 'Brook#Private2030!Xy';
+  const secondReplacement = await apiFetch('api/auth/change-password', {
+    method: 'POST', headers: { Authorization: `Bearer ${bufferLogin.body.token}` },
+    body: JSON.stringify({ current: secondStaff.tempPassword, password: secondPrivatePassword }),
+  });
+  assert.equal(secondReplacement.status, 200, 'Redeem the one-use temporary before testing a fresh private-password login');
   const bufferLogout = await apiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${bufferLogin.body.token}` }, body: '{}' });
   assert.equal(bufferLogout.status, 200, 'The isolated API login must be releasable before retry tests');
 
@@ -331,7 +342,7 @@ global.fetch = async (input, init = {}) => {
     },
   });
   flakyLaptop.run(`APPX.host = ${JSON.stringify(health)}; SYNC.server = APPX.host;`);
-  flakyLaptop.ctx.__form = { username: secondStaff.username, password: secondStaff.tempPassword };
+  flakyLaptop.ctx.__form = { username: secondStaff.username, password: secondPrivatePassword };
   await flakyLaptop.run('FORMS.login6(new FormData())');
   assert.equal(flakyLaptop.run('LOGIN6.busy'), false, 'LOGIN6.busy must clear after recovered login');
   assert.equal(flakyLaptop.run('APPX.screen'), 'app', 'Transient login drop must recover automatically via retry');
@@ -347,7 +358,7 @@ global.fetch = async (input, init = {}) => {
     fetch: async () => { throw new Error('The shared online service timed out while responding.'); },
   });
   offlineHosted.run(`APPX.host = ${JSON.stringify(health)}; SYNC.server = APPX.host;`);
-  offlineHosted.ctx.__form = { username: secondStaff.username, password: secondStaff.tempPassword };
+  offlineHosted.ctx.__form = { username: secondStaff.username, password: secondPrivatePassword };
   await offlineHosted.run('FORMS.login6(new FormData())');
   assert.equal(offlineHosted.run('LOGIN6.busy'), false, 'LOGIN6.busy must never remain stuck on Verifying...');
   assert.ok(!/Verifying\.\.\./.test(offlineHosted.run('renderLogin6()')), 'Rendered Sign-In button must not stay on Verifying...');

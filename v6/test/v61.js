@@ -75,7 +75,7 @@ test('Administration\'s own staff list is loaded, seat by seat', ()=>{
   ok('Wycliff Otieno Odhiambo is the Kisumu hospital focal person', named.hospital==='Wycliff Otieno Odhiambo', named.hospital);
   ok('Washington Ayub Odero heads the Hospital Department', run(`DB.db.users.find(u=>u.username==='mcm.kisumu').name`)==='Washington Ayub Odero');
   ok('The three Homa Bay ministry coordinators have correctly scoped seats', run(`['coord.makongeni','coord.shauriyako','coord.sofia'].every((u,i)=>{const x=DB.db.users.find(x=>x.username===u);return x && x.countyId==='homabay' && x.areaIds[0]===['makongeni','shauriyako','sofia'][i]})`));
-  ok('Director has the requested mock alias and Homa Bay reports to the director', run(`DB.db.users.find(u=>u.username==='director').email`)==='martinchama@lomamofoundation.org' && run(`DB.db.users.find(u=>u.username==='coord.homabay').reportsTo`)==='u-director');
+  ok('Director has the requested mock alias and Homa Bay reports to the director', run(`DB.db.users.find(u=>u.username==='director').email`)==='director@lomamo.example' && run(`DB.db.users.find(u=>u.username==='coord.homabay').reportsTo`)==='u-director');
   ok('Susan Mildred is the hospital deputy', named.hospitalDeputy==='Susan Mildred', named.hospitalDeputy);
   ok('Ashar Omondi heads Staff Welfare', named.welfare==='Ashar Omondi', named.welfare);
   ok('John Shikuku Omollo deputises in Vehicle & Transport', named.fleetDeputy==='John Shikuku Omollo', named.fleetDeputy);

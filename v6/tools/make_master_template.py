@@ -132,13 +132,13 @@ def build():
     header_row(ws, 5, headers, widths)
 
     demo = [
-        ["DEMO Patient 001", "LOM-001", "Nyalenda", "CCC/10001", "0700000001", "F", 34,
+        ["DEMO Patient 001", "LOM-001", "Nyalenda", "CCC/900001", "0700100001", "F", 34,
          "2026-03-14", "Active", "Demo County Referral Hospital", "Demo Caregiver", 58, 162,
          "HIV — on ART", 2, 1, "Single parent", "", ""],
-        ["DEMO Patient 002", "LOM-002", "Ombeyi", "CCC/10002", "0700000002", "M", 47,
+        ["DEMO Patient 002", "LOM-002", "Ombeyi", "CCC/900002", "0700100002", "M", 47,
          "2026-01-08", "Discharged", "Demo CCC — Nyalenda Health Centre", "Demo Caregiver", 66, 170,
          "TB — treatment completed", 3, 2, "Grandparent", "2026-06-30", "Treatment completed; household stable"],
-        ["DEMO Patient 003", "LOM-003", "Makongeni", "CCC/10003", "0700000003", "F", 29,
+        ["DEMO Patient 003", "LOM-003", "Makongeni", "CCC/900003", "0700100003", "F", 29,
          "2026-05-02", "Awaiting verification", "Demo Sub-County Hospital (Homa Bay)", "Demo Caregiver", 51, 158,
          "HIV — newly initiated", 1, 0, "Both parents", "", ""],
     ]
@@ -209,8 +209,8 @@ def build():
         ["Patient Name", "Yes", "Full name as written on the LOMAMO patient assessment form.", "DEMO Patient 001"],
         ["File Number", "No", "The organisation's patient file / registration number. Used for duplicate matching.", "LOM-001"],
         ["Ministry Area", "Yes", "The programme area of the patient. Must match a configured ministry area.", "Nyalenda"],
-        ["CCC Number", "No", "Comprehensive Care Clinic identifier. The strongest duplicate-matching key.", "CCC/10001"],
-        ["Phone Number", "No", "Contact number for follow-up. Treated as personal data.", "0700000001"],
+        ["CCC Number", "No", "Comprehensive Care Clinic identifier. The strongest duplicate-matching key.", "CCC/900001"],
+        ["Phone Number", "No", "Contact number for follow-up. Treated as personal data.", "0700100001"],
         ["Sex", "No", "F or M.", "F"],
         ["Age", "No", "Age in completed years at intake.", "34"],
         ["Intake Date", "Yes", "Date of assessment / enrolment. Required for Patient-Days calculations.", "2026-03-14"],

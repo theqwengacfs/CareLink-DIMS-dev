@@ -1,0 +1,4 @@
+# Optional reader for the full, authorised-workbook comparison.
+# Install in an ephemeral environment outside this public checkout.
+openpyxl==3.1.5
+defusedxml==0.7.1

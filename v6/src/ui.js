@@ -186,6 +186,8 @@ function navModel(user){
     ]},
     { label:'System', show:isSystemAdmin||has('dev.console'), items:[
       { id:'devconsole', label:'Development console', icon:'flow', show:has('dev.console') },
+      { id:'devices', label:'Devices', icon:'shield', show:user.roleId==='chief' },
+      { id:'staffaccounts', label:'Staff credential export', icon:'key', show:user.roleId==='chief' },
       { id:'users', label:'Users & accounts', icon:'userplus', show:has('user.view') },
       { id:'roles', label:'Roles & permissions', icon:'key', show:has('role.manage')||has('user.approve') },
       { id:'governance', label:'Credentials & recovery', icon:'lock', show:has('user.approve')||has('system.config') },
