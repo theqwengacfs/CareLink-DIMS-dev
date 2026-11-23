@@ -42,7 +42,11 @@
     }
   ],
   "icons": [
+    { "src": "./icons/carelink-144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/carelink-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
     { "src": "./icons/carelink-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/carelink-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/carelink-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
     { "src": "./icons/carelink-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "./icons/carelink-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
