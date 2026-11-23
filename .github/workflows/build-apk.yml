@@ -73,7 +73,7 @@ jobs:
           "$SDKMANAGER" --version
           # Accept all SDK licenses first (required before installing packages).
           yes | "$SDKMANAGER" --licenses || true
-          "$SDKMANAGER" "build-tools;36.1.0" "platforms;android-35" "platform-tools"
+          "$SDKMANAGER" "build-tools;36.1.0" "platforms;android-36" "platform-tools"
 
       - name: Install Bubblewrap
         run: |
