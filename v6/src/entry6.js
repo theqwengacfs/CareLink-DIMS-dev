@@ -266,7 +266,7 @@ function renderLanding6(){
       </nav>
     </header>
 
-    <div class="ld-container ld-front-main">
+    <div class="ld-container ld-front-main" style="--landing-lake:url('${carelinkPhoto('lake_kisumu')}')">
       ${trialEntryActive()?`<div class="alert warn" role="status"><b>TEAM TRIAL · SYNTHETIC DATA ONLY</b><span>Shared evaluation environment. Never enter real patient, staff or confidential information.</span></div>`:''}
       <section class="ld-hero ld-hero-tight">
         <div class="ld-hero-copy">

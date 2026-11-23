@@ -444,3 +444,60 @@
 @media(prefers-reduced-motion:reduce){
   :is(.ld[data-front="1"],.lg6[data-theme]) *{animation:none !important;transition:none !important;scroll-behavior:auto !important;}
 }
+
+/* Editorial CareLink refresh. Keep all entry controls and the workflow diagram
+   in normal flow; the locally bundled lake image also works offline. */
+.ld[data-front="1"] .ld-front-main{
+  width:100%;
+  background:linear-gradient(90deg,rgba(20,25,27,.92),rgba(28,34,35,.86)),var(--landing-lake) center/cover no-repeat #1c2223;
+}
+.ld[data-front="1"][data-theme] .ld-hero-tight{max-width:1264px;margin:auto;}
+.ld[data-front="1"] .ld-hero-copy .ld-eyebrow{color:#f6d8d8;}
+.ld[data-front="1"][data-theme] .ld-hero-tight h1,
+.ld[data-front="1"][data-theme] .ld-hero h1 em{
+  color:#fff;font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-.035em;
+}
+.ld[data-front="1"] .ld-subhead,
+.ld[data-front="1"][data-theme] .ld-lede,
+.ld[data-front="1"] .ld-setup-status,
+.ld[data-front="1"] .ld-recovery-link{color:#fff;}
+.ld[data-front="1"] .ld-canvas-card{border-radius:9px;box-shadow:0 14px 36px rgba(0,0,0,.22);}
+.ld[data-front="1"] .ld-btn-primary{background:#7c1e24 !important;border-color:#7c1e24 !important;}
+.ld[data-front="1"] .ld-top::before{background:#81232a;height:3px;}
+.ld[data-front="1"] .ld-org{font-family:Georgia,"Times New Roman",serif;font-size:16px;}
+.lg6[data-theme] .lg6-head h2,.lg6[data-theme] .lg6-brand h1{font-family:Georgia,"Times New Roman",serif;letter-spacing:-.025em;}
+
+/* The default workspace receives the warm editorial treatment. Other chosen
+   workspace themes, contrast settings, fonts and density remain independent. */
+html[data-wt="foundation"] .shell{
+  --bg:#f8f7f3;--surface:#fff;--surface-2:#f5f3ee;
+  --ink:#242321;--ink-2:#484641;--ink-3:#5b5954;--muted:#5e5b56;
+  --line:#e1dfd9;--line-2:#ebe9e3;--field:#fff;--field-line:#d6d2cb;
+  --bar:#faf9f6;--chrome:#f2f0eb;--chrome-2:#e9e6df;
+  --chrome-ink:#272522;--chrome-muted:#5b5853;--chrome-line:#dedbd4;
+  --action:#7c1e24;--action-2:#88252b;--action-ink:#fff;--focus:#7c1e24;
+  --hover:#efede7;--chip:#eeece6;--chip-ink:#403d39;--np-ind:#81232a;
+}
+html[data-wt="foundation"] .shell .topbar.cbar{background:#faf9f6 !important;border-color:#e1dfd9 !important;box-shadow:none !important;}
+html[data-wt="foundation"] .shell .npane{background:#f2f0eb !important;border-color:#dedbd4 !important;}
+html[data-wt="foundation"] .shell .np-i:not(.on){background:transparent;border-inline-start-color:transparent;}
+html[data-wt="foundation"] .shell .np-i:not(.on):hover{background:#e9e6df;}
+html[data-wt="foundation"] .shell .np-i.on{background:#e5e1d9 !important;color:#241f1d !important;box-shadow:inset 3px 0 0 #81232a;}
+html[data-wt="foundation"] .shell .np-i.on svg{color:#81232a !important;}
+html[data-wt="foundation"][data-font="standard"] .shell :is(.page-head h2,.card-h h3,.kpi .v,.ws67-greeting,.np-id b){font-family:Georgia,"Times New Roman",serif;letter-spacing:-.025em;}
+html[data-wt="foundation"] .shell :is(.card,.kpi){border-radius:7px;box-shadow:0 1px 3px rgba(37,30,25,.04);}
+html[data-wt="foundation"] .shell .kpi::before{width:3px;}
+html[data-wt="foundation"] .shell .kpi .k{letter-spacing:.12em;}
+html[data-wt="foundation"] .shell .btn-primary{background:#7c1e24 !important;border-color:#7c1e24 !important;color:#fff !important;}
+html[data-wt="foundation"] .shell .btn-primary:hover{background:#63171d !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{
+  background:#f7f5f0 !important;color:#242321 !important;border:1px solid #e1dfd9 !important;box-shadow:none !important;
+}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-greeting,.ws67-sub){color:#242321 !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-arch-pill,.ws67-scope-pill,.ws67-actions .btn){background:#fff !important;color:#403731 !important;border:1px solid #d9d4cc !important;}
+html[data-wt="foundation"] .shell-role-banner .ws67-role-tabs{border-top-color:#dedbd4 !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ctx-rtab.on{background:#7c1e24 !important;color:#fff !important;border-color:#7c1e24 !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell :is(.tabs .tab,.sheet .tab):is(.active,.on){background:#7c1e24 !important;color:#fff !important;border-color:#7c1e24 !important;}
+@media print{
+  html[data-wt="foundation"] .shell{--bg:#fff;--chrome:#fff;}
+}
