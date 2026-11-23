@@ -494,10 +494,6 @@ function renderLogin6(){
         <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Assigned username or confirmed work email" required></div>
       <div class="field"><label for="lg-p">Password</label>
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
-      ${trialEntryActive() ? '' : `<div class="grid g2 lg-device-fields" style="gap:8px">
-        <div class="field"><label for="lg-device-label">Device label</label><input class="input" id="lg-device-label" aria-describedby="lg-device-note" name="deviceLabel" maxlength="100" autocomplete="off" placeholder="e.g. Field tablet 3" value="${esc(LOGIN6.deviceLabel||'')}" required></div>
-        <div class="field"><label for="lg-device-type">Device type</label><select class="input" id="lg-device-type" aria-describedby="lg-device-note" name="deviceType"><option value="computer">Computer</option><option value="tablet">Tablet</option><option value="phone">Phone</option><option value="other">Other</option></select></div>
-      </div>`}
       <p class="lg-note lg-device-note" id="lg-device-note"><span class="entry-security-badge">Registered devices</span> Chief-approved device registration required. Unknown browsers stay pending; the public portal remains open.</p>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
@@ -1199,8 +1195,9 @@ Object.assign(FORMS, {
         if(SYNC.stopPolling) SYNC.stopPolling();
         if(SYNC.storeToken) SYNC.storeToken(null);
       }
-      LOGIN6.deviceLabel=String(d.get('deviceLabel')||'Staff browser').trim().slice(0,100);
-      let res = await AUTH.loginOnline(username, password, {label:LOGIN6.deviceLabel,type:String(d.get('deviceType')||'other')});
+      // Device admission is tied to the server-issued cookie and approval code,
+      // not a label typed at sign-in. Do not require staff to name their device.
+      let res = await AUTH.loginOnline(username, password, {label:'Staff browser',type:'other'});
       if(!res.ok && !hosted){
         /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
            feature.  A Vercel client never turns a failed server login into a

@@ -68,8 +68,8 @@ for(const theme of ['clinic','heritage']){
     assert.match(html,/data-act="goto-landing"/);
     assert.match(html,new RegExp('data-access="'+tab+'"'),'responsive styles identify the active access panel without changing admission');
     if(tab==='signin'){
-      assert.match(html,/id="lg-device-label"[^>]*required/);
-      assert.match(html,/id="lg-device-type"/);assert.match(html,/id="lg-device-note"/);
+      assert.doesNotMatch(html,/name="deviceLabel"|name="deviceType"/);
+      assert.match(html,/id="lg-device-note"/);
       assert.match(html,/Chief-approved device registration/);
     }
     for(const match of html.matchAll(/<label for="([^"]+)">/g)) assert.ok(html.includes(`id="${match[1]}"`),'label has an input: '+match[1]);
@@ -98,4 +98,4 @@ assert.ok(bundle.includes(css.trim()),'published HTML includes the new scoped st
 const adminCss=fs.readFileSync(path.join(root,'v6/src/admin_ops6.css'),'utf8').trim();
 assert.ok(bundle.includes(adminCss));
 assert.ok(bundle.indexOf(css.trim())>bundle.indexOf(adminCss),'entry layer follows administrative/workspace styles');
-console.log('entry-refresh: light default, explicit/host/preview authority, read-only resolution, accessible eight-department red-led workflow, white-led coloured relief, viewport-fit shells without clipped forms, both identities, four labelled access panels, device controls and three synchronized CSS manifests passed');
+console.log('entry-refresh: light default, explicit/host/preview authority, read-only resolution, accessible eight-department red-led workflow, white-led coloured relief, viewport-fit shells without clipped forms, both identities, four labelled access panels, device approval notice and three synchronized CSS manifests passed');

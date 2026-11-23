@@ -84,11 +84,10 @@ try{
   assert.equal(response.status(),200,await response.text());
   const page=await chief.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.goto(base+'/carelink-v6.html');await page.waitForSelector('.ld[data-theme="clinic"]');
-  async function signIn(page,username,password,label){
+  async function signIn(page,username,password){
     if(await page.locator('[data-act="goto-login"]').count()) await page.locator('[data-act="goto-login"]').first().click();
     const form=page.locator('form[data-form="login6"]');
     await form.locator('[name="username"]').fill(username);await form.locator('[name="password"]').fill(password);
-    await form.locator('[name="deviceLabel"]').fill(label);await form.locator('[name="deviceType"]').selectOption('tablet');
     await form.locator('[type="submit"]').click();
   }
   async function measure(page,theme,screen){
@@ -124,7 +123,7 @@ try{
     evidence.push({theme,screen,pairs:metrics.length,minimum:Math.min(...metrics.map(x=>x.ratio)).toFixed(2)});
   }
   await measure(page,'clinic default','landing');
-  await signIn(page,'chief.admin',password,'Synthetic commissioning browser');
+  await signIn(page,'chief.admin',password);
   await page.waitForFunction(()=>AUTH.user?.roleId==='chief'&&APPX.screen==='app');
   for(const theme of ['clinic','heritage']){
     await page.evaluate(()=>go('settings',{section:'landing'}));
@@ -250,7 +249,7 @@ try{
         else await controlsReachable('.lg6-panel input,.lg6-panel select,.lg6-panel button',theme+' '+tab+' '+size.width+'x'+size.height);
         for(const label of await entry.locator('.lg6-body .field label').all()) assert.ok(await label.evaluate(e=>Boolean(e.control)),'access fields have associated labels');
         if(tab==='signin'){
-          assert.ok(await entry.locator('#lg-device-label').isVisible(),'device controls remain available at '+size.width);
+          assert.equal(await entry.locator('[name="deviceLabel"],[name="deviceType"]').count(),0,'sign-in does not ask for a device label or type');
           assert.equal(await entry.locator('.lg-host.ok').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(234, 245, 241)','online status has a pale-teal surface');
           assert.equal(await entry.locator('.lg-device-note').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(255, 246, 229)','the device notice has a readable gold surface');
           assert.equal(await entry.locator('.lg-tabs .lg-tab').evaluateAll(tabs=>new Set(tabs.map(e=>getComputedStyle(e).color)).size),4,'the four access routes carry distinct accent colours');
@@ -317,16 +316,18 @@ try{
   const staff=await browser.newContext({viewport:{width:1024,height:768}}),tablet=await staff.newPage(),staffRequests=[];
   tablet.on('pageerror',error=>errors.push(error.message));tablet.on('request',request=>staffRequests.push(new URL(request.url()).pathname));
   await tablet.goto(base+'/carelink-v6.html');await tablet.waitForSelector('[data-act="goto-login"]');
-  await signIn(tablet,account.username,account.temporaryPassword,'Synthetic browser tablet');
+  await signIn(tablet,account.username,account.temporaryPassword);
   await tablet.waitForFunction(()=>LOGIN6.error.includes('awaiting Chief'));
   assert.equal(await tablet.evaluate(()=>Boolean(AUTH.user||SYNC.sessionToken)),false,'pending browser has neither session nor workspace');
   assert.ok(!staffRequests.some(p=>p==='/api/state'||p.startsWith('/api/state/')),'no staff-state request before approval');
   assert.equal((await staff.request.get(base+'/api/state',{headers:{'X-CareLink-Session':chiefToken}})).status(),401,'copied Chief token without its cookie cannot grant access');
   await page.evaluate(()=>go('devices'));await page.waitForFunction(()=>ENTRY_ADMIN.deviceLoaded&&!ENTRY_ADMIN.busy);
-  const deviceRow=()=>page.locator('tbody tr').filter({hasText:'Synthetic browser tablet'});
+  const deviceCode=await tablet.evaluate(()=>LOGIN6.error.match(/device ([a-f0-9]{12})/i)?.[1]);
+  assert.ok(deviceCode,'the pending browser shows its approval code');
+  const deviceRow=()=>page.locator('tbody tr').filter({has:page.locator('[data-act="entry-device-review"][data-id^="'+deviceCode+'"]')});
   await deviceRow().locator('[data-act="entry-device-review"]').click();await page.locator('#entry-admin-form [name="password"]').fill(password);
-  await page.locator('#entry-admin-form [type="submit"]').click();await page.waitForFunction(()=>!ENTRY_ADMIN.busy&&ENTRY_ADMIN.devices.some(d=>d.label==='Synthetic browser tablet'&&d.status==='approved'));
-  await signIn(tablet,account.username,account.temporaryPassword,'Synthetic browser tablet');
+  await page.locator('#entry-admin-form [type="submit"]').click();await page.waitForFunction(code=>!ENTRY_ADMIN.busy&&ENTRY_ADMIN.devices.some(d=>d.id.startsWith(code)&&d.status==='approved'),deviceCode);
+  await signIn(tablet,account.username,account.temporaryPassword);
   await tablet.waitForSelector('form[data-form="mustchange6"]');
   assert.equal(await tablet.evaluate(()=>DB.db.patients.length),0);
   let staffToken=await tablet.evaluate(()=>SYNC.sessionToken);
@@ -340,7 +341,7 @@ try{
   const revokeResponse=page.waitForResponse(response=>response.url().endsWith('/api/admin/devices/decision')&&response.request().method()==='POST');
   await deviceRow().locator('[data-act="entry-device-review"]').click();await page.locator('#entry-admin-form [name="decision"]').selectOption('revoked');await page.locator('#entry-admin-form [name="password"]').fill(password);await page.locator('#entry-admin-form [type="submit"]').click();
   const revoked=await revokeResponse;assert.equal(revoked.status(),200,await revoked.text());
-  await page.waitForFunction(()=>!ENTRY_ADMIN.busy&&ENTRY_ADMIN.devices.some(d=>d.label==='Synthetic browser tablet'&&d.status==='revoked'));
+  await page.waitForFunction(code=>!ENTRY_ADMIN.busy&&ENTRY_ADMIN.devices.some(d=>d.id.startsWith(code)&&d.status==='revoked'),deviceCode);
   assert.equal((await staff.request.get(base+'/api/state',{headers:{'X-CareLink-Session':staffToken}})).status(),401,'revocation cuts off an existing actual-browser session');
   // The actual provider wording must not blame staff passwords or offer a
   // destructive reset. Real UI retries are deliberate, not a sync cascade.
@@ -350,7 +351,7 @@ try{
   quotaPage.on('request',request=>{if(new URL(request.url()).pathname.startsWith('/api/')) quotaRequests.push(request.url());});
   await quotaPage.goto(base+'/carelink-v6.html#/login');
   await quotaPage.waitForFunction(()=>SYNC.kvBlocked());
-  await signIn(quotaPage,'chief.admin',password,'Synthetic quota tablet');
+  await signIn(quotaPage,'chief.admin',password);
   await quotaPage.waitForFunction(()=>/database quota/.test(LOGIN6.error));
   const alert=quotaPage.locator('.lg6-alert.crit');
   assert.match(await alert.innerText(),/not a staff password or KV-token rejection/);

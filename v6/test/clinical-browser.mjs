@@ -35,7 +35,7 @@ try{
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(20000);await page.goto(base+'/carelink-v6.html');
   await page.locator('[data-act="goto-login"]').first().click();const form=page.locator('form[data-form="login6"]');
   await form.locator('[name="username"]').fill(username);await form.locator('[name="password"]').fill(f.passwords[username]);
-  await form.locator('[name="deviceLabel"]').fill('Synthetic clinical test browser');await form.locator('[name="deviceType"]').selectOption('tablet');await form.locator('[type="submit"]').click();
+  await form.locator('[type="submit"]').click();
   try{await page.waitForFunction(()=>AUTH.user&&APPX.screen==='app');}catch(error){
    await page.screenshot({path:path.join(dir,'synthetic-login-failure.png')});
    console.error('Synthetic login diagnostic',await page.evaluate(()=>({text:document.body.innerText.slice(-2400),screen:APPX.screen,role:AUTH.user?.roleId,syncState:SYNC.state,message:SYNC.message})),errors);throw error;

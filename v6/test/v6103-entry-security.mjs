@@ -96,9 +96,9 @@ r=await chief.call('admin/staff-accounts/export-log',{method:'POST',token:chiefT
 r=await chief.call('admin/staff-accounts/export-log',{method:'POST',token:chiefToken,body:{format:'csv',usernames:['director','caregiver.ombeyi']}});assert.equal(r.status,200);
 const downloadAudit=stored().audit.findLast(e=>e.action==='staff.export_download_requested');
 ok(downloadAudit.meta.who==='chief.admin'&&downloadAudit.meta.rowCount===2&&downloadAudit.meta.deviceId===chiefDevice&&downloadAudit.meta.when,'legacy file/clipboard handoffs also require an actor/time/count/device audit');
-r=await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:caregiver.temporaryPassword,deviceLabel:'Synthetic test tablet',deviceType:'tablet',deviceId:chiefDevice,approved:true}});assert.equal(r.status,403);assert.equal(r.body.code,'device_pending');
+r=await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:caregiver.temporaryPassword,deviceId:chiefDevice,approved:true}});assert.equal(r.status,403);assert.equal(r.body.code,'device_pending');
 const staffDevice=r.body.deviceId;ok(!r.body.token&&!r.body.inlineState&&!r.body.db,'pending browsers receive no staff token or data');
-let device=stored().devices[staffDevice];ok(device.label==='Synthetic test tablet'&&device.type==='tablet'&&device.requestedBy===caregiver.username&&device.firstSeen,'pending register holds label, type, first-seen time and verified user');
+let device=stored().devices[staffDevice];ok(device.label==='Staff browser'&&device.type==='other'&&device.requestedBy===caregiver.username&&device.firstSeen,'pending register uses safe defaults without label/type while retaining the verified requester');
 ok(!stored().creds[caregiver.username].temporary.usedAt,'pending sign-in does not consume a temporary password');
 assert.equal((await staff.call('state',{token:chiefToken})).status,401);
 assert.equal((await staff.call('admin/devices/decision',{method:'POST',token:chiefToken,body:{password:chiefPassword,deviceId:staffDevice,decision:'approved'}})).status,403);
