@@ -53,6 +53,9 @@ for(const theme of ['clinic','heritage']){
     ['Field Care','Hospital','M&E / DHIS','Finance','Homestay','Media & IT','HR & Leave','Transport']);
   assert.match(diagram,/class="ld-workflow-core-name">CareLink<\/text>/);
   assert.ok(!diagram.includes('<image'),'the vector graphic works offline without external images');
+  assert.equal((diagram.match(/data-tone="red"/g)||[]).length,4,'red remains the leading department accent');
+  assert.deepEqual([...new Set([...diagram.matchAll(/data-tone="([^"]+)"/g)].map(m=>m[1]))],['red','teal','gold','blue']);
+  assert.match(diagram,/class="ld-workflow-halo"/,'the red core has a visible accent ring');
   assert.match(landing,/<div class="ld-hero-art">/,'the informative diagram is not hidden from assistive technology');
   assert.match(landing,/data-act="goto-login"/);assert.match(landing,/data-act="goto-public"/);
   assert.match(landing,/--entry-relief-surface:#232323/);
@@ -63,6 +66,7 @@ for(const theme of ['clinic','heritage']){
     assert.equal((html.match(/class="lg-tab [^"]*" aria-pressed="true"/g)||[]).length,1);
     assert.ok(!html.includes('repeat(5'),'removed demo panel must not leave an empty fifth tab column');
     assert.match(html,/data-act="goto-landing"/);
+    assert.match(html,new RegExp('data-access="'+tab+'"'),'responsive styles identify the active access panel without changing admission');
     if(tab==='signin'){
       assert.match(html,/id="lg-device-label"[^>]*required/);
       assert.match(html,/id="lg-device-type"/);assert.match(html,/id="lg-device-note"/);
@@ -81,7 +85,12 @@ const css=fs.readFileSync(path.join(root,'v6/src/entry_theme.css'),'utf8');
 assert.match(css,/\.ld\[data-front="1"\] \.ld-canvas-card\{[^}]*background:var\(--entry-relief-surface\)/);
 assert.match(css,/\.ld\[data-front="1"\] \.ld-foot\{[^}]*background:var\(--entry-relief-footer\)/);
 assert.match(css,/:focus-visible/);assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
-assert.match(css,/\.lg6\[data-theme\] \.lg6-panel\{[\s\S]*?overflow:visible/);
+assert.match(css,/\.lg6\[data-theme\] \.lg6-panel\{[\s\S]*?overflow:visible !important/);
+assert.match(css,/@media\(min-width:700px\) and \(min-height:700px\), \(min-width:921px\) and \(min-height:600px\)\{[\s\S]*?height:100dvh !important/,'the final entry layer restores viewport-fitted desktop and short-laptop shells');
+assert.match(css,/\.ld\[data-front="1"\] \.ld-workflow-links\{stroke:var\(--entry-relief-red\)/);
+assert.match(css,/\.ld\[data-front="1"\] \.ld-workflow-core circle\{fill:#B31C2B/);
+assert.match(css,/\.lg6\[data-theme\] \.lg-host\.ok\{background:#EAF5F1/);
+assert.match(css,/\.lg6\[data-theme\] \.lg-device-note\{[^}]*background:#FFF6E5/);
 assert.match(css,/\.lg6\[data-theme\] \.lg6-card\{[\s\S]*?background:#FFFFFF !important/);
 assert.match(css,/\.lg6\[data-theme\] \.lg6-photo-frame \.lg6-photo-main\{[^}]*filter:none/);
 const bundle=fs.readFileSync(path.join(root,'public/carelink-v6.html'),'utf8');
@@ -89,4 +98,4 @@ assert.ok(bundle.includes(css.trim()),'published HTML includes the new scoped st
 const adminCss=fs.readFileSync(path.join(root,'v6/src/admin_ops6.css'),'utf8').trim();
 assert.ok(bundle.includes(adminCss));
 assert.ok(bundle.indexOf(css.trim())>bundle.indexOf(adminCss),'entry layer follows administrative/workspace styles');
-console.log('entry-refresh: light default, explicit/host/preview authority, read-only resolution, accessible eight-department workflow, white-led charcoal relief, both identities, four labelled access panels, device controls and three synchronized CSS manifests passed');
+console.log('entry-refresh: light default, explicit/host/preview authority, read-only resolution, accessible eight-department red-led workflow, white-led coloured relief, viewport-fit shells without clipped forms, both identities, four labelled access panels, device controls and three synchronized CSS manifests passed');

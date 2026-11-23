@@ -196,15 +196,15 @@ async function activateFullDemoDataset(){
   }
 }
 
-/* The original eight-department hub-and-spoke illustration, restored in the
-   white/charcoal entry palette. Keep it inline and semantic for offline use,
-   screen readers and the Chief's inert theme preview. */
+/* Original eight-department hub-and-spoke workflow. Red leads the shared
+   centre/connections; secondary colours distinguish departments, never status.
+   Keep it semantic, self-contained and available in the Chief's inert preview. */
 function renderLandingWorkflow6(){
   const nodes=[
-    [230,24,'Field Care'], [324,52,'Hospital'],
-    [354,112,'M&E / DHIS'], [322,174,'Finance'],
-    [230,200,'Homestay'], [138,174,'Media & IT'],
-    [106,112,'HR & Leave'], [136,52,'Transport']
+    [230,24,'Field Care','red'], [324,52,'Hospital','red'],
+    [354,112,'M&E / DHIS','teal'], [322,174,'Finance','gold'],
+    [230,200,'Homestay','red'], [138,174,'Media & IT','blue'],
+    [106,112,'HR & Leave','red'], [136,52,'Transport','teal']
   ];
   return `<svg viewBox="50 0 360 224" class="ld-scene-svg" role="img" aria-labelledby="ld-workflow-title" aria-describedby="ld-workflow-desc" focusable="false">
     <title id="ld-workflow-title">CareLink system workflow</title>
@@ -216,7 +216,8 @@ function renderLandingWorkflow6(){
     <g class="ld-workflow-links" aria-hidden="true">
       ${nodes.map(([x,y])=>`<line x1="230" y1="112" x2="${x}" y2="${y}"/>`).join('')}
     </g>
-    ${nodes.map(([x,y,label])=>`<g class="ld-workflow-node" data-workflow-node="${esc(label)}">
+    <circle class="ld-workflow-halo" cx="230" cy="112" r="41" fill="none" aria-hidden="true"/>
+    ${nodes.map(([x,y,label,tone])=>`<g class="ld-workflow-node" data-workflow-node="${esc(label)}" data-tone="${tone}" style="--node-fill:var(--entry-relief-${tone}-fill);--node-accent:var(--entry-relief-${tone})">
       <rect x="${x-48}" y="${y-13}" width="96" height="26" rx="13"/>
       <circle cx="${x-36}" cy="${y}" r="2.6" aria-hidden="true"/>
       <text x="${x+5}" y="${y}" dy=".35em" text-anchor="middle">${esc(label)}</text>
@@ -236,10 +237,10 @@ function renderLanding6(){
   const isCommissioned = isActivated || commissionedEntryActive();
   const setupPending = hostedEntryPending();
   const facts = [
-    { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
+    { n: Object.keys(CAPS||{}).length, l:'Capabilities' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.length:2), l:'County Offices' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10), l:'Ministry Areas' },
-    { n: DEPARTMENTS.length, l:'Department Consoles' }
+    { n: DEPARTMENTS.length, l:'Departments' }
   ];
 
   return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="${ENTRY_THEME.style(th.id)}">
@@ -267,12 +268,12 @@ function renderLanding6(){
           <div class="ld-eyebrow">${ic('heart',14)} CareLink · LOMAMO Foundation Kenya</div>
           <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
           <div class="ld-subhead">One Foundation. One Operating System.</div>
-          <p class="ld-lede">One secure place for care teams and departments to coordinate their work, support families and serve communities across Kisumu and Homa Bay.</p>
+          <p class="ld-lede">Coordinate care, support families and connect every department across Kisumu and Homa Bay.</p>
           <div class="row ld-cta-row" style="align-items:center">
             <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff sign in ${ic('chevron',16)}</button>
             ${!isCommissioned && !setupPending ? `<button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>` : ''}
           </div>
-          ${isCommissioned ? `<p class="ld-setup-status">This installation is already commissioned. Use your existing account to sign in, or select <button type="button" class="ld-recovery-link" data-act="login-recovery">password recovery</button> if you need help.</p>` : setupPending ? `<p class="ld-setup-status">Checking the shared installation before first-run setup can be offered.</p>` : ''}
+          ${isCommissioned ? `<p class="ld-setup-status">System already commissioned. Sign in with your account, or use <button type="button" class="ld-recovery-link" data-act="login-recovery">password recovery</button>.</p>` : setupPending ? `<p class="ld-setup-status">Checking the shared installation before first-run setup can be offered.</p>` : ''}
           <div class="ld-assure">
             <span>${ic('database',14)} Shared live online database</span>
             <span>${ic('wifi',14)} Available across devices</span>
@@ -453,8 +454,8 @@ function renderArchitecture6(){
 }
 
 /* ------------------------------------------------------------ sign-in */
-/* A separated brand panel and readable white card. Short or narrow screens
-   scroll naturally; device admission controls must never be clipped. */
+/* A viewport-fitted brand panel and white access card. Compact spacing keeps
+   desktop access on one screen; very small/zoomed views may flow, never clip. */
 function renderLogin6(){
   const entryTheme=landingTheme();
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
@@ -467,7 +468,7 @@ function renderLogin6(){
   const pCount = (DB.db && DB.db.patients) ? DB.db.patients.length : 0;
   const uCount = (DB.db && DB.db.users) ? DB.db.users.length : 0;
   const hostLine = isActivated
-    ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Official production system active · Sign in with your issued account</span></div>`
+    ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Production active · Issued staff accounts only</span></div>`
     : (isAwaitingAct
       ? `<div class="lg-host warn">${ic('key',13)}<span>4-Step Online Setup complete — sign in as Chief System Administrator to change password &amp; <b>Activate System Globally</b></span></div>`
       : (host
@@ -478,9 +479,9 @@ function renderLogin6(){
   const curSlide = LOGIN_TEAM_SLIDES[slideIdx];
 
   const signIn = `
-    <p class="lg-note">${isActivated
-      ? 'This installation has already been set up. Sign in with your assigned username and password, or choose Recover if you cannot access your account.'
-      : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
+    <p class="lg-note lg-signin-intro">${isActivated
+      ? 'Use your issued username and private password. Choose Recover if you need help.'
+      : 'Use your assigned username or confirmed work email and password.'}</p>
     <form data-form="login6" autocomplete="on">
       <div class="field"><label for="lg-u">Username or confirmed work email</label>
         <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Assigned username or confirmed work email" required></div>
@@ -490,7 +491,7 @@ function renderLogin6(){
         <div class="field"><label for="lg-device-label">Device label</label><input class="input" id="lg-device-label" aria-describedby="lg-device-note" name="deviceLabel" maxlength="100" autocomplete="off" placeholder="e.g. Field tablet 3" value="${esc(LOGIN6.deviceLabel||'')}" required></div>
         <div class="field"><label for="lg-device-type">Device type</label><select class="input" id="lg-device-type" aria-describedby="lg-device-note" name="deviceType"><option value="computer">Computer</option><option value="tablet">Tablet</option><option value="phone">Phone</option><option value="other">Other</option></select></div>
       </div>
-      <p class="lg-note lg-device-note" id="lg-device-note"><span class="entry-security-badge">Registered devices</span> Staff access requires Chief-approved device registration. Unknown browsers stay pending; the public portal remains open.</p>
+      <p class="lg-note lg-device-note" id="lg-device-note"><span class="entry-security-badge">Registered devices</span> Chief-approved device registration required. Unknown browsers stay pending; the public portal remains open.</p>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
@@ -545,7 +546,7 @@ function renderLogin6(){
         <div class="field"><label for="lg-request6-jobTitle">Job title / Seat *</label><input class="input" id="lg-request6-jobTitle" name="jobTitle" required placeholder="e.g. Supporting Caregiver"></div>
         <div class="field"><label for="lg-request6-departmentId">Department</label><select class="input" id="lg-request6-departmentId" name="departmentId">${DEPARTMENTS.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
         <div class="field"><label for="lg-request6-countyId">County Office Admin *</label><select class="input" id="lg-request6-countyId" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)} Admin</option>`).join('')}</select></div>
-        <div class="field"><label for="lg-request6-justification">Ministry area / Reason *</label><input class="input" id="lg-request6-justification" name="justification" required placeholder="Assigned role & area"></div>
+        <div class="field"><label for="lg-request6-justification">Area / Reason *</label><input class="input" id="lg-request6-justification" name="justification" required placeholder="Assigned role & area"></div>
       </div>
       <button class="btn btn-primary btn-block" type="submit">${ic('send',14)} Send Urgent Request to County Admin</button>
     </form>`;
@@ -570,7 +571,7 @@ function renderLogin6(){
 
   const body = t==='activate' ? activate : t==='request' ? request : t==='forgot' ? forgot : signIn;
 
-  return `<div class="lg6" data-theme="${esc(entryTheme.id)}" data-mode="${esc(entryTheme.mode)}" style="${ENTRY_THEME.style(entryTheme.id)}">
+  return `<div class="lg6" data-theme="${esc(entryTheme.id)}" data-mode="${esc(entryTheme.mode)}" data-access="${esc(t)}" style="${ENTRY_THEME.style(entryTheme.id)}">
     <aside class="lg6-brand">
       <div class="lg6-brand-top">
         <div class="row" style="gap:11px;margin-bottom:8px">
@@ -601,7 +602,7 @@ function renderLogin6(){
           </div>
         </figure>
 
-        <p class="lg6-copy">Every department of LOMAMO Foundation collaborates on one governed online source across PCs, tablets and field clients, uniting clinical care, household support and stewardship so children never become orphans.</p>
+        <p class="lg6-copy">Care teams, family support and stewardship — connected on one governed source across computers, tablets and field clients.</p>
       </div>
       <div class="lg6-brand-foot">
         <div><b>${esc(APP.full)}</b> · v${esc(APP.version)}</div>

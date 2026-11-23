@@ -59,10 +59,10 @@ const { makeCtx } = require('./dom');
     themeAudit.landingHtml.includes('--entry-relief-surface:#232323'));
 
   const signInCss = fs.readFileSync(path.join(REPO, 'v6', 'src', 'entry_theme.css'), 'utf8');
-  ok('Sign-In separates charcoal branding from a readable white console card',
+  ok('Sign-In separates charcoal branding and warm-tinted surroundings from a readable white console card',
     themeAudit.loginHtml.includes('class="lg6" data-theme="clinic"') &&
     /\.lg6\[data-theme\] \.lg6-brand\{[\s\S]*?background:#202020/.test(signInCss) &&
-    /\.lg6\[data-theme\] \.lg6-panel\{[\s\S]*?background:#F7F7F7/.test(signInCss) &&
+    /\.lg6\[data-theme\] \.lg6-panel\{[\s\S]*?background:#F7F5F2/.test(signInCss) &&
     /\.lg6\[data-theme\] \.lg6-card\{[\s\S]*?background:#FFFFFF/.test(signInCss));
 
   const epochAudit = JSON.parse(run(`JSON.stringify((() => {

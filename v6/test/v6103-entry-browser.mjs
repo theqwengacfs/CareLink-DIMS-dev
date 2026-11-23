@@ -57,14 +57,17 @@ const server=http.createServer(async(req,res)=>{
   }catch(error){res.writeHead(500);res.end(error.message);}
 });
 let browser;
-const errors=[],evidence=[];
+const errors=[],evidence=[],viewportEvidence=[];
 const screenshotDir=process.env.ENTRY_SCREENSHOT_DIR;
 if(screenshotDir) fs.mkdirSync(screenshotDir,{recursive:true});
 try{
   await new Promise(resolve=>server.listen(0,'0.0.0.0',resolve));
   const base='http://localhost:'+server.address().port;
   const binary=process.env.CHROMIUM_PATH?null:(await import('@sparticuz/chromium')).default;
-  const args=binary?binary.args.filter(arg=>!['--single-process','--disable-web-security','--allow-running-insecure-content','--disable-site-isolation-trials'].includes(arg)):['--no-sandbox'];
+  // Playwright supplies the normal headless flags. Lambda's in-process GPU
+  // can stall repeated viewport/screenshot changes; its single-process and
+  // disabled web-security/site-isolation flags also weaken this regression.
+  const args=['--no-sandbox'];
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||await binary.executablePath(),args});
   const chief=await browser.newContext({viewport:{width:1366,height:900},acceptDownloads:true});
   const {run}=require('./dom.js').makeCtx();
@@ -88,8 +91,8 @@ try{
     const metrics=await page.evaluate(screen=>{
       const prefix=screen==='landing'?'.ld[data-front="1"]':'.lg6[data-theme]';
       const selectors=screen==='landing'?
-        ['.ld-org','h1','h1 em','.ld-eyebrow','.ld-subhead','.ld-lede','.ld-fact b','.ld-fact span','.ld-btn-primary','.ld-btn-secondary','.ld-btn-arch','.ld-workflow-head h2','.ld-workflow-kicker','.ld-workflow-path','.ld-scene-svg text','.ld-setup-status','.ld-assure span','.ld-foot','.ld-foot-brand b','.ld-foot .ld-dim']:
-        ['.lg6-card h2','.lg6-kicker','.field label','.input','.lg-note','.entry-security-badge','.lg-tab','.btn-primary','.lg6-brand h1','.lg6-brand h1 em','.lg6-brand-foot','.lg6-copy','.lg6-photo-overlay b','.lg6-photo-overlay span','.lg-links .linkbtn','.lg6-foot','.lg-check','.lg-host','.lg6-head .btn','.alert'];
+        ['.ld-org','h1','h1 em','.ld-eyebrow','.ld-subhead','.ld-lede','.ld-fact b','.ld-fact span','.ld-btn-primary','.ld-btn-secondary','.ld-btn-arch','.ld-workflow-head h2','.ld-workflow-kicker','.ld-workflow-path span','.ld-scene-svg text','.ld-setup-status','.ld-assure span','.ld-foot','.ld-foot-brand b','.ld-foot .ld-dim']:
+        ['.lg6-card h2','.lg6-kicker','.field label','.input','.lg-note','.entry-security-badge','.lg-tab','.btn-primary','.lg6-brand h1','.lg6-brand h1 em','.lg6-brand-foot','.lg6-copy','.lg6-photo-overlay b','.lg6-photo-overlay span','.lg6-thumb','.lg6-mobile-hero-txt .xs','.lg6-mobile-hero-txt b','.lg6-mobile-hero-txt em','.lg-links .linkbtn','.lg6-foot','.lg-check','.lg-host','.lg6-head .btn','.alert'];
       const rgba=value=>{const a=value.match(/[\d.]+/g)?.map(Number)||[];return [a[0]||0,a[1]||0,a[2]||0,a.length>3?a[3]:1]};
       const composite=(top,bottom)=>[0,1,2].map(i=>top[i]*top[3]+bottom[i]*(1-top[3]));
       const background=element=>{const chain=[];for(let e=element;e;e=e.parentElement)chain.unshift(e);let rgb=[255,255,255];for(const e of chain)rgb=composite(rgba(getComputedStyle(e).backgroundColor),rgb);return rgb};
@@ -142,14 +145,67 @@ try{
       assert.ok(geometry.scrollWidth<=geometry.width+1,label+' horizontal overflow: '+JSON.stringify(geometry));
       assert.deepEqual(geometry.outside,[],label+' clipped controls');
     }
-    for(const size of [{width:1366,height:900},{width:1024,height:768},{width:768,height:1024},{width:390,height:844},{width:320,height:640},{width:844,height:390}]){
+    async function singleScreen(label){
+      const geometry=await entry.evaluate(()=>{
+        const front=document.querySelector('.ld[data-front="1"],.lg6[data-theme]');
+        const selectors=front.matches('.ld')?['.ld-top','.ld-hero-copy','.ld-canvas-card','.ld-foot']:['.lg6-panel','.lg6-card','.lg6-foot'];
+        const boxes=selectors.map(selector=>({selector,box:front.querySelector(selector).getBoundingClientRect().toJSON()}));
+        const outside=[...front.querySelectorAll('button,input,select,.ld-scene-svg')].filter(e=>e.getClientRects().length)
+          .map(e=>({name:e.name||e.getAttribute('aria-label')||e.textContent.trim(),box:e.getBoundingClientRect().toJSON()}))
+          .filter(e=>e.box.top< -1||e.box.bottom>innerHeight+1);
+        const overflow=[front,...front.querySelectorAll('.ld-front-main,.lg6-panel,.lg6-body')]
+          .map(e=>({name:e.className,value:getComputedStyle(e).overflowY}));
+        return {height:innerHeight,scrollHeight:document.documentElement.scrollHeight,scrollY,boxes,outside,overflow};
+      });
+      assert.ok(geometry.scrollHeight<=geometry.height+1,label+' must not scroll vertically: '+JSON.stringify(geometry));
+      assert.equal(geometry.scrollY,0,label+' starts at the top');
+      assert.deepEqual(geometry.outside,[],label+' every visible control and the complete workflow fit, not just the submit');
+      for(const {selector,box} of geometry.boxes) assert.ok(box.y>=-1&&box.bottom<=geometry.height+1,label+' '+selector+' fits the viewport');
+      for(const {name,value} of geometry.overflow) assert.ok(!['hidden','clip','scroll','auto'].includes(value),label+' must fit content instead of hiding or internally scrolling it: '+name+' '+value);
+      viewportEvidence.push({label,height:geometry.height,pageHeight:geometry.scrollHeight});
+    }
+    async function controlsReachable(selector,label){
+      for(const control of await entry.locator(selector).all()){
+        if(!await control.isVisible()) continue;
+        await control.scrollIntoViewIfNeeded();
+        const result=await control.evaluate(e=>{
+          const b=e.getBoundingClientRect(),hit=document.elementFromPoint(b.x+b.width/2,b.y+b.height/2);
+          return {name:e.name||e.textContent.trim(),top:b.top,bottom:b.bottom,height:innerHeight,unobscured:e===hit||e.contains(hit)};
+        });
+        assert.ok(result.top>=-1&&result.bottom<=result.height+1&&result.unobscured,label+' control remains reachable in fallback flow: '+JSON.stringify(result));
+      }
+    }
+    // Eight single-screen sizes include short laptop browser windows and a
+    // normal portrait phone. Tiny/keyboard-shortened views must flow safely.
+    for(const {width,height,single} of [
+      {width:1366,height:900,single:true},{width:1366,height:768,single:true},
+      {width:1366,height:640,single:true},{width:1024,height:600,single:true},
+      {width:1280,height:720,single:true},{width:1024,height:768,single:true},
+      {width:768,height:1024,single:true},{width:390,height:844,single:true},
+      {width:320,height:640,single:false},{width:844,height:390,single:false}
+    ]){
+      const size={width,height};
+      console.log('entry viewport: '+theme+' '+width+'x'+height+' ('+(single?'single screen':'safe flow')+')');
       await entry.setViewportSize(size);
       if(await entry.locator('.lg6').count()) await entry.locator('[data-act="goto-landing"]').click();
+      await entry.evaluate(()=>scrollTo(0,0));
       await noClipping(theme+' landing '+size.width);
+      if(single) await singleScreen(theme+' landing '+size.width+'x'+size.height);
+      else await controlsReachable('.ld button',theme+' landing '+size.width+'x'+size.height);
       const diagram=entry.getByRole('img',{name:'CareLink system workflow',exact:true});
       assert.equal(await diagram.count(),1,'the informative workflow is restored and exposed to assistive technology');
       assert.equal(await diagram.locator('.ld-workflow-node').count(),8,'all eight original departments are drawn');
       assert.equal(await diagram.locator('.ld-workflow-links line').count(),8,'all eight original connections are drawn');
+      const colours=await diagram.evaluate(svg=>({
+        core:getComputedStyle(svg.querySelector('.ld-workflow-core circle')).fill,
+        links:getComputedStyle(svg.querySelector('.ld-workflow-links')).stroke,
+        nodes:[...new Set([...svg.querySelectorAll('.ld-workflow-node rect')].map(e=>getComputedStyle(e).fill))],
+        redNodes:svg.querySelectorAll('[data-tone="red"]').length
+      }));
+      assert.equal(colours.core,'rgb(179, 28, 43)','the hub is visibly red, not another white/grey disc');
+      assert.equal(colours.links,'rgb(255, 137, 150)','all eight spokes have stronger red accents');
+      assert.equal(colours.redNodes,4,'red leads the eight departments');
+      assert.equal(colours.nodes.length,4,'teal, gold and blue provide visual variety alongside red');
       const labelGeometry=await diagram.locator('.ld-workflow-node').evaluateAll(nodes=>nodes.map(node=>{
         const text=node.querySelector('text').getBBox(),rect=node.querySelector('rect').getBBox();
         return {label:node.dataset.workflowNode,fits:text.x>=rect.x&&text.x+text.width<=rect.x+rect.width&&text.y>=rect.y&&text.y+text.height<=rect.y+rect.height};
@@ -177,20 +233,23 @@ try{
       }
       if([1366,390].includes(size.width)){
         await measure(entry,theme+' '+size.width,'landing');
-        if(screenshotDir) await entry.screenshot({path:path.join(screenshotDir,theme+'-'+size.width+'-landing.png'),fullPage:true});
+        if(screenshotDir) await entry.screenshot({path:path.join(screenshotDir,theme+'-'+size.width+'x'+size.height+'-landing.png'),fullPage:true});
       }
       await entry.locator('[data-act="goto-login"]').click();await entry.waitForSelector('.lg6[data-theme="'+theme+'"]');
       assert.equal(await entry.locator('.lg6-card').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(255, 255, 255)','sign-in card stays white in both identities');
       assert.equal(await entry.locator('.lg-tabs').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length),4,'no empty demo column');
       for(const tab of ['signin','activate','request','forgot']){
         await entry.locator('.lg-tabs [data-tab="'+tab+'"]').click();
+        await entry.evaluate(()=>scrollTo(0,0));
         await noClipping(theme+' '+tab+' '+size.width);
+        if(single) await singleScreen(theme+' '+tab+' '+size.width+'x'+size.height);
+        else await controlsReachable('.lg6-panel input,.lg6-panel select,.lg6-panel button',theme+' '+tab+' '+size.width+'x'+size.height);
         for(const label of await entry.locator('.lg6-body .field label').all()) assert.ok(await label.evaluate(e=>Boolean(e.control)),'access fields have associated labels');
-        const submit=entry.locator('.lg6-body form [type="submit"]').last();
-        await submit.scrollIntoViewIfNeeded();const box=await submit.boundingBox();
-        assert.ok(box.y>=-1&&box.y+box.height<=size.height+1,'submit reachable on '+size.width+' × '+size.height+' '+tab);
         if(tab==='signin'){
           assert.ok(await entry.locator('#lg-device-label').isVisible(),'device controls remain available at '+size.width);
+          assert.equal(await entry.locator('.lg-host.ok').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(234, 245, 241)','online status has a pale-teal surface');
+          assert.equal(await entry.locator('.lg-device-note').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(255, 246, 229)','the device notice has a readable gold surface');
+          assert.equal(await entry.locator('.lg-tabs .lg-tab').evaluateAll(tabs=>new Set(tabs.map(e=>getComputedStyle(e).color)).size),4,'the four access routes carry distinct accent colours');
           if(size.width===390){
             await entry.locator('#lg-u').focus();await entry.keyboard.press('Tab');
             assert.ok(await entry.evaluate(()=>getComputedStyle(document.activeElement).outlineStyle!=='none'),'keyboard focus is visible');
@@ -201,7 +260,7 @@ try{
         }
         if([1366,390].includes(size.width)){
           await measure(entry,theme+' '+size.width+' '+tab,'signin');
-          if(screenshotDir) await entry.screenshot({path:path.join(screenshotDir,theme+'-'+size.width+'-'+tab+'.png'),fullPage:true});
+          if(screenshotDir) await entry.screenshot({path:path.join(screenshotDir,theme+'-'+size.width+'x'+size.height+'-'+tab+'.png'),fullPage:true});
         }
       }
     }
@@ -218,6 +277,13 @@ try{
     assert.equal(await entry.evaluate(()=>document.documentElement.dataset.wmode),'dark');
     assert.equal(await entry.locator('#lg-u').evaluate(e=>getComputedStyle(e).color),'rgb(32, 32, 32)','entry field ink is local even while the surrounding document remains dark');
     await measure(entry,theme+' after cached dark workspace','signin');
+    await entry.evaluate(()=>scrollTo(0,0));
+    await singleScreen(theme+' sign-in with error and cached dark workspace 1366x900');
+    // Reflow/zoom-equivalent geometry must not strand any field, privacy link
+    // or account-recovery action behind the old fixed-height shell.
+    await entry.setViewportSize({width:683,height:450});
+    await noClipping(theme+' zoom-equivalent view');
+    await controlsReachable('.lg6-panel input,.lg6-panel select,.lg6-panel button',theme+' zoom-equivalent view');
     await entry.locator('[data-act="goto-landing"]').click();
     await entry.locator('[data-act="goto-public"]').click();await entry.waitForFunction(()=>APPX.screen==='public');
     await visitor.close();
@@ -282,8 +348,9 @@ try{
   await retiredPage.goto('https://theqwengacfs.github.io/CareLink-DIMS-dev/carelink-v6.html').catch(()=>{});
   await retiredPage.waitForURL('https://care-link-dims-dev.vercel.app/');assert.deepEqual(retiredApi,[]);
   assert.deepEqual(errors,[],'no uncaught browser errors');
-  console.log('entry-browser: actual Chromium restored workflow/white-led charcoal relief, themes/preview/apply, six viewport sizes and all four access panels, keyboard/placeholder/contrast and cached-workspace isolation, expand → hold → collapse, isolated-cookie pending/approval/private-change/revocation, confidential download and retired-host redirect passed');
-  console.log(JSON.stringify(evidence));
+  console.log('entry-browser: actual Chromium red-led workflow/white-led coloured relief, themes/preview/apply, ten viewport sizes and all four access panels, true zero-scroll geometry at eight sizes (not hidden overflow), tiny/short/zoomed control reachability, keyboard/placeholder/contrast and cached-workspace isolation, expand → hold → collapse, isolated-cookie pending/approval/private-change/revocation, confidential download and retired-host redirect passed');
+  console.log('Viewport fits: '+JSON.stringify(viewportEvidence));
+  console.log('Rendered contrast: '+JSON.stringify(evidence));
 }finally{
   if(browser) await browser.close();
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));globalThis.fetch=nativeFetch;
