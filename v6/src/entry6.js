@@ -196,7 +196,40 @@ async function activateFullDemoDataset(){
   }
 }
 
-/* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar, zero duplicate tabs) */
+/* The original eight-department hub-and-spoke illustration, restored in the
+   white/charcoal entry palette. Keep it inline and semantic for offline use,
+   screen readers and the Chief's inert theme preview. */
+function renderLandingWorkflow6(){
+  const nodes=[
+    [230,24,'Field Care'], [324,52,'Hospital'],
+    [354,112,'M&E / DHIS'], [322,174,'Finance'],
+    [230,200,'Homestay'], [138,174,'Media & IT'],
+    [106,112,'HR & Leave'], [136,52,'Transport']
+  ];
+  return `<svg viewBox="50 0 360 224" class="ld-scene-svg" role="img" aria-labelledby="ld-workflow-title" aria-describedby="ld-workflow-desc" focusable="false">
+    <title id="ld-workflow-title">CareLink system workflow</title>
+    <desc id="ld-workflow-desc">CareLink is the shared centre connecting Field Care, Hospital, M&amp;E / DHIS, Finance, Homestay, Media &amp; IT, HR &amp; Leave and Transport. Every department coordinates through one shared system.</desc>
+    <g class="ld-workflow-orbits" fill="none" aria-hidden="true">
+      <circle cx="230" cy="112" r="82" stroke-dasharray="4 5"/>
+      <circle cx="230" cy="112" r="55"/>
+    </g>
+    <g class="ld-workflow-links" aria-hidden="true">
+      ${nodes.map(([x,y])=>`<line x1="230" y1="112" x2="${x}" y2="${y}"/>`).join('')}
+    </g>
+    ${nodes.map(([x,y,label])=>`<g class="ld-workflow-node" data-workflow-node="${esc(label)}">
+      <rect x="${x-48}" y="${y-13}" width="96" height="26" rx="13"/>
+      <circle cx="${x-36}" cy="${y}" r="2.6" aria-hidden="true"/>
+      <text x="${x+5}" y="${y}" dy=".35em" text-anchor="middle">${esc(label)}</text>
+    </g>`).join('')}
+    <g class="ld-workflow-core">
+      <circle cx="230" cy="112" r="35"/>
+      <text x="230" y="109" text-anchor="middle" class="ld-workflow-core-name">CareLink</text>
+      <text x="230" y="122" text-anchor="middle" class="ld-workflow-core-sub">OS · C-DIMS</text>
+    </g>
+  </svg>`;
+}
+
+/* ------------------------------------------------------------ responsive landing */
 function renderLanding6(){
   const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#EE0000' };
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
@@ -248,11 +281,17 @@ function renderLanding6(){
           </div>
         </div>
 
-        <div class="ld-hero-art" aria-hidden="true">
+        <div class="ld-hero-art">
           <div class="ld-canvas-card ld-canvas-tight">
-            <figure class="ld-programme">
-              <img src="${carelinkPhoto('field_home_visit')}" alt="Community care and a home visit" width="760" height="535" fetchpriority="high">
-              <figcaption><b>Care that reaches the community.</b><span>Connecting field teams, care and every department around the people we serve.</span></figcaption>
+            <figure class="ld-workflow" aria-labelledby="ld-workflow-heading">
+              <figcaption class="ld-workflow-head">
+                <span class="ld-workflow-kicker">The CareLink workflow</span>
+                <h2 id="ld-workflow-heading">One system. Every team connected.</h2>
+              </figcaption>
+              ${renderLandingWorkflow6()}
+              <div class="ld-workflow-path" aria-label="Capture, coordinate and report through one shared record">
+                <span>Capture</span>${ic('chevron',12)}<span>Coordinate</span>${ic('chevron',12)}<span>Report</span>
+              </div>
             </figure>
             <div class="ld-facts">
               ${facts.map(f=>`<div class="ld-fact"><b>${num(f.n)}</b><span>${esc(f.l)}</span></div>`).join('')}

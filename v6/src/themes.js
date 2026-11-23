@@ -805,13 +805,15 @@ const WTHEME = {
    badge pairs are measured at runtime rather than chosen by appearance. */
 const ENTRY_THEMES = [
   {id:'clinic',name:'LOMAMO Letterhead Light',mode:'light',accent:'#EE0000',
-    blurb:'The default: warm white space, charcoal typography and a clear emblem-red action.',
-    bg:'#F7F7F7',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#E1E1E1',soft:'#F0F0F0',emphasis:'#B31C2B'},
+    blurb:'The default: a white-led letterhead, charcoal workflow illustration and a clear emblem-red action.',
+    bg:'#FFFFFF',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#E1E1E1',soft:'#F0F0F0',emphasis:'#B31C2B'},
   {id:'heritage',name:'LOMAMO Emblem Dark',mode:'dark',accent:'#EE0000',
     blurb:'A refined charcoal front door with soft red highlights and the same readable white sign-in form.',
     bg:'#1C1C1C',surface:'#252525',ink:'#FFFFFF',muted:'#CCCCCC',line:'#454545',soft:'#303030',emphasis:'#FFB8B8'}
 ];
 const ENTRY_THEME = {
+  // Shared dark relief surfaces do not change the Chief's selected identity.
+  relief:Object.freeze({surface:'#232323',backdrop:'#1A1A1A',raised:'#333333',ink:'#FFFFFF',muted:'#CECECE',line:'#8B8B8B',accent:'#FFB8B8',footer:'#171717'}),
   previewId:null, previewed:new Set(),
   tokens(id){
     const t=ENTRY_THEMES.find(x=>x.id===id)||ENTRY_THEMES[0];
@@ -819,7 +821,7 @@ const ENTRY_THEME = {
     return {...t,fill,badge,fillInk:'#FFFFFF'};
   },
   measurements(id){
-    const t=this.tokens(id);
+    const t=this.tokens(id), r=this.relief;
     return [
       {label:'Primary action / white text',ratio:WTC.contrast(t.fill,'#FFFFFF')},
       {label:'Badge / action fill',ratio:WTC.contrast(t.badge,t.fill)},
@@ -827,16 +829,21 @@ const ENTRY_THEME = {
       {label:'Supporting text / background',ratio:WTC.contrast(t.muted,t.bg)},
       {label:'Main text / card',ratio:WTC.contrast(t.ink,t.surface)},
       {label:'Supporting text / card',ratio:WTC.contrast(t.muted,t.surface)},
-      {label:'Headline accent / background',ratio:WTC.contrast(t.emphasis,t.bg)},
+      {label:'Entry accent / background',ratio:WTC.contrast(t.emphasis,t.bg)},
       {label:'Sign-in text / white form',ratio:WTC.contrast('#202020','#FFFFFF')},
       {label:'Sign-in supporting text / white form',ratio:WTC.contrast('#595959','#FFFFFF')},
       {label:'Input placeholder / white field',ratio:WTC.contrast('#6B6B6B','#FFFFFF')},
-      {label:'Brand text / charcoal panel',ratio:WTC.contrast('#CCCCCC','#202020')}
+      {label:'Brand text / charcoal panel',ratio:WTC.contrast('#CCCCCC','#202020')},
+      {label:'Workflow heading / charcoal panel',ratio:WTC.contrast(r.ink,r.surface)},
+      {label:'Workflow supporting text / charcoal panel',ratio:WTC.contrast(r.muted,r.surface)},
+      {label:'Workflow department / graphite node',ratio:WTC.contrast(r.ink,r.raised)},
+      {label:'Workflow connectors / dark backdrop',ratio:WTC.contrast(r.line,r.backdrop)},
+      {label:'Footer text / soft black',ratio:WTC.contrast(r.muted,r.footer)}
     ];
   },
   style(id){
     const t=this.tokens(id);
-    return `--entry-bg:${t.bg};--entry-surface:${t.surface};--entry-ink:${t.ink};--entry-muted:${t.muted};--entry-line:${t.line};--entry-soft:${t.soft};--entry-emphasis:${t.emphasis};--entry-fill:${t.fill};--entry-badge:${t.badge};--accent:${t.fill};--accent-ink:#FFFFFF`;
+    return `--entry-bg:${t.bg};--entry-surface:${t.surface};--entry-ink:${t.ink};--entry-muted:${t.muted};--entry-line:${t.line};--entry-soft:${t.soft};--entry-emphasis:${t.emphasis};--entry-fill:${t.fill};--entry-badge:${t.badge};--accent:${t.fill};--accent-ink:#FFFFFF;${Object.entries(this.relief).map(([key,value])=>`--entry-relief-${key}:${value}`).join(';')}`;
   },
   async apply(id){
     if(!AUTH.user || AUTH.user.roleId!=='chief' || !RBAC.has(AUTH.user,'system.config')) throw new Error('Only the Chief System Administrator may change the public entry theme.');

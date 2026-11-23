@@ -88,7 +88,7 @@ try{
     const metrics=await page.evaluate(screen=>{
       const prefix=screen==='landing'?'.ld[data-front="1"]':'.lg6[data-theme]';
       const selectors=screen==='landing'?
-        ['.ld-org','h1','h1 em','.ld-eyebrow','.ld-subhead','.ld-lede','.ld-fact b','.ld-fact span','.ld-btn-primary','.ld-btn-secondary','.ld-programme figcaption b','.ld-programme figcaption span','.ld-setup-status','.ld-assure span','.ld-foot']:
+        ['.ld-org','h1','h1 em','.ld-eyebrow','.ld-subhead','.ld-lede','.ld-fact b','.ld-fact span','.ld-btn-primary','.ld-btn-secondary','.ld-btn-arch','.ld-workflow-head h2','.ld-workflow-kicker','.ld-workflow-path','.ld-scene-svg text','.ld-setup-status','.ld-assure span','.ld-foot','.ld-foot-brand b','.ld-foot .ld-dim']:
         ['.lg6-card h2','.lg6-kicker','.field label','.input','.lg-note','.entry-security-badge','.lg-tab','.btn-primary','.lg6-brand h1','.lg6-brand h1 em','.lg6-brand-foot','.lg6-copy','.lg6-photo-overlay b','.lg6-photo-overlay span','.lg-links .linkbtn','.lg6-foot','.lg-check','.lg-host','.lg6-head .btn','.alert'];
       const rgba=value=>{const a=value.match(/[\d.]+/g)?.map(Number)||[];return [a[0]||0,a[1]||0,a[2]||0,a.length>3?a[3]:1]};
       const composite=(top,bottom)=>[0,1,2].map(i=>top[i]*top[3]+bottom[i]*(1-top[3]));
@@ -96,8 +96,16 @@ try{
       const lum=rgb=>rgb.map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4}).reduce((n,x,i)=>n+x*[.2126,.7152,.0722][i],0);
       const ratio=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
       const metric=(element,selector,pseudo=null)=>{
-        const bg=background(element),style=getComputedStyle(element,pseudo);
-        return {selector,ratio:ratio(composite(rgba(style.color),bg),bg),color:style.color,background:bg};
+        let bg=background(element);const style=getComputedStyle(element,pseudo);
+        let color=style.color;
+        if(element instanceof SVGTextElement){
+          // SVG text paints with fill, and its node/core shape is the actual
+          // backdrop. CSS color or the outer card would miss real regressions.
+          const shape=element.closest('.ld-workflow-node,.ld-workflow-core')?.querySelector('rect,circle');
+          if(shape) bg=rgba(getComputedStyle(shape).fill).slice(0,3);
+          color=style.fill;
+        }
+        return {selector,ratio:ratio(composite(rgba(color),bg),bg),color,background:bg};
       };
       const visible=e=>e.getClientRects().length>0;
       const result=selectors.flatMap(selector=>[...document.querySelectorAll(prefix+' '+selector)].filter(visible).map(e=>metric(e,selector)));
@@ -138,10 +146,35 @@ try{
       await entry.setViewportSize(size);
       if(await entry.locator('.lg6').count()) await entry.locator('[data-act="goto-landing"]').click();
       await noClipping(theme+' landing '+size.width);
-      const photo=entry.locator('.ld-programme img');
-      assert.ok(await photo.evaluate(img=>img.complete&&img.naturalWidth>0),'programme photo is self-contained and loaded');
+      const diagram=entry.getByRole('img',{name:'CareLink system workflow',exact:true});
+      assert.equal(await diagram.count(),1,'the informative workflow is restored and exposed to assistive technology');
+      assert.equal(await diagram.locator('.ld-workflow-node').count(),8,'all eight original departments are drawn');
+      assert.equal(await diagram.locator('.ld-workflow-links line').count(),8,'all eight original connections are drawn');
+      const labelGeometry=await diagram.locator('.ld-workflow-node').evaluateAll(nodes=>nodes.map(node=>{
+        const text=node.querySelector('text').getBBox(),rect=node.querySelector('rect').getBBox();
+        return {label:node.dataset.workflowNode,fits:text.x>=rect.x&&text.x+text.width<=rect.x+rect.width&&text.y>=rect.y&&text.y+text.height<=rect.y+rect.height};
+      }));
+      assert.ok(labelGeometry.every(n=>n.fits),'workflow labels stay inside their nodes at '+size.width+': '+JSON.stringify(labelGeometry));
       const footer=await entry.locator('.ld-foot').boundingBox(),art=await entry.locator('.ld-canvas-card').boundingBox();
       assert.ok(footer.y>=art.y+art.height-1,'landing footer must flow below, not clip/overlap the hero');
+      if(size.width>920){
+        const copy=await entry.locator('.ld-hero-copy').boundingBox();
+        assert.ok(art.x>=copy.x+copy.width-1,'the workflow remains on the right on desktop');
+      }
+      if(theme==='clinic'){
+        const tones=await entry.evaluate(()=>{
+          const front=document.querySelector('.ld[data-front="1"]'),panel=front.querySelector('.ld-canvas-card'),footer=front.querySelector('.ld-foot');
+          const art=panel.getBoundingClientRect(),foot=footer.getBoundingClientRect();
+          return {canvas:getComputedStyle(front).backgroundColor,header:getComputedStyle(front.querySelector('.ld-top')).backgroundColor,
+            panel:getComputedStyle(panel).backgroundColor,footer:getComputedStyle(footer).backgroundColor,
+            darkFootprint:(art.width*art.height+foot.width*foot.height)/(innerWidth*front.getBoundingClientRect().height)};
+        });
+        assert.equal(tones.canvas,'rgb(255, 255, 255)','white remains the dominant canvas');
+        assert.equal(tones.header,'rgb(255, 255, 255)','the letterhead stays white');
+        assert.equal(tones.panel,'rgb(35, 35, 35)','charcoal graphic panel provides visual relief');
+        assert.equal(tones.footer,'rgb(23, 23, 23)','soft-black footer anchors the page');
+        assert.ok(tones.darkFootprint>=.15&&tones.darkFootprint<.45,'dark relief is substantial but does not dominate the page: '+JSON.stringify(tones));
+      }
       if([1366,390].includes(size.width)){
         await measure(entry,theme+' '+size.width,'landing');
         if(screenshotDir) await entry.screenshot({path:path.join(screenshotDir,theme+'-'+size.width+'-landing.png'),fullPage:true});
@@ -249,7 +282,7 @@ try{
   await retiredPage.goto('https://theqwengacfs.github.io/CareLink-DIMS-dev/carelink-v6.html').catch(()=>{});
   await retiredPage.waitForURL('https://care-link-dims-dev.vercel.app/');assert.deepEqual(retiredApi,[]);
   assert.deepEqual(errors,[],'no uncaught browser errors');
-  console.log('entry-browser: actual Chromium themes/preview/apply, six viewport sizes and all four access panels, keyboard/placeholder/contrast and cached-workspace isolation, expand → hold → collapse, isolated-cookie pending/approval/private-change/revocation, confidential download and retired-host redirect passed');
+  console.log('entry-browser: actual Chromium restored workflow/white-led charcoal relief, themes/preview/apply, six viewport sizes and all four access panels, keyboard/placeholder/contrast and cached-workspace isolation, expand → hold → collapse, isolated-cookie pending/approval/private-change/revocation, confidential download and retired-host redirect passed');
   console.log(JSON.stringify(evidence));
 }finally{
   if(browser) await browser.close();

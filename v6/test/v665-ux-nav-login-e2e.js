@@ -146,12 +146,12 @@ function ok(name, cond, detail = '') {
     defaults.foundation && defaults.foundation.name === 'Foundation White' &&
     defaults.foundation.mode === 'light' && defaults.foundation.t.surface === '#FFFFFF');
   const entryCssRaw = fs.readFileSync(path.join(REPO, 'v6', 'src', 'entry_theme.css'), 'utf8');
-  ok('Default landing theme is the light LOMAMO letterhead with programme photography',
+  ok('Default landing theme is the white-led LOMAMO letterhead with charcoal workflow relief',
     defaults.landingDefault && defaults.landingDefault.id === 'clinic' &&
     defaults.landingDefault.name === 'LOMAMO Letterhead Light' &&
     defaults.landingDefault.mode === 'light' &&
     defaults.landingDefault.accent === '#EE0000' &&
-    /\.ld\[data-front="1"\] \.ld-programme img/.test(entryCssRaw));
+    /\.ld\[data-front="1"\] \.ld-workflow-node text/.test(entryCssRaw));
   ok('45 workspace themes (including 10 new themes) pass 100% of contrast audits',
     defaults.wthemeCount === 45 && defaults.auditFails === 0,
     `count=${defaults.wthemeCount}, auditFails=${defaults.auditFails}`);
