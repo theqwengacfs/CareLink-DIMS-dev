@@ -706,11 +706,10 @@ function enrichV6Collections(db, T){
 }
 
 function seedOfficial(db, now, opts={}){
-  /* Anchored to midnight, not to 09:00. Days in programme are counted from the
-     intake timestamp to now; with a 09:00 anchor a run before nine in the
-     morning made every patient one day shorter than the seed intended, which
-     moved the 45-240 / 241-330 distribution off its stated profile. */
-  const T = new Date(now); T.setUTCHours(0,0,0,0);
+  /* Anchor the generated civil dates to the current Kenyan programme day.
+     CARE_RULES measures programme days in Africa/Nairobi (UTC+03), so using
+     the UTC calendar day here shifts the register by one day after 21:00 UTC. */
+  const T = new Date(new Date(now).getTime() + 3 * 3600000); T.setUTCHours(0,0,0,0);
   const DAY = 86400000;
   const rnd = rng6(Number.isInteger(opts.seed) ? opts.seed : 20261022);
   const pick = a => a[Math.floor(rnd()*a.length)];
