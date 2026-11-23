@@ -11,6 +11,7 @@ const reset=()=>run('DB.db=DB.blank();APPX.host=null;LOGIN6.tab="signin";');
 reset();
 assert.equal(run('DEFAULT_THEME'),'clinic');
 assert.equal(run('DB.db.settings.landingTheme'),'clinic');
+assert.equal(run("ENTRY_THEME.tokens('clinic').bg"),'#FFFFFF','the default stays white-led, not a new dark theme');
 assert.equal(run('landingTheme().id'),'clinic');
 assert.deepEqual(JSON.parse(run('JSON.stringify(ENTRY_THEMES.map(t=>t.id))')),['clinic','heritage']);
 
@@ -41,9 +42,21 @@ run('ENTRY_THEME.previewId=null;');assert.equal(run('landingTheme().id'),'herita
 for(const theme of ['clinic','heritage']){
   reset();run(`APPX.host={setup:true,globallyActivated:true,landingTheme:'${theme}'};DB.db.settings.globallyActivated=true;`);
   const landing=run('renderLanding6()');
-  assert.match(landing,/class="ld-programme"/);assert.match(landing,/data:image\/jpeg;base64/);
+  const diagram=run('renderLandingWorkflow6()');
+  assert.match(landing,/class="ld-workflow" aria-labelledby="ld-workflow-heading"/);
+  assert.ok(landing.includes(diagram),'the original departmental workflow, not a photograph, occupies the hero');
+  assert.ok(!landing.includes('class="ld-programme"'));
+  assert.match(diagram,/class="ld-scene-svg" role="img" aria-labelledby="ld-workflow-title" aria-describedby="ld-workflow-desc"/);
+  assert.match(diagram,/<title id="ld-workflow-title">CareLink system workflow<\/title>/);
+  assert.equal((diagram.match(/<line /g)||[]).length,8,'all eight original connections are restored');
+  assert.deepEqual([...diagram.matchAll(/data-workflow-node="([^"]+)"/g)].map(m=>m[1].replaceAll('&amp;','&')),
+    ['Field Care','Hospital','M&E / DHIS','Finance','Homestay','Media & IT','HR & Leave','Transport']);
+  assert.match(diagram,/class="ld-workflow-core-name">CareLink<\/text>/);
+  assert.ok(!diagram.includes('<image'),'the vector graphic works offline without external images');
+  assert.match(landing,/<div class="ld-hero-art">/,'the informative diagram is not hidden from assistive technology');
   assert.match(landing,/data-act="goto-login"/);assert.match(landing,/data-act="goto-public"/);
-  assert.ok(!landing.includes('id="beamGrad"'),'landing does not revert to the old topology illustration');
+  assert.match(landing,/--entry-relief-surface:#232323/);
+  assert.match(landing,/--entry-relief-footer:#171717/);
   for(const tab of ['signin','activate','request','forgot']){
     run(`LOGIN6.tab='${tab}'`);const html=run('renderLogin6()');
     assert.equal((html.match(/class="lg-tab /g)||[]).length,4,'all four access panels remain available');
@@ -65,6 +78,8 @@ const parse=(text)=>text.match(/CSS_ORDER\s*=\s*\[([^\]]+)\]/)[1].match(/['"]([^
 assert.deepEqual(parse(nodeBuilder),CSS_ORDER);assert.deepEqual(parse(pythonBuilder),CSS_ORDER);
 assert.equal(CSS_ORDER.at(-1),'entry_theme.css','entry rules must win over legacy workspace rules');
 const css=fs.readFileSync(path.join(root,'v6/src/entry_theme.css'),'utf8');
+assert.match(css,/\.ld\[data-front="1"\] \.ld-canvas-card\{[^}]*background:var\(--entry-relief-surface\)/);
+assert.match(css,/\.ld\[data-front="1"\] \.ld-foot\{[^}]*background:var\(--entry-relief-footer\)/);
 assert.match(css,/:focus-visible/);assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
 assert.match(css,/\.lg6\[data-theme\] \.lg6-panel\{[\s\S]*?overflow:visible/);
 assert.match(css,/\.lg6\[data-theme\] \.lg6-card\{[\s\S]*?background:#FFFFFF !important/);
@@ -74,4 +89,4 @@ assert.ok(bundle.includes(css.trim()),'published HTML includes the new scoped st
 const adminCss=fs.readFileSync(path.join(root,'v6/src/admin_ops6.css'),'utf8').trim();
 assert.ok(bundle.includes(adminCss));
 assert.ok(bundle.indexOf(css.trim())>bundle.indexOf(adminCss),'entry layer follows administrative/workspace styles');
-console.log('entry-refresh: light default, explicit/host/preview authority, read-only resolution, both identities, four labelled access panels, device controls and three synchronized CSS manifests passed');
+console.log('entry-refresh: light default, explicit/host/preview authority, read-only resolution, accessible eight-department workflow, white-led charcoal relief, both identities, four labelled access panels, device controls and three synchronized CSS manifests passed');

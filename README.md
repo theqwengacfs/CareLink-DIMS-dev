@@ -102,10 +102,13 @@ sign-in** saves the shared `system.config.entryTheme` and a server audit event.
 Both palettes use the root letterhead's red/black/white/grey and pass the
 `safeFill` / `badgeOnFill` text contrast gates. **Letterhead Light is the default**
 when no Chief selection has been saved; explicit Chief choices are preserved.
-Both identities keep the sign-in form white, with natural-colour photography,
-visible keyboard focus and scrollable access controls on small screens. The
-public-entry stylesheet is scoped separately from workspace palettes, which are
-unchanged.
+The default landing remains white-led, with the original eight-department
+workflow illustration restored on a charcoal panel, graphite counters and a
+soft-black footer for visual relief. Its inline SVG has an accessible name and
+description and works offline. Both identities keep the sign-in form white,
+with natural-colour photography, visible keyboard focus and scrollable access
+controls on small screens. The public-entry stylesheet is scoped separately
+from workspace palettes, which are unchanged.
 
 Staff sign-in is enforced by the API, not a browser fingerprint or a local flag:
 

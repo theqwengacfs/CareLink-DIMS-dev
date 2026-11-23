@@ -47,15 +47,16 @@ const { makeCtx } = require('./dom');
   })())`));
 
   ok('APP.version is 6.9.6', themeAudit.appVersion === '6.9.6', themeAudit.appVersion);
-  ok('Global Landing Default is the LOMAMO light letterhead with natural-colour programme photography',
+  ok('Global Landing Default is the white-led LOMAMO letterhead with the restored workflow graphic',
     themeAudit.defaultLandingId === 'clinic' &&
     themeAudit.firstLanding.id === 'clinic' &&
     themeAudit.firstLanding.mode === 'light' &&
     themeAudit.resolvedLanding.id === 'clinic' &&
     themeAudit.landingHtml.includes('data-theme="clinic" data-mode="light"') &&
-    themeAudit.landingHtml.includes('class="ld-programme"') &&
-    themeAudit.landingHtml.includes('Community care and a home visit') &&
-    !themeAudit.landingHtml.includes('linearGradient id="beamGrad"'));
+    themeAudit.landingHtml.includes('class="ld-scene-svg" role="img"') &&
+    themeAudit.landingHtml.includes('CareLink system workflow') &&
+    (themeAudit.landingHtml.match(/data-workflow-node=/g)||[]).length === 8 &&
+    themeAudit.landingHtml.includes('--entry-relief-surface:#232323'));
 
   const signInCss = fs.readFileSync(path.join(REPO, 'v6', 'src', 'entry_theme.css'), 'utf8');
   ok('Sign-In separates charcoal branding from a readable white console card',
