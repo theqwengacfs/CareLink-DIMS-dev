@@ -607,7 +607,9 @@ function viewCrumb(){
 function workspaceHeroBanner(view, user){
   const isGlobalAct = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const overrideBar = (typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.bannerHTML) ? SILENT_OVERRIDE.bannerHTML() : '';
-  const globalActBar = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.globalActivationBannerHTML) ? PROD_SETUP.globalActivationBannerHTML(user) : '';
+  const trialActive = typeof trialEntryActive==='function' && trialEntryActive();
+  const globalActBar = !trialActive && (typeof PROD_SETUP!=='undefined' && PROD_SETUP.globalActivationBannerHTML) ? PROD_SETUP.globalActivationBannerHTML(user) : '';
+  const trialBar = trialActive ? `<div class="alert warn" role="status" style="margin:10px 16px"><span>${ic('shield',15)}</span><div><b>TEAM TRIAL · SYNTHETIC DATA ONLY</b><span class="small">Shared evaluation environment. Never enter real patient, staff or confidential information.</span></div></div>` : '';
   const demoBar = DEMO_PREVIEW.active
     ? `<div class="alert info" style="margin:10px 16px;border:1px solid #93C5FD"><span>${ic('shield',15)}</span><div style="flex:1"><b>BOARD PREVIEW · SYNTHETIC DATA · READ ONLY</b><span class="small">Isolated in this browser. No hosted records, account login, edits, uploads or sync are used.</span></div><button class="btn btn-xs btn-ghost" data-act="demo-preview-exit">Exit preview</button></div>`
     : ((!isGlobalAct && typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '');
@@ -616,7 +618,7 @@ function workspaceHeroBanner(view, user){
   const dpaBar = (typeof CARELINK_GOVERNANCE!=='undefined' && CARELINK_GOVERNANCE.dpaBannerHTML) ? CARELINK_GOVERNANCE.dpaBannerHTML(view, user) : '';
   /* Avoid stacking duplicate context + workflow banners on Console Home: ws67-hero provides a clean, unified Home header */
   const ctxStrip = (view!=='home' && typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip) ? ROLE_CTX.contextStrip(user, view) : '';
-  return overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + dpaBar + ctxStrip;
+  return trialBar + overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + dpaBar + ctxStrip;
 }
 function contentFor(view, params, user, options = {}){
   const guard = (cap)=>{ if(!RBAC.assert(user,cap,{},false)) return deniedPanel(cap); return null; };
@@ -746,7 +748,7 @@ function contentFor(view, params, user, options = {}){
 }
 function deniedPanel(cap){
   const globallyActivated = typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated();
-  const isDemoSession = !globallyActivated && Boolean((AUTH.user && AUTH.user.demo) || DB.db?.meta?.demoSeeded || DB.db?.meta?.seeded==='official');
+  const isDemoSession = !(typeof trialEntryActive==='function' && trialEntryActive()) && !globallyActivated && Boolean((AUTH.user && AUTH.user.demo) || DB.db?.meta?.demoSeeded || DB.db?.meta?.seeded==='official');
   const candidate = (isDemoSession && typeof DEMO_SWITCH!=='undefined' && typeof cap==='string')
     ? DEMO_SWITCH.findBestUserForCap(cap) : null;
   const switchBtn = (candidate && AUTH.user && candidate.username !== AUTH.user.username)
@@ -3068,7 +3070,7 @@ function formatAIText(t){
 /* ---------------- User menu ---------------- */
 function userMenu(){
   const u=AUTH.user; const role=roleObj(u.roleId);
-  const demoPreviewAllowed = !(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+  const demoPreviewAllowed = !(typeof trialEntryActive==='function' && trialEntryActive()) && !(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   openModal({title:u.name, sub:`${role.name} · ${deptName(u.departmentId)}`, narrow:true, body:`
     <dl class="dl">
       <dt>Username</dt><dd class="mono">${esc(u.username)}</dd>

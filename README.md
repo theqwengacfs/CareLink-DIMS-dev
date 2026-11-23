@@ -186,6 +186,16 @@ operation. Its procedure and 24-hour encrypted-pack recovery are documented in
 [`docs/REBUILD_AND_REBOOT_FROM_CHIEF_ADMIN.md`](docs/REBUILD_AND_REBOOT_FROM_CHIEF_ADMIN.md).
 Use the smallest per-account/device action rather than rebuilding everyone.
 
+### Separate shared team trial
+
+The opt-in isolated team trial provides shared editing with 4,000 synthetic
+patients and synthetic role accounts, without changing production sign-in. It
+requires a **separate Vercel project and separate KV database**, explicit setup
+and an owner-approved initialization. Never enter real or confidential data.
+See [the isolated trial runbook](tools/ISOLATED-TEAM-TRIAL.md) for deployment,
+limitations and credential handling. Device labels/types are hidden only in
+the trial; browser admission and role-scoped access remain enforced.
+
 ### Runtime synthetic evaluation register (never production data)
 
 Live commissioning starts with an **empty production register**. Use the
