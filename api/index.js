@@ -770,7 +770,7 @@ async function deleteKvKey(key) {
   return false;
 }
 
-/* Atomic Redis commands back the per-account online session lease. These
+/* Atomic Redis commands back the individual online session leases. These
    commands deliberately use the writable primary, never a read replica. */
 async function runKvCommand(args, timeoutMs = 10000, op = 'write') {
   const candidates = boundRestCandidates({ allowReadOnlyFallback: false });
@@ -812,10 +812,12 @@ const SESSION_LEASE_SECONDS = IDLE_SECONDS + 60;
 const SESSION_LEASE_RENEW_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('EXPIRE', KEYS[1], ARGV[2]) else return 0 end";
 const SESSION_LEASE_RELEASE_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end";
 
-function sessionLeaseKey(username, epoch = '') {
+function sessionLeaseKey(username, epoch = '', sessionId = '') {
   const canonical = String(username || '').trim().toLowerCase();
-  const digest = crypto.createHash('sha256').update(epoch ? `${canonical}:${epoch}` : canonical).digest('hex').slice(0, 40);
-  return `${TRIAL_MODE ? 'carelink_trial_active_session_v1_' : 'carelink_active_session_v1_'}${digest}`;
+  // A separate lease per session allows simultaneous clients while preserving
+  // per-session expiry, logout and epoch-based credential revocation.
+  const digest = crypto.createHash('sha256').update(JSON.stringify([canonical, epoch, sessionId])).digest('hex').slice(0, 40);
+  return `${TRIAL_MODE ? 'carelink_trial_session_v2_' : 'carelink_session_v2_'}${digest}`;
 }
 
 function loginSessionId(username, attemptId) {
@@ -829,42 +831,38 @@ function loginSessionId(username, attemptId) {
 }
 
 async function reserveLoginSession(username, sessionId, epoch = '') {
-  const key = sessionLeaseKey(username, epoch);
+  const key = sessionLeaseKey(username, epoch, sessionId);
   const result = await runKvCommand(['SET', key, sessionId, 'NX', 'EX', String(SESSION_LEASE_SECONDS)]);
   if (result === 'OK') return true;
-  /* A retried login request is idempotent when it carries the same unpredictable
-     client attempt ID; all other concurrent login attempts remain blocked. */
+  // Retries with the same attempt ID remain idempotent.
   return (await runKvCommand(['GET', key])) === sessionId;
 }
 
 async function renewSessionLease(username, sessionId, epoch = '') {
   if (!sessionId) return false;
   return Number(await runKvCommand([
-    'EVAL', SESSION_LEASE_RENEW_LUA, '1', sessionLeaseKey(username, epoch), sessionId, String(SESSION_LEASE_SECONDS),
+    'EVAL', SESSION_LEASE_RENEW_LUA, '1', sessionLeaseKey(username, epoch, sessionId), sessionId, String(SESSION_LEASE_SECONDS),
   ])) === 1;
 }
 
 async function releaseSessionLease(username, sessionId, epoch = '') {
   if (!sessionId) return false;
   return Number(await runKvCommand([
-    'EVAL', SESSION_LEASE_RELEASE_LUA, '1', sessionLeaseKey(username, epoch), sessionId,
+    'EVAL', SESSION_LEASE_RELEASE_LUA, '1', sessionLeaseKey(username, epoch, sessionId), sessionId,
   ])) === 1;
 }
 
 async function ensureSessionLease(sess) {
-  /* Upgrade a pre-lease signed token safely: only the first live legacy client
-     can claim the account, and all subsequent clients must present its lease. */
   const sessionId = sess.sessionId || crypto.createHash('sha256').update(sess.token).digest('base64url');
-  if (!sess.sessionId) {
-    const acquired = await runKvCommand([
-      'SET', sessionLeaseKey(sess.username, sess.sessionEpoch), sessionId, 'NX', 'EX', String(SESSION_LEASE_SECONDS),
-    ]);
-    if (acquired !== 'OK') {
-      const current = await runKvCommand(['GET', sessionLeaseKey(sess.username, sess.sessionEpoch)]);
-      if (current !== sessionId) return null;
-    }
-  }
-  if (!await renewSessionLease(sess.username, sessionId, sess.sessionEpoch)) return null;
+  if (!sess.sessionId && !await reserveLoginSession(sess.username, sessionId, sess.sessionEpoch)) return null;
+  if (await renewSessionLease(sess.username, sessionId, sess.sessionEpoch)) return sessionId;
+  // A signed session from the previous release may still have its original
+  // account-wide lease. Migrate only if that exact, unexpired lease matches.
+  const canonical = String(sess.username || '').trim().toLowerCase();
+  const digest = crypto.createHash('sha256').update(sess.sessionEpoch ? `${canonical}:${sess.sessionEpoch}` : canonical).digest('hex').slice(0,40);
+  const oldKey = `${TRIAL_MODE ? 'carelink_trial_active_session_v1_' : 'carelink_active_session_v1_'}${digest}`;
+  if ((await runKvCommand(['GET', oldKey])) !== sessionId) return null;
+  if (!await reserveLoginSession(sess.username, sessionId, sess.sessionEpoch)) return null;
   return sessionId;
 }
 
@@ -2339,6 +2337,7 @@ function getSession(state, req) {
   if (state.revokedSessions && Object.prototype.hasOwnProperty.call(state.revokedSessions, tok)) return null;
   if (state.sessions && Object.prototype.hasOwnProperty.call(state.sessions, tok)) {
     const s = state.sessions[tok];
+    if (s.sessionId && state.revokedSessions && Object.hasOwn(state.revokedSessions, `sid:${s.sessionId}`)) return null;
     const age = (Date.now() - new Date(s.lastSeen || s.createdAt).getTime()) / 1000;
     if (age > IDLE_SECONDS) return null;
     const username = String(s.username || '').toLowerCase();
@@ -2367,6 +2366,7 @@ function getSession(state, req) {
      `/api/state` and `/api/auth/change-password` calls never 401 on replica lag. */
   const verified = verifySignedSessionToken(tok);
   if (!verified) return null;
+  if (verified.sid && state.revokedSessions && Object.hasOwn(state.revokedSessions, `sid:${verified.sid}`)) return null;
   if (!state.setup && Object.keys(state.creds || {}).length === 0 && (!isDemoDatabase(state) || isGloballyActivated(state))) return null;
   const cred = state.creds && Object.prototype.hasOwnProperty.call(state.creds, verified.u)
     ? state.creds[verified.u]
@@ -2937,10 +2937,9 @@ function rebuildOfficialAccounts(state, sess) {
   return rows;
 }
 
-/* Phase 1 device admission. The opaque proof is an HttpOnly, same-origin
-   cookie, not a client-supplied device ID/fingerprint. Only its SHA-256 is kept
-   in the server store. Session tokens are bound to that hash, and approval is
-   rechecked on EVERY authenticated read, write, page, heartbeat and recovery. */
+/* The opaque browser proof is an HttpOnly same-origin cookie, not a supplied
+   fingerprint. Password-verified browsers are enrolled automatically; tokens
+   remain bound to that proof and explicitly revoked browsers remain blocked. */
 const DEVICE_COOKIE = 'carelink_device_v1';
 const ENTRY_THEME_IDS = new Set(['heritage', 'clinic']);
 function systemConfig(state) {
@@ -2997,33 +2996,25 @@ async function admitLoginDevice(state, req, res, body, cred, {save = true} = {})
   const id = sha256Hex(proof);
   state.devices = state.devices || {};
   let record = state.devices[id];
+  if (record && ['rejected','revoked'].includes(record.status)) return {ok:false,code:'device_rejected',
+    deviceId:id, deviceStatus:record.status, error:'This browser has been explicitly revoked. Contact the Chief System Administrator.'};
   if (record && record.status === 'approved' && state.devicePolicyInstalled) return {ok:true,deviceId:id};
   if (!record) {
-    if (Object.keys(state.devices).length >= 500) return {ok:false,code:'device_registry_full',error:'The device register is full. Ask the Chief System Administrator to review it.'};
+    if (Object.keys(state.devices).length >= 5000) return {ok:false,code:'device_registry_full',error:'The browser register is full. Contact the Chief System Administrator.'};
     const type = ['computer','tablet','phone','other'].includes(body.deviceType) ? body.deviceType : 'other';
     record = state.devices[id] = {id, label:clipString(body.deviceLabel || (typeof body.device === 'string' ? body.device : '') || 'Staff browser',100),
-      type, firstSeen:nowISO(), requestedBy:cred.username, users:[cred.username], status:'pending'};
-    appendServerAudit(state, cred.username, 'device.requested', 'device', id, 'Verified account requested device approval.', {deviceId:id,type});
+      type, firstSeen:nowISO(), requestedBy:cred.username, users:[cred.username], status:'approved'};
+    appendServerAudit(state, cred.username, 'device.enrolled', 'device', id, 'Browser automatically enrolled after successful credential verification.', {deviceId:id,type});
+  } else if (record.status === 'pending') {
+    record.status = 'approved';
+    appendServerAudit(state, cred.username, 'device.enrolled', 'device', id, 'Pending browser enrolled after successful credential verification.', {deviceId:id});
   }
-  /* One-time migration/bootstrap only: the first password-verified Chief
-     enrolls a recovery/commissioning browser under the same atomic CAS. Once
-     installed, clearing cookies or revoking every device NEVER reopens this. */
-  if (!state.devicePolicyInstalled && cred.roleId === 'chief' &&
-      !Object.values(state.devices).some(d => d.status === 'approved')) {
-    record.status = 'approved'; record.approvedBy = cred.username; record.approvedAt = nowISO();
-    state.devicePolicyInstalled = true;
-    appendServerAudit(state, cred.username, 'device.chief_bootstrap', 'device', id,
-      'One-time Chief commissioning/migration browser enrolled. Further devices require Chief approval.', {deviceId:id});
-  }
+  if (record.status !== 'approved') return {ok:false,code:'device_rejected',error:'This browser registration cannot be used. Contact the Chief System Administrator.'};
+  state.devicePolicyInstalled = true;
   const known = Array.isArray(record.users) ? record.users : [];
   record.users = [...new Set([...known, cred.username])].slice(-100);
   record.lastSeen = nowISO();
   if (save) await saveCloudAuthMetadata(state);
-  if (record.status !== 'approved') return {ok:false,code:record.status === 'pending' ? 'device_pending' : 'device_rejected',
-    deviceId:id, deviceStatus:record.status,
-    error:record.status === 'pending'
-      ? `This browser is awaiting Chief System Administrator approval (device ${id.slice(0,12)}). No staff data has been opened. Keep its cookies and retry after approval.`
-      : 'This browser has been rejected or revoked. Ask the Chief System Administrator; no staff data has been opened.'};
   return {ok:true,deviceId:id};
 }
 function rosterMailbox(state, seat) {
@@ -3775,7 +3766,7 @@ async function handleRequest(req, res) {
     }).users[0];
     /* Include non-paged initial state directly in the login response when under
        512 KB total so post-setup Chief sign-in adopts Primary state in a single
-       <150 ms round-trip; the per-account session lease is acquired atomically before returning.
+       <150 ms round-trip; the individual session lease is acquired atomically before returning.
        Skip expensive JSON serialisation immediately when sharded head or large
        patient/visit collections already prove the state exceeds 512 KB. */
     let inlineState = null;
@@ -3810,8 +3801,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' });
     }
     if (!sessionReserved) return sendJson(res, 409, {
-      ok: false, code: 'session_active', retryAfterSeconds: SESSION_LEASE_SECONDS,
-      error: `This account already has an active online session on another device or browser. Sign out there first. If that device is unavailable, wait up to ${Math.ceil(SESSION_LEASE_SECONDS / 60)} minutes for the idle session to expire.`,
+      ok: false, code: 'session_conflict', error: 'This sign-in attempt could not be reserved. Please retry.',
     });
     if (cred.temporary && !cred.temporary.usedAt) {
       cred.temporary.usedAt = nowISO();
@@ -3845,6 +3835,7 @@ async function handleRequest(req, res) {
       state.revokedSessions = state.revokedSessions || {};
       pruneSessions(state);
       state.revokedSessions[sess.token] = Date.now();
+      if (sess.sessionId) state.revokedSessions[`sid:${sess.sessionId}`] = Date.now();
       if (!state._shardedManifest) {
         appendServerAudit(state, sess.userId || sess.username, 'auth.logout', 'user', sess.userId || sess.username, 'Signed out from online database');
       }
@@ -3863,7 +3854,7 @@ async function handleRequest(req, res) {
       if (err && err.code === 'kv_quota_exceeded') throw err;
       return sendJson(res, 503, { ok: false, error: 'Online session security could not be verified.' });
     }
-    if (!sessionId) return sendJson(res, 401, { ok: false, error: 'This account is active in another session. Sign in again after that session ends.' });
+    if (!sessionId) return sendJson(res, 401, { ok: false, error: 'This session has expired. Please sign in again.' });
     const body = await readJsonBody(req);
     const cred = (state.creds || {})[sess.username];
     if (!cred || !verifyPassword(String(body.password || ''), cred.salt, cred.digest)) {
@@ -3881,7 +3872,7 @@ async function handleRequest(req, res) {
       if (err && err.code === 'kv_quota_exceeded') throw err;
       return sendJson(res, 503, { ok: false, error: 'Online session security could not be verified.' });
     }
-    if (!sessionId) return sendJson(res, 401, { ok: false, error: 'This account is active in another session. Sign in again after that session ends.' });
+    if (!sessionId) return sendJson(res, 401, { ok: false, error: 'This session has expired. Please sign in again.' });
     /* Stateless HMAC tokens slide their idle window by returning a refreshed
        signed token without rewriting the multi-megabyte database every 10s. */
     if (state.sessions && Object.prototype.hasOwnProperty.call(state.sessions, sess.token)) {

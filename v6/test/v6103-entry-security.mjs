@@ -96,15 +96,13 @@ r=await chief.call('admin/staff-accounts/export-log',{method:'POST',token:chiefT
 r=await chief.call('admin/staff-accounts/export-log',{method:'POST',token:chiefToken,body:{format:'csv',usernames:['director','caregiver.ombeyi']}});assert.equal(r.status,200);
 const downloadAudit=stored().audit.findLast(e=>e.action==='staff.export_download_requested');
 ok(downloadAudit.meta.who==='chief.admin'&&downloadAudit.meta.rowCount===2&&downloadAudit.meta.deviceId===chiefDevice&&downloadAudit.meta.when,'legacy file/clipboard handoffs also require an actor/time/count/device audit');
-r=await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:caregiver.temporaryPassword,deviceId:chiefDevice,approved:true}});assert.equal(r.status,403);assert.equal(r.body.code,'device_pending');
-const staffDevice=r.body.deviceId;ok(!r.body.token&&!r.body.inlineState&&!r.body.db,'pending browsers receive no staff token or data');
-let device=stored().devices[staffDevice];ok(device.label==='Staff browser'&&device.type==='other'&&device.requestedBy===caregiver.username&&device.firstSeen,'pending register uses safe defaults without label/type while retaining the verified requester');
-ok(!stored().creds[caregiver.username].temporary.usedAt,'pending sign-in does not consume a temporary password');
+const attempt='synthetic-login-attempt-001';
+r=await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:caregiver.temporaryPassword,loginAttemptId:attempt,deviceId:chiefDevice,approved:true}});assert.equal(r.status,200,JSON.stringify(r.body));const staffToken=r.body.token;
+const staffDevice=crypto.createHash('sha256').update(staff.jar.cookie.split('=')[1]).digest('hex');
+let device=stored().devices[staffDevice];ok(device.status==='approved'&&device.label==='Staff browser'&&device.type==='other'&&device.requestedBy===caregiver.username&&device.firstSeen,'verified browser automatically enrolled with safe defaults');
+ok(Boolean(stored().creds[caregiver.username].temporary.usedAt),'successful first sign-in consumes the temporary password');
 assert.equal((await staff.call('state',{token:chiefToken})).status,401);
 assert.equal((await staff.call('admin/devices/decision',{method:'POST',token:chiefToken,body:{password:chiefPassword,deviceId:staffDevice,decision:'approved'}})).status,403);
-r=await chief.call('admin/devices/decision',{method:'POST',token:chiefToken,body:{password:chiefPassword,deviceId:staffDevice,decision:'approved'}});assert.equal(r.status,200);
-const attempt='synthetic-login-attempt-001';
-r=await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:caregiver.temporaryPassword,loginAttemptId:attempt}});assert.equal(r.status,200,JSON.stringify(r.body));const staffToken=r.body.token;
 ok(r.body.mustChange&&r.body.passwordBeforeWorkspace&&!r.body.inlineState,'approved temporary holders still cannot load a workspace before private replacement');
 const retry=await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:caregiver.temporaryPassword,loginAttemptId:attempt}});assert.equal(retry.status,200,'network retry of same attempt/device is idempotent');
 assert.equal((await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:caregiver.temporaryPassword,loginAttemptId:'another-attempt-002'}})).body.code,'temporary_password_unavailable');
@@ -114,13 +112,24 @@ assert.equal((await stranger.call('session/whoami',{token:staffToken})).status,4
 const privatePassword='Private#River2028!';
 r=await staff.call('auth/change-password',{method:'POST',token:staffToken,body:{current:caregiver.temporaryPassword,password:privatePassword}});assert.equal(r.status,200,JSON.stringify(r.body));
 r=await staff.call('state',{token:staffToken});assert.equal(r.status,200);ok(!('devices' in r.body.db)&&!('credentialExports' in r.body.db)&&!JSON.stringify(r.body).includes(caregiver.temporaryPassword),'staff sync never returns proof registry or credential export material');
+// A second independent browser signs in without approval or waiting and stays
+// active after the first browser logs out. Cookie-bound sessions cannot be copied.
+const secondStaff=browser();
+const secondLogin=await secondStaff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:privatePassword}});
+assert.equal(secondLogin.status,200,JSON.stringify(secondLogin.body));
+assert.equal((await secondStaff.call('state',{token:secondLogin.body.token})).status,200);
+assert.equal((await stranger.call('state',{token:secondLogin.body.token})).status,401);
+assert.equal((await secondStaff.call('session/beat',{method:'POST',token:secondLogin.body.token})).status,200);
+assert.equal((await staff.call('session/beat',{method:'POST',token:staffToken})).status,200);
+assert.equal((await secondStaff.call('auth/logout',{method:'POST',token:secondLogin.body.token})).status,200);
+assert.equal((await staff.call('session/beat',{method:'POST',token:staffToken})).status,200,'logout affects only that session');
 assert.equal((await staff.call('admin/system-config',{method:'POST',token:staffToken,body:{entryTheme:'heritage'}})).status,403);
 r=await staff.call('state',{method:'PUT',token:staffToken,body:{patches:[{c:'devices',id:staffDevice,set:{status:'approved'}},{c:'settings',id:'settings',set:{value:{system:{config:{entryTheme:'heritage'}}}}}]}});assert.equal(r.status,200);assert.equal(r.body.rejected.length,2);
 // A normal sync cannot transform an unconfirmed address into mailbox evidence.
 r=await chief.call('state',{method:'PUT',token:chiefToken,body:{patches:[{c:'users',id:stored().creds[caregiver.username].id,set:{email:'invented@lomamofoundation.org',mailboxConfirmed:true}}]}});assert.equal(r.status,200);
 r=await chief.call('admin/staff-accounts',{token:chiefToken});assert.equal(r.body.rows.find(x=>x.username===caregiver.username).email,'');
 // A rejected browser remains rejected even with valid Chief credentials.
-r=await stranger.call('auth/login',{method:'POST',body:{username:'chief.admin',password:chiefPassword}});assert.equal(r.body.code,'device_pending');const otherDevice=r.body.deviceId;
+r=await stranger.call('auth/login',{method:'POST',body:{username:'chief.admin',password:chiefPassword}});assert.equal(r.status,200);const otherDevice=crypto.createHash('sha256').update(stranger.jar.cookie.split('=')[1]).digest('hex');
 await chief.call('admin/devices/decision',{method:'POST',token:chiefToken,body:{password:chiefPassword,deviceId:otherDevice,decision:'rejected'}});
 assert.equal((await stranger.call('auth/login',{method:'POST',body:{username:'chief.admin',password:chiefPassword}})).body.code,'device_rejected');
 assert.equal((await chief.call('admin/devices/decision',{method:'POST',token:chiefToken,body:{password:chiefPassword,deviceId:chiefDevice,decision:'revoked'}})).status,409,'cannot strand the currently signed-in Chief');
@@ -157,12 +166,12 @@ for(const [headers,origin] of [
 // Fail-closed persistence and CSRF rejection.
 const before=kv.get('carelink_cloud_v66');failWrites=true;r=await chief.call('admin/system-config',{method:'POST',token:chiefToken,body:{entryTheme:'heritage'}});failWrites=false;assert.equal(r.status,503);assert.equal(kv.get('carelink_cloud_v66'),before);
 assert.equal((await chief.call('admin/system-config',{method:'POST',token:chiefToken,headers:{origin:'https://attacker.example'},body:{entryTheme:'heritage'}})).body.code,'origin_denied');
-// A one-time migration enrolls only the password-verified Chief, never staff.
+// Existing installations with no browser register enroll verified clients immediately.
 current=stored();current.devices={};current.devicePolicyInstalled=false;kv.set('carelink_cloud_v66',JSON.stringify(current));__resetCloudCachesForTests();
-const migration=browser();r=await migration.call('auth/login',{method:'POST',body:{username:'chief.admin',password:chiefPassword}});assert.equal(r.status,409,'existing account lease is still enforced during migration');
-ok(stored().devicePolicyInstalled,'migration is permanently closed even when an older Chief lease has not expired');
+const migration=browser();r=await migration.call('auth/login',{method:'POST',body:{username:'chief.admin',password:chiefPassword}});assert.equal(r.status,200);
+ok(stored().devicePolicyInstalled,'verified migration enrolls the browser automatically');
 current=stored();current.devices={};kv.set('carelink_cloud_v66',JSON.stringify(current));__resetCloudCachesForTests();
-r=await migration.call('auth/login',{method:'POST',body:{username:'chief.admin',password:chiefPassword}});assert.equal(r.body.code,'device_pending','clearing/revoking all records never reopens Chief bootstrap');
+r=await migration.call('auth/login',{method:'POST',body:{username:'chief.admin',password:chiefPassword}});assert.equal(r.status,200,'a cleared register permits automatic re-enrolment');
 // CAS conflict: a loser must not overwrite a newer device approval/config write.
 current=stored();current.devices[chiefDevice]={id:chiefDevice,status:'approved',label:'Chief',users:['chief.admin']};kv.set('carelink_cloud_v66',JSON.stringify(current));__resetCloudCachesForTests();
 let release,reached;const ready=new Promise(resolve=>{reached=resolve});holdCommit=()=>new Promise(resolve=>{release=resolve;reached()});
@@ -173,9 +182,7 @@ r=await chief.call('admin/system-config',{method:'POST',token:chiefToken,body:{t
 // revision and shard digests did not change during an auth-only write.
 r=await chief.call('admin/staff-accounts/export',{method:'POST',token:chiefToken,body:{password:chiefPassword,confirm:'ISSUE TEMPORARY PASSWORDS',usernames:[caregiver.username]}});
 assert.equal(r.status,200);const shardPassword=r.body.rows[0].temporaryPassword;
-r=await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:shardPassword}});assert.equal(r.body.code,'device_pending');
-assert.equal((await chief.call('admin/devices/decision',{method:'POST',token:chiefToken,body:{password:chiefPassword,deviceId:r.body.deviceId,decision:'approved'}})).status,200);
-r=await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:shardPassword}});assert.equal(r.status,200);const shardToken=r.body.token;
+r=await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:shardPassword}});assert.equal(r.status,200,JSON.stringify(r.body));const shardToken=r.body.token;
 assert.equal((await staff.call('auth/change-password',{method:'POST',token:shardToken,body:{current:shardPassword,password:privatePassword}})).status,200);
 const authoritative=stored(),oldSnapshot=structuredClone(authoritative);
 oldSnapshot.devices[staffDevice].status='revoked';oldSnapshot.creds[caregiver.username].revokedAt='stale-shard-value';
@@ -208,6 +215,7 @@ assert.equal(stored().creds[caregiver.username].revokedAt,undefined,'write clone
 ok(stored().db.visits.some(v=>v.id==='shard-fixture-visit'),'authorized clinical write survives a stale full-state cache without losing current security metadata');
 // Owner-only discovery/approval exposes no HTTP bypass and never selects an
 // arbitrary device. The exact pending record must belong to this Chief.
+manifest.head.devices['fixture-owner-recovery']={id:'fixture-owner-recovery',status:'pending',label:'Legacy recovery browser',firstSeen:new Date().toISOString(),users:['chief.admin'],requestedBy:'chief.admin'};kv.set('carelink_cloud_v66',JSON.stringify(manifest));
 const waiting=await ownerListPendingDevices('chief.admin');
 assert.ok(waiting.length>0 && waiting.every(d=>d.id && d.firstSeen && !('proof' in d)));
 const preOwner=kv.get('carelink_cloud_v66');

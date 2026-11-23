@@ -290,9 +290,25 @@ function go(view, params={}){
     if(id) MESSAGING.markRead(AUTH.user, id);
   }
   render();
-  const contentEl = document.querySelector && document.querySelector('#content');
-  if(contentEl && typeof contentEl.scrollTo === 'function') contentEl.scrollTo({top:0,behavior:'auto'});
-  else window.scrollTo({top:0,behavior:'auto'});
+  revealWorkspace(view);
+}
+
+/* The desktop pane shell itself scrolls; #content is not the scrollport.
+   Reveal the selected workspace below its sticky toolbar rather than leaving
+   the user at the role introduction banner. Home deliberately starts there. */
+function revealWorkspace(view){
+  const content = document.querySelector && document.querySelector('#content');
+  const shell = document.querySelector && document.querySelector('.app.shell.has-pane');
+  if(!content || !content.getBoundingClientRect){ if(window.scrollTo) window.scrollTo(0,0); return; }
+  const bar = document.querySelector('.topbar.cbar');
+  const sticky = bar && typeof getComputedStyle==='function' && getComputedStyle(bar).position==='sticky' ? bar.getBoundingClientRect().height : 0;
+  if(shell && typeof shell.scrollTo==='function' && typeof getComputedStyle==='function' && /auto|scroll/.test(getComputedStyle(shell).overflowY)){
+    const top = view==='home' ? 0 : shell.scrollTop + content.getBoundingClientRect().top - shell.getBoundingClientRect().top - sticky;
+    shell.scrollTo({top:Math.max(0,top),behavior:'auto'});
+  }else if(window.scrollTo){
+    const top = view==='home' ? 0 : (window.scrollY||0) + content.getBoundingClientRect().top - sticky;
+    window.scrollTo({top:Math.max(0,top),behavior:'auto'});
+  }
 }
 function applyTheme(){
   /* Colour, density, text size, touch size and motion all come from one place,
@@ -372,7 +388,11 @@ function render(){
   if(AUTH.locked()){ root.innerHTML = renderLocked(); return; }
   const paneTop = NAVP.scrollState();
   const sheetLeft = (document.querySelector('.sheet')||{}).scrollLeft;
+  const oldShell = document.querySelector('.app.shell.has-pane');
+  const workspaceTop = oldShell && typeof oldShell.scrollTop==='number' ? oldShell.scrollTop : null;
   root.innerHTML = renderShell();
+  const newShell = document.querySelector('.app.shell.has-pane');
+  if(newShell && workspaceTop!==null) newShell.scrollTop = workspaceTop;
   NAVP.restoreScroll(paneTop);
   const ms = document.querySelector('.msg-scroll'); if(ms) ms.scrollTop = ms.scrollHeight;
   const sh = document.querySelector('.sheet');
@@ -788,7 +808,7 @@ function onClick(e){
   const el = e.target.closest('[data-act]');
   if(!el) return;
   const act = el.dataset.act;
-  if(AUTH.user && typeof NAVP!=='undefined' && !NAVP.narrow() && ['go','nav-group'].includes(act) &&
+  if(AUTH.user && typeof NAVP!=='undefined' && !NAVP.narrow() && act==='nav-group' &&
       el.closest && el.closest('#npane') && NAVP.effectiveRail(AUTH.user,APPX.view)){
     e.preventDefault();
     NAVP.expandTemporarily();

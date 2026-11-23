@@ -132,12 +132,12 @@ performed silently.
 1. **Health:** open `https://<your-domain>/api/health`. It must report
    `globallyActivated: true`, `storageMode: cloud-kv-redis` and the expected
    number of accounts.
-2. **One known officer:** on their browser, verify a pending request grants no
-   staff data; approve its exact device in the Chief Devices console. Redeem the
+2. **One known officer:** on their browser, verify automatic enrollment after
+   successful password verification. Redeem the
    temporary password, set a private password, then confirm scoped workspace
    access. The temporary password must not sign in again. Test email sign-in
    only if that officer has a Chief-confirmed existing mailbox.
 3. **Old password:** confirm a password from the previous pack is refused.
 4. **Register:** open the patient register and confirm the programme totals are
    unchanged (a rebuild never touches records).
-5. **Sign out** on the test phone so the officer's one live session is free.
+5. **Sign out** on the test phone and confirm other sessions remain available.

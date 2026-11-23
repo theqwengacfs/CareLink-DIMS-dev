@@ -137,13 +137,13 @@ r=await api('auth/login','POST',{username:'director',password:director.tempPassw
 assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.mustChange,true);
 assert.equal(r.body.passwordBeforeWorkspace,true);
 const token=r.body.token;
-/* The issued password opens the workspace immediately. */
+/* The issued temporary password cannot open the workspace before replacement. */
 const workspace=await api('state','GET',{},token);
 assert.equal(workspace.status,403);
-/* Changing it later is optional, and still rotates the credential cleanly. */
+/* Replacing it rotates the credential and invalidates the old session. */
 r=await api('auth/change-password','POST',{current:director.tempPassword,password:'Private#New2027!'},token);assert.equal(r.status,200,JSON.stringify(r.body));
-/* One live session per account: the change happens in-session, so sign out first. */
-assert.equal((await api('auth/login','POST',{username:'director',password:'Private#New2027!'})).status,409,'a second device cannot take the account over');
+/* A fresh session can sign in immediately after the credential change. */
+assert.equal((await api('auth/login','POST',{username:'director',password:'Private#New2027!'})).status,200);
 assert.equal((await api('auth/logout','POST',{},token)).status,200);
 assert.equal((await api('auth/login','POST',{username:'director',password:director.tempPassword})).status,401,'the pack password stops working once replaced');
 r=await api('auth/login','POST',{username:'director',password:'Private#New2027!'});assert.equal(r.status,200,JSON.stringify(r.body));

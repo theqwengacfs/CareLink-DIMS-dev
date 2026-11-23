@@ -301,7 +301,7 @@
 }
 /* Browser toolbars on a 768px laptop often leave only 600–680 CSS pixels.
    Pair credentials in that short desktop view, rather than shrinking text or
-   losing the device approval note, recovery actions or the submit button. */
+   losing the access note, recovery actions or the submit button. */
 @media(min-width:921px) and (max-height:700px){
   .ld[data-front="1"][data-theme] .ld-hero-tight{padding-block:14px;}
   .ld[data-front="1"][data-theme] .ld-hero-tight h1{font-size:clamp(30px,3.1vw,42px);margin-top:10px;}
@@ -501,3 +501,85 @@ html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .s
 @media print{
   html[data-wt="foundation"] .shell{--bg:#fff;--chrome:#fff;}
 }
+
+/* Workspace geometry: the right column must be able to shrink independently of
+   the navigation, and the hero keeps a visible border on both sides. Tables
+   and long tab strips scroll within their own bounds rather than the page. */
+.app.shell,.app.shell > :is(.shell-role-banner,.topbar,.sheet,.content){min-width:0;max-width:100%;box-sizing:border-box;}
+.shell-role-banner{width:100%;padding:12px clamp(12px,2vw,24px) 0;}
+.shell-role-banner .ws67-hero.ctx-strip{width:100%;min-width:0;max-width:100%;box-sizing:border-box;}
+.shell-role-banner :is(.ws67-hero-main,.ws67-hero-copy,.ws67-qgrid,.ws67-actions,.ws67-role-tabs){min-width:0;max-width:100%;}
+.shell-role-banner .ws67-actions{flex-wrap:wrap;}
+.content :is(.grid,.card,.page-head,.tabs,.reg-toolbar,.msg-layout){min-width:0;max-width:100%;}
+.content .tabs{overflow-x:auto;overscroll-behavior-x:contain;}
+.content :is(.tbl-wrap,.reg-table-wrap){max-width:100%;overflow-x:auto;}
+@media(min-width:1000px){
+  /* Leave enough scroll range to bring even a short workspace into view. */
+  .app.shell.has-pane > .content{min-height:100dvh !important;}
+}
+
+/* Quiet, grouped navigation with a clear current destination. The folded rail
+   stays within its own column; use Expand to see the labels. */
+.npane .np-scroll{padding:12px 10px 16px !important;}
+.npane .np-g{margin-bottom:10px;}
+.npane .np-gh{min-height:38px;padding-inline:10px;letter-spacing:.09em;font-size:10.5px;}
+.npane .np-items{gap:3px;padding:3px 0 4px;}
+.npane .np-i{min-height:42px;border-radius:7px;font-size:13px;}
+.npane .np-brand{padding:20px 14px 16px;}
+.npane .np-foot{padding:10px !important;}
+.npane .np-i:focus-visible,.npane .np-gh:focus-visible{outline:3px solid var(--focus);outline-offset:-3px;}
+
+/* Colleague names and call actions occupy separate rows. This works at every
+   width and keeps all call and presence controls available on phones. */
+.msg-layout > *{min-width:0;max-width:100%;}
+.msg-pane-h{gap:12px;flex-wrap:wrap;align-items:flex-start;}
+.msg-pane-heading{flex:1 1 180px;min-width:0;overflow-wrap:anywhere;}
+.msg-pane-actions{flex:0 1 auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.msg-side{min-width:0;}
+.msg-person-row{display:flex;flex-wrap:wrap;gap:6px 8px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);}
+.msg-person{flex:1 1 100%;width:100%;min-width:0;gap:9px;}
+.msg-person-copy{min-width:0;flex:1;}
+.msg-person b,.msg-person em{max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.msg-person-actions{display:flex;align-items:center;gap:6px;flex:1 1 100%;min-width:0;}
+.msg-person-actions .presence{margin-right:auto;min-width:0;}
+.msg-person-actions .icon-btn{flex:0 0 36px;width:36px;height:36px;display:grid;place-items:center;}
+.msg-compose textarea{min-width:0;}
+@media(max-width:1150px){
+  .msg-layout .msg-side{display:flex;grid-column:1 / -1;max-height:none;}
+}
+@media(max-width:760px){
+  .msg-layout .msg-side{grid-column:auto;}
+  .msg-pane{max-height:none;min-height:420px;}
+  .msg-scroll{min-height:180px;max-height:55vh;}
+}
+.shell-role-banner .ws67-hero{overflow:visible !important;}
+.shell-role-banner .ws67-sub{display:block;overflow:visible;-webkit-line-clamp:unset;}
+.topbar.cbar .cb-quick{min-width:0;overflow-x:auto;scrollbar-width:thin;}
+.topbar.cbar .tb-actions{min-width:0;max-width:100%;flex:0 1 auto !important;overflow-x:auto;scrollbar-width:thin;}
+@media(max-width:1200px){
+  .app.shell > .topbar.cbar{flex-wrap:wrap !important;}
+  .app.shell > .topbar.cbar > .tb-actions{flex:1 1 100% !important;justify-content:flex-start;margin-left:0;}
+}
+
+/* Refined sign-in panel, applied to every access tab while retaining compact
+   responsive sizing and the original form, recovery and accessibility hooks. */
+.lg6[data-theme] .lg6-panel{
+  background:#f5f2ed !important;
+  background-image:radial-gradient(ellipse at top right,#f3e8e5,transparent 55%) !important;
+}
+.lg6[data-theme] .lg6-card{
+  border:1px solid #e2dcd5;border-top:3px solid #7c1e24;
+  border-radius:14px;box-shadow:0 18px 48px rgba(55,42,34,.09),0 2px 8px rgba(55,42,34,.04);
+}
+.lg6[data-theme] .lg6-kicker{color:#7c1e24;letter-spacing:.12em;font-weight:700;}
+.lg6[data-theme] .lg6-head h2{font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-.03em;}
+.lg6[data-theme] .lg-tabs{background:#f3f0eb;border:1px solid #e8e3dc;border-radius:10px;gap:4px;}
+.lg6[data-theme] .lg-tab{border-radius:7px;font-weight:650;transition:background .15s ease,box-shadow .15s ease;}
+.lg6[data-theme] .lg-tab.on{background:#fff !important;box-shadow:0 1px 5px rgba(44,32,26,.12),inset 0 -2px var(--tab-ink);}
+.lg6[data-theme] .lg6-panel :is(input.input,select.input,textarea.input){border-color:#c8c2ba !important;border-radius:8px;background:#fff !important;}
+.lg6[data-theme] .lg6-panel .input:focus{border-color:#7c1e24 !important;outline-color:#7c1e24 !important;}
+.lg6[data-theme] .lg-device-note{background:#f6f4ef;border-color:#e2ddd4;border-left-color:#7c1e24;color:#504b45 !important;}
+.lg6[data-theme] .entry-security-badge{color:#7c1e24;}
+.lg6[data-theme] .btn-primary{background:#7c1e24 !important;border-color:#7c1e24 !important;box-shadow:0 4px 12px rgba(124,30,36,.16);}
+.lg6[data-theme] .linkbtn{color:#6e292c !important;}
+@media(prefers-reduced-motion:reduce){.lg6[data-theme] .lg-tab{transition:none;}}

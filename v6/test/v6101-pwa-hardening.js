@@ -187,7 +187,7 @@ check('the manifest offers shortcuts for the work a caregiver starts a shift wit
   const { makeCtx } = require('./dom');
   const { run } = makeCtx();
   run('DB.load(); DB.seedDemo();');
-  const views = run(`(()=>{ const u=DB.db.users.find(x=>x.roleId==='chief'); AUTH.user=u; return navModel(u).flatMap(g=>g.items.map(i=>i.id)); })()`);
+  const views = run(`(()=>{ const u=DB.db.users.find(x=>x.roleId==='caregiver'); AUTH.user=u; return navModel(u).flatMap(g=>g.items.map(i=>i.id)); })()`);
   const targets = manifest.shortcuts.map(s => (String(s.url).split('#/')[1] || '').split('?')[0]);
   const unknown = targets.filter(t => !views.includes(t));
   check('every manifest shortcut opens a view the console renders', unknown.length === 0, unknown.join(','));

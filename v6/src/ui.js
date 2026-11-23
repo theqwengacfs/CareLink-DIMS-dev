@@ -257,7 +257,10 @@ function navModel(user){
     president:  new Set(['attention','hardcopy','waiting','visits','schedule','visitplan','forms','households','repeat','cccdesk','teams','clinicalmcm','pharmacy','tbcare','careplans','care','security','mergejournal','masteranalysis']),
     'program.admin': new Set(['hardcopy','waiting','schedule','visitplan','forms','households','repeat','cccdesk','pharmacy','tbcare','careplans','security','mergejournal']),
     'program.assistant': new Set(['pharmacy','tbcare','clinicalmcm','cccdesk','security','mergejournal']),
-    chief:      new Set(['hardcopy','waiting','forms','households','repeat','programdays','cccdesk','govdashboard','teams','intlmedical','pharmacy','tbcare','careplans','costing','donor','targets','executive','compare','evaluation']),
+    /* The Chief administers the platform, not the clinical, programme,
+       finance or HR desks. Keep system configuration, import, assurance and
+       personal collaboration visible; exceptional explicit grants still work. */
+    chief:      new Set(['patients','pipeline','attention','hardcopy','waiting','visits','bmiboard','schedule','visitplan','forms','pdca','households','repeat','programdays','cccdesk','govdashboard','teams','clinicalmcm','intlmedical','pharmacy','tbcare','careplans','requests','liaison','recon','urgent','care','care-incidents','reports','referral','archive','targets','conditions','donor','analytics','adminops','finance','costing','budget','procurement','foodbudget','staff','welfare','delegation','vehicles','trips','executive','compare','execconsole','evaluation','inventory','interns','ohs']),
     caregiver:  new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting']),
     chw:        new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting','pharmacy']),
     coordinator:new Set(['cccdesk','tbcare','costing','pharmacy']),
@@ -285,7 +288,7 @@ function navModel(user){
   const isAllowedForRoleScope = (itemId) => {
     if(!roleExcl || !roleExcl.has(itemId)) return true;
     const unlockCaps = VIEW_EXPLICIT_CAPS[itemId] || [];
-    return unlockCaps.some(c => explicitCaps.has(c));
+    return unlockCaps.some(c => explicitCaps.has(c) && has(c));
   };
   return groups
     .map(g=>({
