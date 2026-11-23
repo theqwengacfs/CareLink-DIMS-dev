@@ -1,13 +1,13 @@
 /* Chief-owned Phase 1 security consoles. Display state is ephemeral. The API,
    never DB.devices, an IMEI or a browser fingerprint, grants device access. */
 const CANONICAL_HOST = {
-  origin:'https://care-link-dims-dev.vercel.app',
+  origin:'https://care-link-dims-dev-three.vercel.app',
   isRetired(host){return String(host||'').toLowerCase()==='theqwengacfs.github.io';},
   enforce(){
     if(typeof location==='undefined' || !this.isRetired(location.hostname)) return false;
     const root=document.querySelector('#root');
     if(root) root.innerHTML='<main style="padding:32px;font:18px system-ui"><h1>CareLink has one official host</h1><p>Do not commission or enter staff/patient data on GitHub Pages. Existing local records are not deleted or automatically uploaded.</p><a href="'+this.origin+'/">Open the official CareLink service</a></main>';
-    if(typeof location.replace==='function') location.replace(this.origin+'/');
+    try{if(typeof location.replace==='function') location.replace(this.origin+'/');}catch(_){/* Keep the notice; never fall through to local commissioning. */}
     return true; // boot must stop even if navigation is blocked or offline
   }
 };

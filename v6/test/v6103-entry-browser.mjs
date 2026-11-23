@@ -337,7 +337,9 @@ try{
   const workspace=await tablet.evaluate(()=>({patients:DB.db.patients.length,inScope:DB.db.patients.every(p=>p.areaId==='ombeyi'),areas:AUTH.user?.areaIds,error:LOGIN6.error,sync:SYNC.message}));
   assert.ok(workspace.patients>0&&workspace.inScope,'approved staff receive only scoped data after private replacement: '+JSON.stringify(workspace));
   const cookies=await staff.cookies(base);assert.ok(cookies.some(c=>c.name==='carelink_device_v1'&&c.httpOnly&&c.sameSite==='Strict'));
+  const revokeResponse=page.waitForResponse(response=>response.url().endsWith('/api/admin/devices/decision')&&response.request().method()==='POST');
   await deviceRow().locator('[data-act="entry-device-review"]').click();await page.locator('#entry-admin-form [name="decision"]').selectOption('revoked');await page.locator('#entry-admin-form [name="password"]').fill(password);await page.locator('#entry-admin-form [type="submit"]').click();
+  const revoked=await revokeResponse;assert.equal(revoked.status(),200,await revoked.text());
   await page.waitForFunction(()=>!ENTRY_ADMIN.busy&&ENTRY_ADMIN.devices.some(d=>d.label==='Synthetic browser tablet'&&d.status==='revoked'));
   assert.equal((await staff.request.get(base+'/api/state',{headers:{'X-CareLink-Session':staffToken}})).status(),401,'revocation cuts off an existing actual-browser session');
   // The actual provider wording must not blame staff passwords or offer a
@@ -370,12 +372,12 @@ try{
   await retired.route('**/*',async route=>{
     const url=new URL(route.request().url());
     if(url.pathname.includes('/api/')) retiredApi.push(url.pathname);
-    if(url.hostname==='care-link-dims-dev.vercel.app') return route.fulfill({contentType:'text/html',body:'<h1>Official service destination</h1>'});
+    if(url.hostname==='care-link-dims-dev-three.vercel.app') return route.fulfill({contentType:'text/html',body:'<h1>Official service destination</h1>'});
     if(url.hostname==='theqwengacfs.github.io') return route.fulfill({contentType:'text/html',body:bundle});
     return route.abort();
   });
   await retiredPage.goto('https://theqwengacfs.github.io/CareLink-DIMS-dev/carelink-v6.html').catch(()=>{});
-  await retiredPage.waitForURL('https://care-link-dims-dev.vercel.app/');assert.deepEqual(retiredApi,[]);
+  await retiredPage.waitForURL('https://care-link-dims-dev-three.vercel.app/');assert.deepEqual(retiredApi,[]);
   assert.deepEqual(errors,[],'no uncaught browser errors');
   console.log('entry-browser: actual Chromium red-led workflow/white-led coloured relief, themes/preview/apply, ten viewport sizes and all four access panels, true zero-scroll geometry at eight sizes (not hidden overflow), tiny/short/zoomed control reachability, keyboard/placeholder/contrast and cached-workspace isolation, expand → hold → collapse, isolated-cookie pending/approval/private-change/revocation, confidential download and retired-host redirect passed');
   console.log('Viewport fits: '+JSON.stringify(viewportEvidence));

@@ -140,6 +140,20 @@ let current=stored();current.creds[caregiver.username].temporary.expiresAt=Date.
 assert.equal((await staff.call('auth/login',{method:'POST',body:{username:caregiver.username,password:reissued.temporaryPassword}})).body.code,'temporary_password_unavailable');
 // The legacy route cannot accept a chosen/reusable no-change password.
 r=await chief.call('credentials/provision',{method:'POST',token:chiefToken,body:{username:'fixture.staff',name:'Synthetic Test Staff',roleId:'me',password:'ClientChosen#2028!',mustChange:false}});assert.equal(r.status,200);ok(r.body.issued[0].password!=='ClientChosen#2028!'&&stored().creds['fixture.staff'].mustChange&&stored().creds['fixture.staff'].temporary,'legacy provisioning also uses server-generated, expiring, mandatory-change credentials');
+// Credential handoffs use the serving origin for previews/local testing, with
+// the current official address only as a fallback when Host is absent. All KV
+// requests still go exclusively to the in-memory entry-security.test fixture.
+ok(r.body.issued[0].smsText.includes('ready at https://carelink.test |'),'credential handoff retains the request host');
+for(const [headers,origin] of [
+  [{host:undefined},'https://care-link-dims-dev-three.vercel.app'],
+  [{host:'care-link-dims-dev-three.vercel.app'},'https://care-link-dims-dev-three.vercel.app'],
+  [{host:'carelink-preview.test','x-forwarded-proto':'https'},'https://carelink-preview.test'],
+  [{host:'localhost:5173','x-forwarded-proto':'http'},'http://localhost:5173'],
+]){
+  r=await chief.call('credentials/provision',{method:'POST',token:chiefToken,headers,body:{username:'fixture.staff',name:'Synthetic Test Staff',roleId:'me'}});
+  assert.equal(r.status,200);
+  ok(r.body.issued[0].smsText.includes(`ready at ${origin} |`),'credential handoff uses the correct canonical/fallback/request origin');
+}
 // Fail-closed persistence and CSRF rejection.
 const before=kv.get('carelink_cloud_v66');failWrites=true;r=await chief.call('admin/system-config',{method:'POST',token:chiefToken,body:{entryTheme:'heritage'}});failWrites=false;assert.equal(r.status,503);assert.equal(kv.get('carelink_cloud_v66'),before);
 assert.equal((await chief.call('admin/system-config',{method:'POST',token:chiefToken,headers:{origin:'https://attacker.example'},body:{entryTheme:'heritage'}})).body.code,'origin_denied');

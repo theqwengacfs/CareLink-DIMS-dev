@@ -3904,7 +3904,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may provision bulk user credential packs.' });
     }
     const issued = [];
-    const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host || 'carelink-dims.vercel.app'}`;
+    const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host || 'care-link-dims-dev-three.vercel.app'}`;
     for (const acc of accounts) {
       const uname = clipString(acc && acc.username, 120).trim().toLowerCase();
       if (!uname || uname === sess.username || FORBIDDEN_KEYS.has(uname)) continue;

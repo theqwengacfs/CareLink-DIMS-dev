@@ -54,9 +54,9 @@ const {makeCtx}=require('./dom');
   // No local commissioning or data entry is allowed on the retired host.
   run(`location.hostname='theqwengacfs.github.io';location.replace=url=>{globalThis.__redirect=url};`);
   assert.equal(run('CANONICAL_HOST.enforce()'),true);
-  assert.equal(run('__redirect'),'https://care-link-dims-dev.vercel.app/');
+  assert.equal(run('__redirect'),'https://care-link-dims-dev-three.vercel.app/');
   assert.match(run("document.querySelector('#root').innerHTML"),/Do not commission/);
-  assert.equal(run("CANONICAL_HOST.isRetired('care-link-dims-dev.vercel.app')"),false);
+  assert.equal(run("CANONICAL_HOST.isRetired('care-link-dims-dev-three.vercel.app')"),false);
   const root=path.join(__dirname,'../..');
   assert.match(fs.readFileSync(path.join(root,'index.html'),'utf8'),/location\.hostname === 'theqwengacfs\.github\.io'/);
   assert.match(fs.readFileSync(path.join(root,'v6/src/app.js'),'utf8'),/CANONICAL_HOST\.enforce\(\).*return;[\s\S]*?DB\.load\(\)/);

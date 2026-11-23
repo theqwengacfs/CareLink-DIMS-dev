@@ -9,12 +9,21 @@ pharmacy and TB dispensing control, cost per patient, finance and procurement,
 fleet, people and leave, media governance, M&E and reporting — with every record
 scoped by county, ministry area and department, and every refusal audited.
 
-**Official host:** <https://care-link-dims-dev.vercel.app/>
+**Official host:** <https://care-link-dims-dev-three.vercel.app/>
 
 The former GitHub Pages address redirects to that host. It is **not** another
 commissioning/data-entry installation. The direct HTML/PWA entry points also
 stop boot on the retired Pages host, even if a redirect is blocked. Existing
 browser-local records are not silently deleted or uploaded.
+
+**Vercel project:** <https://vercel.com/dandante01-2639/care-link-dims-dev>
+
+An address change alone does **not** migrate the database, browser-local records,
+held work or device-approval cookies. Preserve any unsynced work at its original
+address; do not clear site data, reset/recommission the installation or seed demo
+data as a URL-change workaround. Environment/KV bindings and retirement of the
+former Vercel deployment are separate operational decisions; updating the
+repository's canonical address does not change them.
 
 ---
 

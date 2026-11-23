@@ -36,7 +36,7 @@ will not work. Make a database backup first if one is available.
    explicitly selected pending device. Keep the terminal open; on larger
    databases the tool reports upload progress and may take several minutes.
    Only after it reports `Recovery saved`, sign in at
-   <https://care-link-dims-dev.vercel.app/> with the new password.
+   <https://care-link-dims-dev-three.vercel.app/> with the new password.
 
 If you forgot the password **and** lost the last approved browser, there may not
 be a pending device yet. First perform password-only recovery, attempt sign-in on
