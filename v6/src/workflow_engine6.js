@@ -434,7 +434,7 @@ const WORKFLOW_ENGINE = {
         tone: 'b-info',
         category: '120-Day & Discharge PDCA',
         title: 'Prepare Official CareLink C-DIMS 120-Day & Regular Discharge PDCA Reports',
-        detail: 'Compile SMART Aim, Plan, Do, Rx, Check, Act & Justification sheets using the official 2-page C-DIMS PDCA template.',
+        detail: 'Compile SMART Aim, Plan, Do, Rx, Check, Act & Justification sheets using the supplied editable three-page template. Retain actual evaluation time and all revisions; MCM review and caregiver corrections precede 120+ sharing.',
         aiWhy: 'CareLink AI: Standardized PDCA reviews ensure every 120+ day extension and graduated discharge carries verified clinical evidence.',
         lift: '+100% PDCA Governance',
         view: 'pdca',

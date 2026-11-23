@@ -22,6 +22,8 @@ import zlib from 'node:zlib';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import officialStructure from './official-structure.mjs';
 import { generateReferenceManifest } from './synthetic-reference.mjs';
+import careRules from '../v6/src/care_rules.js';
+import careWorkflow from '../v6/src/care_workflow.js';
 
 const CLOUD_KEY = 'carelink_cloud_v66';
 /* Every request remembers the exact primary snapshot it read. Atomic compare-
@@ -1672,6 +1674,7 @@ function appendServerAudit(state, actor, action, entity, entityId, detail, meta 
 const PATIENT_LINKED_COLLECTIONS = new Set([
   'patients', 'visits', 'pdcas', 'pdcaDiscussions', 'patientConditions', 'support', 'supportIssues',
   'documents', 'requests', 'transactions', 'adminOpsPayg', 'concerns', 'encounters', 'referrals', 'clinicalRx', 'omahaPlans',
+  ...careWorkflow.OWNED, 'hardcopyBatches', 'homestays',
   'careResidents', 'formRecords', 'tbRequests', 'tbDispenses', 'intlPdcaDossiers', 'urgentCases', 'workspaceDrafts',
 ]);
 const COUNTY_AREA_SCOPED_COLLECTIONS = new Set(['waitingList']);
@@ -1688,10 +1691,52 @@ const GLOBAL_DATA_ROLES = new Set(['chief', 'president', 'director', 'program.ad
 const GLOBAL_MESSAGE_ROLES = new Set(['chief', 'director', 'program.admin', 'program.assistant', 'president']);
 const FINANCIAL_DATA_ROLES = new Set(['finance', 'procurement', 'countyadmin', 'director', 'president', 'program.admin', 'auditor']);
 const CLINICAL_READ_ROLES = new Set([
-  'countyadmin', 'assistant', 'caregiver', 'chw', 'mcm', 'liaison', 'nurse', 'homestay', 'intl.medical',
+  'countyadmin', 'assistant', 'caregiver', 'coordinator', 'chw', 'mcm', 'liaison', 'nurse', 'homestay',
 ]);
 const AREA_SCOPED_ROLES = new Set(['caregiver', 'chw', 'coordinator']);
 const CLINICAL_WRITE_ROLES = new Set(['countyadmin', 'assistant', 'caregiver', 'chw', 'mcm', 'nurse', 'homestay']);
+
+/* Coordinators prepare scoped PDCAs and need the care history, not patient
+   finance or hospital expense approval privileges. Never add them to the
+   general clinical write set just to allow the new command endpoint. */
+const COORDINATOR_CLINICAL_READ = new Set(['patients','visits','pdcas','pdcaDiscussions','patientConditions','support',
+  'supportIssues','documents','encounters','clinicalRx','omahaPlans','formRecords',...careWorkflow.OWNED]);
+function authorizedDossier(record, db) {
+  if (!record?.sharedAt || !record.authorizedRevisionId) return false;
+  const version = (db.careReviewRevisions || []).find(r=>r.id===record.authorizedRevisionId);
+  return Boolean(version && version.event==='authorized' && version.reviewId===record.reviewId &&
+    version.patientId===record.patientId && version.cycleId===record.cycleId && version.by===record.authorizedBy &&
+    JSON.stringify(version.fields)===JSON.stringify(record.fields));
+}
+function clinicalPatchPolicy(patch, db, sess) {
+  const current=(Array.isArray(db[patch.c])?db[patch.c]:[]).find(r=>r?.id===patch.id);
+  const set=safeObject(patch.set), next={...(current||{}),...set};
+  if(careWorkflow.OWNED.includes(patch.c)||patch.c==='pdcas') return 'clinical_command_required';
+  if(patch.c==='calendarEvents' && (current?.careReviewId || next.careReviewId || /pdca/i.test(String(current?.kind||'')+String(next.kind||'')) || next.source==='care-review')) return 'clinical_command_required';
+  if(patch.c!=='patients') return '';
+  if(set.id && set.id!==patch.id) return 'immutable_patient_identity';
+  const locked=['careCycleId','cycleStartedAt','enrolledAt','enrolDate','enrolledBy','enrolledDecisionAt','enrolmentOfficeConfirmed',
+    'discharge','dischargedAt','dischargedBy','dischargeEvidence','dischargeSummary','carePlan','assessmentKind'];
+  if(locked.some(k=>Object.hasOwn(set,k)&&!(k==='assessmentKind'&&!current&&set[k]==='new')&&(current||set[k]!=null&&set[k]!=='')&&JSON.stringify(set[k])!==JSON.stringify(current?.[k]))) return 'clinical_command_required';
+  if(current && careRules.supported(current)) {
+    if(patch.del) return 'clinical_history_retained';
+    if(['intake','countyId','areaId','nationalId'].some(k=>Object.hasOwn(set,k)&&JSON.stringify(set[k])!==JSON.stringify(current[k])))return 'clinical_history_retained';
+    if(Object.hasOwn(set,'status')&&set.status!==current.status) {
+      const transition=current.status==='active'||current.status==='extension'
+        ? set.status==='discharge_recommended' && ['mcm','caregiver','coordinator','countyadmin'].includes(sess.roleId)
+        : current.status==='discharge_recommended' && set.status==='active' && ['mcm','countyadmin'].includes(sess.roleId);
+      if(!transition)return 'clinical_command_required';
+    }
+  } else {
+    if(!current && (patch.del||!['assessment_initiated','form_submitted','digital_entered'].includes(next.status)))return 'mcm_office_enrolment_required';
+    if(['active','extension','discharged','discharge_recommended'].includes(next.status))return 'mcm_office_enrolment_required';
+    // A hidden out-of-scope exact ID match also refuses duplicate creation,
+    // without returning the other patient's identity to the caller.
+    const key=String(next.nationalId||'').replace(/[^a-z0-9]/gi,'').toLowerCase();
+    if(key && (db.patients||[]).some(r=>r.id!==patch.id&&String(r.nationalId||'').replace(/[^a-z0-9]/gi,'').toLowerCase()===key))return 'identity_review_required';
+  }
+  return '';
+}
 
 function sanitizeDbForClient(db) {
   if (!db || typeof db !== 'object') return db;
@@ -1760,7 +1805,7 @@ function patientInPrincipalScope(patient, scope) {
   if (!patient || typeof patient !== 'object' || !scope.countyId) return false;
   if (String(patient.countyId || '') !== scope.countyId && !leadMcmClinicalCounty(scope, patient.countyId)) return false;
   if (AREA_SCOPED_ROLES.has(scope.roleId)) return scope.areaIds.includes(String(patient.areaId || ''));
-  if (scope.roleId === 'intl.medical') return true;
+  if (scope.roleId === 'intl.medical') return false;
   return CLINICAL_READ_ROLES.has(scope.roleId);
 }
 
@@ -2063,6 +2108,12 @@ function scopedDbForSession(db, state, sess) {
   for (const name of PATIENT_LINKED_COLLECTIONS) {
     if (!Array.isArray(copy[name])) continue;
     if (name === 'patients') { copy[name] = visiblePatients; continue; }
+    if (name === 'intlPdcaDossiers') {
+      copy[name] = copy[name].filter(r=>authorizedDossier(r,db) &&
+        (scope.roleId==='intl.medical' || patientIds.has(String(r.patientId))));
+      continue;
+    }
+    if (name === 'careCommandReceipts' || (scope.roleId==='coordinator' && !COORDINATOR_CLINICAL_READ.has(name))) { copy[name]=[]; continue; }
     copy[name] = (CLINICAL_READ_ROLES.has(scope.roleId) || demoPreview)
       ? copy[name].filter((r) => r && r.patientId != null && patientIds.has(String(r.patientId)))
       : [];
@@ -2183,7 +2234,13 @@ function scopedPatchesForSession(patches, state, sess) {
       const candidate = current || patch.set || {};
       return callVisibleToScope(candidate, state, scope) ? [patch] : [];
     }
+    if (patch.c==='careCommandReceipts') return [];
+    if (patch.c==='intlPdcaDossiers') {
+      const dossier=(state.db.intlPdcaDossiers||[]).find(r=>r.id===patch.id);
+      return authorizedDossier(dossier,state.db) && (scope.roleId==='intl.medical'||patchPatientInScope(dossier.patientId,state,scope)) ? [patch] : [];
+    }
     if (PATIENT_LINKED_COLLECTIONS.has(patch.c) || COUNTY_AREA_SCOPED_COLLECTIONS.has(patch.c)) {
+      if(scope.roleId==='coordinator'&&!COORDINATOR_CLINICAL_READ.has(patch.c))return [];
       return patchInPrincipalScope(patch, state, sess) ? [patch] : [];
     }
     if (patch.c !== 'calendarEvents') return [patch];
@@ -2344,7 +2401,13 @@ const STATE_PAGE_THRESHOLD = 512 * 1024;
 const MASTER_PROTECTED_KEYS = new Set([
   'settings', 'meta', 'users', 'roles', 'audit', 'approvals', 'backups',
   'drafts', 'mergeJournal', 'presence', 'sessions', 'creds', 'deltas',
+  ...careWorkflow.OWNED,
 ]);
+
+function retainsClinicalHistory(db={}) {
+  return (db.patients||[]).some(p=>p?.demo!==true&&p?.synthetic!==true)||
+    careWorkflow.OWNED.some(key=>Array.isArray(db[key])&&db[key].length>0);
+}
 
 /* Roles allowed to change who holds which role, county or account status. */
 const ACCOUNT_ADMIN_ROLES = new Set(['chief', 'countyadmin', 'hr', 'director', 'president', 'program.admin']);
@@ -2408,6 +2471,10 @@ function validateReferencePayload(payload) {
   const missing = required.filter((key) => !Array.isArray(db[key]));
   if (missing.length) throw new MasterPackageError(`The reference master is missing required collection(s): ${missing.join(', ')}.`);
   const patients = db.patients;
+  if(careWorkflow.OWNED.some(key=>db[key]!=null&&(!Array.isArray(db[key])||db[key].length))) {
+    throw new MasterPackageError('A synthetic reference import cannot supply clinical decisions, evidence provenance, review authorizations or command receipts.', 'master_clinical_workflow_forbidden');
+  }
+  if(!patients.every(p=>p?.demo===true||p?.synthetic===true))throw new MasterPackageError('The reference-master route accepts synthetic patients only.', 'master_synthetic_only');
   if (patients.length !== REFERENCE_PATIENT_COUNT) throw new MasterPackageError(`The full reference master must contain exactly ${REFERENCE_PATIENT_COUNT.toLocaleString('en-GB')} patients; it contains ${patients.length}.`);
   if ((db.users || []).some((u) => u && (u.hash || u.salt))) {
     throw new MasterPackageError('The reference master must not contain password hashes or salts.');
@@ -3967,6 +4034,7 @@ async function handleRequest(req, res) {
     if (state.db.meta && state.db.meta.referenceMaster) {
       return sendJson(res, 409, { ok: false, code: 'master_already_imported', error: 'The full reference master has already been imported into this installation.' });
     }
+    if(retainsClinicalHistory(state.db))return sendJson(res,409,{ok:false,code:'clinical_history_retained',error:'Synthetic reference import cannot replace real patient records or retained clinical workflow history.'});
     const body = await readJsonBody(req);
     const integer = (v) => Number.isSafeInteger(Number(v)) && Number(v) >= 0 ? Number(v) : -1;
     const rawBytes = integer(body.rawBytes);
@@ -4028,6 +4096,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 200, { ok: true, rev: state.rev, counts: job.counts, quality: job.quality, alreadyCompleted: true });
     }
     if (isGloballyActivated(state)) return sendJson(res, 409, { ok: false, code: 'master_import_locked', error: 'The installation was globally activated before this import finished.' });
+    if(retainsClinicalHistory(state.db))return sendJson(res,409,{ok:false,code:'clinical_history_retained',error:'Synthetic reference import cannot replace real patient records or retained clinical workflow history.'});
     if (!job.received || Object.keys(job.received).length !== job.chunkCount) {
       return sendJson(res, 409, { ok: false, code: 'master_chunks_missing', error: `Only ${Object.keys(job.received || {}).length} of ${job.chunkCount} chunks have been uploaded.` });
     }
@@ -4122,6 +4191,7 @@ async function handleRequest(req, res) {
         importId: live.meta.referenceMaster.id,
       });
     }
+    if(retainsClinicalHistory(live))return sendJson(res,409,{ok:false,code:'clinical_history_retained',error:'Synthetic reference import cannot replace real patient records or retained clinical workflow history.'});
     const manifest = readBundledReferenceManifest();
     if (!manifest || manifest.format !== MASTER_PACKAGE_FORMAT || !Array.isArray(manifest.chunks)) {
       return sendJson(res, 404, {
@@ -4297,6 +4367,44 @@ async function handleRequest(req, res) {
     });
   }
 
+  /* Every enrollment / cycle / PDCA decision is validated against the current
+     primary record and atomically committed. Client role, `before`, author,
+     workflow status, timestamps and claimed approval are NEVER trusted. */
+  if (route === 'care/command' && method === 'POST') {
+    const sess=getSession(state,req);
+    if(!sess)return sendJson(res,401,{ok:false,code:'sign_in_required',error:'Sign in required.'});
+    const body=await readJsonBody(req), command=clipString(body.command||'',80);
+    const payload=safeObject(body.payload), scope=principalScope(state,sess);
+    const requestId=clipString(body.requestId||'',100);
+    if(!/^[A-Za-z0-9_-]{12,100}$/.test(requestId))return sendJson(res,400,{ok:false,code:'request_id_required',error:'Reopen this form to obtain a command request identifier.'});
+    const receipt=(state.db.careCommandReceipts||[]).find(r=>r.id===requestId);
+    if(receipt){
+      if(receipt.actor!==scope.userId || receipt.command!==command || receipt.payloadDigest!==sha256Hex(JSON.stringify(payload)))return sendJson(res,409,{ok:false,code:'request_id_conflict',error:'This command identifier has already been used.'});
+      const patient=(state.db.patients||[]).find(p=>p.id===receipt.patientId);
+      const dossier=command==='international_review'&&(state.db.intlPdcaDossiers||[]).find(d=>d.id===payload.id);
+      if(!(command==='international_review'?scope.roleId==='intl.medical'&&authorizedDossier(dossier,state.db):patientInPrincipalScope(patient,scope)))
+        return sendJson(res,403,{ok:false,code:'clinical_scope_denied',error:'The saved command is no longer in this account’s clinical scope.'});
+      // A receipt acknowledges the operation, not a snapshot. The client must
+      // read from its previous revision to reconcile a lost response safely.
+      return sendJson(res,200,{ok:true,duplicate:true,refreshRequired:true,rev:state.rev,saved:state.saved,patches:[]});
+    }
+    const result=careWorkflow.run(state.db,{...scope,id:scope.userId},command,payload,{
+      visible:p=>patientInPrincipalScope(p,scope), now:nowISO(),id:prefix=>prefix+'-'+crypto.randomUUID()
+    });
+    if(!result.ok)return sendJson(res,result.status||400,{ok:false,code:result.code,error:result.msg});
+    careWorkflow.apply(state.db,result.patches);
+    (state.db.careCommandReceipts=state.db.careCommandReceipts||[]).push({id:requestId,actor:scope.userId,command,
+      patientId:result.rec.patientId||result.rec.id,payloadDigest:sha256Hex(JSON.stringify(payload)),at:nowISO()});
+    state.rev=(state.rev||0)+1;
+    state.deltas=state.deltas||[];state.deltas.push({rev:state.rev,at:nowISO(),actor:scope.username,patches:result.patches});
+    if(state.deltas.length>60)state.deltas.splice(0,state.deltas.length-60);
+    appendServerAudit(state,scope.userId,result.event,'clinical_workflow',payload.patientId||payload.id,
+      'Server-validated clinical decision; clinical content retained only in scoped record revisions.');
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,rec:result.rec,rev:state.rev,saved:state.saved,
+      patches:scopedPatchesForSession(result.patches,state,sess)});
+  }
+
   if (route === 'state' && method === 'PUT') {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to write to the online database.' });
@@ -4316,6 +4424,8 @@ async function handleRequest(req, res) {
       if (['devices','devicesPending','devicePolicyInstalled','creds','credentialExports','passwordVault','system','config','reactivationPack','mailboxes'].includes(p.c)) {
         rejected.push({c:p.c, id:p.id, reason:'server_owned_security'}); continue;
       }
+      const clinicalRefusal=clinicalPatchPolicy(p,state.db,sess);
+      if(clinicalRefusal){rejected.push({c:p.c,id:p.id,reason:clinicalRefusal});continue;}
       if (p.c === 'personalPrefs') {
         const prefKey = clipString(p.id || '', 160).trim();
         if (!prefKey || FORBIDDEN_KEYS.has(prefKey)) continue;

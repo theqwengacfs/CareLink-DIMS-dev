@@ -100,6 +100,7 @@ const DB = {
         landingTheme:'clinic', consoleTheme:'foundation', workspaceTheme:'foundation', uiEpoch:691,
         sync:{ mode:'auto', live:true, liveMs:500 }
       },
+      careCycles:[], careReferrals:[], careEvidence:[], programAdmissions:[], careReviews:[], careReviewRevisions:[], intlPdcaDossiers:[],
       users:[], roles:[], patients:[], visits:[], pdcas:[], pdcaDiscussions:[], requests:[], transactions:[],
       documents:[], supportIssues:[], encounters:[], concerns:[], referralEntities:[],
       budgets:[], targets:[], employees:[], leaveRequests:[], welfareActs:[], contributions:[],
@@ -611,6 +612,10 @@ const RBAC = {
         if(CAPS[c] && (from.includes(c) || (d.capsAtIssue||[]).includes(c)) && !(ov.deny||[]).includes(c)) set.add(c);
       });
     });
+    // Clinical policy changes also apply to installations retaining older
+    // role definitions; a delegation cannot turn a field role into the MCM.
+    if(user.roleId==='mcm')set.add('patient.enrol');else set.delete('patient.enrol');
+    if(user.roleId==='coordinator')set.add('patient.view.clinical');
     return set;
   },
 
@@ -631,6 +636,7 @@ const RBAC = {
   /* Central authorisation decision. Returns {ok, reason}. */
   can(user, cap, ctx={}){
     if(!user) return {ok:false, reason:'No authenticated session'};
+    if(cap==='patient.enrol' && user.roleId!=='mcm') return {ok:false,reason:'Final enrolment is the Medical Case Manager’s office decision.'};
     if(!['active','pending_activation'].includes(user.status)) return {ok:false, reason:`Account is ${user.status}`};
     const role = roleObj(user.roleId)||{scope:{}};
     const scope = role.scope||{};
@@ -862,9 +868,9 @@ function transition(kind, id, action, user, payload={}){
   if(t.needsReason && !(payload.reason||'').trim()) return {ok:false,msg:'A documented reason is required'};
   if(t.needsEvidence && !payload.evidence) return {ok:false,msg:'Supporting evidence is required before approval'};
   if(t.guard && guardFns[t.guard] && !guardFns[t.guard](rec,payload)) return {ok:false,msg:(guardFns[t.guard].message||'Closure requirements are not met (evidence, report or reconciliation outstanding)')};
-  if(kind==='patient' && action==='enrol'){
-    if(!payload.expectedDays || !payload.rationale || !payload.needs)
-      return {ok:false,msg:'Enrolment needs an initial care plan: identified need, expected duration and the reason for that estimate.'};
+  if(kind==='patient' && ['enrol','approve_discharge'].includes(action)){
+    if(typeof CARE_REVIEW==='undefined')return {ok:false,msg:'Use the authoritative office clinical workflow.'};
+    return CARE_REVIEW.localCommand(user,action==='enrol'?'enrol_fresh':'discharge_cycle',{...payload,patientId:id});
   }
 
   const before = rec.status;
@@ -872,16 +878,6 @@ function transition(kind, id, action, user, payload={}){
   rec.updated = todayISO();
 
   if(kind==='patient'){
-    if(action==='enrol'){
-      rec.enrolDate = rec.enrolDate||todayISO(); rec.intake = rec.intake||todayISO();
-      rec.carePlan = {
-        needs: payload.needs, objectives: payload.objectives||'To be agreed with the patient at the next review',
-        interventions: payload.interventions||'To be agreed at the next review', responsible: payload.responsible||rec.caregiverId,
-        expectedDays: +payload.expectedDays, rationale: payload.rationale,
-        reviewDate: new Date(Date.now()+30*86400000).toISOString(),
-        version: 1, createdBy: user.id, createdAt: todayISO(), approvedBy: user.id, approvedAt: todayISO()
-      };
-    }
     if(action==='approve_discharge'){ rec.discharge = todayISO(); rec.dischargeEvidence = payload.evidence; }
     if(action==='recommend_discharge'){ rec.dischargeRecommendation = { by:user.id, at:todayISO(), reason:payload.reason, evidence:payload.evidence||'' }; }
     if(action==='verify'){ rec.verifiedBy=user.id; rec.verifiedAt=todayISO(); rec.docsVerified=true; }

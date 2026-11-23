@@ -22,6 +22,10 @@ const HANDOVER_PARTNERS = {
   ensureStore(){
     if(!DB.db) return;
     const today = todayISO().slice(0,10);
+    if(DB.db.meta?.synthetic!==true || !(DB.db.patients||[]).every(p=>p.demo===true)){
+      for(const c of ['handoverPackets','cccReferrals','intlPdcaDossiers'])DB.db[c]=DB.db[c]||[];
+      return;
+    }
 
     /* 1. Delegation & Handover packets */
     DB.db.handoverPackets = DB.db.handoverPackets || [
@@ -142,43 +146,8 @@ const HANDOVER_PARTNERS = {
       }
     ];
 
-    /* 3. 120+ Day PDCA International Medical Dossiers */
-    DB.db.intlPdcaDossiers = DB.db.intlPdcaDossiers || (()=>{
-      const overPts = (DB.db.patients||[]).filter(p=>p.status==='active' && PAT.days(p)>=120).slice(0,4);
-      if(overPts.length){
-        return overPts.map((p,idx)=>({
-          id:'PDCA120-'+(101+idx),
-          patientId:p.id,
-          patientCode:p.code,
-          patientName:p.name,
-          countyId:p.countyId || 'kisumu',
-          areaId:p.areaId || 'nyalenda',
-          daysInProgram:PAT.days(p),
-          bmi: (typeof BMI_CLINICAL!=='undefined' && BMI_CLINICAL.patientBmiInfo(p)?.bmi) || 17.8,
-          diagnosis: p.clinical?.diagnosis || 'Complex multi-morbid chronic recovery',
-          planStage:'Target BMI >= 18.5 kg/m², complete specialist MOPC workup & stabilise household food security within 30-day extension.',
-          doStage:'Weekly home visits, Bag 1 + therapeutic protein, supervised pill count & escorted hospital clinic review.',
-          checkStage:'Weight improved +1.9 kg since day 90; residual neuropathy & wound epithelialisation at 80%.',
-          actStage:'Request 30-day clinical extension (Day 120 -> Day 150) prior to structured graduation.',
-          submittedBy:'Medical Case Manager',
-          submittedAt:today,
-          intlStatus: idx===0 ? 'reviewed_concurred' : 'awaiting_intl_review',
-          intlReviewer: idx===0 ? 'International Medical Team' : '',
-          intlRecommendation: idx===0 ? 'Concur with 30-day extension to Day 150; repeat Hb & renal panel at JOOTRH MOPC and maintain pyridoxine B6.' : ''
-        }));
-      }
-      return [{
-        id:'PDCA120-101', patientId:'p-overstay-demo', patientCode:'LOM-KS-774', patientName:'Demo Extended-Care Beneficiary',
-        countyId:'kisumu', areaId:'nyalenda', daysInProgram:138, bmi:17.6,
-        diagnosis:'Extrapulmonary TB + Severe Malnutrition Recovery',
-        planStage:'Achieve BMI >= 18.5 & complete continuation-phase TB milestones.',
-        doStage:'Weekly home nursing, Bag 1 + Pyridoxine 25mg, monthly chest clinic review.',
-        checkStage:'BMI rose from 15.2 -> 17.6 kg/m²; sputum conversion confirmed.',
-        actStage:'30-day clinical extension approved toward safe graduation at Day 165.',
-        submittedBy:'Kisumu Medical Case Manager', submittedAt:today,
-        intlStatus:'awaiting_intl_review', intlReviewer:'', intlRecommendation:''
-      }];
-    })();
+    /* Dossiers exist only after the MCM authorizes and shares a revision. */
+    DB.db.intlPdcaDossiers = DB.db.intlPdcaDossiers || [];
   },
 
   /* =====================================================================
@@ -521,63 +490,8 @@ const HANDOVER_PARTNERS = {
   /* =====================================================================
      4. INTERNATIONAL MEDICAL TEAM & 120+ DAY PDCA OVERSTAY CONSOLE
      ===================================================================== */
-  renderIntlMedical(user, params={}){
-    if(!RBAC.can(user,'intl.medical',{}).ok) return deniedPanel('intl.medical');
-    this.ensureStore();
-    const dossiers = DB.db.intlPdcaDossiers || [];
-    const filter = params.status || 'all';
-    const shown = dossiers.filter(d=>filter==='all' || d.intlStatus===filter);
-    const pendingCount = dossiers.filter(d=>d.intlStatus==='awaiting_intl_review').length;
+  renderIntlMedical(user,params={}){return CARE_REVIEW.internationalPanel(user,params);}
 
-    /* Aggregate clinical oversight across counties */
-    const allPts = (DB.db.patients||[]).filter(p=>p.status==='active');
-    const over120Live = allPts.filter(p=>PAT.days(p)>=120).length;
-    const avgStay = allPts.length ? Math.round(allPts.reduce((n,p)=>n+PAT.days(p),0)/allPts.length) : 84;
-
-    return pageHead('International Medical Team · 120+ Day PDCA & Global Clinical Oversight',
-      'Dedicated clinical governance console receiving every 120+ day overstay Plan-Do-Check-Act (PDCA) report from Kisumu and Homa Bay Medical Case Managers for specialist review and extension sign-off.',
-      `${RBAC.has(user,'clinical.mcm')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="clinicalmcm">${ic('activity',15)} MCM Clinical Console</button>`:''}
-       <button class="btn btn-sm btn-ghost" data-act="portal-mode" data-mode="partner">${ic('building2',15)} Partner Impact Brief</button>`)
-    + `<div class="grid g4" style="margin-bottom:16px">
-        ${kpi('120+ Day PDCA dossiers', num(dossiers.length), `${num(pendingCount)} awaiting International Medical review`, pendingCount?'warn':'ok', 'pulse')}
-        ${kpi('Live 120+ day caseload', num(over120Live), 'Across Kisumu & Homa Bay counties', over120Live?'warn':'ok', 'clock')}
-        ${kpi('Mean active stay', `${avgStay} days`, 'Target graduation cycle: 90–120 days', 'info', 'activity')}
-        ${kpi('Historical recovery rate', '89%', '2,012 healthy discharges (2018–2026)', 'ok', 'shieldcheck')}
-      </div>`
-    + `<div class="tabs">
-        <button class="tab ${filter==='all'?'active':''}" data-act="go" data-v="intlmedical" data-status="all">All 120+ Day PDCA Dossiers (${dossiers.length})</button>
-        <button class="tab ${filter==='awaiting_intl_review'?'active':''}" data-act="go" data-v="intlmedical" data-status="awaiting_intl_review">Awaiting International Review (${pendingCount})</button>
-        <button class="tab ${filter==='reviewed_concurred'?'active':''}" data-act="go" data-v="intlmedical" data-status="reviewed_concurred">Reviewed & Concurred (${dossiers.length - pendingCount})</button>
-      </div>`
-    + shown.map(d=>`<div class="card" style="margin-bottom:14px">
-        <div class="card-h">
-          <div>
-            <h3>${esc(d.id)} · ${esc(d.patientName)} (${esc(d.patientCode)}) — <span style="color:var(--crit)">${d.daysInProgram} Days in Care</span></h3>
-            <div class="xs muted">${esc(countyName(d.countyId))} · ${esc(areaName(d.areaId))} · Primary Diagnosis: <b>${esc(d.diagnosis)}</b> · Submitted by ${esc(d.submittedBy)}</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:wrap">
-            ${typeof BMI_CLINICAL!=='undefined' ? BMI_CLINICAL.badgeHTML(d.bmi, true) : ''}
-            ${badge(d.intlStatus==='reviewed_concurred'?'Intl Medical Concurred':'Awaiting Intl Medical Review', d.intlStatus==='reviewed_concurred'?'b-ok':'b-warn')}
-            ${d.patientId ? `<button class="btn btn-xs btn-ghost" data-act="open-discharge-summary" data-id="${esc(d.patientId)}" data-mode="120day">${ic('file',12)} Official C-DIMS 120d Report</button>
-              <button class="btn btn-xs btn-ghost" data-act="export-pdca-word" data-id="${esc(d.patientId)}" data-mode="120day" title="Download Official C-DIMS 120-Day Report (.doc)">${ic('download',12)} .doc</button>` : ''}
-            <button class="btn btn-xs btn-primary" data-act="intl-review-modal" data-id="${esc(d.id)}">${ic('check',12)} ${d.intlStatus==='reviewed_concurred'?'Update Advisory':'Record Intl Medical Review'}</button>
-          </div>
-        </div>
-        <div class="card-b">
-          <div class="grid g4 small" style="gap:10px">
-            <div class="pdca-quad"><b>P — PLAN</b><div class="xs muted" style="margin-top:4px">${esc(d.planStage)}</div></div>
-            <div class="pdca-quad"><b>D — DO</b><div class="xs muted" style="margin-top:4px">${esc(d.doStage)}</div></div>
-            <div class="pdca-quad"><b>C — CHECK</b><div class="xs muted" style="margin-top:4px">${esc(d.checkStage)}</div></div>
-            <div class="pdca-quad"><b>A — ACT</b><div class="xs muted" style="margin-top:4px">${esc(d.actStage)}</div></div>
-          </div>
-          ${d.intlRecommendation ? `<div class="alert ok" style="margin-top:10px">${ic('shieldcheck',16)}
-            <div><b>International Medical Team Recommendation (${esc(d.intlReviewer||'International Medical')}):</b>
-              <div class="xs">${esc(d.intlRecommendation)}</div>
-            </div>
-          </div>` : ''}
-        </div>
-      </div>`).join('');
-  }
 };
 
 function _hpAddDays(isoDate, n){
@@ -830,72 +744,11 @@ Object.assign(ACTIONS, {
   },
 
   'intl-file-pdca120': (d={}) => {
-    HANDOVER_PARTNERS.ensureStore();
-    const p = (DB.db.patients||[]).find(x=>x.id===d.id);
-    if(!p) return;
-    const exists = DB.db.intlPdcaDossiers.find(x=>x.patientId===p.id);
-    if(exists){ go('intlmedical'); return; }
-    const bi = typeof BMI_CLINICAL!=='undefined' ? BMI_CLINICAL.patientBmiInfo(p) : { bmi:18.1 };
-    const dos = {
-      id: 'PDCA120-' + (110 + DB.db.intlPdcaDossiers.length),
-      patientId: p.id, patientCode: p.code, patientName: p.name,
-      countyId: p.countyId, areaId: p.areaId, daysInProgram: PAT.days(p), bmi: bi.bmi,
-      diagnosis: p.clinical?.diagnosis || 'Extended chronic clinical recovery',
-      planStage: 'Stabilise nutritional BMI & complete specialist outpatient review within 30-day extension.',
-      doStage: 'Fortnightly home visits, Bag 1 support & supervised adherence check.',
-      checkStage: `${PAT.days(p)} days in programme; current BMI ${bi.bmi} kg/m².`,
-      actStage: 'Transmitted to International Medical Team for 120+ day clinical review.',
-      submittedBy: AUTH.user.name.replace(/^Demo - /,''),
-      submittedAt: todayISO().slice(0,10),
-      intlStatus: 'awaiting_intl_review', intlReviewer:'', intlRecommendation:''
-    };
-    DB.db.intlPdcaDossiers.unshift(dos);
-    AUDIT.append({ actor:AUTH.user.id, action:'pdca120.transmitted', entity:'patient', entityId:p.id, detail:`${dos.id} (${dos.daysInProgram}d) -> International Medical` });
-    DB.save();
-    toast('120+ Day PDCA dossier transmitted', `${dos.id} is now in the International Medical Team review queue.`, 'ok');
-    go('intlmedical');
+    const p=CARE_REVIEW.scoped(AUTH.user,d.id);
+    if(!p)return toast('Not available','Outside your clinical scope.','err');
+    toast('Review chain required','Open a 120+ report, record MCM comments, obtain caregiver corrections / resubmission, then authorize and share that exact revision. Nothing was transmitted.','info');
+    go('patient',{id:p.id,tab:'pdca'});
   },
-
-  'intl-review-modal': (d={}) => {
-    HANDOVER_PARTNERS.ensureStore();
-    const dos = (DB.db.intlPdcaDossiers||[]).find(x=>x.id===d.id);
-    if(!dos) return;
-    openModal({
-      title:`International Medical Review · ${dos.id} (${dos.daysInProgram} Days)`,
-      sub:`${dos.patientName} (${dos.patientCode}) · ${countyName(dos.countyId)} · ${areaName(dos.areaId)}`,
-      wide:false,
-      body:`<form id="intlRevForm">
-        <input type="hidden" name="id" value="${esc(dos.id)}">
-        <div class="field"><label>Clinical concurrence & extension decision *</label>
-          <select class="input" name="decision">
-            <option value="reviewed_concurred">Concur with 30-Day PDCA Extension & Specialist Plan</option>
-            <option value="awaiting_intl_review">Request Additional Diagnostics from County MCM</option>
-          </select>
-        </div>
-        <div class="field"><label>International Medical Team specialist recommendation *</label>
-          <textarea class="input" name="recommendation" rows="3" required placeholder="Clinical guidance on nutrition, specialist referral, diagnostics, and graduation milestone...">${esc(dos.intlRecommendation||'Concur with 30-day clinical extension; monitor 3-visit BMI trajectory and confirm specialist outpatient review before graduation.')}</textarea>
-        </div>
-      </form>`,
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
-        <button class="btn btn-primary" data-act="intl-review-save">${ic('check',14)} Sign & Return to County MCM</button>`
-    });
-  },
-
-  'intl-review-save': () => {
-    const f = document.querySelector('#intlRevForm');
-    if(!f) return;
-    const fd = new FormData(f);
-    const rec = String(fd.get('recommendation')||'').trim();
-    if(!rec) return toast('Recommendation required','','err');
-    const dos = (DB.db.intlPdcaDossiers||[]).find(x=>x.id===fd.get('id'));
-    if(!dos) return;
-    dos.intlStatus = fd.get('decision') || 'reviewed_concurred';
-    dos.intlReviewer = AUTH.user.name.replace(/^Demo - /,'');
-    dos.intlRecommendation = rec;
-    AUDIT.append({ actor:AUTH.user.id, action:'pdca120.intl_reviewed', entity:'pdca120', entityId:dos.id, detail:rec.slice(0,80) });
-    DB.save();
-    closeModal(true);
-    toast('International Medical review recorded', `Published back to ${countyName(dos.countyId)} Medical Case Management.`, 'ok');
-    render();
-  }
+  'intl-review-modal':d=>CARE_REVIEW.internationalReview(d.id),
+  'intl-review-save':()=>CARE_REVIEW.submitForm('intlRevForm','international_review',d=>({id:d.get('id'),version:Number(d.get('version')),decision:d.get('decision'),recommendation:d.get('recommendation')}))
 });

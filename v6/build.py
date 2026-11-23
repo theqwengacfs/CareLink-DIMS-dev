@@ -11,8 +11,8 @@ SRC = ROOT / "src"
 OUT = ROOT / "LOMAMO-CareLink-DIMS-v6.0.html"
 OUT_PUBLIC = ROOT.parent / "public" / "carelink-v6.html"
 
-CSS_ORDER = ["styles.css", "console51.css", "console6.css", "portal6.css", "audit6.css", "carelink63.css", "console_color_schemes.css", "admin_ops6.css", "entry_theme.css"]
-JS_ORDER = ["data.js", "data6.js", "inventory_data.js", "core.js", "access_rules.js", "media6.js", "media_portal.js", "reports.js", "care.js", "ai.js", "charts.js",
+CSS_ORDER = ["styles.css", "console51.css", "console6.css", "portal6.css", "audit6.css", "carelink63.css", "console_color_schemes.css", "admin_ops6.css", "care_review.css", "entry_theme.css"]
+JS_ORDER = ["data.js", "data6.js", "inventory_data.js", "care_rules.js", "care_workflow.js", "core.js", "access_rules.js", "media6.js", "media_portal.js", "reports.js", "care.js", "ai.js", "charts.js",
             "forms.js", "pharmacy.js", "leave.js", "omaha.js", "schedule.js", "exportdocs.js", "dashboard.js", "files.js", "live.js", "themes.js",
             "ui.js", "navpane.js", "pager.js", "care6_flows.js",
             "views_entry.js", "views_patients.js", "views_ops.js", "views_admin.js",
@@ -20,7 +20,7 @@ JS_ORDER = ["data.js", "data6.js", "inventory_data.js", "core.js", "access_rules
             "views_extra.js", "office_actions.js", "app.js",
             "pmi.js", "recognition.js", "workplace.js", "insight6.js", "indicators6.js", "hub6.js", "entry6.js",
             "org_teams.js", "household.js", "costing.js", "tb_dispensing.js", "master_registry.js", "master_analysis.js", "waiting_urgent.js", "portal_content.js",
-            "bmi_clinical6.js", "discharge_hardcopy6.js", "monday_procurement6.js", "handover_partners6.js",
+            "bmi_clinical6.js", "discharge_hardcopy6.js", "monday_procurement6.js", "handover_partners6.js", "care_review_ui.js",
             "admin_workflows6.js", "dev_console6.js", "workflow_engine6.js", "visual_audit.js", "strategic_governance67.js", "role_consoles68.js", "security6.js"]
 
 def read(p):

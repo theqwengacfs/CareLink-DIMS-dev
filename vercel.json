@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/index.js": {
-      "includeFiles": "v6/src/{data.js,data6.js,inventory_data.js,core.js}",
+      "includeFiles": "v6/src/{data.js,data6.js,inventory_data.js,core.js,care_rules.js,care_workflow.js}",
       "maxDuration": 60
     }
   },

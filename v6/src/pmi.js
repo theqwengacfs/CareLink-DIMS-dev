@@ -36,19 +36,22 @@ const PMI = {
     const qq = String(q||'').trim();
     const out = { query:qq, matches:[], byId:[], byName:[], byPhone:[], level:'none' };
     if(!qq) return out;
+    // Search only records this account is entitled to read, even in an
+    // offline synthetic fixture containing other counties.
+    const rows=(db.patients||[]).filter(p=>!['merged'].includes(p.status)&&AUTH.user&&CARE_WORKFLOW.canSee(AUTH.user,p));
     const digits = nationalIdClean(qq);
     const lower = qq.toLowerCase();
     if(digits.length >= 5){
-      out.byId = (db.patients||[]).filter(p=>nationalIdClean(p.nationalId) === digits || nationalIdClean(p.code) === digits);
+      out.byId = rows.filter(p=>nationalIdClean(p.nationalId) === digits || nationalIdClean(p.code) === digits);
       if(out.byId.length) out.level = 'national-id';
     }
     if(!out.byId.length && lower.length >= 4){
-      out.byName = (db.patients||[]).filter(p=>String(p.name||'').toLowerCase().includes(lower)).slice(0,25);
+      out.byName = rows.filter(p=>String(p.name||'').toLowerCase().includes(lower)).slice(0,25);
       if(out.byName.length) out.level = 'name';
     }
     const phone = qq.replace(/[^0-9]/g,'');
     if(phone.length >= 9 && !out.byId.length){
-      out.byPhone = (db.patients||[]).filter(p=>String(p.phone||'').replace(/[^0-9]/g,'') === phone).slice(0,25);
+      out.byPhone = rows.filter(p=>String(p.phone||'').replace(/[^0-9]/g,'') === phone).slice(0,25);
       if(out.byPhone.length) out.level = 'phone';
     }
     out.matches = out.byId.length ? out.byId : (out.byName.length ? out.byName : out.byPhone);
@@ -62,7 +65,8 @@ const PMI = {
     const p = res.matches[0];
     const days = (()=>{ try{ return daysBetween(p.intake); }catch(e){ return 0; } })();
     const many = res.matches.length > 1;
-    if(res.level==='national-id') return { tone:'crit', title: many ? `${res.matches.length} records share this national ID` : 'Returning patient  -  national ID match',
+    const classification=CARE_RULES.classify(p,new Date().toISOString(),DB.db);
+    if(res.level==='national-id') return { tone:classification.tone, title: many ? `${res.matches.length} records share this national ID` : classification.label+' — ID match',
       body:`${p.name} · ${p.code} · enrolled ${esc(p.intake||'').slice(0,10)} (${days} days ago) · ${areaName(p.areaId)} · status ${p.status}. ${many?'Open duplicate review before creating another record.':'Open the existing record instead of creating a second one.'}` };
     if(res.level==='name') return { tone:'warn', title:'Possible previous record by name',
       body:`${res.matches.length} record(s) match that name. A name is not an identifier: confirm the phone number or the national ID with the person.` };
@@ -100,6 +104,8 @@ const PMI = {
     const dupe = DB.db.patients.find(p=>p.id===mergeId);
     if(!keep || !dupe) return { ok:false, error:'One of the two records no longer exists.' };
     if(keep.id===dupe.id) return { ok:false, error:'A record cannot be merged with itself.' };
+    if(!CARE_WORKFLOW.canSee(user,keep)||!CARE_WORKFLOW.canSee(user,dupe))return {ok:false,error:'Both identities must be within your clinical scope.'};
+    if([keep,dupe].some(p=>CARE_RULES.supported(p)||(DB.db.careReferrals||[]).some(r=>r.patientId===p.id)))return {ok:false,error:'Support-cycle histories cannot be merged by this shortcut. Retain both identities for an audited office identity review.'};
     const moved = { visits:0, pdcas:0, requests:0, documents:0, encounters:0 };
     ['visits','pdcas','requests','documents','encounters','supportIssues','clinicalRx'].forEach(coll=>{
       (DB.db[coll]||[]).forEach(r=>{ if(r.patientId===mergeId){ r.patientId=keep.id; if(moved[coll]!=null) moved[coll]++; } });
@@ -178,7 +184,7 @@ function renderRepeatCheck(user){
 }
 
 function renderDuplicateQueue(user){
-  const groups = PMI.duplicates(DB.db);
+  const groups = PMI.duplicates({...DB.db,patients:repo.patientList(user)});
   return `<div class="card" style="margin-top:16px"><div class="card-h"><div>
       <h3>Duplicate identity review</h3><div class="sub">${groups.length} identifier group(s) appear on more than one record. Merging keeps both records; the duplicate is marked, never deleted.</div>
     </div></div><div class="card-b">` +

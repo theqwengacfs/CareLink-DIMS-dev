@@ -207,9 +207,9 @@ const MASTER_RULES = {
   /* K: =IF(I="";0;J-I) */
   daysInProgramme(dateIn, dateOut){
     if(!dateIn) return 0;
-    const a = new Date(String(dateIn).slice(0,10)), b = dateOut? new Date(String(dateOut).slice(0,10)) : new Date();
-    if(isNaN(a)) return 0;
-    return Math.max(0, Math.round((b-a)/86400000));
+    const a=CARE_RULES.programDate(dateIn),b=CARE_RULES.programDate(dateOut||new Date().toISOString());
+    if(!a||!b)return 0;
+    return Math.max(0,Math.floor((Date.parse(b)-Date.parse(a))/86400000));
   },
   /* H: =IF(AND(L="";K>183);"x";"") */
   minimalCareFlag(days, dischargeMonth){ return (!dischargeMonth && Number(days)>183) ? 'x' : ''; },

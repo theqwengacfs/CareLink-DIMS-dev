@@ -249,7 +249,7 @@ const ROLES = [
 
   { id:'countyadmin', name:'County Office Administrator', dept:'admin', accent:'#C8102E', consoleTitle:'County Administration',
     scope:{ geo:'county', records:'county' },
-    perms:['user.view','user.create','user.approve','patient.list','patient.view.basic','patient.view.clinical','patient.verify','patient.enrol','patient.discharge.approve','patient.edit','patient.return',
+    perms:['user.view','user.create','user.approve','patient.list','patient.view.basic','patient.view.clinical','patient.verify','patient.discharge.approve','patient.edit','patient.return',
       'finance.view','finance.commit','finance.pay','finance.reconcile','finance.report','finance.budget.manage','procurement.view',
       'hosp.request.create','hosp.request.assign','hosp.receipt.review','hosp.close','patient.export',
       'report.patient_days','report.patient_figures','report.expenditure','report.targets.manage','report.departmental','audit.view','hr.view','ai.use','welfare.view','vehicle.view',
@@ -263,7 +263,7 @@ const ROLES = [
 
   { id:'coordinator', name:'Ministry Area Coordinator', dept:'ministry', accent:'#B45309', consoleTitle:'Ministry Area Console',
     scope:{ geo:'areas', records:'areas' },
-    perms:['user.view','user.create','patient.list','patient.view.basic','patient.discharge.recommend','visit.view','visit.create','pdca.create','report.patient_days','report.departmental','hosp.request.create','ai.use', 'condition.view', 'care.view', 'patient.ministry.view'] },
+    perms:['user.view','user.create','patient.list','patient.view.basic','patient.view.clinical','patient.discharge.recommend','visit.view','visit.create','pdca.create','report.patient_days','report.departmental','hosp.request.create','ai.use', 'condition.view', 'care.view', 'patient.ministry.view'] },
 
   { id:'caregiver', name:'Supporting Caregiver', dept:'ministry', accent:'#C2410C', consoleTitle:'Caregiver Field Console',
     scope:{ geo:'areas', records:'areas' },
@@ -277,7 +277,7 @@ const ROLES = [
 
   { id:'mcm', name:'Medical Case Manager', dept:'medical', accent:'#0E7490', consoleTitle:'Medical Case Management',
     scope:{ geo:'county', records:'county' },
-    perms:['user.view','user.create','patient.list','patient.view.basic','patient.view.clinical','patient.discharge.recommend','patient.discharge.approve','patient.edit','patient.export',
+    perms:['user.view','user.create','patient.list','patient.view.basic','patient.view.clinical','patient.enrol','patient.discharge.recommend','patient.discharge.approve','patient.edit','patient.export',
       'pdca.review','visit.view','visit.create','pdca.create','hosp.request.create','hosp.request.review','hosp.request.assign','hosp.receipt.review','hosp.close',
       'report.referral','report.patient_days','report.departmental','ai.use','media.consent.manage',
       'condition.view', 'condition.record', 'condition.confirm', 'condition.sensitive', 'condition.aggregate', 'care.view', 'care.log', 'care.incident', 'care.manage'] },

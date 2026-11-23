@@ -197,53 +197,13 @@ function submitDelegationIssue(d){
 }
 
 /* ---------------- Care-plan reviews ---------------- */
-function openPdcaComplete(patientId, day){
-  const p = repo.patient(AUTH.user, patientId);
-  if(!p) return toast('Patient not available','Outside your scope.','err');
-  const slot = PDCAX.schedule(p).find(r=>r.day===Number(day));
-  if(!slot) return toast('Review not found','','err');
-  const slip = Math.round((Date.now()-slot.due.getTime())/86400000);
-  openModal({ title:`Complete review · day ${day}`, narrow:true,
-    sub:`${p.code} · due ${slot.due.toISOString().slice(0,10)}${slip>0?` · ${slip} days late`:''}`,
-    body:`<form id="pdcaForm" data-form="pdca-complete">
-      <input type="hidden" name="patientId" value="${esc(patientId)}"><input type="hidden" name="day" value="${day}">
-      <div class="field"><label for="pcNote">What was reviewed and agreed</label>
-        <textarea class="input" id="pcNote" name="note" rows="4" placeholder="Progress against the care plan, outstanding needs, next actions."></textarea>
-        <div class="hint">The original due date is kept. The completion date is recorded separately, so a late review is visible as late.</div></div>
-      <div class="row" style="justify-content:flex-end"><button type="button" class="btn btn-ghost" data-act="close-modal">Cancel</button>
-        <button class="btn btn-primary" type="submit">Record completion</button></div>
-    </form>`});
+function openPdcaComplete(patientId,day){
+  const existing=(DB.db.careReviews||[]).find(r=>r.patientId===patientId&&r.dueDay===Number(day)&&r.cycleId===CARE_RULES.cycleId(DB.db.patients.find(p=>p.id===patientId)));
+  return existing?CARE_REVIEW.openReport(existing.id):CARE_REVIEW.editor(patientId,'',Number(day));
 }
-
-function submitPdcaComplete(d){
-  const r = PDCAX.complete(AUTH.user, d.get('patientId'), d.get('day'), d.get('note'));
-  if(!r.ok) return toast('Not recorded', r.msg, 'err');
-  closeModal(); toast('Review recorded','Due date preserved; completion date added.','ok'); render();
-}
-
-function openPdcaExtension(patientId){
-  const p = repo.patient(AUTH.user, patientId);
-  if(!p) return toast('Patient not available','Outside your scope.','err');
-  const days = PDCAX.daysInProgramme(p);
-  openModal({ title:'Extension review', narrow:true,
-    sub:`${p.code} · ${days} days in the programme, beyond the approved threshold.`,
-    body:`<form id="extForm" data-form="pdca-extension">
-      <input type="hidden" name="patientId" value="${esc(patientId)}">
-      <div class="alert warn">${ic('alert',16)}<div><b>Not a discharge decision</b>
-        <span class="small">This records why support continues. It does not set a discharge date and does not close the case.</span></div></div>
-      <div class="field" style="margin-top:12px"><label for="extNote">Justification</label>
-        <textarea class="input" id="extNote" name="note" rows="5" required minlength="20"
-          placeholder="Clinical and social reasons the case continues, what is being done, and when it will be reviewed again."></textarea></div>
-      <div class="row" style="justify-content:flex-end"><button type="button" class="btn btn-ghost" data-act="close-modal">Cancel</button>
-        <button class="btn btn-primary" type="submit">Record review</button></div>
-    </form>`});
-}
-
-function submitPdcaExtension(d){
-  const r = PDCAX.recordExtension(AUTH.user, d.get('patientId'), d.get('note'));
-  if(!r.ok) return toast('Not recorded', r.msg, 'err');
-  closeModal(); toast('Extension review recorded','The justification is in the audit trail.','ok'); render();
-}
+function submitPdcaComplete(){return toast('Full report required','A note is not an MCM-reviewed PDCA. Use the editable evaluation template.','warn');}
+function openPdcaExtension(patientId){return CARE_REVIEW.editor(patientId);}
+function submitPdcaExtension(){return toast('Full report required','Record continued-care justification in the editable PDCA and submit for county MCM review.','warn');}
 
 /* ---------------- AI probe ---------------- */
 async function probeAI(){

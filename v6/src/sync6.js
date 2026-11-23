@@ -528,7 +528,12 @@ const SYNC = {
   },
 
   async pullFull(opts={}){
-    if(this.kvBlocked()) return false;
+    if(this.kvBlocked() || this._clinicalBusy || this._pulling) return false;
+    // An already-started ordinary save (e.g. first-login audit) must settle
+    // before adopting a snapshot. Do not turn that short overlap into a
+    // permanently failed post-login / verified reference-master refresh.
+    if(this._inflight && this._pushPromise)await this._pushPromise;
+    if(this._inflight || this._clinicalBusy || this._pulling || this.kvBlocked())return false;
     const minRev = Number(opts && opts.minRev) || 0;
     const requireReferenceMaster = Boolean(opts && opts.requireReferenceMaster);
     const inlineState = opts && opts.inlineState && typeof opts.inlineState === 'object' ? opts.inlineState : null;
@@ -847,7 +852,7 @@ const SYNC = {
   queue(){
     /* Nothing to send yet (offline copy, or signed out): the register itself is
        the record, exactly as before. */
-    if(!this.available() || !this.sessionToken) return;
+    if(!this.available() || !this.sessionToken || this._clinicalBusy) return;
     if(this.kvBlocked()){ this.holdWork(); return; }
     if(this._pulling || (typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading'))) return;
     if(this._inflight){ this._queuedWhileInflight = true; return; }
@@ -855,8 +860,8 @@ const SYNC = {
     this._timer = setTimeout(()=>this.push(), 320);
   },
 
-  async push(){
-    if(this._pulling || !this.sessionToken) return;
+  async push(opts={}){
+    if(this._pulling || !this.sessionToken || (this._clinicalBusy && !opts.clinicalPreflight)) return;
     if(this.kvBlocked()){ this.holdWork(); return; }
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
     if(this._inflight){
@@ -890,7 +895,7 @@ const SYNC = {
      the host will never accept (a scope refusal) are reported and dropped;
      transport failures keep the work here for the next attempt. */
   async attemptOutbox(){
-    if(this.kvBlocked()) return false;
+    if(this.kvBlocked() || this._clinicalBusy) return false;
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return false;
     const box = this.loadOutbox();
     if(!box) return false;
@@ -944,7 +949,9 @@ const SYNC = {
   async _runPush(){
     if(this._inflight || this._pulling || !this.sessionToken) return;
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
+    const previousShadow = this._shadow;
     const sentShadow = this.captureShadow();
+    const rejected = [];
     const patches = this.patches();
     if(!patches.length){ APPX.dirty = false; return; }
     this._inflight = true;
@@ -970,7 +977,21 @@ const SYNC = {
             (held ? ` ${held} change${held===1?' is':'s are'} held on this device.` : '');
           this.bump(); this._inflight=false; return;
         }
-        rev = r.body.rev; merged += (r.body.merged||0);
+        // A PUT acknowledges our edits, not intervening remote revisions.
+        if(r.body.rev === rev+1) rev = r.body.rev;
+        else if(r.body.rev > rev) this.pendingRemote = true;
+        merged += (r.body.merged||0);
+        rejected.push(...(r.body.rejected||[]));
+      }
+      // HTTP 200 may include per-row refusals. They remain visibly unsaved;
+      // never bless them into the confirmed shadow or preflight a decision.
+      for(const p of rejected){
+        if(p.c==='settings'){sentShadow.__settings=previousShadow.__settings;continue;}
+        if(p.c==='audit'){sentShadow.__auditLen=previousShadow.__auditLen;continue;}
+        const collection=p.c==='personalPrefs'?'__personalPrefs':p.c;
+        const map=sentShadow[collection]=sentShadow[collection]||{};
+        if(Object.hasOwn(previousShadow[collection]||{},p.id))map[p.id]=previousShadow[collection][p.id];
+        else delete map[p.id];
       }
       this.rev = rev;
       this.saved = new Date().toISOString();
@@ -986,9 +1007,10 @@ const SYNC = {
       this._retry = 0;
       this.lastMerged = merged;
       this.clearOutbox();
-      this.state = merged ? 'merge' : 'connected';
-      this.message = merged
-        ? `Saved · ${merged} overlapping field${merged===1?'':'s'} reconciled automatically`
+      this.state = rejected.length ? 'error' : merged ? 'merge' : 'connected';
+      this.message = rejected.length
+        ? `${rejected.length} change${rejected.length===1?' was':'s were'} refused by the shared source and remain unsaved (${[...new Set(rejected.map(p=>p.reason))].join(', ')}).`
+        : merged ? `Saved · ${merged} overlapping field${merged===1?'':'s'} reconciled automatically`
         : 'Saved to the shared online source';
       this.bump();
       if(merged){
@@ -1011,6 +1033,9 @@ const SYNC = {
       if(before==='merge' && this.state==='saving') this.state='connected';
       if(this._queuedWhileInflight && this.sessionToken && !this._pulling && !this.kvBlocked()){
         this._queuedWhileInflight = false;
+        // A refused row must not strand unrelated edits queued during the
+        // request (for example, a clinician's personal accessibility settings).
+        // The queued flag is consumed once; refusals alone never loop here.
         if(this.patches().length > 0) await this._runPush();
       }
     }
@@ -1032,7 +1057,7 @@ const SYNC = {
   },
 
   async tick(){
-    if(!this.sessionToken || this._inflight || this._pulling || this._ticking || document.hidden || this.kvBlocked()) return;
+    if(!this.sessionToken || this._inflight || this._pulling || this._clinicalBusy || this._ticking || document.hidden || this.kvBlocked()) return;
     this._ticking = true;
     try{
       if(APPX.dirty){ await this.push(); }
@@ -1092,9 +1117,43 @@ const SYNC = {
     }
   },
 
+  /* A command acknowledgement is NOT a full snapshot. Rebase only those
+     exact rows against their confirmed shadow, preserving unrelated dirty
+     rows and edits made while the command was in flight. The command never
+     clears an outbox or advances past unseen remote revisions. */
+  applyCommandPatches(patches){
+    const protectedPatient=new Set(['status','careCycleId','cycleStartedAt','enrolledAt','enrolDate','enrolledBy','enrolledDecisionAt',
+      'enrolmentOfficeConfirmed','discharge','dischargedAt','dischargedBy','dischargeEvidence','assessmentKind','intake','carePlan',
+      'countyId','areaId','nationalId','dischargeSummary','dischargeProtocol','dischargeRecommendation','dischargeReferral']);
+    for(const patch of patches||[]){
+      if(!patch||typeof patch.c!=='string')continue;
+      if(['settings','personalPrefs','audit'].includes(patch.c)){this.applyPatchList([patch]);continue;}
+      const col=DB.db[patch.c]=Array.isArray(DB.db[patch.c])?DB.db[patch.c]:[];
+      const i=col.findIndex(r=>r?.id===patch.id),local=i<0?{}:col[i];
+      let before={};try{before=JSON.parse(this._shadow[patch.c]?.[patch.id]||'{}');}catch(e){}
+      const map=this._shadow[patch.c]=this._shadow[patch.c]||{};
+      if(patch.del){if(i>=0)col.splice(i,1);delete map[patch.id];continue;}
+      const server={...before,...patch.set,id:patch.id};
+      for(const k of Object.keys(server))if(server[k]===null)delete server[k];
+      const rebased={...server};
+      const owned=typeof CARE_WORKFLOW!=='undefined'&&CARE_WORKFLOW.OWNED.includes(patch.c);
+      // A local deletion of an ordinary row is still pending, even if that
+      // same row was updated remotely. Clinical history is never deleted.
+      if(!owned&&patch.c!=='patients'&&i<0&&Object.hasOwn(map,patch.id)){map[patch.id]=JSON.stringify(server);continue;}
+      const newCycle=patch.c==='patients'&&server.careCycleId&&server.careCycleId!==before.careCycleId;
+      for(const k of owned?[]:new Set([...Object.keys(before),...Object.keys(local)])){
+        if(k==='id'||patch.c==='patients'&&protectedPatient.has(k)||newCycle&&['clinical','baselineWeightKg','master','programDays','plannedDays'].includes(k))continue;
+        if(JSON.stringify(local[k])!==JSON.stringify(before[k])){
+          if(local[k]===undefined)delete rebased[k];else rebased[k]=local[k];
+        }
+      }
+      if(i<0)col.push(rebased);else col[i]=rebased;
+      map[patch.id]=JSON.stringify(server);
+    }
+  },
+
   applyPatchList(patches){
     if(!DB.db || !Array.isArray(patches)) return;
-    const touchedArrays = new Set();
     for(const p of patches){
       if(!p || typeof p.c !== 'string') continue;
       if(p.c === 'settings'){
@@ -1122,29 +1181,10 @@ const SYNC = {
         this._shadow.__auditLen = DB.db.audit.length;
         continue;
       }
-      if(!Array.isArray(DB.db[p.c])) DB.db[p.c] = [];
-      const col = DB.db[p.c];
-      const idx = col.findIndex(x => x && x.id === p.id);
-      if(p.del){
-        if(idx >= 0) col.splice(idx, 1);
-        touchedArrays.add(p.c);
-        continue;
-      }
-      if(idx < 0){
-        col.push(Object.assign({}, p.set || {}, { id: p.id }));
-      } else {
-        const cur = col[idx];
-        for(const [k, v] of Object.entries(p.set || {})){
-          if(v === null) delete cur[k];
-          else cur[k] = v;
-        }
-      }
-      touchedArrays.add(p.c);
-    }
-    for(const c of touchedArrays){
-      const m = {};
-      for(const rec of (DB.db[c]||[])) if(rec && rec.id!==undefined) m[rec.id] = JSON.stringify(rec);
-      this._shadow[c] = m;
+      // Delta reads and response-loss replays use the same exact-row rebase
+      // as command acknowledgements. Rebasing an entire touched collection
+      // would silently acknowledge unrelated home visits typed meanwhile.
+      this.applyCommandPatches([p]);
     }
     if(typeof AUTH !== 'undefined' && AUTH.user && Array.isArray(DB.db.users)){
       const updatedSelf = DB.db.users.find(u => u && (u.id === AUTH.user.id || String(u.username||'').toLowerCase() === String(AUTH.user.username||'').toLowerCase()));
@@ -1155,27 +1195,15 @@ const SYNC = {
   applyDelta(body){
     const touched = new Set();
     for(const [c, records] of Object.entries(body.collections||{})){
-      const list = DB.db[c] = Array.isArray(DB.db[c]) ? DB.db[c] : [];
-      for(const rec of records){
-        const i = list.findIndex(x=>x && x.id===rec.id);
-        if(i>=0){
-          list[i] = Object.assign({}, list[i], rec);
-        } else list.push(rec);
-        touched.add(c);
-      }
+      for(const rec of records)this.applyCommandPatches([{c,id:rec.id,set:rec}]);
+      touched.add(c);
     }
     for(const [c, ids] of Object.entries(body.removed||{})){
-      if(!Array.isArray(DB.db[c])) continue;
-      DB.db[c] = DB.db[c].filter(r=>!ids.includes(r.id));
+      this.applyCommandPatches(ids.map(id=>({c,id,del:true})));
       touched.add(c);
     }
     if(typeof DB.persistState === 'function') DB.persistState();
     else { try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){} }
-    for(const c of touched){
-      const m = {};
-      for(const rec of (DB.db[c]||[])) if(rec && rec.id!==undefined) m[rec.id] = JSON.stringify(rec);
-      this._shadow[c] = m;
-    }
     return touched;
   },
 
