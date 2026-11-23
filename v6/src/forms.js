@@ -581,7 +581,9 @@ const FORMSX = {
     if(!RBAC.assert(user,'form.create', p?{countyId:p.countyId,areaId:p.areaId}:{},false))
       return {ok:false,msg:'Your role may not enter this form.'};
     let rec = id? (DB.db.formRecords||[]).find(r=>r.id===id) : null;
-    if(rec && rec.status==='verified') return {ok:false,msg:'A verified form cannot be edited. Record an amendment instead.'};
+    if(id && (!rec || rec.patientId!==(patientId||null) || rec.kind!==kind))
+      return {ok:false,msg:'Open the original form for the same patient and form type. A draft cannot relink an existing source record.'};
+    if(rec && !['draft','returned'].includes(rec.status)) return {ok:false,msg:'A submitted or verified form cannot be edited. Record an amendment or await its return for correction.'};
     if(!rec){
       rec = { id:uid('frm'), kind, code:meta.code, title:meta.title,
         patientId:patientId||null, patientName:data?.name||data?.patientName||(p?p.name:''),
@@ -594,6 +596,7 @@ const FORMSX = {
     rec.data = {...(rec.data||{}), ...data};
     rec.patientName = rec.data.name||rec.patientName||(p?p.name:'');
     rec.visitDate = rec.data.visitDate||rec.data.assessmentDate||rec.data.dischargeDate||rec.data.admissionDate||'';
+    if(p)rec.cycleId=CARE_RULES.programDate(rec.visitDate)?CARE_RULES.recordCycle({date:rec.visitDate},p,DB.db):'';
     rec.updatedAt = new Date().toISOString(); rec.version=(rec.version||1)+1;
     DB.save();
     return {ok:true, rec, msg:'Draft saved on this device. It has not been submitted.'};
@@ -612,13 +615,19 @@ const FORMSX = {
     const dup = this.duplicate(kind, patientId, date, id);
     if(dup) return {ok:false,msg:`A ${meta.short.toLowerCase()} form already exists for this patient on ${fmtDate(date)} (${dup.id}). Open that record rather than entering it twice.`};
     let rec = id? (DB.db.formRecords||[]).find(r=>r.id===id):null;
+    if(id && (!rec || rec.patientId!==patientId || rec.kind!==kind))
+      return {ok:false,msg:'Open the original form for the same patient and form type. Submission cannot relink an existing source record.'};
+    if(rec && !['draft','returned'].includes(rec.status)) return {ok:false,msg:'Only a draft or returned form can be submitted.'};
     if(!rec){
       rec={ id:uid('frm'), kind, code:meta.code, title:meta.title, patientId, patientName:data.name||p.name,
-        countyId:p.countyId, areaId:p.areaId, enteredBy:user.id, createdAt:new Date().toISOString(),
+        countyId:p.countyId, areaId:p.areaId, cycleId:CARE_RULES.recordCycle({date},p,DB.db), enteredBy:user.id, createdAt:new Date().toISOString(),
         demo:false, version:1 };
       DB.db.formRecords=DB.db.formRecords||[]; DB.db.formRecords.unshift(rec);
     }
-    if(rec.status==='verified') return {ok:false,msg:'This form is already verified.'};
+    // Draft dates can be corrected before submission. Bind the recorded
+    // source date (including legacy drafts), never the save / verification
+    // date or a prior draft's stale cycle. Submitted sources are immutable.
+    rec.cycleId=CARE_RULES.recordCycle({date},p,DB.db);
     Object.assign(rec,{ data:{...data}, patientName:data.name||p.name, visitDate:date,
       status:'submitted', submittedBy:user.id, submittedAt:new Date().toISOString() });
     rec.version=(rec.version||1)+1;
@@ -641,7 +650,9 @@ const FORMSX = {
     rec.publishedAt=rec.verifiedAt; rec.publishedBy=user.id;
     /* Trial Report Verification -> Publish propagation to patient & ministry area */
     const p = DB.db.patients.find(x=>x.id===rec.patientId);
-    if(p && rec.data){
+    // A late-verified paper form remains a source in its original cycle.
+    // It must never replace a returning patient's new-cycle clinical values.
+    if(p && rec.data && CARE_RULES.recordCycle(rec,p,DB.db)===CARE_RULES.cycleId(p)){
       const d = rec.data;
       if(Number(d.weightKg)>0){
         p.clinical = p.clinical || {};
@@ -653,15 +664,15 @@ const FORMSX = {
       }
       if(rec.kind==='discharge'){
         p.dischargeProtocol = Object.assign({}, p.dischargeProtocol||{}, {
-          shaActive: d.nhif || 'Yes',
-          shaLastPaymentDate: d.lastPaymentDate || rec.visitDate || todayISO().slice(0,10),
-          believer: d.believer || 'Yes',
-          convertedDuringLomamo: d.convertedDuring || 'No',
-          completedCycle: d.completedCycle || 'Yes',
-          repeatPatient: d.repeatPatient || 'No',
-          daysInProgram: Number(d.daysInProgram || PAT.days(p)) || 0,
-          orphansPrevented: Number(d.orphansPrevented ?? p.childrenCount ?? 0) || 0,
-          otherProgramsDetail: d.otherProgramsDetail || 'None',
+          shaActive: d.nhif || '',
+          shaLastPaymentDate: d.lastPaymentDate || '',
+          believer: d.believer || '',
+          convertedDuringLomamo: d.convertedDuring || '',
+          completedCycle: d.completedCycle || '',
+          repeatPatient: d.repeatPatient || '',
+          daysInProgram: d.daysInProgram!==''&&d.daysInProgram!=null&&Number.isFinite(Number(d.daysInProgram))?Number(d.daysInProgram):null,
+          orphansPrevented: d.orphansPrevented!==''&&d.orphansPrevented!=null&&Number.isFinite(Number(d.orphansPrevented))?Number(d.orphansPrevented):null,
+          otherProgramsDetail: d.otherProgramsDetail || '',
           enteredByName: d.dataEnteredBy || userName(rec.enteredBy),
           updatedBy: user.id,
           updatedAt: rec.verifiedAt
@@ -753,7 +764,7 @@ function formEditor(kind, patientId, recordId){
   const rec = recordId? (DB.db.formRecords||[]).find(r=>r.id===recordId):null;
   const p = patientId? DB.db.patients.find(x=>x.id===patientId): (rec? DB.db.patients.find(x=>x.id===rec.patientId):null);
   const me=AUTH.user? AUTH.user.name.replace(/^Demo - /,''):'';
-  const priorVisits = p ? (DB.db.visits||[]).filter(v=>v.patientId===p.id).length : 0;
+  const priorVisits = p ? (DB.db.visits||[]).filter(v=>v.patientId===p.id&&CARE_RULES.recordCycle(v,p,DB.db)===CARE_RULES.cycleId(p)).length : 0;
   const nextVisitNo = priorVisits + 1;
   const weightDue = kind==='home_visit' && (nextVisitNo===1 || nextVisitNo%3===0);
   const data = rec? {...rec.data} : {assessmentDate:todayISO(), visitDate:todayISO(), dischargeDate:todayISO(), admissionDate:todayISO(),

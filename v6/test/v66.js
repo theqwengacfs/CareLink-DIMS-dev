@@ -501,16 +501,19 @@ test('12. 10-Pillar Overhaul: Monday AI Engine & Secretary Desk, Upright Baselin
       has120Title: html120.includes('Patient PDCA 120-Day Report') && html120.includes('ESTIMATED DATE OF DISCHARGE'),
       hasDisTitle: htmlDis.includes('Patient PDCA Discharge Summary Report') && htmlDis.includes('CONFIRMED DATE OF DISCHARGE'),
       hasStages: ['cdims-stage-dx','cdims-stage-p','cdims-stage-d','cdims-stage-rx','cdims-stage-c','cdims-stage-a'].every(c => html120.includes(c) && htmlDis.includes(c)),
-      mergeFieldsReady: Boolean(d120.patient_name && d120.aim && Array.isArray(d120.challenges) && Array.isArray(d120.interventions) && Array.isArray(d120.treatments) && Array.isArray(d120.check_findings) && Array.isArray(d120.act_actions))
+      mergeFieldsReady: Boolean(d120.patient_name && CARE_RULES.FIELDS.every(([key])=>typeof d120.fields[key]==='string') && Array.isArray(d120.challenges) && Array.isArray(d120.interventions) && Array.isArray(d120.treatments) && Array.isArray(d120.check_findings) && Array.isArray(d120.act_actions)),
+      noInventedEvaluation: d120.status==='blank_template' && !d120.evaluatedAt && !d120.aim && !d120.fields.adherence && !d120.fields.labsStatus,
+      threePages: (html120.match(/class="care-template-page"/g)||[]).length===3
     };
   })()`);
-  ok('Official CareLink C-DIMS PDCA Template renders both 120-Day Report and Discharge Summary Report with all Dx/P/D/Rx/C/A stages & merge fields',
-    pdcaAudit.has120Title && pdcaAudit.hasDisTitle && pdcaAudit.hasStages && pdcaAudit.mergeFieldsReady, JSON.stringify(pdcaAudit));
+  ok('Supplied three-page PDCA format renders both modes and editable merge fields without fabricating an evaluation',
+    pdcaAudit.has120Title && pdcaAudit.hasDisTitle && pdcaAudit.hasStages && pdcaAudit.mergeFieldsReady && pdcaAudit.noInventedEvaluation && pdcaAudit.threePages, JSON.stringify(pdcaAudit));
   const pdcaRegHtml = String(run(`renderPdca(AUTH.user)`));
   as('chief.admin');
   const intlHtml = String(run(`HANDOVER_PARTNERS.renderIntlMedical(AUTH.user, {})`));
-  ok('PDCA Follow-Up workspace & 120+d International Medical Review wire directly to Official C-DIMS PDCA Report & Word export',
-    pdcaRegHtml.includes('Official CareLink C-DIMS PDCA Register') && pdcaRegHtml.includes('export-pdca-word') && intlHtml.includes('export-pdca-word'));
+  ok('PDCA workspace opens editable evaluations/history while international exports require an explicitly shared authorized revision',
+    pdcaRegHtml.includes('Official CareLink C-DIMS PDCA Register') && pdcaRegHtml.includes('care-review-new') && pdcaRegHtml.includes('Open care reviews & history') &&
+    intlHtml.includes('No authorized shared reports') && !intlHtml.includes('export-pdca-word') && !intlHtml.includes('care-dossier-docx'));
 
   /* Pillar 4: System Administrator Version Control Module inside Development Console */
   as('chief.admin');

@@ -5,9 +5,9 @@
    ============================================================ */
 
 const PAT = {
-  days:p => Math.max(0, daysBetween(p.intake||p.created||new Date(), p.status==='discharged'&&p.discharge? p.discharge: new Date())),
-  lastVisit:p => DB.visitsFor(p.id)[0]||null,
-  openPdca:p => DB.db.pdcas.filter(x=>x.patientId===p.id&&x.status==='open').length,
+  days:p => CARE_RULES.supported(p)?CARE_RULES.days(p):0,
+  lastVisit:p => DB.visitsFor(p.id).find(v=>CARE_RULES.recordCycle(v,p,DB.db)===CARE_RULES.cycleId(p))||null,
+  openPdca:p => CARE_RULES.openReviewCount(p,DB.db),
   concerns:p => DB.db.concerns.filter(c=>c.patientId===p.id&&c.status==='open'),
   openRequest:p => DB.db.requests.filter(r=>r.patientId===p.id&&!['closed','rejected'].includes(r.status))[0]||null
 };
@@ -737,7 +737,7 @@ function renderPatient(user, params){
   const lastVisit = PAT.lastVisit(p);
   const tabs = [
     ['overview','Overview'],['clinical','Clinical'],['visits','Visits'],['pdca','PDCA'],
-    ['hospital','Hospital'],['documents','Documents'],['timeline','History'],
+    ['hospital','Hospital'],['documents','Documents'],['timeline','History'],['cycles','Support cycles / reassessment'],
     ['discharge', p.status==='discharged' ? 'Discharge summary' : 'Care & discharge summary']
   ].filter(([k])=>k!=='clinical'||clinical);
 
@@ -746,8 +746,8 @@ function renderPatient(user, params){
       <div class="row" style="gap:14px;align-items:flex-start">
         <div class="avatar-img" style="width:52px;height:52px;font-size:16px">${initials(p.name)}</div>
         <div>
-          <div class="row" style="gap:9px"><h2 style="font-size:20px">${esc(p.name)}</h2>${pBadge(p.status)}</div>
-          <div class="small muted" style="margin-top:3px">${esc(p.code)} · ${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))} · ${p.sex==='F'?'Female':'Male'}, ${p.age}y</div>
+          <div class="row" style="gap:9px"><h2 style="font-size:20px">${esc(p.name)}</h2>${pBadge(p.status)}${CARE_REVIEW.flag(p)}</div>
+          <div class="small muted" style="margin-top:3px">${esc(p.code)} · ${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))} · ${p.sex==='F'?'Female':p.sex==='M'?'Male':'Sex not recorded'}, ${p.age!=null&&p.age!==''?esc(p.age)+'y':'Age not recorded'}</div>
           <div class="row" style="margin-top:9px;gap:8px">
             <span class="chip">${ic('clock',13)} ${days} days in programme</span>
             <span class="chip">${ic('activity',13)} ${lastVisit? 'Last visit '+fmtDate(lastVisit.date):'No visit recorded'}</span>
@@ -758,6 +758,7 @@ function renderPatient(user, params){
       </div>
       <div class="row" style="flex-wrap:wrap;gap:8px">
         ${typeof PAT_DISCHARGE!=='undefined' ? `<button class="btn btn-sm ${p.status==='discharged'||days>=120?'btn-primary':'btn-ghost'}" data-act="open-discharge-summary" data-id="${p.id}" data-mode="${p.status==='discharged'||p.status==='discharge_recommended'?'discharge':(days>=120?'120day':'discharge')}">${ic('file',14)} ${p.status==='discharged'||p.status==='discharge_recommended'?'Official PDCA Discharge Summary':(days>=120?'Official 120-Day PDCA Report':'Official PDCA & Discharge Sheet')}</button>` : ''}
+        ${p.status==='discharged'&&CARE_WORKFLOW.canSee(user,p)?`<button class="btn btn-sm btn-primary" data-act="care-assess-return" data-id="${esc(p.id)}">Repeat / returning assessment</button>`:''}
         ${workflowActions('patient',p,user)}
       </div>
     </div></div>
@@ -770,6 +771,7 @@ function renderPatient(user, params){
     : tab==='pdca' ? patientPdca(user,p)
     : tab==='hospital' ? patientHospital(user,p)
     : tab==='documents' ? patientDocuments(user,p)
+    : tab==='cycles' ? CARE_REVIEW.history(user,p)
     : tab==='timeline' ? patientTimeline(user,p)
     : tab==='discharge' ? (typeof PAT_DISCHARGE!=='undefined' ? PAT_DISCHARGE.renderSheet(p.id, user) : '')
     : '';
@@ -972,81 +974,8 @@ function patientVisits(user,p,params={}){
       RBAC.has(user,'visit.create')?`<button class="btn btn-sm btn-primary" data-act="record-visit" data-patient="${p.id}">Record visit</button>`:'')),
     {actions:RBAC.has(user,'visit.create')?`<button class="btn btn-xs btn-primary" data-act="record-visit" data-patient="${p.id}">${ic('plus',12)} Record visit</button>`:''});
 }
-function patientPdca(user,p){
-  const plan = PDCAX.plan(p);
-  const sched = PDCAX.schedule(p);
-  const sum = PDCAX.summary(p);
-  const cycles = DB.db.pdcas.filter(x=>x.patientId===p.id && x.kind!=='review');
-  const ext = PDCAX.extensionRequired(p);
+function patientPdca(user,p){ return CARE_REVIEW.panel(user,p); }
 
-  const planCard = card('Care plan', plan? `
-    <dl class="dl">
-      <dt>Identified need</dt><dd>${esc(plan.needs)}</dd>
-      <dt>Agreed objective</dt><dd>${esc(plan.objectives)}</dd>
-      <dt>Planned intervention</dt><dd>${esc(plan.interventions)}</dd>
-      <dt>Responsible</dt><dd>${esc(userName(plan.responsible))}</dd>
-      <dt>Expected duration</dt><dd>${plan.expectedDays} days <span class="xs muted">(an estimate, not a discharge date)</span></dd>
-      <dt>Rationale</dt><dd>${esc(plan.rationale)}</dd>
-      <dt>Approved</dt><dd>${esc(userName(plan.approvedBy)||'-')} · ${fmtDate(plan.approvedAt)}</dd>
-      <dt>Version</dt><dd>v${plan.version}</dd>
-    </dl>`
-    : emptyState('No care plan on file','A care plan is required at enrolment. This record appears in the data-quality report until one is recorded.','alert'),
-    {sub:'The plan belongs to the patient, not to a reporting period.'});
-
-  const schedCard = card('30-day review schedule', `
-    <div class="grid g4" style="margin-bottom:14px">
-      ${kpi('Completed', sum.completed, 'Of '+sum.total+' scheduled','','check')}
-      ${kpi('Overdue', sum.overdue, sum.overdue?'Requires action':'None overdue', sum.overdue?'crit':'ok','alert')}
-      ${kpi('Next due', sum.nextDue?fmtDate(sum.nextDue):'-', sum.nextDue?Math.round((new Date(sum.nextDue)-Date.now())/86400000)+' days':'','','calendar')}
-      ${kpi('Adherence', sum.adherence===null?'-':sum.adherence+'%', 'Completed against due','','repeat')}
-    </div>
-    ${table([
-      {label:'Review', render:r=>`Day ${r.day}`},
-      {label:'Due', render:r=>fmtDate(r.due)},
-      {label:'Status', render:r=>badge(titleCase(r.status), r.status==='completed'?'b-ok':r.status==='overdue'?'b-crit':'b-neutral')},
-      {label:'Completed', render:r=>r.completed? `${fmtDate(r.completed)}${r.slipDays>0?` <span class="xs" style="color:var(--warn)">+${r.slipDays}d</span>`:''}`:'-'},
-      {label:'', cls:'right', render:r=>r.status!=='completed' && (RBAC.has(user,'pdca.create')||RBAC.has(user,'pdca.review'))
-        ? `<button class="btn btn-xs btn-ghost" data-act="pdca-complete" data-id="${p.id}" data-day="${r.day}">Record</button>`:''}
-    ], sched.slice(0,Math.max(4, Math.min(12, Math.ceil((PDCAX.daysInProgramme(p)+30)/30)))))}
-    <div class="xs muted" style="margin-top:10px">A review keeps the date it was due. Late completion is shown as late, never reset.</div>`,
-    {sub:'Every 30 days from the programme start date.'});
-
-  const extBanner = ext? `<div class="alert warn" style="margin-bottom:16px">${ic('alert',16)}<div>
-    <b>Extended case, review required</b>
-    <span class="small">This patient has been in the programme for ${PDCAX.daysInProgramme(p)} days, beyond the approved threshold of ${DB.db.settings.programme.maxDays}. A documented extension review is required before the case can be closed.</span>
-    <div class="row" style="margin-top:8px">${(RBAC.has(user,'pdca.review')||RBAC.has(user,'pdca.create'))?`<button class="btn btn-sm btn-primary" data-act="pdca-extension" data-id="${p.id}">Record extension review</button>`:''}</div>
-  </div></div>`:'';
-
-  const officialPdcaBar = `<div class="card" style="margin-bottom:16px;border-left:4px solid #162F59">
-    <div class="card-b spread" style="padding:12px 16px;flex-wrap:wrap;gap:12px">
-      <div>
-        <div class="xs bold" style="color:#C8102E;letter-spacing:.1em;text-transform:uppercase">Official CareLink C-DIMS PDCA Format</div>
-        <b style="font-size:14.5px">${p.status==='discharged'||p.status==='discharge_recommended'?'Patient PDCA Discharge Summary Report':'Patient PDCA 120-Day & Continuum Report'}</b>
-        <div class="xs muted">Standardised LOMAMO CareLink format (Anthropometry, SMART Aim, Dx, P-D-Rx-C-A Cycle, Justification &amp; Signatures) for both 120+ days and regular discharges.</div>
-      </div>
-      <div class="row" style="gap:8px;flex-wrap:wrap">
-        <button class="btn btn-xs btn-primary" data-act="open-discharge-summary" data-id="${esc(p.id)}" data-mode="120day">${ic('repeat',12)} Open 120-Day PDCA Report</button>
-        <button class="btn btn-xs btn-ghost" data-act="open-discharge-summary" data-id="${esc(p.id)}" data-mode="discharge">${ic('check',12)} Open Discharge PDCA Report</button>
-        <button class="btn btn-xs btn-ghost" data-act="export-pdca-word" data-id="${esc(p.id)}" data-mode="${p.status==='discharged'?'discharge':'120day'}">${ic('download',12)} Word (.doc)</button>
-      </div>
-    </div>
-  </div>`;
-
-  return `${officialPdcaBar}${extBanner}
-    <div class="grid g2" style="margin-bottom:16px">${planCard}${schedCard}</div>
-    ${card('PDCA cycles', table([
-      {label:'Plan',render:x=>`<div class="cellname">${esc(x.plan)}<span class="sm">Owner ${esc(userName(x.owner).replace(/^Demo - /,''))}</span></div>`},
-      {label:'Stage',render:x=>badge(x.stage, x.stage==='Act'?'b-ok':'b-info')},
-      {label:'Due',render:x=>`${fmtDate(x.due)} ${new Date(x.due)<new Date()&&x.status==='open'?badge('overdue','b-crit'):''}`},
-      {label:'Status',render:x=>badge(titleCase(x.status), x.status==='open'?'b-warn':'b-ok')},
-      {label:'Discussion',render:x=>x.reviewedAt && PDCAX.discussion(user,x.id).allowed
-        ? `<button class="btn btn-xs btn-ghost" data-act="pdca-thread-open" data-id="${esc(x.id)}">Open secure thread</button>`
-        : (PDCAX.canReviewDiscussion(user,x)?`<button class="btn btn-xs btn-primary" data-act="pdca-review-comment" data-id="${esc(x.id)}">Review &amp; comment</button>`
-        : (x.owner===user.id?`<span class="xs muted">Awaiting MCM review</span>`:''))},
-      {label:'',cls:'act',render:x=>RBAC.has(user,'pdca.review')||x.owner===user.id?`<button class="btn btn-xs btn-ghost" data-act="open-pdca" data-id="${x.id}">Open</button>`:''}
-    ], cycles, {empty:emptyState('No PDCA cycle','Create a Plan-Do-Check-Act cycle to structure follow-up.','repeat')}),
-      {actions:RBAC.has(user,'pdca.create')?`<button class="btn btn-xs btn-primary" data-act="new-pdca" data-patient="${p.id}">${ic('plus',12)} New cycle</button>`:''})}`;
-}
 function patientHospital(user,p){
   const rows = DB.db.requests.filter(r=>r.patientId===p.id);
   return card('Hospital requests & encounters', table([
@@ -1200,67 +1129,4 @@ function renderVisits(user, params){
       {label:'',cls:'act',render:v=>`<button class="btn btn-xs btn-ghost" data-act="open-patient" data-id="${v.patientId}">Open</button>`}
     ], vs.slice(0,40)), {foot:`<span>${ic('info',13)} A failed visit is documented with an outcome - never silently omitted.</span>`});
 }
-function renderPdca(user, params){
-  const ids = new Set(repo.patientList(user).map(p=>p.id));
-  const rows = DB.db.pdcas.filter(x=>ids.has(x.patientId) && x.kind!=='review');
-  const byStage = ['Plan','Do','Check','Act'].map(s=>({label:s,value:rows.filter(r=>r.stage===s&&r.status==='open').length}));
-  const dueList = PDCAX.due(user,{days:30});
-  const ext = repo.patientList(user,{status:'active'}).filter(p=>PDCAX.extensionRequired(p));
-  const allScopedPts = repo.patientList(user);
-  const over120Pts = allScopedPts.filter(p=>p.status==='active' && PAT.days(p)>=120);
-  const dischargedPts = allScopedPts.filter(p=>p.status==='discharged' || p.status==='discharge_recommended');
-  const pdcaModeFilter = (params && params.pmode) || '120day';
-  const officialRegisterRows = (pdcaModeFilter === 'discharge' ? dischargedPts : over120Pts).slice(0, 20);
-  return pageHead('PDCA Follow-Up & Official C-DIMS Reports','Standardised CareLink C-DIMS Plan-Do-Treatment-Check-Act (P-D-Rx-C-A) reports for both 120+ days in programme and regularly discharged beneficiaries.',
-    RBAC.has(user,'pdca.create')?`<button class="btn btn-sm btn-primary" data-act="new-pdca">${ic('plus',15)} New PDCA Cycle</button>`:'')
-  + `<div class="grid g4" style="margin-bottom:16px">
-      ${kpi('Reviews due or overdue', dueList.length, dueList.filter(x=>x.review.status==='overdue').length+' overdue', dueList.some(x=>x.review.status==='overdue')?'crit':'', 'repeat')}
-      ${kpi('120+ day extended cases', over120Pts.length, over120Pts.length?'Official 120-Day PDCA ready':'Within 120d window', over120Pts.length?'warn':'ok', 'clock')}
-      ${kpi('Regular discharges', dischargedPts.length, 'Official Discharge PDCA ready', 'ok', 'check')}
-      ${kpi('Open PDCA cycles', rows.filter(r=>r.status==='open'&&r.kind!=='review').length, 'Active P-D-Rx-C-A actions', 'info', 'layers')}
-    </div>
-    ${card('Official CareLink C-DIMS PDCA Register (120+ Days & Regular Discharges)', `
-      <div class="spread" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <div class="row" style="gap:6px;flex-wrap:wrap">
-          <button class="btn btn-xs ${pdcaModeFilter==='120day'?'btn-primary':'btn-ghost'}" data-act="go" data-v="pdca" data-pmode="120day">${ic('clock',12)} 120+ Days in Programme (${over120Pts.length})</button>
-          <button class="btn btn-xs ${pdcaModeFilter==='discharge'?'btn-primary':'btn-ghost'}" data-act="go" data-v="pdca" data-pmode="discharge">${ic('check',12)} Regular Discharges &amp; Graduations (${dischargedPts.length})</button>
-        </div>
-        <span class="xs muted">Format: Official CareLink C-DIMS 2-Page PDCA (Print PDF · Word .doc · docxtemplater JSON)</span>
-      </div>
-      ${table([
-        {label:'Beneficiary', render:p=>`<div class="cellname">${esc(p.name)}<span class="sm">${esc(p.code)} · ${esc(areaName(p.areaId))}</span></div>`},
-        {label:'Days in Care', cls:'mono', render:p=>`<b>${PAT.days(p)}d</b>`},
-        {label:'Anthropometry', render:p=>{ const cl=p.clinical||{}; return `<span class="xs mono">${cl.weightKg||'-'} kg · BMI ${cl.bmi||'-'}</span>`; }},
-        {label:'Status', render:p=>pBadge(p.status)},
-        {label:'Official C-DIMS PDCA', cls:'right', render:p=>`<div class="row" style="justify-content:flex-end;gap:6px">
-          <button class="btn btn-xs btn-primary" data-act="open-discharge-summary" data-id="${esc(p.id)}" data-mode="${pdcaModeFilter}">${ic('file',12)} Open Report</button>
-          <button class="btn btn-xs btn-ghost" data-act="export-pdca-word" data-id="${esc(p.id)}" data-mode="${pdcaModeFilter}" title="Download Official Word Document">${ic('download',12)} Word</button>
-        </div>`}
-      ], officialRegisterRows, {emptyMsg: pdcaModeFilter==='discharge'?'No discharged beneficiaries in your current scope yet.':'No active beneficiaries at 120+ days in your scope.'})}
-    `, {sub:'Unified official format across Caregivers, Medical Case Managers, 120+d International Medical Review and County Discharge Records.'})}
-    <div style="height:16px"></div>`
-    + `${dueList.length? card('Reviews requiring action', table([
-      {label:'Patient', render:x=>`<div class="cellname">${esc(x.patient.name)}<span class="sm">${esc(x.patient.code)}</span></div>`},
-      {label:'Review', render:x=>`Day ${x.review.day}`},
-      {label:'Due', render:x=>fmtDate(x.review.due)},
-      {label:'Status', render:x=>x.review.status==='overdue'?badge('Overdue','b-crit'):badge('Due in '+x.days+'d','b-warn')},
-      {label:'', cls:'right', render:x=>`<button class="btn btn-xs btn-ghost" data-act="pdca-complete" data-id="${x.patient.id}" data-day="${x.review.day}">Record</button>`}
-    ], dueList.slice(0,10))) : ''}
-    <div class="grid g2" style="margin-bottom:16px">
-      ${card('Open cycles by stage', barChart(byStage,{fmt:v=>num(v)}))}
-      ${card('Cycle health', `<div class="dl">
-        <dt>Open cycles</dt><dd>${rows.filter(r=>r.status==='open').length}</dd>
-        <dt>Overdue check</dt><dd>${rows.filter(r=>r.status==='open'&&new Date(r.due)<new Date()).length}</dd>
-        <dt>Closed</dt><dd>${rows.filter(r=>r.status==='closed').length}</dd>
-        <dt>Completion</dt><dd>${pct(rows.filter(r=>r.status==='closed').length,rows.length||1)}%</dd>
-      </div>`, {sub:'PDCA structures follow the Omaha System problem-classification approach used by LOMAMO.'})}
-    </div>`
-  + card('All cycles', table([
-      {label:'Patient',render:x=>esc(DB.db.patients.find(p=>p.id===x.patientId)?.name||'-')},
-      {label:'Plan',render:x=>`<span class="small">${esc(x.plan)}</span>`},
-      {label:'Stage',render:x=>badge(x.stage,'b-info')},
-      {label:'Due',render:x=>`${fmtDate(x.due)} ${new Date(x.due)<new Date()&&x.status==='open'?badge('overdue','b-crit'):''}`},
-      {label:'Owner',render:x=>esc(userName(x.owner).replace(/^Demo - /,''))},
-      {label:'',cls:'act',render:x=>`<button class="btn btn-xs btn-ghost" data-act="open-pdca" data-id="${x.id}">Open</button>`}
-    ], rows.slice(0,40)));
-}
+function renderPdca(user,params={}){return CARE_REVIEW.register(user,params);}

@@ -18,6 +18,8 @@ const BACKUP = {
   /* Collections that carry records. Accounts, roles and the audit trail are
      deliberately excluded from a record restore: see the limitation note. */
   RECORD_KEYS: ['patients','visits','requests','encounters','transactions','budgets','documents',
+    'support','supportIssues','clinicalRx','omahaPlans','formRecords','hardcopyBatches','homestays',
+    'careCycles','careReferrals','careEvidence','programAdmissions','careReviews','careReviewRevisions','intlPdcaDossiers',
     'concerns','pdcas','pdcaDiscussions','referralEntities','employees','leaveRequests','welfareContributions',
     'welfareActivities','vehicles','trips','targets','accountRequests','patientConditions',
     'careBeds','careResidents','careLogs','careIncidents','delegations','reports','notifications'],
@@ -86,13 +88,19 @@ const BACKUP = {
       /* Referential integrity: every child row must point at a parent in the copy. */
       const pids = new Set((db.patients||[]).map(p=>p.id));
       const orphans = [];
-      [['visits','patientId'],['requests','patientId'],['documents','patientId'],['concerns','patientId'],['pdcas','patientId']]
+      [['visits','patientId'],['requests','patientId'],['documents','patientId'],['concerns','patientId'],['pdcas','patientId'],...CARE_WORKFLOW.OWNED.filter(c=>c!=='careCommandReceipts').map(c=>[c,'patientId'])]
         .forEach(([k,f])=>{ if(Array.isArray(db[k])) db[k].forEach(r=>{ if(r[f] && !pids.has(r[f])) orphans.push(`${k}:${r.id}`); }); });
       add('No record points at a patient that is not in the copy', orphans.length===0, orphans.length? `${orphans.length} orphaned records` : 'Referential integrity holds');
       const pdcaIds=new Set((db.pdcas||[]).map(x=>x.id));
       const orphanThreads=(db.pdcaDiscussions||[]).filter(x=>!pdcaIds.has(x.pdcaId)||!pids.has(x.patientId));
       add('PDCA discussion messages point to an included cycle and patient',orphanThreads.length===0,orphanThreads.length?`${orphanThreads.length} orphaned thread messages`:'PDCA thread links hold');
 
+      const reviewIds=new Set((db.careReviews||[]).map(r=>r.id));
+      const revisionIds=new Set((db.careReviewRevisions||[]).map(r=>r.id));
+      add('Clinical revisions and shared authorizations retain their parents',
+        (db.careReviewRevisions||[]).every(v=>reviewIds.has(v.reviewId))&&
+        (db.intlPdcaDossiers||[]).every(d=>!d.authorizedRevisionId||revisionIds.has(d.authorizedRevisionId)),
+        'Legacy dossiers without a verified authorization are historical only and never internationally visible.');
       const counts = this.counts(db);
       const liveCounts = this.counts(DB.db);
       add('The record counts can be compared with the live database', true,
@@ -185,6 +193,8 @@ const BACKUP = {
 
   /* Applies an approved restore. The state being replaced is captured first. */
   activate(user, approvalId){
+    if(SYNC.sessionToken || typeof CARE_REVIEW==='undefined' || !CARE_REVIEW.synthetic())
+      return {ok:false,msg:'Hosted clinical records and authorizations cannot be replaced by a browser backup. An explicitly approved server-controlled restore is required; no live records were changed.'};
     const a = DB.db.approvals.find(x=>x.id===approvalId);
     if(!a) return {ok:false, msg:'Approval not found'};
     if(!APPROVALS.canExecute(a)) return {ok:false, msg:'The request has not reached its approval threshold'};

@@ -36,10 +36,11 @@ const REPORTS = {
   patientDays(user, f={}){
     const ps = repo.patientList(user, f).filter(p=>['active','extension','discharge_recommended','discharged'].includes(p.status) || !p.status);
     const cutoff = f.cutoff? new Date(f.cutoff): new Date();
+    const cutoffDay=CARE_RULES.programDate(cutoff);
     const rows = ps.map(p=>{
-      const days = Math.max(0, daysBetween(p.intake||p.created||cutoff, p.status==='discharged'&&p.discharge? p.discharge: cutoff));
-      const lastVisit = DB.visitsFor(p.id)[0];
-      const openPdca = DB.db.pdcas.filter(x=>x.patientId===p.id && x.status==='open').length;
+      const days = CARE_RULES.days(p,cutoff.toISOString());
+      const lastVisit = DB.visitsFor(p.id).find(v=>CARE_RULES.programDate(v.date)&&CARE_RULES.programDate(v.date)<=cutoffDay&&CARE_RULES.recordCycle(v,p,DB.db)===CARE_RULES.cycleId(p));
+      const openPdca = CARE_RULES.openReviewCount(p,DB.db);
       const milestone = days>=180?180: days>=120?120: days>=100?100: days>=60?60:0;
       return { p, days, milestone, lastVisit, openPdca,
         readiness: days>=180?'Overdue review - discharge evaluation required'
@@ -61,36 +62,49 @@ const REPORTS = {
     const cutoff = period.end;
     const all = repo.patientList(user, {countyId: countyId||undefined});
     const idset = new Set(all.map(p=>p.id));
-    const activeAt = d => all.filter(p=>{
-      if(['rejected','returned','digital_entered','awaiting_verification','approved_enrolment','form_submitted','assessment_initiated','discharge_recommended'].includes(p.status) && !p.enrolDate) return false;
-      const intake = new Date(p.intake||p.enrolDate||p.created||0);
-      if(intake>d) return false;
-      if(p.status==='discharged' && p.discharge && new Date(p.discharge)<=d) return false;
-      return ['active','extension','discharge_recommended','discharged'].includes(p.status);
+    // Count support-cycle events, not the latest mutable patient status. A
+    // repeat enrollment must not erase last year's discharge / caseload or
+    // count a paper verification as a separate office enrollment.
+    const recordedCycles=new Map();
+    for(const c of DB.db.careCycles||[]){if(!recordedCycles.has(c.patientId))recordedCycles.set(c.patientId,[]);recordedCycles.get(c.patientId).push(c);}
+    const cycles=all.flatMap(p=>{
+      const rows=[...(recordedCycles.get(p.id)||[])];
+      if(CARE_RULES.supported(p)&&CARE_RULES.cycleStart(p)&&!rows.some(c=>c.id===CARE_RULES.cycleId(p)))rows.push({id:CARE_RULES.cycleId(p),startedAt:CARE_RULES.cycleStart(p),dischargedAt:p.dischargedAt||p.discharge||'',legacy:true});
+      return rows.filter(c=>CARE_RULES.programDate(c.startedAt)).map(c=>({...p,
+        household:c.snapshot?.household||p.household,master:c.snapshot?.master||p.master,
+        careCycleId:c.id,cycleStartedAt:CARE_RULES.programDate(c.startedAt),enrolDate:CARE_RULES.programDate(c.startedAt),
+        discharge:CARE_RULES.programDate(c.dischargedAt),cohortSource:c}));
     });
-
+    const dayIn=(value,range)=>{const d=CARE_RULES.programDate(value);return !!d&&d>=CARE_RULES.programDate(range.start)&&d<=CARE_RULES.programDate(range.end);};
+    const activeAt = d => {const day=CARE_RULES.programDate(d);return cycles.filter(p=>p.cycleStartedAt<=day&&(!p.discharge||p.discharge>day));};
     const active = activeAt(cutoff);
-    const opening = activeAt(period.start);
-    const enrolledPeriod = all.filter(p=>inRange(p.enrolDate||p.verifiedAt, period) || (inRange(p.intake,period)&&['active','extension','discharge_recommended','discharged'].includes(p.status)));
-    const dischargedPeriod = all.filter(p=>p.status==='discharged' && inRange(p.discharge, period));
-    const newAssessed = all.filter(p=>inRange(p.intake, period));
-    const approved = all.filter(p=>inRange(p.verifiedAt, period));
+    const opening = activeAt(CARE_RULES.addDays(CARE_RULES.programDate(period.start),-1));
+    const enrolledPeriod = cycles.filter(p=>dayIn(p.enrolDate,period));
+    const dischargedPeriod = cycles.filter(p=>dayIn(p.discharge,period));
+    const firstCycles=new Map(),patientsById=new Map(all.map(p=>[p.id,p]));
+    for(const c of cycles)if(!firstCycles.has(c.id)||c.cycleStartedAt<firstCycles.get(c.id).cycleStartedAt)firstCycles.set(c.id,c);
+    const newAssessed = all.filter(p=>{
+      const first=firstCycles.get(p.id);
+      return dayIn(first?.cohortSource.snapshot?.assessmentDate||first?.cycleStartedAt||p.assessmentDate||p.intake,period);
+    }).concat((DB.db.careReferrals||[]).filter(r=>idset.has(r.patientId)&&dayIn(r.evaluatedAt,period)).map(r=>({...patientsById.get(r.patientId),assessmentId:r.id,assessmentDate:r.evaluatedAt})));
+    const approved = all.filter(p=>dayIn(p.verifiedAt, period));
     const weekA = new Date(cutoff.getTime()-7*DAY);
-    const dischargedWeek = all.filter(p=>p.status==='discharged' && p.discharge && new Date(p.discharge)>=weekA && new Date(p.discharge)<=cutoff);
+    const dischargedWeek = cycles.filter(p=>dayIn(p.discharge,{start:weekA,end:cutoff}));
     const monthP = PERIOD.month(cutoff);
-    const dischargedMonth = all.filter(p=>p.status==='discharged' && inRange(p.discharge, monthP));
+    const dischargedMonth = cycles.filter(p=>dayIn(p.discharge,monthP));
     const notFound = DB.db.visits.filter(v=>idset.has(v.patientId) && v.outcome==='not_found' && inRange(v.date, period));
     const openConcerns = DB.db.concerns.filter(c=>idset.has(c.patientId)&&c.status==='open');
-    const overdue = all.filter(p=>{
-      const lv = DB.visitsFor(p.id)[0];
-      return ['active','extension'].includes(p.status) && (!lv || daysBetween(lv.date,cutoff)>21);
+    const cutoffDay=CARE_RULES.programDate(cutoff);
+    const overdue = active.filter(p=>{
+      const lv = DB.visitsFor(p.id).find(v=>CARE_RULES.programDate(v.date)&&CARE_RULES.programDate(v.date)<=cutoffDay&&CARE_RULES.recordCycle(v,p,DB.db)===CARE_RULES.cycleId(p));
+      return !lv || daysBetween(lv.date,cutoff)>21;
     });
     const followup = new Set([...openConcerns.map(c=>c.patientId), ...overdue.map(p=>p.id)]);
     const support = {};
     SUPPORT_ITEMS.forEach(i=>support[i]=0);
     DB.db.supportIssues.filter(s=>idset.has(s.patientId)&&inRange(s.date,period)).forEach(s=>{ support[s.item]=(support[s.item]||0)+1; });
     const hosp = DB.db.requests.filter(r=>idset.has(r.patientId)&&(!countyId||r.countyId===countyId));
-    const orphans = [...new Set(active.map(p=>p.id))].reduce((n,id)=>n+(DB.db.patients.find(p=>p.id===id).household?.orphansSupported||0),0);
+    const orphans = [...new Map(active.map(p=>[p.id,p])).values()].reduce((n,p)=>n+(Number(p.household?.orphansSupported)||0),0);
 
     const areas = countyId
       ? (COUNTIES.find(c=>c.id===countyId)?.areas)||[]
@@ -98,8 +112,8 @@ const REPORTS = {
     const byArea = areas.map(a=>{
       const ps = all.filter(p=>p.areaId===a.id);
       const act = active.filter(p=>p.areaId===a.id);
-      return { area:a, active:act.length, newEnrol:ps.filter(p=>inRange(p.intake,period)).length,
-        discharged:ps.filter(p=>p.status==='discharged'&&inRange(p.discharge,period)).length,
+      return { area:a, active:act.length, newEnrol:enrolledPeriod.filter(p=>p.areaId===a.id).length,
+        discharged:dischargedPeriod.filter(p=>p.areaId===a.id).length,
         followup:[...followup].filter(id=>ps.some(p=>p.id===id)).length,
         requests:DB.db.requests.filter(r=>r.areaId===a.id).length };
     });
@@ -344,6 +358,10 @@ const REPORTS = {
     return { enabled:s.enabled, lastRun:last, nextRun:nextMonday0800(new Date()), label:'Monday 08:00 EAT' };
   },
   mondayTick(){
+    // A hosted browser is an admitted user's scoped client, not a global
+    // service account or scheduler. It may not fabricate a Chief/system run
+    // or dirty Chief-owned settings on an ordinary caregiver session.
+    if(typeof SYNC!=='undefined'&&(SYNC.sessionToken||SYNC.available()))return null;
     const s = DB.db.settings.mondayReport;
     if(!s.enabled) return null;
     const now = new Date();

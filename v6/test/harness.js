@@ -15,6 +15,6 @@ const ctx={
 };
 ctx.globalThis=ctx;
 vm.createContext(ctx);
-for(const f of ['data.js','core.js','reports.js','ai.js']) vm.runInContext(fs.readFileSync(path.join(SRC,f),'utf8'),ctx,{filename:f});
+for(const f of ['data.js','care_rules.js','care_workflow.js','core.js','reports.js','ai.js']) vm.runInContext(fs.readFileSync(path.join(SRC,f),'utf8'),ctx,{filename:f});
 const run=(code)=>vm.runInContext(code,ctx);
 module.exports={ctx,run};

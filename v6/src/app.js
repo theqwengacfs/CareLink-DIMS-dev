@@ -1450,68 +1450,7 @@ const ACTIONS = {
   },
   'export-pdca-word':(d={})=>{ PAT_DISCHARGE.exportWord(d.id, AUTH.user, d.mode||'auto'); },
   'export-pdca-json':(d={})=>{ PAT_DISCHARGE.exportMergeJson(d.id, AUTH.user, d.mode||'auto'); },
-  'print-discharge-summary':(d={})=>{
-    const p = repo.patient(AUTH.user, d.id) || (DB.db.patients||[]).find(x=>x.id===d.id);
-    if(p && typeof PAT_DISCHARGE!=='undefined' && PAT_DISCHARGE.renderOfficialTemplateHTML){
-      const compiled = PAT_DISCHARGE.compileOfficialPdcaData(p.id, { mode: d.mode||PAT_DISCHARGE._sheetMode||'auto' });
-      const docHtml = PAT_DISCHARGE.renderOfficialTemplateHTML(compiled, { standalone:true });
-      const w = window.open('', '_blank', 'width=940,height=920');
-      if(w){
-        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>CareLink C-DIMS Official PDCA - ${esc(p.code||p.id)}</title>
-        <style>
-          @page{size:A4;margin:12mm 14mm}
-          *{box-sizing:border-box}
-          body{margin:0;padding:18px;font-family:Calibri,'Segoe UI',system-ui,sans-serif;color:#0F1E36;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-          .cdims-pdca-doc{max-width:790px;margin:0 auto}
-          .cdims-pdca-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:8px}
-          .cdims-pdca-brand{display:flex;align-items:center;gap:14px}
-          .cdims-pdca-logo{width:60px;height:60px;object-fit:contain}
-          .cdims-pdca-kicker{font-size:10px;font-weight:800;letter-spacing:.15em;color:#C8102E;text-transform:uppercase}
-          .cdims-pdca-h1{margin:2px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;color:#162F59;font-weight:700}
-          .cdims-pdca-area{font-size:12px;color:#475569;font-style:italic}
-          .cdims-pdca-modechip{padding:4px 10px;border-radius:999px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1E3A8A;font-size:9.5px;font-weight:800;letter-spacing:.08em}
-          .cdims-trirule{display:flex;height:4px;margin:8px 0 14px;border-radius:2px;overflow:hidden}
-          .cdims-pdca-sec-title{font-size:10.5px;font-weight:800;letter-spacing:.11em;color:#162F59;text-transform:uppercase;margin:13px 0 6px;display:flex;align-items:center;gap:6px}
-          .cdims-pdca-sec-title .sq{width:7px;height:7px;background:#C8102E;display:inline-block}
-          .cdims-meta-tbl{width:100%;border-collapse:collapse;margin-bottom:12px}
-          .cdims-meta-tbl td{border:1px solid #CBD5E1;padding:6px 9px;vertical-align:top;background:#F8FAFC}
-          .cdims-lbl{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:2px}
-          .cdims-pat-name{font-family:Georgia,serif;font-size:14px;font-weight:700;color:#8B1538}
-          .cdims-val{font-size:11.8px;color:#0F1E36;font-weight:600}
-          .cdims-anthro-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:11px 0}
-          .cdims-anthro-card{border:1px solid #CBD5E1;border-top-width:4px;border-radius:6px;padding:8px 10px;background:#fff}
-          .cdims-anthro-big{font-size:17px;font-weight:800;color:#162F59;margin:2px 0}
-          .cdims-anthro-big span{font-size:11px;font-weight:600;color:#64748B}
-          .cdims-anthro-sub{font-size:10px;color:#475569}
-          .cdims-aim-box{border-left:4px solid #C8102E;background:#FFF5F6;padding:9px 13px;border-radius:0 6px 6px 0;font-size:12px;line-height:1.48;color:#1E293B;margin-bottom:10px}
-          .cdims-pdca-row{display:grid;grid-template-columns:44px 1fr;border:1px solid #CBD5E1;border-radius:6px;overflow:hidden;margin-bottom:8px;background:#fff;page-break-inside:avoid}
-          .cdims-pdca-badge{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px}
-          .cdims-pdca-cell{padding:8px 12px}
-          .cdims-pdca-rhead{font-size:10.5px;font-weight:800;letter-spacing:.06em;margin-bottom:4px}
-          .cdims-pdca-rhead span{font-weight:500;color:#64748B;margin-left:7px;letter-spacing:0}
-          .cdims-pdca-ul{margin:0;padding-left:17px;font-size:11.6px;line-height:1.45;color:#1E293B}
-          .cdims-cc-sub{margin-top:6px;padding-top:5px;border-top:1px dashed #CBD5E1;font-size:11px;color:#334155}
-          .cdims-just-box{border-left:4px solid #162F59;background:#F1F5F9;padding:9px 13px;border-radius:0 6px 6px 0;font-size:12px;line-height:1.5;margin-bottom:10px}
-          .cdims-disch-banner{background:#162F59;color:#fff;padding:11px 15px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-          .cdims-disch-banner span{font-size:10px;font-weight:800;letter-spacing:.11em;color:#93C5FD;text-transform:uppercase}
-          .cdims-disch-banner b{font-size:15.5px;font-family:Georgia,serif}
-          .cdims-pdca-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-          .cdims-pdca-box{border:1px solid #CBD5E1;border-radius:6px;padding:9px 11px;background:#F8FAFC}
-          .cdims-sig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
-          .cdims-sig-line{border-bottom:1.5px solid #162F59;height:20px;margin-bottom:5px}
-          .cdims-pdca-foot{margin-top:16px;padding-top:6px;border-top:1px solid #CBD5E1;display:flex;justify-content:space-between;font-size:9.5px;color:#64748B}
-        </style></head><body>${docHtml}</body></html>`);
-        w.document.close();
-        setTimeout(()=>{ try{ w.focus(); w.print(); }catch(_e){} }, 180);
-        return;
-      }
-    }
-    if(APPX.view !== 'patient' || APPX.params?.tab !== 'discharge'){
-      closeAllModals();
-      go('patient', { id:d.id, tab:'discharge' });
-    }
-    setTimeout(()=>{ try{ window.print(); }catch(e){} }, 120);
-  },
+  'print-discharge-summary':(d={})=>CARE_REVIEW.output(CARE_REVIEW.data(d.id,{mode:d.mode||'auto'}),'print'),
   'open-hosp-followup':(d)=>{ HOSP_FOLLOWUP.openModal(d.id, AUTH.user); },
   'ack-hosp-followup':(d)=>{
     const r = HOSP_FOLLOWUP.acknowledge(d.id, AUTH.user);
@@ -1624,7 +1563,7 @@ function workflowActionsUI(){ return {
     openModal({
       title:t.label, sub:`${cfg.label} · ${rec.code||rec.no||rec.id}`, narrow:false,
       body:`<form data-form="wf" id="wfForm">
-        <input type="hidden" name="kind" value="${d.kind}"><input type="hidden" name="id" value="${d.id}"><input type="hidden" name="t" value="${d.t}">
+        <input type="hidden" name="kind" value="${d.kind}"><input type="hidden" name="id" value="${d.id}"><input type="hidden" name="t" value="${d.t}"><input type="hidden" name="requestId" value="${CARE_REVIEW.token()}">
         ${t.needsAssignee? field('Assign to hospital focal person','assignee','select',{required:true, options:assignees.map(u=>({v:u.id,l:u.name+' · '+countyName(u.countyId)}))}) : ''}
         ${t.needsReason? field(t.a==='reject'?'Reason for rejection':'Reason','reason','textarea',{required:true,hint:'Recorded permanently in the audit trail'}) : ''}
         ${t.needsEvidence? field('Supporting evidence','evidence','textarea',{required:true,hint:'Cite the assessment, visits, PDCA outcomes or clinical review supporting this decision'}) : ''}
@@ -1637,8 +1576,9 @@ function workflowActionsUI(){ return {
             ${field('Responsible officer','responsible','select',{options:DB.db.users.filter(u=>['caregiver','coordinator','mch'].includes(u.roleId)).map(u=>({v:u.id,l:u.name}))})}
           </div>
           ${field('Reason for that estimate','rationale','textarea',{required:true,hint:'Presenting condition, household capacity and clinical advice'})}
-          ${field('Agreed objective','objectives','textarea',{})}
-          ${field('Planned intervention','interventions','textarea',{})}
+          ${field('Agreed objective','objectives','textarea',{required:true})}
+          ${field('Planned intervention','interventions','textarea',{required:true})}
+          ${field('I am the MCM recording the final decision at the office — not field enrolment','officeConfirmed','checkbox',{required:true})}
         `:''}
         ${(d.kind==='patient' && t.a==='recommend_discharge' && typeof PAT_DISCHARGE!=='undefined')? PAT_DISCHARGE.referralFieldsHTML(rec) : ''}
         ${t.a==='approve'? field('Clinical note (optional)','note','textarea',{}) : ''}
@@ -1653,14 +1593,16 @@ function workflowActionsUI(){ return {
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
         <button class="btn ${t.a==='reject'?'btn-danger':'btn-primary'}" data-act="submit-wf">${esc(t.label)}</button>`});
   },
-  'submit-wf':()=>{
+  'submit-wf':async()=>{
     const f=$('#wfForm'); const d=new FormData(f);
     const kind=d.get('kind'), recId=d.get('id'), tr=d.get('t');
     const payload = { reason:d.get('reason'), evidence:d.get('evidence'), note:d.get('note'),
       assignee:d.get('assignee'), report:d.get('report'), expenses:d.get('expense')?[{amount:+d.get('expense'), category:'service', budgetLine:d.get('budgetLine')}]:[],
       needs:d.get('needs'), expectedDays:d.get('expectedDays'), rationale:d.get('rationale'),
-      objectives:d.get('objectives'), interventions:d.get('interventions'), responsible:d.get('responsible') };
-    const r = transition(kind, recId, tr, AUTH.user, payload);
+      objectives:d.get('objectives'), interventions:d.get('interventions'), responsible:d.get('responsible'),officeConfirmed:!!d.get('officeConfirmed') };
+    const r = (kind==='patient'&&['enrol','approve_discharge'].includes(tr)&&SYNC.sessionToken)
+      ? await CARE_REVIEW.command(tr==='enrol'?'enrol_fresh':'discharge_cycle',{...payload,patientId:recId},d.get('requestId'))
+      : transition(kind, recId, tr, AUTH.user, payload);
     if(!r.ok) return toast('Action not completed', r.msg,'err');
     if(kind==='patient' && typeof PAT_DISCHARGE!=='undefined'){
       const pRec = DB.db.patients.find(x=>x.id===recId);
@@ -1669,7 +1611,7 @@ function workflowActionsUI(){ return {
         PAT_DISCHARGE.stampOnDischarge(pRec, AUTH.user);
         DB.save();
         closeModal(true);
-        toast('Patient discharged & summary generated', 'Full Intake-to-Discharge Programme Summary & Referral Handover ready to print.', 'ok');
+        toast('MCM discharge decision recorded', 'The report uses saved evaluations and recorded referral facts only. Missing findings and physical signatures remain unrecorded.', 'ok');
         go('patient', { id:pRec.id, tab:'discharge' });
         return;
       }
@@ -1741,17 +1683,13 @@ function workflowActionsUI(){ return {
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="save-pdca">Save cycle</button>`});
   },
   'save-pdca':()=>{
-    const d=new FormData($('#pdcaForm')); const x=DB.db.pdcas.find(y=>y.id===d.get('id'));
-    x.stage=d.get('stage'); x.doNote=d.get('doNote'); x.checkNote=d.get('checkNote'); x.actNote=d.get('actNote');
-    x.status=d.get('closed')?'closed':'open'; x.updatedAt=todayISO();
-    AUDIT.append({actor:AUTH.user.id,action:'pdca.updated',entity:'pdca',entityId:x.id,detail:'Stage '+x.stage});
-    DB.save(); closeModal(); toast('PDCA cycle updated','','ok'); render();
+    toast('Historical entry is read-only','Create an on-demand report in the supplied template. Prior-cycle notes and revisions are retained.','warn');
   }
 };}
 
 function clinicalActions(){ return {
   'new-assessment':()=>{
-    const areas = COUNTIES.filter(c=>roleObj(AUTH.user.roleId)?.scope?.geo==='global'||c.id===AUTH.user.countyId).flatMap(c=>c.areas.map(a=>({v:a.id,l:a.name+' · '+c.name})));
+    const areas = COUNTIES.filter(c=>c.id===AUTH.user.countyId).flatMap(c=>c.areas.filter(a=>!['caregiver','coordinator','chw'].includes(AUTH.user.roleId)||(AUTH.user.areaIds||[]).includes(a.id)).map(a=>({v:a.id,l:a.name+' · '+c.name})));
     const durDefaults = [30,60,90,120,150,180,210,240,270,300,330,360];
     const durExtra = [45,75,105,110,135,165,195];
     const durOptions = [
@@ -1766,7 +1704,7 @@ function clinicalActions(){ return {
         <div id="assessRepeatBox"><div class="rb rb-ok"><div class="rb-ic">${ic('search',18)}</div><div style="flex:1"><b>Step 1: Returning beneficiary check active</b><div class="rb-body">Key in the patient's National ID above to check prior enrolment before completing a new assessment.</div></div></div></div>
         ${field('Patient name','name','text',{required:true,hint:'As written on the LOMAMO patient assessment form'})}
         <div class="grid g2">
-          ${field('Sex','sex','select',{options:[{v:'F',l:'Female'},{v:'M',l:'Male'}]})}
+          ${field('Sex','sex','select',{options:[{v:'',l:'Not recorded'},{v:'F',l:'Female'},{v:'M',l:'Male'}]})}
           ${field('Age (years)','age','number',{required:true})}
           ${field('Ministry area','areaId','select',{required:true,options:areas})}
           ${field('Planned programme duration','plannedDays','select',{value:'180',options:durOptions})}
@@ -1786,7 +1724,7 @@ function clinicalActions(){ return {
               ${field('Female children in the household','femaleChildren','number',{min:0,hint:'Column Q - total children is calculated'})}
               ${field('Visit schedule','schedule','select',{options:[{v:'',l:'Not set'},{v:'EW',l:'EW - every week'},{v:'EOW',l:'EOW - every other week'},{v:'1 Month',l:'Once a month'}],hint:'Column Y'})}
               ${field('Food bag at enrolment','bagCode','select',{options:[{v:'',l:'Not issued yet'},{v:'BG1',l:'BG1 - Bag 1 (normal household)'},{v:'BG2',l:'BG2 - Bag 2 (family / couple)'},{v:'SPB',l:'SPB - Special bag'}],hint:'Week grid codes BG1 / BG2 / SPB'})}
-              ${field('Returning beneficiary (repeat patient)','repeatPatient','checkbox',{})}
+              <p class="small">Repeat / returning status is classified from the previous discharge. Select the existing record above; do not tick a manual repeat flag on a new identity.</p>
               ${field('Relocated patient','relocated','checkbox',{})}
               ${field('Medical only (no food bag)','medicalOnly','checkbox',{})}
               ${field('TB type','tbType','select',{options:[{v:'',l:'Not a TB patient'},{v:'Pulmonary TB',l:'Pulmonary TB'},{v:'Extra pulmonary TB',l:'Extra pulmonary TB'}],hint:'Column CS - opens the ten-day pyridoxine cycle'})}
@@ -1803,7 +1741,8 @@ function clinicalActions(){ return {
             <p class="xs muted" style="margin:6px 0 10px">Days in programme, the minimal-care review beyond 183 days, total children, orphan prevention and every cost total are calculated from these fields - they are never typed twice. See <b>Master registry mapping</b> for the full column-by-column map.</p>
           </div>
         </details>
-        ${field('Consent to record information','consent','checkbox',{value:true})}
+        ${field('I confirmed any shared name / phone match is a different person','distinctPersonConfirmed','checkbox',{})}
+        ${field('Consent to record information','consent','checkbox',{})}
       </form>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
         <button class="btn btn-ghost" data-act="save-draft" data-form="assessment">${ic('save',14)} Save draft</button>
@@ -1816,16 +1755,21 @@ function clinicalActions(){ return {
     const area = areaObj(d.get('areaId'));
     const plannedDays = +d.get('plannedDays') || 180;
     const natId = String(d.get('nationalId')||'').trim();
+    if(!area||!String(d.get('name')||'').trim())return toast('Assessment incomplete','Record the patient name and an authorized ministry area.','err');
+    const matches=PMI.look(DB.db,natId);
+    if(natId&&matches.level==='national-id'&&matches.matches.length)return toast('Existing identity found','Open the existing assessment or repeat / returning support report. No second identity was created.','warn');
+    const possible=[...PMI.look(DB.db,d.get('name')).matches,...PMI.look(DB.db,d.get('phone')).matches];
+    if(possible.length&&!d.get('distinctPersonConfirmed'))return toast('Confirm the person','A name / phone match is only a prompt. Open the existing record if this is the same person; otherwise confirm the distinct person checkbox.','warn');
     const p = { id:uid('p'), code:'LOM-'+area.id.slice(0,3).toUpperCase()+'-'+Math.floor(1000+Math.random()*9000),
-      name:d.get('name'), sex:d.get('sex')||'F', age:+d.get('age')||0, nationalId:natId,
+      name:d.get('name'), sex:d.get('sex')||'', age:d.get('age')===''?null:Number(d.get('age')), nationalId:natId,
       countyId:COUNTIES.find(c=>c.areas.some(a=>a.id===area.id)).id,
       areaId:d.get('areaId'), caregiverId:d.get('caregiverId')||AUTH.user.id, status:'assessment_initiated',
       intake:d.get('intake')||todayISO(), discharge:null, plannedDays, referralEntityId:d.get('referralEntityId'),
       ccc:d.get('ccc')||'', phone:d.get('phone')||'',
-      clinical:{diagnosis:d.get('diagnosis')||'Pending clinical verification',art:false,weightKg:null,heightCm:null,adherence:'Not recorded'},
-      household:{children:(+d.get('maleChildren')||0)+(+d.get('femaleChildren')||0),
-        maleChildren:+d.get('maleChildren')||0, femaleChildren:+d.get('femaleChildren')||0,
-        orphansSupported:0,guardian:'-'},
+      clinical:{diagnosis:d.get('diagnosis')||'',weightKg:null,heightCm:null},
+      household:{children:d.get('maleChildren')!==''&&d.get('femaleChildren')!==''?Number(d.get('maleChildren'))+Number(d.get('femaleChildren')):null,
+        maleChildren:d.get('maleChildren')===''?null:Number(d.get('maleChildren')),femaleChildren:d.get('femaleChildren')===''?null:Number(d.get('femaleChildren')),
+        orphansSupported:null,guardian:''},
       insurance:String(d.get('insurance')||''), spouseId:String(d.get('spouseId')||''),
       visitFrequency:(()=>{const s=String(d.get('schedule')||'');return s==='EW'?'Every week':s==='EOW'?'Every other week':s==='1 Month'?'Once a month':'';})(),
       /* The master registry fields, with the workbook's own derived measures
@@ -1845,27 +1789,18 @@ function clinicalActions(){ return {
         sourceWorkbook:'LOMAMO C-DIMS registration (master registry blueprint)', sourceSheet:'', sourceRow:null
       },
       consent:{status:d.get('consent')?'granted':'not_requested',scope:'internal',date:todayISO()},
-      faithRecord:'not_recorded', docsVerified:false, flags:['duplicate_check_pending'], pdcaStage:'Plan', demo:true, createdBy:AUTH.user.id };
+      faithRecord:'not_recorded', docsVerified:false, flags:['duplicate_check_pending'], assessmentKind:'new', assessmentDate:d.get('intake')||dateOnly(new Date()), pdcaStage:'Plan', demo:CARE_REVIEW.synthetic(), createdBy:AUTH.user.id };
   /* Derived on every save, never typed: days in programme and the minimal-care
      flag beyond 183 days (master columns K and H). */
-  p.programDays = MASTER_RULES.daysInProgramme(p.enrolledAt||p.intake, p.dischargedAt||p.discharge);
+  p.programDays = 0; // Assessment date is not MCM office enrollment / programme start.
   p.master.minimalCareFlag = MASTER_RULES.minimalCareFlag(p.programDays, p.master.newInMonth && p.status==='discharged'? p.master.newInMonth : '');
-    if(DB.db.patients.some(x=>x.name.toLowerCase()===p.name.toLowerCase()&&x.areaId===p.areaId)){
-      return toast('Possible duplicate','A patient with this name already exists in this ministry area. Review the register before creating another record.','warn');
-    }
     clearDraft('assessment');
     DB.db.patients.push(p);
-    /* Immediately establish the initial 30-day review PDCA plan informed by plannedDays */
-    const due30 = new Date(Date.now() + 30*86400e3).toISOString().slice(0,10);
-    DB.db.pdcas.push({
-      id: uid('pd'), patientId: p.id, title: `Initial ${plannedDays}-day care plan & 30-day review`,
-      stage: 'Plan', status: 'open', owner: p.caregiverId, due: due30,
-      planNote: `Enrolled for ${plannedDays} days; scheduled for formal review every 30 days (30, 60, 90 ... ${plannedDays} days).`,
-      createdAt: todayISO(), updatedAt: todayISO()
-    });
+    /* An assessment is not enrolment. The programme clock and review cycle
+       start only after the MCM's explicit office decision. */
     AUDIT.append({actor:AUTH.user.id,action:'patient.assessment_initiated',entity:'patient',entityId:p.id,detail:`${p.name} · ${areaName(p.areaId)} · ${plannedDays}d plan`});
     notify(DB.db.users.find(u=>u.roleId==='assistant'&&u.countyId===p.countyId)?.id,'New assessment submitted',p.name+' - awaiting physical form and digitisation','info');
-    DB.save(); closeModal(true); toast('Assessment & initial PDCA created', `Planned duration ${plannedDays} days; first review due ${due30}.`,'ok'); go('patient',{id:p.id});
+    DB.save(); closeModal(true); toast('Assessment created — not enrolled', 'Awaiting source verification and final MCM office enrollment. No PDCA completion or programme start was invented.','ok'); go('patient',{id:p.id});
   },
   'submit_form':()=>{},
   'record-visit':(d)=>{
@@ -1945,22 +1880,8 @@ function clinicalActions(){ return {
   },
   'open-request':(d)=>openRequestModal(d.id),
   'upload-doc':(d)=>openUploadModal(d.patient),
-  'new-pdca':(d)=>{
-    const ps = repo.patientList(AUTH.user);
-    openModal({title:'New PDCA cycle', narrow:true, body:`<form data-form="newpdca" id="npForm">
-      ${field('Patient','patientId','select',{value:d.patient,required:true,options:ps.map(p=>({v:p.id,l:p.name+' · '+p.code}))})}
-      ${field('Plan','plan','textarea',{required:true,hint:'What will be done, with whom, and by when'})}
-      ${field('Due date','due','date',{required:true})}
-    </form>`,
-    footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-newpdca">Create cycle</button>`});
-  },
-  'submit-newpdca':()=>{
-    const d=new FormData($('#npForm'));
-    DB.db.pdcas.push({id:uid('pd'),patientId:d.get('patientId'),stage:'Plan',plan:d.get('plan'),doNote:'',checkNote:'',actNote:'',due:d.get('due'),owner:AUTH.user.id,status:'open',demo:true});
-    const p=DB.db.patients.find(x=>x.id===d.get('patientId'));
-    AUDIT.append({actor:AUTH.user.id,action:'pdca.created',entity:'patient',entityId:p.id,detail:d.get('plan')});
-    DB.save(); closeModal(); toast('PDCA cycle created','','ok'); render();
-  },
+  'new-pdca':(d)=>ACTIONS['care-review-new'](d),
+  'submit-newpdca':()=>toast('Use the editable template','Legacy note-only reports cannot be submitted as reviewed PDCAs.','warn'),
   'discharge-review':()=>{
     const ps=repo.patientList(AUTH.user).filter(p=>p.status==='discharge_recommended');
     openModal({title:'Discharge recommendations', body: ps.length? table([
@@ -2820,11 +2741,15 @@ function aiActions(){ return {
       ok ? 'ok' : 'info');
   },
   'ai-save-cfg':async ()=>{
+    if(AUTH.user?.roleId!=='chief' || !RBAC.has(AUTH.user,'system.config'))
+      return toast('Not changed','Shared AI configuration belongs to the Chief System Administrator.','err');
     const cfg = AI.cfg();
     const urlEl = $('#aiCfgUrl'), modEl = $('#aiCfgModel'), modeEl = $('#aiCfgMode');
-    if(urlEl) cfg.ollama = String(urlEl.value||'http://127.0.0.1:11434').trim();
-    if(modEl) cfg.model = String(modEl.value||'llama3.2').trim();
+    if(urlEl) cfg.ollama = String(urlEl.value||'/api/ai').trim();
+    if(modEl) cfg.model = String(modEl.value||'carelink-online-v6.4').trim();
     if(modeEl) cfg.mode = String(modeEl.value||'auto').trim();
+    DB.db.settings.ai = cfg;
+    AUDIT.append({actor:AUTH.user.id,action:'settings.changed',entity:'setting',entityId:'ai',detail:'Shared AI configuration explicitly updated'});
     DB.save();
     AI.settingsOpen = false;
     await AI.ollamaProbe();
@@ -2886,11 +2811,11 @@ function field(label, name, type='text', opts={}){
   } else if(type==='textarea'){
     input=`<textarea class="input" id="${id}" name="${name}"${req} placeholder="${esc(opts.placeholder||'')}">${esc(val)}</textarea>`;
   } else if(type==='checkbox'){
-    return `<div class="checkline"><input type="checkbox" id="${id}" name="${name}" ${val?'checked':''}><label for="${id}" style="margin:0;font-weight:500">${esc(label)}</label></div>`;
+    return `<div class="checkline"><input type="checkbox" id="${id}" name="${name}"${req} ${val?'checked':''}><label for="${id}" style="margin:0;font-weight:500">${esc(label)}</label></div>`;
   } else if(type==='file'){
     input=`<input class="input" id="${id}" name="${name}" type="file" accept="${esc(opts.accept||'')}">`;
   } else {
-    input=`<input class="input" id="${id}" name="${name}" type="${type}" value="${esc(val)}"${req} placeholder="${esc(opts.placeholder||'')}" ${opts.min!==undefined?`min="${opts.min}"`:''}>`;
+    input=`<input class="input" id="${id}" name="${name}" type="${type}" value="${esc(val)}"${type==='number'?` step="${esc(opts.step??'any')}"`:''}${req} placeholder="${esc(opts.placeholder||'')}" ${opts.min!==undefined?`min="${opts.min}"`:''}>`;
   }
   return `<div class="field"><label for="${id}">${esc(label)}${opts.required?' <span style="color:var(--crit)">*</span>':''}</label>${input}
     ${opts.hint?`<div class="hint">${esc(opts.hint)}</div>`:''}</div>`;
@@ -3057,7 +2982,8 @@ function renderAIDock(){
   if(!dock){ dock=document.createElement('div'); dock.className='ai-dock'; document.body.appendChild(dock); }
   if(!RBAC.has(AUTH.user,'ai.use')){ dock.innerHTML=''; return; }
   const prof = AI.profileFor ? AI.profileFor(AUTH.user, APPX.view) : { title:'LOMAMO C-DIMS Assistant', badge:'Console AI', summary:'', chips:[] };
-  const cfg = AI.cfg ? AI.cfg() : { mode:'auto', ollama:'http://127.0.0.1:11434', model:'llama3.2' };
+  const cfg = AI.cfg ? AI.cfg() : { mode:'auto', ollama:'/api/ai', model:'carelink-online-v6.4' };
+  const mayConfigure = AUTH.user.roleId==='chief' && RBAC.has(AUTH.user,'system.config');
   const chipList = (prof.chips && prof.chips.length ? prof.chips : [
     'What is my caseload this week?',
     'Which patients need attention?',
@@ -3088,11 +3014,11 @@ function renderAIDock(){
           </span>
           <span class="row" style="gap:4px">
             <button type="button" class="btn btn-xs btn-ghost" data-act="ai-probe-dock">${AI.busy?'Testing...':'Test Ollama'}</button>
-            <button type="button" class="btn btn-xs btn-ghost" data-act="ai-toggle-cfg">${AI.settingsOpen?'Hide config':'Model & URL'}</button>
+            ${mayConfigure?`<button type="button" class="btn btn-xs btn-ghost" data-act="ai-toggle-cfg">${AI.settingsOpen?'Hide config':'Model & URL'}</button>`:''}
             ${AI.history.length?`<button type="button" class="btn btn-xs btn-ghost" data-act="ai-clear-chat">Clear</button>`:''}
           </span>
         </div>
-        ${AI.settingsOpen ? `<div class="card" style="padding:10px;margin-bottom:10px">
+        ${AI.settingsOpen && mayConfigure ? `<div class="card" style="padding:10px;margin-bottom:10px">
           <div class="xs bold" style="margin-bottom:6px">Online / LAN Ollama &amp; Offline Engine Configuration</div>
           <div class="grid g2" style="gap:6px">
             <div class="field" style="margin:0"><label class="xs">Mode</label>
