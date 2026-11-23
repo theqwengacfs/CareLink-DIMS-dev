@@ -143,7 +143,8 @@ from workspace palettes, which are unchanged.
 Staff sign-in is enforced by the API, not a browser fingerprint or a local flag:
 
 1. A correct password on an unknown browser creates a **pending** device entry
-   (label, type, first seen, verified requesting account), not a staff session.
+   (generic browser label/type, first seen, verified requesting account), not a staff session.
+   The sign-in form does not ask for a device label or type.
 2. The Chief opens **System → Devices**, confirms the device code with its user
    through a trusted channel, and approves or rejects it after reauthentication.
 3. An approved browser can sign in; every authenticated API operation rechecks
@@ -193,8 +194,8 @@ patients and synthetic role accounts, without changing production sign-in. It
 requires a **separate Vercel project and separate KV database**, explicit setup
 and an owner-approved initialization. Never enter real or confidential data.
 See [the isolated trial runbook](tools/ISOLATED-TEAM-TRIAL.md) for deployment,
-limitations and credential handling. Device labels/types are hidden only in
-the trial; browser admission and role-scoped access remain enforced.
+limitations and credential handling. Device labels/types are not requested at
+sign-in on either site; browser admission and role-scoped access remain enforced.
 
 ### Runtime synthetic evaluation register (never production data)
 
