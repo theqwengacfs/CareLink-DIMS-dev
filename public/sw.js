@@ -1,7 +1,7 @@
 /* CareLink application-shell offline support. Clinical/API responses are never cached. */
 const CACHE = 'carelink-shell-v6';
 const RETIRED_PAGES = self.location.hostname === 'theqwengacfs.github.io';
-const CANONICAL_ORIGIN = 'https://care-link-dims-dev.vercel.app/';
+const CANONICAL_ORIGIN = 'https://care-link-dims-dev-three.vercel.app/';
 /* A navigation that the network has not answered within this window falls back
    to the cached shell. A captive portal or a stalled 3G link otherwise leaves a
    caregiver looking at a blank screen in front of a patient. */

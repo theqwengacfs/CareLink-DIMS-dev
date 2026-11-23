@@ -414,7 +414,7 @@ global.fetch = async (input, init = {}) => {
       'Static *.github.io preview host has no serverless /api/* and must run cleanly in static/offline mode',
     );
     assert.equal(
-      slowBoot.run(`(()=>{ location.hostname = 'care-link-dims-dev.vercel.app'; return SYNC.available(); })()`),
+      slowBoot.run(`(()=>{ location.hostname = 'care-link-dims-dev-three.vercel.app'; return SYNC.available(); })()`),
       true,
       'Vercel production host must report SYNC.available() === true',
     );
