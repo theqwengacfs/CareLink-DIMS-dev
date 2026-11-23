@@ -537,11 +537,11 @@ function renderMessages(user, params={}){
       <section class="msg-pane">
         ${active? `
           <div class="msg-pane-h">
-            <div>
+            <div class="msg-pane-heading">
               <b>${esc(threadLabel(active).title)}</b>
               <span>${esc(threadLabel(active).sub)} · ${active.msgs.length} message(s)</span>
             </div>
-            <div class="row" style="gap:8px;flex-wrap:wrap">
+            <div class="row msg-pane-actions">
               ${active.kind==='direct' && dmOtherId(active) ? presenceTag(dmOtherId(active)) : badge(active.kind==='global'?'Global Broadcast':active.kind==='area'?'Ministry Area Chat':'Department Chat','b-info','nodot')}
               <button class="btn btn-sm btn-primary" data-act="call-start" data-thread="${esc(active.thread)}" data-kind="audio" title="Audio call ${esc(threadLabel(active).title)}"${callBlocked?' aria-describedby="callUnavailable"':''}>${ic('phone',14)} Audio call</button>
               <button class="btn btn-sm btn-ghost" data-act="call-start" data-thread="${esc(active.thread)}" data-kind="video" title="Video call ${esc(threadLabel(active).title)}"${callBlocked?' aria-describedby="callUnavailable"':''}>${ic('video',14)} Video</button>
@@ -571,12 +571,12 @@ function renderMessages(user, params={}){
             <input class="input" type="search" placeholder="Search ${colleagues.length} staff to chat..." oninput="const q=this.value.toLowerCase();this.closest('.card-b').querySelectorAll('.msg-person-row').forEach(el=>{el.style.display=el.dataset.search.includes(q)?'flex':'none';});">
           </div>
           <div class="col msg-people-scroll" style="gap:6px">${colleagues.map(u=>`
-          <div class="row msg-person-row" data-search="${esc((u.name+' '+(roleObj(u.roleId)?.name||'')+' '+u.username).toLowerCase())}" style="gap:8px;justify-content:space-between">
+          <div class="row msg-person-row" data-search="${esc((u.name+' '+(roleObj(u.roleId)?.name||'')+' '+u.username).toLowerCase())}">
             <button class="msg-person" data-act="msg-open" data-u="${u.id}" title="Open instant chat with ${esc(u.name.replace(/^Demo - /,''))}">
-              <span class="avatar" style="width:24px;height:24px;font-size:10px;background:${WTHEME.safeFill((deptObj((roleObj(u.roleId)||{}).dept)||{}).accent||'#475569')}">${initials(u.name)}</span>
-              <span><b>${esc(u.name.replace(/^Demo - /,''))}</b><em>${esc(roleObj(u.roleId)?.name||'')}</em></span>
+              <span class="avatar" style="width:32px;height:32px;font-size:10px;background:${WTHEME.safeFill((deptObj((roleObj(u.roleId)||{}).dept)||{}).accent||'#475569')}">${initials(u.name)}</span>
+              <span class="msg-person-copy"><b>${esc(u.name.replace(/^Demo - /,''))}</b><em>${esc(roleObj(u.roleId)?.name||'')}</em></span>
             </button>
-            <span class="row" style="gap:4px">
+            <span class="row msg-person-actions">
               ${presenceTag(u.id)}
               <button class="icon-btn" data-act="call-person" data-u="${u.id}" data-kind="audio" title="Audio call ${esc(u.name.replace(/^Demo - /,''))}" aria-label="Audio call ${esc(u.name.replace(/^Demo - /,''))}">${ic('phone',13)}</button>
               <button class="icon-btn" data-act="call-person" data-u="${u.id}" data-kind="video" title="Video call ${esc(u.name.replace(/^Demo - /,''))}" aria-label="Video call ${esc(u.name.replace(/^Demo - /,''))}">${ic('video',13)}</button>

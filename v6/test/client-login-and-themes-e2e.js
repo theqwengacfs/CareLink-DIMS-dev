@@ -337,22 +337,18 @@ global.fetch = async (input, init = {}) => {
   assert.equal(tabletA.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Personal theme must survive SYNC.pullFull()');
   assert.equal(tabletA.run('WTHEME.studio(AUTH.user).font'), 'editorial', 'Personal studio font must survive SYNC.pullFull()');
 
-  /* A second device cannot sign in concurrently; after an explicit hand-off,
-     the same account can continue on PC B and retain its cloud preferences. */
+  /* An independent PC signs in immediately and receives shared preferences. */
   const pcCaregiverB = makeHostedClient('pc');
   await pcCaregiverB.run('boot()');
   await pcCaregiverB.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.ombeyi', password: nyalendaPrivPw })}))`);
-  assert.equal(pcCaregiverB.run('AUTH.user'), null, 'A second device must not open the account while Tablet A holds its active session');
-  assert.match(pcCaregiverB.run('LOGIN6.error'), /active online session/i, 'The sign-in screen must explain the single-session restriction');
-  await tabletA.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
-  await pcCaregiverB.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.ombeyi', password: nyalendaPrivPw })}))`);
-  assert.equal(pcCaregiverB.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Cloud personalPrefs must sync harbour theme to PC B after hand-off');
+  assert.equal(pcCaregiverB.run('AUTH.user && AUTH.user.username'), 'caregiver.ombeyi', 'A second client signs in while Tablet A remains active');
+  assert.equal(pcCaregiverB.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Cloud personalPrefs must sync harbour theme to PC B');
   assert.equal(pcCaregiverB.run('WTHEME.studio(AUTH.user).font'), 'editorial', 'Cloud personalPrefs must sync editorial font to PC B');
   assert.equal(pcCaregiverB.run('DB.db.personalPrefs[AUTH.user.id].textScale'), 110, 'Cloud personalPrefs must sync textScale to PC B');
   assert.equal(pcCaregiverB.run('DB.db.patients.length'), nyalendaPatientIds.length, 'PC B must load only its assigned ministry-area patients');
   await pcCaregiverB.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
-  await tabletA.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.ombeyi', password: nyalendaPrivPw })}))`);
-  assert.equal(tabletA.run('AUTH.user && AUTH.user.username'), 'caregiver.ombeyi', 'Tablet A can regain its session after the explicit hand-off back');
+  await tabletA.run('SYNC.tick()');
+  assert.equal(tabletA.run('AUTH.user && AUTH.user.username'), 'caregiver.ombeyi', 'Signing out PC B leaves Tablet A active');
 
   /* Install a Custom Visual Pack with a custom dark theme on Chief Admin PC -> rehydrates on Tablet A via SYNC.tick()! */
   const customPackRes = pcAdmin.run(`WTHEME.installCustomPack(AUTH.user, JSON.stringify({

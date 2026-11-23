@@ -105,9 +105,6 @@ r=await chief.call('admin/staff-accounts/export',{method:'POST',token:chiefToken
 assert.equal(r.status,200,JSON.stringify(r.body));assert.match(r.body.rows[0].name,/^Synthetic trial seat/);assert.ok(r.body.rows[0].temporaryPassword);
 r=await chief.call('state/collection?name=users',{token:chiefToken});assert.equal(r.status,200);
 assert.ok(r.body.records.find(u=>u.username==='nurse.homabay').synthetic,'reissuing does not mark trial staff as real');
-r=await staff.call('auth/login',{method:'POST',body:{username:account.username,password:account.password}});assert.equal(r.body.code,'device_pending');
-const deviceId=r.body.deviceId;
-r=await chief.call('admin/devices/decision',{method:'POST',token:chiefToken,body:{password:admin.password,deviceId,decision:'approved'}});assert.equal(r.status,200,JSON.stringify(r.body));
 r=await staff.call('auth/login',{method:'POST',body:{username:account.username,password:account.password,loginAttemptId:'trial-fixture-attempt'}});assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.mustChange,true);const staffToken=r.body.token;
 assert.equal((await staff.call('state',{token:staffToken})).body.code,'password_change_required');
 r=await staff.call('auth/change-password',{method:'POST',token:staffToken,body:{current:account.password,password:'Trial#Private2028!'}});assert.equal(r.status,200,JSON.stringify(r.body));
@@ -115,8 +112,6 @@ r=await staff.call('state/collection?name=patients&limit=1',{token:staffToken});
 assert.equal(r.body.total,4000,'lead Kisumu MCM has its established two-county scope');
 const homaAccount=issued.find(u=>u.roleId==='caregiver'&&u.countyId==='homabay');assert.ok(homaAccount);
 const other=browser();
-r=await other.call('auth/login',{method:'POST',body:{username:homaAccount.username,password:homaAccount.password}});assert.equal(r.body.code,'device_pending');
-r=await chief.call('admin/devices/decision',{method:'POST',token:chiefToken,body:{password:admin.password,deviceId:r.body.deviceId,decision:'approved'}});assert.equal(r.status,200);
 r=await other.call('auth/login',{method:'POST',body:{username:homaAccount.username,password:homaAccount.password,loginAttemptId:'trial-second-attempt'}});assert.equal(r.status,200);const otherToken=r.body.token;
 r=await other.call('auth/change-password',{method:'POST',token:otherToken,body:{current:homaAccount.password,password:'Trial#Second2028!'}});assert.equal(r.status,200);
 r=await other.call('state/collection?name=patients&limit=1',{token:otherToken});assert.equal(r.status,200);assert.ok(r.body.total>0&&r.body.total<4000,'caregiver must not read outside the assigned area');
@@ -126,4 +121,4 @@ assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.rejected.l
 r=await staff.call('state/collection?name=patients',{token:staffToken});assert.equal(r.status,200);
 assert.equal(r.body.records.find(p=>p.id===patient.id)?.trialNote,'Synthetic shared-edit test','second account sees the shared saved update');
 assert.ok([...kv.keys()].every(key=>key.startsWith('carelink_trial_')),'all writes stay in the trial namespace');
-console.log('Trial: 4,000 synthetic patients, scoped role accounts, shared edits, single-use setup, cookie-bound sessions and device approval passed.');
+console.log('Trial: 4,000 synthetic patients, scoped role accounts, shared edits, single-use setup, cookie-bound sessions and automatic browser enrolment passed.');

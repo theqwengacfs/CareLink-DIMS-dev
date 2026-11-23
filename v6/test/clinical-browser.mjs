@@ -27,7 +27,7 @@ try{
  browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||await binary.executablePath(),args:['--no-sandbox']});
  async function session(username){
   // Fixture commissioning exercised each credential once; end that existing
-  // session before UI sign-in rather than bypassing one-session security.
+  // session before UI sign-in to keep this fixture isolated.
   assert.equal((await f.call('auth/logout',{method:'POST',token:f.tokens[username]})).status,200);
   const context=await browser.newContext({viewport:{width:1366,height:900},timezoneId:'Africa/Nairobi',acceptDownloads:true,serviceWorkers:'block'});
   const cookie=f.jar.cookie,index=cookie.indexOf('=');await context.addCookies([{name:cookie.slice(0,index),value:cookie.slice(index+1),url:base,httpOnly:true,sameSite:'Lax'}]);

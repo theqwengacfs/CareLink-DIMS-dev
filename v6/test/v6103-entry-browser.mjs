@@ -295,12 +295,10 @@ try{
   await page.evaluate(()=>{DB.db.personalPrefs[AUTH.user.id]={navRail:true,navAutoFold:true,navRailExplicit:true};go('home');});
   await page.waitForSelector('.app.shell.np-rail');
   const destination=page.locator('#npane [data-act="go"][data-v="devconsole"]');
-  await destination.click();await page.waitForSelector('.app.shell:not(.np-rail)');
-  assert.equal(await page.evaluate(()=>APPX.view),'home','first tap expands without navigation');
-  await page.waitForTimeout(1200);await page.evaluate(()=>render());
-  assert.equal(await page.locator('.app.shell.np-rail').count(),0,'expansion holds across time, redraw and focus/scroll restoration');
-  await page.locator('#npane [data-act="go"][data-v="devconsole"]').click();
-  await page.waitForSelector('.app.shell.np-rail');assert.equal(await page.evaluate(()=>APPX.view),'devconsole');
+  await destination.click();await page.waitForFunction(()=>APPX.view==='devconsole');
+  assert.equal(await page.evaluate(()=>APPX.view),'devconsole','one rail click opens the destination');
+  const viewGeometry=await page.evaluate(()=>{const s=document.querySelector('.app.shell'),c=document.querySelector('#content'),b=document.querySelector('.topbar');return {top:c.getBoundingClientRect().top,bar:b.getBoundingClientRect().bottom,scroll:s.scrollTop};});
+  assert.ok(viewGeometry.scroll>0 && viewGeometry.top<=viewGeometry.bar+8,JSON.stringify(viewGeometry));
   await page.evaluate(()=>NAVP.expandTemporarily());
   await page.locator('#content').click({position:{x:20,y:20}});await page.waitForSelector('.app.shell.np-rail');
   // One-account confidential export through the real Chief form/download path.
@@ -317,17 +315,15 @@ try{
   tablet.on('pageerror',error=>errors.push(error.message));tablet.on('request',request=>staffRequests.push(new URL(request.url()).pathname));
   await tablet.goto(base+'/carelink-v6.html');await tablet.waitForSelector('[data-act="goto-login"]');
   await signIn(tablet,account.username,account.temporaryPassword);
-  await tablet.waitForFunction(()=>LOGIN6.error.includes('awaiting Chief'));
-  assert.equal(await tablet.evaluate(()=>Boolean(AUTH.user||SYNC.sessionToken)),false,'pending browser has neither session nor workspace');
-  assert.ok(!staffRequests.some(p=>p==='/api/state'||p.startsWith('/api/state/')),'no staff-state request before approval');
+  await tablet.waitForSelector('form[data-form="mustchange6"]');
   assert.equal((await staff.request.get(base+'/api/state',{headers:{'X-CareLink-Session':chiefToken}})).status(),401,'copied Chief token without its cookie cannot grant access');
+  const deviceList=await chief.request.get(base+'/api/admin/devices',{headers:{'X-CareLink-Session':chiefToken}});
+  assert.equal(deviceList.status(),200);
+  const enrolled=(await deviceList.json()).devices.find(d=>d.requestedBy===account.username&&d.status==='approved');
+  assert.ok(enrolled,'new browser was automatically enrolled');
+  const deviceCode=enrolled.id;
   await page.evaluate(()=>go('devices'));await page.waitForFunction(()=>ENTRY_ADMIN.deviceLoaded&&!ENTRY_ADMIN.busy);
-  const deviceCode=await tablet.evaluate(()=>LOGIN6.error.match(/device ([a-f0-9]{12})/i)?.[1]);
-  assert.ok(deviceCode,'the pending browser shows its approval code');
-  const deviceRow=()=>page.locator('tbody tr').filter({has:page.locator('[data-act="entry-device-review"][data-id^="'+deviceCode+'"]')});
-  await deviceRow().locator('[data-act="entry-device-review"]').click();await page.locator('#entry-admin-form [name="password"]').fill(password);
-  await page.locator('#entry-admin-form [type="submit"]').click();await page.waitForFunction(code=>!ENTRY_ADMIN.busy&&ENTRY_ADMIN.devices.some(d=>d.id.startsWith(code)&&d.status==='approved'),deviceCode);
-  await signIn(tablet,account.username,account.temporaryPassword);
+  const deviceRow=()=>page.locator('tbody tr').filter({has:page.locator('[data-act="entry-device-review"][data-id="'+deviceCode+'"]')});
   await tablet.waitForSelector('form[data-form="mustchange6"]');
   assert.equal(await tablet.evaluate(()=>DB.db.patients.length),0);
   let staffToken=await tablet.evaluate(()=>SYNC.sessionToken);
@@ -380,7 +376,7 @@ try{
   await retiredPage.goto('https://theqwengacfs.github.io/CareLink-DIMS-dev/carelink-v6.html').catch(()=>{});
   await retiredPage.waitForURL('https://care-link-dims-dev-three.vercel.app/');assert.deepEqual(retiredApi,[]);
   assert.deepEqual(errors,[],'no uncaught browser errors');
-  console.log('entry-browser: actual Chromium red-led workflow/white-led coloured relief, themes/preview/apply, ten viewport sizes and all four access panels, true zero-scroll geometry at eight sizes (not hidden overflow), tiny/short/zoomed control reachability, keyboard/placeholder/contrast and cached-workspace isolation, expand → hold → collapse, isolated-cookie pending/approval/private-change/revocation, confidential download and retired-host redirect passed');
+  console.log('entry-browser: actual Chromium red-led workflow/white-led coloured relief, themes/preview/apply, ten viewport sizes and all four access panels, true zero-scroll geometry at eight sizes (not hidden overflow), tiny/short/zoomed control reachability, keyboard/placeholder/contrast and cached-workspace isolation, expand → hold → collapse, automatic browser enrollment/private-change/revocation, confidential download and retired-host redirect passed');
   console.log('Viewport fits: '+JSON.stringify(viewportEvidence));
   console.log('Rendered contrast: '+JSON.stringify(evidence));
 }finally{

@@ -27,7 +27,7 @@ will not work. Make a database backup first if one is available.
    browser, match its sign-in device code through a trusted channel, then paste
    the **exact full device ID** shown in the tool. Labels are untrusted; never
    select a browser on its name alone. Press Enter for password-only recovery.
-   There is no wildcard, automatic approval, or way to disable device enforcement.
+   New browsers are normally registered automatically after successful password verification; this optional legacy recovery action is not required for ordinary sign-in. Explicitly rejected or revoked browsers remain blocked.
 5. Choose and repeat a new private password. The token and password are hidden
    while typing. The password must be at least 12 characters, with uppercase,
    lowercase, a number and a symbol; it cannot contain your username, the
@@ -38,13 +38,10 @@ will not work. Make a database backup first if one is available.
    Only after it reports `Recovery saved`, sign in at
    <https://care-link-dims-dev-three.vercel.app/> with the new password.
 
-If you forgot the password **and** lost the last approved browser, there may not
-be a pending device yet. First perform password-only recovery, attempt sign-in on
-your recovery browser to register its pending request, and keep its cookies.
-Rerun the tool, verify the displayed code and paste that exact pending ID. This
-second recovery chooses a fresh private password and explicitly approves only
-that browser. Merely resetting a password never approves an unknown browser or
-reopens the one-time commissioning/migration bootstrap.
+After password-only recovery, sign in using the new password from a browser that
+has not been explicitly rejected or revoked. The host automatically registers a
+new or previously pending browser after password verification. This does not
+reopen the one-time commissioning/migration bootstrap.
 
 The tool changes only the named existing Chief credential and its login state,
 revokes old Chief sessions and codes, and writes an audit event. It preserves

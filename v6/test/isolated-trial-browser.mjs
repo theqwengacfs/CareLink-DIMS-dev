@@ -74,12 +74,9 @@ try{
   assert.ok((await page.locator('body').innerText()).includes('TEAM TRIAL · SYNTHETIC DATA ONLY'));
   const chiefToken=await page.evaluate(()=>SYNC.sessionToken);
   await openLogin(tablet);await login(tablet,account.username,account.password);
-  await tablet.waitForFunction(()=>LOGIN6.error.includes('awaiting Chief'),null,{timeout:90000});
-  assert.equal(await tablet.evaluate(()=>Boolean(AUTH.user||SYNC.sessionToken)),false);
+  await tablet.waitForSelector('form[data-form="mustchange6"]',{timeout:90000});
   const list=await chief.request.get(base+'/api/admin/devices',{headers:{'X-CareLink-Session':chiefToken}});assert.equal(list.status(),200);
-  const pending=(await list.json()).devices.find(d=>d.requestedBy===account.username&&d.status==='pending');assert.ok(pending);
-  const approved=await chief.request.post(base+'/api/admin/devices/decision',{headers:{'X-CareLink-Session':chiefToken},data:{password:admin.password,deviceId:pending.id,decision:'approved'},timeout:90000});assert.equal(approved.status(),200,await approved.text());
-  await login(tablet,account.username,account.password);await tablet.waitForSelector('form[data-form="mustchange6"]',{timeout:90000});
+  const enrolled=(await list.json()).devices.find(d=>d.requestedBy===account.username&&d.status==='approved');assert.ok(enrolled);
   const change=tablet.locator('form[data-form="mustchange6"]');await change.locator('[name="current"]').fill(account.password);await change.locator('[name="password"]').fill('River#Private2030!Xy');await change.locator('[name="password2"]').fill('River#Private2030!Xy');await change.locator('[type="submit"]').click();
   try { await tablet.waitForFunction(()=>AUTH.user&&APPX.screen==='app'&&!AUTH.mustChange&&!LOGIN6.mustChangeBusy,null,{timeout:90000}); }
   catch (error) {
@@ -88,5 +85,5 @@ try{
   }
   const result=await tablet.evaluate(()=>({count:DB.db.patients.length,scoped:DB.db.patients.every(p=>p.countyId==='homabay'&&p.areaId==='makongeni'),trial:APPX.host?.trialMode}));
   assert.ok(result.count>0&&result.scoped&&result.trial,JSON.stringify(result));assert.ok((await tablet.locator('body').innerText()).includes('TEAM TRIAL · SYNTHETIC DATA ONLY'));
-  assert.deepEqual(errors,[]);console.log('Actual Chromium trial: isolated initialization, clear synthetic labels, no device fields, device approval, private password replacement and scoped shared workspace passed.');
+  assert.deepEqual(errors,[]);console.log('Actual Chromium trial: isolated initialization, clear synthetic labels, no device fields, automatic browser enrollment, private password replacement and scoped shared workspace passed.');
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

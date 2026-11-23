@@ -895,61 +895,7 @@ details.chart-table[open] > summary.chart-table-btn{
   .shell.has-pane.np-rail .npane{
     transition:width .18s ease, box-shadow .18s ease;
   }
-  .shell.has-pane.np-rail .npane:hover,
-  .shell.has-pane.np-rail .npane:focus-within{
-    width:268px !important;
-    z-index:85 !important;
-    box-shadow:0 20px 48px rgba(2,6,23,.42) !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-os,
-  .shell.has-pane.np-rail .npane:focus-within .np-os,
-  .shell.has-pane.np-rail .npane:hover .np-id,
-  .shell.has-pane.np-rail .npane:focus-within .np-id,
-  .shell.has-pane.np-rail .npane:hover .np-gi,
-  .shell.has-pane.np-rail .npane:focus-within .np-gi,
-  .shell.has-pane.np-rail .npane:hover .np-gt,
-  .shell.has-pane.np-rail .npane:focus-within .np-gt,
-  .shell.has-pane.np-rail .npane:hover .np-chev,
-  .shell.has-pane.np-rail .npane:focus-within .np-chev,
-  .shell.has-pane.np-rail .npane:hover .np-l,
-  .shell.has-pane.np-rail .npane:focus-within .np-l,
-  .shell.has-pane.np-rail .npane:hover .np-meta,
-  .shell.has-pane.np-rail .npane:focus-within .np-meta{
-    display:inline-flex !important;
-    opacity:1 !important;
-    width:auto !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-brand,
-  .shell.has-pane.np-rail .npane:focus-within .np-brand{
-    justify-content:flex-start !important;
-    padding:12px 14px !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-gh,
-  .shell.has-pane.np-rail .npane:focus-within .np-gh{
-    min-height:28px !important;
-    padding:6px 12px !important;
-    pointer-events:auto !important;
-    justify-content:flex-start !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-items,
-  .shell.has-pane.np-rail .npane:focus-within .np-items{
-    display:flex !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-i,
-  .shell.has-pane.np-rail .npane:focus-within .np-i{
-    justify-content:flex-start !important;
-    padding-inline:12px !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-i .tcount,
-  .shell.has-pane.np-rail .npane:focus-within .np-i .tcount{
-    position:static !important;
-    display:inline-flex !important;
-    margin-left:auto !important;
-    min-width:20px !important;
-    height:18px !important;
-    padding:0 6px !important;
-    font-size:10.5px !important;
-  }
+
 }
 
 /* 2. Global Workspace Symmetry & Clean Justification */

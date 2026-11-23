@@ -69,7 +69,7 @@ function renderDevicesConsole(user){
   if(user.roleId!=='chief') return deniedPanel('system.config');
   if(!ENTRY_ADMIN.deviceLoaded && !ENTRY_ADMIN.busy && AUTH.online) ENTRY_ADMIN.load('devices');
   return `${pageHead('Devices','Phase 1 · server-side approval is mandatory for every staff session. The public portal is open to everyone.')}
-    <div class="card"><div class="card-b"><p>First sign-in from an unknown browser verifies the account, registers its label, type, first-seen time and requester, then stops before any staff data. Approve only after checking the displayed device code with the requester. Clearing cookies creates a new approval request.</p><button class="btn btn-sm btn-primary" data-act="entry-admin-refresh" data-kind="devices">Refresh server register</button></div></div>${entryAdminStatus()}
+    <div class="card"><div class="card-b"><p>After successful account verification, new browsers are registered automatically and do not require prior approval. The Chief can review and revoke a registered browser if needed. Clearing cookies creates a new browser registration.</p><button class="btn btn-sm btn-primary" data-act="entry-admin-refresh" data-kind="devices">Refresh server register</button></div></div>${entryAdminStatus()}
     ${table([{label:'Device / code',render:d=>`<b>${esc(d.label)}</b><div class="xs mono">${esc(d.id.slice(0,12))}${d.id===ENTRY_ADMIN.currentDeviceId?' · this browser':''}</div>`},
       {label:'Type',render:d=>esc(d.type)},{label:'First seen',render:d=>esc(d.firstSeen)},{label:'Requested by',render:d=>esc(d.requestedBy)},
       {label:'Status',render:d=>badge(d.status,d.status==='approved'?'b-ok':d.status==='pending'?'b-warn':'b-crit')},

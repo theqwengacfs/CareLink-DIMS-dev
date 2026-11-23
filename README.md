@@ -51,7 +51,7 @@ An npm-only Linux binary is also supported by installing
 its platform shared libraries must be available. Browser binaries are test-only,
 not deployment dependencies. The browser check measures rendered text contrast
 on both entry themes and exercises preview/apply, responsive controls,
-rail-expand/hold/collapse, pending-device approval/revocation, mandatory private
+first-click workspace navigation, automatic browser enrollment and revocation, mandatory private
 password replacement, confidential download and the retired-host redirect.
 
 Privacy is a **separate gate**. `npm run privacy:check` is the default full
@@ -71,7 +71,7 @@ v6/LOMAMO-CareLink-DIMS-v6.0.html
 ```
 
 The downloaded file is an isolated evaluation/offline tool, not an alternative
-production installation and not a way around hosted device approval. Use only
+production installation and does not connect to the hosted shared database. Use only
 the official host for the shared staff/patient register. A fresh hosted
 installation offers first-run commissioning once; an already commissioned
 installation must never be reset or populated with demo data to regain access.

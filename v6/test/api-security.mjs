@@ -360,10 +360,11 @@ await check('globally issued staff credentials work from a fresh online session'
   });
   assert.equal(changed.status, 200, JSON.stringify(changed.body));
   const concurrent = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', device: 'pc-test' } });
-  assert.equal(concurrent.status, 409, 'A second device must not establish a simultaneous account session');
-  assert.equal(concurrent.body.code, 'session_active');
+  assert.equal(concurrent.status, 200, 'A second session can sign in immediately');
+  assert.equal((await call('session/beat', {method:'POST',token:concurrent.body.token})).status, 200);
   const signout = await call('auth/logout', { method: 'POST', token: first.body.token });
   assert.equal(signout.status, 200);
+  assert.equal((await call('session/beat', {method:'POST',token:concurrent.body.token})).status, 200, 'signing out one session does not end another');
   const second = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', device: 'pc-test' } });
   assert.equal(second.status, 200, JSON.stringify(second.body));
   assert.equal(second.body.mustChange, false);
@@ -573,7 +574,7 @@ await check('repeated activation preserves private staff passwords instead of is
   assert.equal(r.body.issued.length, 0);
   assert.deepEqual(r.body.preserved, ['staff.one']);
   const denied = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
-  assert.equal(denied.status, 409, 'Reissued temp credentials must not let a second device bypass the active session');
+  assert.equal(denied.status, 200, 'Private credentials can open another immediate session');
   const signedOut = await call('auth/logout', { method: 'POST', token: staffToken });
   assert.equal(signedOut.status, 200);
   const login = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
@@ -584,34 +585,25 @@ await check('repeated activation preserves private staff passwords instead of is
   assert.equal(state.body.db.users.find((u) => u.username === 'staff.one').mustChange, false);
 });
 
-await check('parallel account sign-ins create one atomic winner and one active-session denial', async () => {
+await check('parallel sessions, independent logout and idempotent login retries', async () => {
   const previousLogout = await call('auth/logout', { method: 'POST', token: staffToken });
   assert.equal(previousLogout.status, 200);
   const [a, b] = await Promise.all([
     call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: 'parallel-device-a-2026' } }),
     call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: 'parallel-device-b-2026' } }),
   ]);
-  const outcomes = [a, b].sort((x, y) => x.status - y.status);
-  assert.equal(outcomes[0].status, 200, 'Exactly one parallel login must acquire the lease');
-  assert.equal(outcomes[1].status, 409, 'The competing parallel login must be refused');
-  assert.equal(outcomes[1].body.code, 'session_active');
-  const winner = outcomes[0];
-  const beat = await call('session/beat', { method: 'POST', token: winner.body.token });
-  assert.equal(beat.status, 200, JSON.stringify(beat.body));
-  assert.ok(beat.body.token, 'Heartbeat must refresh a token while retaining its stable account lease');
-  const other = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
-  assert.equal(other.status, 409, 'Heartbeat renewal must keep the second-device lock active');
-  const released = await call('auth/logout', { method: 'POST', token: beat.body.token });
-  assert.equal(released.status, 200);
+  assert.equal(a.status, 200, JSON.stringify(a.body)); assert.equal(b.status, 200, JSON.stringify(b.body));
+  const beatA = await call('session/beat', {method:'POST',token:a.body.token});
+  const beatB = await call('session/beat', {method:'POST',token:b.body.token});
+  assert.equal(beatA.status,200); assert.equal(beatB.status,200);
+  assert.equal((await call('auth/logout',{method:'POST',token:beatA.body.token})).status,200);
+  assert.equal((await call('state',{token:a.body.token})).status,401,'logout also invalidates an older token from the same session');
+  assert.equal((await call('session/beat',{method:'POST',token:beatB.body.token})).status,200,'another session remains usable');
   const attempt = 'replayed-network-attempt-2026';
   const original = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: attempt } });
   const retry = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: attempt } });
-  assert.equal(original.status, 200);
-  assert.equal(retry.status, 200, 'A retried request with its original random attempt ID can recover a lost response');
-  const unrelated = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
-  assert.equal(unrelated.status, 409, 'A separate login attempt remains blocked even while an idempotent retry is accepted');
-  const retryLogout = await call('auth/logout', { method: 'POST', token: retry.body.token });
-  assert.equal(retryLogout.status, 200);
+  assert.equal(original.status, 200); assert.equal(retry.status, 200, 'network retry stays idempotent');
+  assert.equal((await call('auth/logout', {method:'POST',token:retry.body.token})).status,200);
 });
 
 await check('anonymous demo bootstrap is permanently refused after global activation', async () => {
@@ -664,7 +656,7 @@ await check('a calling session can be opened for the coordination checks', async
   const staff = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
   assert.equal(staff.status, 200, JSON.stringify(staff.body));
   callStaffToken = staff.body.token;
-  /* One live session per account: the earlier clinical session is closed first. */
+  /* Close the earlier clinical session before opening the next fixture. */
   await call('auth/logout', { method: 'POST', token: caregiverToken });
 });
 
