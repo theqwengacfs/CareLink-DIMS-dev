@@ -1,3 +1,4 @@
+const { isSnapshotRead, conditionalPrimaryRead } = require('./kv-primary-read.cjs');
 const {dispatchWithDeviceCookie}=require('./device-cookies.cjs');
 const requireCrypto = require('node:crypto');
 /* Full reference-master proof using the actual downloadable package. */
@@ -51,6 +52,7 @@ globalThis.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (isSnapshotRead(script)) return kvResponse({ result: conditionalPrimaryRead(kv, key, value) });
       if (script.includes('redis.sha1hex')) {
         const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
         if (actual !== value) return kvResponse({ result: kv.get(key) === String(args[3 + keyCount]) ? 2 : 0 });

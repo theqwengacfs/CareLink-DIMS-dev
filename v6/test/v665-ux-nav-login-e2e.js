@@ -1,3 +1,4 @@
+const { isSnapshotRead, conditionalPrimaryRead, encodeRespFixture } = require('./kv-primary-read.cjs');
 const {dispatchWithDeviceCookie}=require('./device-cookies.cjs');
 const requireCrypto = require('node:crypto');
 /* ============================================================================
@@ -59,6 +60,7 @@ global.fetch = async (input, init = {}) => {
     }
     if (url.pathname === '/' && init.method === 'POST') {
       const cmd = JSON.parse(rawBody);
+      if (cmd[0] === 'EVAL' && isSnapshotRead(cmd[1])) return kvResponse({result:conditionalPrimaryRead(secondaryKv,cmd[3],cmd[4])});
       if (cmd[0] === 'EVAL' && cmd[1] === "return redis.call('GET', KEYS[1])") return kvResponse({result:secondaryKv.get(cmd[3]) ?? null});
     }
   }
@@ -98,6 +100,7 @@ global.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (isSnapshotRead(script)) return kvResponse({ result: conditionalPrimaryRead(kv, key, value) });
       if (script.includes('redis.sha1hex')) {
         if (Buffer.byteLength(rawBody) > 1024 * 1024) return kvResponse({error:'ERR max request size exceeded'}, 413);
         const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
@@ -399,7 +402,7 @@ function ok(name, cond, detail = '') {
   const quotaHealth = await rawApiFetch('api/health');
   const quotaBody = await quotaHealth.json();
   ok('Upstash daily quota refusal surfaces exact actionable quota diagnostic message',
-    quotaHealth.status === 503 && quotaBody.code === 'kv_unavailable' &&
+    quotaHealth.status === 503 && quotaBody.code === 'kv_quota_exceeded' && quotaBody.retryAfterSeconds === 300 &&
     /Upstash database quota|max daily request limit exceeded/i.test(quotaBody.error),
     JSON.stringify(quotaBody));
 
@@ -458,6 +461,10 @@ function ok(name, cond, detail = '') {
     if ((init.method || '').toUpperCase() === 'POST' && (url.pathname === '/' || url.pathname === '')) {
       if (/upstash-redis-js/i.test(ua)) sawRootPostWithUa = true;
       const cmd = JSON.parse(String(init.body || '[]'));
+      if (cmd[0] === 'EVAL' && isSnapshotRead(cmd[1])) {
+        const result = conditionalPrimaryRead(liveMap,cmd[3],cmd[4]);
+        return { ok:true, status:200, text:async()=>JSON.stringify({result}), json:async()=>({result}) };
+      }
       if (cmd[0] === 'GET' || (cmd[0] === 'EVAL' && cmd[1] === "return redis.call('GET', KEYS[1])")) {
         const k = cmd[0] === 'GET' ? cmd[1] : cmd[3];
         const val = liveMap.has(k) ? liveMap.get(k) : null;
@@ -540,6 +547,9 @@ function ok(name, cond, detail = '') {
           const pw = cmd.length >= 3 ? cmd[2] : cmd[1];
           if (pw === 'tcp-secret') sock.write('+OK\r\n');
           else sock.write('-WRONGPASS invalid username-password pair\r\n');
+        } else if (op === 'EVAL' && isSnapshotRead(cmd[1])) {
+          tcpGetCount++;
+          sock.write(encodeRespFixture(conditionalPrimaryRead(tcpStore,cmd[3],cmd[4])));
         } else if (op === 'EVAL' && cmd[1] === "return redis.call('GET', KEYS[1])") {
           tcpGetCount++;
           const value = tcpStore.get(cmd[3]);

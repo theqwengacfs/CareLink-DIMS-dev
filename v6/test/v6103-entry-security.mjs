@@ -1,3 +1,4 @@
+import { isSnapshotRead, conditionalPrimaryRead } from './kv-primary-read.cjs';
 /* Phase 1 boundary tests use separate cookie jars: a forged label, copied token
    or browser DB patch can never stand in for server-side device admission. */
 import assert from 'node:assert/strict';
@@ -20,6 +21,7 @@ globalThis.fetch=async(input,init={})=>{
   }
   if(op==='EVAL'){
     const [script,count,key,...args]=a;assert.equal(Number(count),1);
+    if(isSnapshotRead(script)) return answer({result:conditionalPrimaryRead(kv,key,args[0])});
     if(script==="return redis.call('GET', KEYS[1])") return answer({result:kv.get(key)??null});
     if(failWrites) return answer({error:'unavailable'},503);
     if(script.includes('redis.sha1hex')){

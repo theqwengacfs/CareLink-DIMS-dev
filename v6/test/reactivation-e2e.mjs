@@ -1,3 +1,4 @@
+import { isSnapshotRead, conditionalPrimaryRead } from './kv-primary-read.cjs';
 import { dispatchWithDeviceCookie } from './device-cookies.cjs';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -21,6 +22,7 @@ globalThis.fetch = async (input, init={}) => {
   }
   if (op==='EVAL') {
     const [script, n, key, ...args] = a;
+    if (isSnapshotRead(script)) return reply({result:conditionalPrimaryRead(kv,key,args[0])});
     if (script === "return redis.call('GET', KEYS[1])") return reply({result:kv.get(key) ?? null});
     if (script.includes('redis.sha1hex')) {
       if (pauseCommit) { const pause = pauseCommit; pauseCommit = null; await pause(); }

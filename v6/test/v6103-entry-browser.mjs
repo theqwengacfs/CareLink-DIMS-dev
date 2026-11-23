@@ -1,3 +1,4 @@
+import { isSnapshotRead, conditionalPrimaryRead } from './kv-primary-read.cjs';
 /* Optional real-Chromium regression. Install playwright-core and supply
    CHROMIUM_PATH, or install @sparticuz/chromium (npm-only binary for CI).
    Every request goes to an in-memory fixture API; never contact production. */
@@ -12,10 +13,12 @@ import {chromium} from 'playwright-core';
 const require=createRequire(import.meta.url),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const bundle=fs.readFileSync(path.join(root,'public/carelink-v6.html'),'utf8');
 const kv=new Map(),nativeFetch=globalThis.fetch;
+let fixtureQuota=false;
 const answer=(result,status=200)=>({ok:status>=200&&status<300,status,json:async()=>({result})});
 globalThis.fetch=async(input,init={})=>{
   const url=new URL(String(input));
   assert.equal(url.origin,'https://entry-browser.test','test must never use a production backend');
+  if(fixtureQuota) return {ok:false,status:403,json:async()=>({error:'ERR This database has reached current Fixed plan limits. Please upgrade manually or enable auto-upgrade on Upstash Console.'})};
   const [op,...a]=JSON.parse(init.body);
   if(op==='GET') return answer(kv.get(a[0])??null);
   if(op==='SET'){
@@ -24,6 +27,7 @@ globalThis.fetch=async(input,init={})=>{
   }
   if(op==='EVAL'){
     const [script,count,key,...args]=a;assert.equal(Number(count),1);
+    if(isSnapshotRead(script)) return answer(conditionalPrimaryRead(kv,key,args[0]));
     if(script==="return redis.call('GET', KEYS[1])") return answer(kv.get(key)??null);
     if(script.includes('redis.sha1hex')){
       const old=kv.get(key),digest=old===undefined?'missing':crypto.createHash('sha1').update(old).digest('hex');
@@ -336,6 +340,31 @@ try{
   await deviceRow().locator('[data-act="entry-device-review"]').click();await page.locator('#entry-admin-form [name="decision"]').selectOption('revoked');await page.locator('#entry-admin-form [name="password"]').fill(password);await page.locator('#entry-admin-form [type="submit"]').click();
   await page.waitForFunction(()=>!ENTRY_ADMIN.busy&&ENTRY_ADMIN.devices.some(d=>d.label==='Synthetic browser tablet'&&d.status==='revoked'));
   assert.equal((await staff.request.get(base+'/api/state',{headers:{'X-CareLink-Session':staffToken}})).status(),401,'revocation cuts off an existing actual-browser session');
+  // The actual provider wording must not blame staff passwords or offer a
+  // destructive reset. Real UI retries are deliberate, not a sync cascade.
+  const retainedRoot=kv.get('carelink_cloud_v66');fixtureQuota=true;
+  const quotaContext=await browser.newContext({viewport:{width:390,height:844}}),quotaPage=await quotaContext.newPage(),quotaRequests=[];
+  quotaPage.on('pageerror',error=>errors.push(error.message));
+  quotaPage.on('request',request=>{if(new URL(request.url()).pathname.startsWith('/api/')) quotaRequests.push(request.url());});
+  await quotaPage.goto(base+'/carelink-v6.html#/login');
+  await quotaPage.waitForFunction(()=>SYNC.kvBlocked());
+  await signIn(quotaPage,'chief.admin',password,'Synthetic quota tablet');
+  await quotaPage.waitForFunction(()=>/database quota/.test(LOGIN6.error));
+  const alert=quotaPage.locator('.lg6-alert.crit');
+  assert.match(await alert.innerText(),/not a staff password or KV-token rejection/);
+  assert.doesNotMatch(await alert.innerText(),/Upstash rejected the KV credentials/);
+  assert.equal(await quotaPage.locator('[data-act="reset-first-run-fresh"],[data-act="login-offline-device-mode"]').count(),0);
+  const retry=quotaPage.locator('[data-act="login-retry-kv"]');
+  await retry.scrollIntoViewIfNeeded();assert.equal(await retry.isVisible(),true,'quota retry remains reachable on mobile');
+  if(screenshotDir) await quotaPage.screenshot({path:path.join(screenshotDir,'quota-bandwidth-mobile.png'),fullPage:true});
+  const failedCalls=quotaRequests.length;
+  await retry.click();await quotaPage.waitForFunction(()=>!LOGIN6.busy&&/database quota/.test(LOGIN6.error));
+  assert.equal(quotaRequests.length,failedCalls+1,'one diagnostic, no automatic full-sync retries on a quota');
+  fixtureQuota=false;
+  await retry.click();await quotaPage.waitForFunction(()=>/online and healthy/.test(LOGIN6.notice));
+  assert.equal(await quotaPage.evaluate(()=>SYNC.kvBlocked()),false);
+  assert.equal(kv.get('carelink_cloud_v66'),retainedRoot,'quota recovery checks must not reset or change the installation');
+  await quotaContext.close();
   // A retired Pages entry may redirect but may never probe or commission an API.
   const retired=await browser.newContext({serviceWorkers:'block'}),retiredPage=await retired.newPage(),retiredApi=[];
   await retired.route('**/*',async route=>{

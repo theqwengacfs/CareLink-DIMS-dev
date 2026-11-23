@@ -51,21 +51,24 @@ const DEMO_PREVIEW = {
 
 /* ---------------- Boot ---------------- */
 /* ---------------- Inactivity ----------------
-   Three hundred seconds (five minutes) without genuine activity ends the session. The browser runs
-   the countdown you can see; the host runs the one that matters, because it
-   refuses an expired token whether or not this code ever runs. */
+   Fifteen minutes without genuine activity ends the browser session. Only
+   genuine activity renews the host's separate signed-token idle window; a
+   refresh or an abandoned tab must never keep it alive. */
 const SESSION = {
   WARN_AT: 870,            // seconds: a 30 second warning before the end
   END_AT: 900,
   last: Date.now(),
   warned: false,
   activeSinceBeat: false,
+  BEAT_MS: 60000,
+  lastBeat: 0,
+  _beating: false,
   _beat: null,
   _watch: null,
 
   start(){
     this.stop();
-    this.last = Date.now(); this.warned=false; this.activeSinceBeat=false;
+    this.last = Date.now(); this.lastBeat=this.last; this.warned=false; this.activeSinceBeat=false;
     if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
     if(typeof LIVE!=='undefined') setTimeout(()=>LIVE.start(), 600);
     this._watch = setInterval(()=>this.tick(), 1000);
@@ -113,10 +116,20 @@ const SESSION = {
       if(typeof DB.persistState === 'function') DB.persistState();
     }
     if(!AUTH.user||typeof SYNC==='undefined'||!SYNC.sessionToken) return;
-    const active = this.activeSinceBeat; this.activeSinceBeat=false;
-    /* An inactive beat deliberately does not extend the host session. */
-    const left = await SYNC.beat();
-    if(left===null && SYNC.sessionToken===null && AUTH.user){ /* handled by _json 401 */ }
+    /* Reconcile calls locally every ten seconds, but renew the online lease at
+       most once a minute and only after real activity. Keep activity that
+       arrives during the request (or a failed renewal) for the next attempt. */
+    if(this._beating || !this.activeSinceBeat || document.hidden ||
+        this.idleSeconds() >= this.END_AT || Date.now()-this.lastBeat < this.BEAT_MS || SYNC.kvBlocked()) return;
+    const activityAt = this.last;
+    this._beating = true;
+    try{
+      const left = await SYNC.beat();
+      if(left !== null){
+        this.lastBeat = Date.now();
+        if(this.last === activityAt) this.activeSinceBeat = false;
+      }
+    }finally{ this._beating = false; }
   },
   serverExpired(){ this.expire('server'); },
   expire(reason){
