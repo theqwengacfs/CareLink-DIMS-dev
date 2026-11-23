@@ -88,6 +88,17 @@ jobs:
 
       - name: Point Bubblewrap at the pre-installed JDK and SDK
         run: |
+          set -x
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME"
+          # Bubblewrap validates the SDK by checking for a bin/ or tools/ folder
+          # at the SDK root. GitHub's SDK keeps sdkmanager under
+          # cmdline-tools/latest/bin, so expose it at the root as well.
+          if [ ! -e "$ANDROID_HOME/bin" ]; then
+            ln -s "$ANDROID_HOME/cmdline-tools/latest/bin" "$ANDROID_HOME/bin"
+          fi
+          ls "$ANDROID_HOME/bin"
           mkdir -p "$HOME/.bubblewrap"
           printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_HOME" "$ANDROID_HOME" > "$HOME/.bubblewrap/config.json"
           cat "$HOME/.bubblewrap/config.json"
@@ -97,7 +108,11 @@ jobs:
         env:
           BUBBLEWRAP_KEYSTORE_PASSWORD: 'carelink123'
           BUBBLEWRAP_KEY_PASSWORD: 'carelink123'
-        run: bubblewrap build --skipPwaValidation
+        run: |
+          set -x
+          ls -la
+          cat twa-manifest.json
+          bubblewrap build --skipPwaValidation
 
       - name: List build outputs
         run: |
