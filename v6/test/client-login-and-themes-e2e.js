@@ -287,6 +287,19 @@ global.fetch = async (input, init = {}) => {
   assert.equal(tabletA.run('DB.db.patients.length'), nyalendaPatientIds.length, 'Tablet A must hold only its assigned ministry-area patients');
   assert.deepEqual(JSON.parse(tabletA.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), nyalendaPatientIds, 'No cross-area patient records may reach Tablet A');
 
+  /* Legacy host-wide IndexedDB snapshots may belong to a different account.
+     Refresh must ignore them even at the same revision and ask the host for
+     this caregiver's own scope, rather than show an empty Chief snapshot or
+     retain a broader clinical snapshot. All data here is synthetic. */
+  tabletA.run(`SYNC._idbReadSnapshot=async()=>({rev:SYNC.rev, saved:SYNC.saved,
+    db:Object.assign({},DB.db,{patients:[]})});`);
+  assert.equal(await tabletA.run('SYNC.pullFull()'), true);
+  assert.deepEqual(JSON.parse(tabletA.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), nyalendaPatientIds, 'An empty snapshot from another account cannot hide this caregiver’s patients');
+  tabletA.run(`SYNC._idbReadSnapshot=async()=>({rev:SYNC.rev, saved:SYNC.saved,
+    db:Object.assign({},DB.db,{patients:[{id:'outside-synthetic',countyId:'homabay',areaId:'other'}]})});`);
+  assert.equal(await tabletA.run('SYNC.pullFull()'), true);
+  assert.deepEqual(JSON.parse(tabletA.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), nyalendaPatientIds, 'Another account’s broader snapshot is never adopted');
+
   /* CRITICAL: Run SYNC.tick() and LIVE.start() when unchanged -> 0 shard reads, 4,000 patients preserved, no logout! */
   shardGets = 0;
   tabletA.run('LIVE.start()');

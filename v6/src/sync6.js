@@ -331,56 +331,6 @@ const SYNC = {
     await new Promise(resolve => setTimeout(resolve, ms));
   },
 
-  _idbCacheKey(){
-    try{
-      const loc = typeof location !== 'undefined' ? `${location.origin || ''}${location.pathname || ''}` : 'default';
-      return `carelink_cloud_snap_v6:${loc}`;
-    }catch(e){ return 'carelink_cloud_snap_v6:default'; }
-  },
-
-  async _idbOpen(){
-    if(typeof indexedDB === 'undefined' || !indexedDB || typeof indexedDB.open !== 'function') return null;
-    return await new Promise((resolve) => {
-      try{
-        const req = indexedDB.open('carelink_sync_idb_v6', 1);
-        req.onupgradeneeded = () => {
-          try{
-            const db = req.result;
-            if(!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots');
-          }catch(e){}
-        };
-        req.onsuccess = () => resolve(req.result || null);
-        req.onerror = () => resolve(null);
-      }catch(e){ resolve(null); }
-    });
-  },
-
-  async _idbReadSnapshot(){
-    const idb = await this._idbOpen();
-    if(!idb) return null;
-    return await new Promise((resolve) => {
-      try{
-        const tx = idb.transaction('snapshots', 'readonly');
-        const st = tx.objectStore('snapshots');
-        const req = st.get(this._idbCacheKey());
-        req.onsuccess = () => { try{ idb.close(); }catch(e){} resolve(req.result || null); };
-        req.onerror = () => { try{ idb.close(); }catch(e){} resolve(null); };
-      }catch(e){ try{ idb.close(); }catch(_){} resolve(null); }
-    });
-  },
-
-  _idbWriteSnapshot(dbObj, rev, saved){
-    this._idbOpen().then((idb) => {
-      if(!idb) return;
-      try{
-        const tx = idb.transaction('snapshots', 'readwrite');
-        tx.objectStore('snapshots').put({ rev: Number(rev)||0, saved: saved||null, at: Date.now(), db: dbObj }, this._idbCacheKey());
-        tx.oncomplete = () => { try{ idb.close(); }catch(e){} };
-        tx.onerror = () => { try{ idb.close(); }catch(e){} };
-      }catch(e){ try{ idb.close(); }catch(_){} }
-    }).catch(() => {});
-  },
-
   _canDecompressGzip(){
     return typeof DecompressionStream === 'function'
       && typeof Response === 'function'
@@ -419,41 +369,6 @@ const SYNC = {
     }catch(e){}
   },
 
-  async _tryCachedDeltaPull(minRev, requireReferenceMaster){
-    const snap = await this._idbReadSnapshot();
-    if(!snap || !snap.db || !snap.rev) return false;
-    if(requireReferenceMaster && !(snap.db.meta && snap.db.meta.referenceMaster)) return false;
-    try{
-      const d = await this._json(`api/state?since=${snap.rev}&deltaOnly=1`, { timeoutMs: 10000, preserveTokenOn401: true });
-      if(!d || !d.ok || !d.body || d.body.deltaMiss) return false;
-      const gotRev = Number(d.body.rev) || 0;
-      if(minRev > 0 && gotRev < minRev) return false;
-      if(d.body.unchanged){
-        if(gotRev !== Number(snap.rev)) return false;
-        if(d.body.saved && snap.saved && d.body.saved !== snap.saved) return false;
-        this.adoptRemote(Object.assign({}, snap.db), gotRev || snap.rev, d.body.saved || snap.saved);
-        this.state = 'connected';
-        this.message = 'Reading the shared online source';
-        this.bump();
-        return true;
-      }
-      if(Array.isArray(d.body.patches)){
-        this.adoptRemote(Object.assign({}, snap.db), snap.rev, snap.saved);
-        if(d.body.patches.length) this.applyPatchList(d.body.patches);
-        this.rev = gotRev || snap.rev;
-        this.saved = d.body.saved || snap.saved;
-        DB.db.meta = Object.assign({}, DB.db.meta, { serverRev: this.rev, serverSaved: this.saved });
-        this.rebase();
-        this._idbWriteSnapshot(DB.db, this.rev, this.saved);
-        this.state = 'connected';
-        this.message = 'Reading the shared online source';
-        this.bump();
-        return true;
-      }
-    }catch(e){}
-    return false;
-  },
-
   async _tryFastPackPull(minRev, requireReferenceMaster){
     const isCloudHost = Boolean(
       (this.server && this.server.cloud) ||
@@ -476,7 +391,8 @@ const SYNC = {
         break;
       }
     }
-    if(!first || !first.ok || !first.body || !first.body.fastPack || typeof first.body.part0 !== 'string'){
+    if(!first || !first.ok || !first.body || !first.body.fastPack || typeof first.body.part0 !== 'string' ||
+       (minRev > 0 && (Number(first.body.rev) || 0) < minRev)){
       return null;
     }
     const totalParts = Number(first.body.totalParts) || 1;
@@ -493,7 +409,8 @@ const SYNC = {
             timeoutMs: 35000
           });
           if(this.kvBlocked()) return false;
-          if(pr && pr.ok && pr.body && typeof pr.body.data === 'string'){
+          if(pr && pr.ok && pr.body && typeof pr.body.data === 'string' &&
+             Number(pr.body.rev) === packRev && Number(pr.body.part) === partIdx && Number(pr.body.totalParts) === totalParts){
             chunks[partIdx] = pr.body.data;
             return true;
           }
@@ -512,12 +429,11 @@ const SYNC = {
 
     try{
       const unpacked = await this._gunzipBase64Json(chunks.join(''));
-      if(!unpacked || !unpacked.db || typeof unpacked.db !== 'object') return null;
+      if(!unpacked || !unpacked.db || typeof unpacked.db !== 'object' || Number(unpacked.rev) !== packRev) return null;
       if(requireReferenceMaster && !(unpacked.db.meta && unpacked.db.meta.referenceMaster)) return null;
       this.adoptRemote(unpacked.db, unpacked.rev || packRev, unpacked.saved || first.body.saved);
       await this._catchUpDeltasSince(unpacked.rev || packRev);
       if(this.kvBlocked()) return false;
-      this._idbWriteSnapshot(DB.db, this.rev, this.saved);
       this.state = 'connected';
       this.message = 'Reading the shared online source';
       this.bump();
@@ -541,7 +457,6 @@ const SYNC = {
        state snapshot, adopt it directly with zero extra round-trip or replica lag. */
     if(!requireReferenceMaster && inlineState && inlineState.db && (!Array.isArray(inlineState.pagedCollections) || inlineState.pagedCollections.length === 0)){
       this.adoptRemote(Object.assign({}, inlineState.db), inlineState.rev || minRev, inlineState.saved);
-      this._idbWriteSnapshot(DB.db, this.rev, this.saved);
       this.state='connected'; this.message='Reading the shared online source'; this.bump();
       return true;
     }
@@ -549,18 +464,16 @@ const SYNC = {
     clearTimeout(this._timer);
     this._pulling = true;
     try{
-      /* 1. Instant IndexedDB snapshot + delta check (<150 ms on repeat sign-ins) */
-      if(await this._tryCachedDeltaPull(minRev, requireReferenceMaster)){
-        return true;
-      }
-      if(this.kvBlocked()) return false;
-
-      /* 2. Fast compressed 2-part stream (~4 MB gzip instead of ~73 MB raw JSON) */
+      /* Always obtain a server-scoped snapshot. Older IndexedDB snapshots were
+         keyed only by host, so another account's (or an outdated scope's) data
+         could otherwise be reused when the revision had not changed. A delta is
+         not a substitute for reapplying the current account's access scope. */
+      /* Fast compressed stream, then paged state when compression is unavailable. */
       const fastOk = await this._tryFastPackPull(minRev, requireReferenceMaster);
       if(fastOk === true) return true;
       if(this.kvBlocked()) return false;
 
-      /* 3. Controlled-concurrency, revision-tolerant paged collection loader */
+      /* Controlled-concurrency, revision-tolerant paged collection loader. */
       const delays = [0, 250, 600, 1200];
       const pageDelays = [0, 300, 750, 1500];
       let lastPullErr = null;
@@ -586,6 +499,10 @@ const SYNC = {
           this.state='error'; this.message = r.body.error || `The shared online state could not be read (HTTP ${r.status})`; this.bump(); return false;
         }
         const baseRev = Number(r.body.rev) || 0;
+        if((minRev > 0 && baseRev < minRev) ||
+           (requireReferenceMaster && !(r.body.db.meta && r.body.db.meta.referenceMaster))){
+          this.state='error'; this.message='The shared online state is not yet up to date; retry the refresh.'; this.bump(); return false;
+        }
         let maxSeenRev = baseRev;
         const remoteDb = Object.assign({}, r.body.db);
         const paged = Array.isArray(r.body.pagedCollections) ? r.body.pagedCollections : [];
@@ -696,7 +613,6 @@ const SYNC = {
             await this._catchUpDeltasSince(baseRev);
           }
           if(this.kvBlocked()) return false;
-          this._idbWriteSnapshot(DB.db, this.rev, this.saved);
           this.state='connected'; this.message='Reading the shared online source'; this.bump();
           return true;
         }catch(err){

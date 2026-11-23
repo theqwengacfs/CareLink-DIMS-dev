@@ -145,7 +145,9 @@ function scopeSentence(user){
   const s = (roleObj(user.roleId)||{}).scope||{};
   if(s.geo==='global') return 'Your authority covers both county offices.';
   if(s.records==='assigned') return 'You see only assignments made to you.';
-  if(s.geo==='areas') return 'Your authority covers '+(user.areaIds||[]).map(areaName).join(', ')+'.';
+  if(s.geo==='areas') return (user.areaIds||[]).length
+    ? 'Your authority covers '+(user.areaIds||[]).map(areaName).join(', ')+'.'
+    : 'No ministry area is assigned to your account. Ask your administrator to check your assignment.';
   return 'Your authority covers '+countyName(user.countyId)+'.';
 }
 function homeHeroActions(user){
@@ -677,6 +679,8 @@ function renderPatients(user, params){
   return pageHead('Patient register', `${num(total)} records visible within your authority · ${scopeSentence(user)}`,
     `${RBAC.has(user,'system.export')?`<button class="btn btn-sm btn-ghost" data-act="request-export">${ic('download',14)} Full export (dual approval)</button>`:''}
      ${RBAC.has(user,'patient.assess.create')?`<button class="btn btn-sm btn-primary" data-act="new-assessment">${ic('plus',15)} New assessment</button>`:''}`)
+  + (!total && !(params.q||params.area||params.status)
+    ? `<div class="alert info" style="margin-bottom:16px">${ic('info',18)}<div><b>No patients are currently visible to this account</b><span class="small">Check the shared online status and your ministry-area assignment. If the connection is healthy and the list remains empty, ask your administrator to verify that the shared register contains records for your area. An empty scoped list does not establish that the shared register is empty.</span></div></div>` : '')
   + card('', `
     <div class="reg-toolbar">
       <div class="reg-toolbar-main">

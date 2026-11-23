@@ -52,12 +52,52 @@ function hosted() {
     assert.equal(c.requests.length,1);assert.equal(c.run('SYNC.state'),'error');
     assert.match(c.run('SYNC.message'),/bandwidth quota/);assert.equal(c.run('SYNC.kvBlocked()'),true);
   });
-  await check('a cached-delta quota refusal stops all fast-pack/page fallbacks and retains the session',async()=>{
+  await check('a full pull ignores old host-wide snapshots and obtains the current account scope',async()=>{
     const c=hosted();
-    c.run(`SYNC.server={cloud:true};SYNC._idbReadSnapshot=async()=>({db:DB.db,rev:12,saved:null});SYNC._canDecompressGzip=()=>true;`);
+    c.run(`SYNC.server={cloud:true};SYNC._canDecompressGzip=()=>false;
+      SYNC._idbReadSnapshot=async()=>{throw Error('old host-wide snapshot must never be read');};`);
+    const scoped=JSON.parse(c.run(`JSON.stringify(Object.assign(DB.blank(),{patients:[{id:'allowed',name:'Synthetic',countyId:'kisumu',areaId:'ombeyi'}]}))`));
+    c.ctx.fetch=async(url,init)=>{c.requests.push({url,init});return answer({ok:true,rev:12,saved:'current',db:scoped});};
+    assert.equal(await c.run('SYNC.pullFull()'),true);
+    assert.equal(c.requests.length,1);assert.equal(c.requests[0].url,'api/state');
+    assert.equal(c.run('DB.db.patients[0].id'),'allowed');
+  });
+  await check('stale or incomplete snapshots are not adopted after retries',async()=>{
+    const c=hosted();
+    c.run(`SYNC.server={cloud:true};SYNC._canDecompressGzip=()=>true;SYNC._sleep=async()=>{};`);
+    const old=JSON.parse(c.run('JSON.stringify(DB.db)'));
+    old.patients=[];
+    c.ctx.fetch=async(url,init)=>{
+      c.requests.push({url,init});
+      return url==='api/state?fast=1'
+        ? answer({ok:true,fastPack:true,rev:11,totalParts:1,part0:'old'})
+        : answer({ok:true,rev:11,db:old});
+    };
+    assert.equal(await c.run('SYNC.pullFull({minRev:12})'),false);
+    assert.equal(c.run('DB.db.patients[0].id'),'synthetic-p1','a stale state cannot replace the visible snapshot');
+    assert.match(c.run('SYNC.message'),/not yet up to date/);
+    c.requests.length=0;
+    c.run('SYNC._canDecompressGzip=()=>false;');
+    c.ctx.fetch=async(url,init)=>{c.requests.push({url,init});return answer({ok:true,rev:12,db:old});};
+    assert.equal(await c.run('SYNC.pullFull({requireReferenceMaster:true})'),false);
+    assert.equal(c.run('DB.db.patients[0].id'),'synthetic-p1');
+  });
+  await check('compressed pieces from different revisions are never combined',async()=>{
+    const c=hosted();
+    c.run(`SYNC.server={cloud:true};SYNC._canDecompressGzip=()=>true;SYNC._sleep=async()=>{};
+      SYNC._gunzipBase64Json=async()=>{throw Error('incompatible parts must not be decoded');};`);
+    c.ctx.fetch=async(url,init)=>{c.requests.push({url,init});return url==='api/state?fast=1'
+      ? answer({ok:true,fastPack:true,rev:12,totalParts:2,part0:'a'})
+      : answer({ok:true,fastPack:true,rev:13,totalParts:2,part:1,data:'b'});};
+    assert.equal(await c.run('SYNC._tryFastPackPull(12,false)'),null);
+    assert.equal(c.run('DB.db.patients[0].id'),'synthetic-p1');
+  });
+  await check('a full-pull quota refusal retains the session and stops later network attempts',async()=>{
+    const c=hosted();
+    c.run(`SYNC.server={cloud:true};SYNC._canDecompressGzip=()=>true;`);
     c.ctx.fetch=async(url,init)=>{c.requests.push({url,init});return answer(quota,503);};
     assert.equal(await c.run('SYNC.pullFull()'),false);assert.equal(c.requests.length,1);
-    assert.match(c.requests[0].url,/deltaOnly=1/);
+    assert.equal(c.requests[0].url,'api/state?fast=1');
     assert.equal(c.run('SYNC.kvBlocked()'),true);assert.equal(c.run('SYNC._pulling'),false);
     assert.equal(c.run('SYNC.state'),'error');assert.match(c.run('SYNC.message'),/bandwidth quota/);
     assert.equal(c.run('SYNC.sessionToken'),'synthetic-session');
