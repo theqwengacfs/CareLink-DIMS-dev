@@ -63,7 +63,17 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "build-tools;36.1.0" "platforms;android-35" "platform-tools"
+          set -x
+          # Locate sdkmanager: prefer the SDK's cmdline-tools, fall back to PATH.
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager || true)"
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          "$SDKMANAGER" --version
+          # Accept all SDK licenses first (required before installing packages).
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "build-tools;36.1.0" "platforms;android-35" "platform-tools"
 
       - name: Install Bubblewrap
         run: |
