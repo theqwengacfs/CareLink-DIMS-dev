@@ -28,6 +28,19 @@ const {makeCtx}=require('./dom');
   assert.equal(run("DB.db.audit.some(e=>e.action==='system.config_changed')"),true);
   assert.match(run('renderLanding6()'),/data-theme="clinic"/);
   assert.match(run('renderLogin6()'),/class="lg6" data-theme="clinic"/);
+  // Trial-only UI never asks for the label/type; the backend still requires
+  // browser approval. Production and unknown hosts retain the original fields.
+  run("APPX.host={trialMode:true,mode:'isolated-synthetic-trial',setup:true,rev:1};LOGIN6.tab='signin'");
+  assert.match(run('renderLogin6()'),/TEAM TRIAL · SYNTHETIC DATA ONLY/);
+  assert.doesNotMatch(run('renderLogin6()'),/name="deviceLabel"|name="deviceType"/);
+  assert.match(run('renderLogin6()'),/Chief-approved device registration required/);
+  assert.doesNotMatch(run('renderLogin6()'),/Reset pre-activation setup/);
+  assert.match(run('renderLanding6()'),/Never enter real patient/);
+  assert.match(run("workspaceHeroBanner('home',AUTH.user)"),/TEAM TRIAL · SYNTHETIC DATA ONLY/);
+  run("APPX.host={setup:true,mode:'online-site-db'}");
+  assert.match(run('renderLogin6()'),/name="deviceLabel"/);
+  assert.match(run('renderLogin6()'),/name="deviceType"/);
+  run('APPX.host=null');
   run("AUTH.user=DB.db.users.find(u=>u.roleId==='caregiver')");
   await assert.rejects(run("ENTRY_THEME.apply('heritage')"),/Only the Chief/);
   assert.ok(!run('settingsLanding(AUTH.user,true)').includes('data-act="preview-theme"'),'non-Chief users cannot see apply/preview controls even with org.manage');

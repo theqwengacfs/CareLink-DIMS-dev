@@ -25,7 +25,11 @@ import { generateReferenceManifest } from './synthetic-reference.mjs';
 import careRules from '../v6/src/care_rules.js';
 import careWorkflow from '../v6/src/care_workflow.js';
 
-const CLOUD_KEY = 'carelink_cloud_v66';
+/* The interactive evaluation deployment must be explicitly configured and
+   backed by its own KV database. Its namespace must never address live keys. */
+const TRIAL_MODE = process.env.CARELINK_TRIAL_MODE === 'isolated-v1';
+const LIVE_CLOUD_KEY = 'carelink_cloud_v66';
+const CLOUD_KEY = TRIAL_MODE ? 'carelink_trial_cloud_v1' : LIVE_CLOUD_KEY;
 /* Every request remembers the exact primary snapshot it read. Atomic compare-
    and-swap prevents a long-running/stale request from replacing newer accounts
    or records, including saves that do not increment the public revision. */
@@ -158,6 +162,12 @@ function cleanKvToken(raw) {
 let _pinnedKvIndex = 0;
 
 function kvCandidates({ allowReadOnlyFallback = false } = {}) {
+  /* Trial has no fallback to a production KV variable or replica token. */
+  if (TRIAL_MODE) {
+    const url = cleanKvUrl(process.env.CARELINK_TRIAL_KV_REST_API_URL);
+    const token = cleanKvToken(process.env.CARELINK_TRIAL_KV_REST_API_TOKEN);
+    return url && token ? [{url, token, readOnly:false}] : [];
+  }
   const pairs = [
     [process.env.CARELINK_KV_REST_API_URL, process.env.CARELINK_KV_REST_API_TOKEN],
     [process.env.KV_REST_API_URL, process.env.KV_REST_API_TOKEN],
@@ -199,6 +209,7 @@ function kvConfig() {
 }
 
 function redisTcpCandidates() {
+  if (TRIAL_MODE) return [];
   const raws = [
     process.env.CARELINK_REDIS_URL,
     process.env.KV_URL,
@@ -804,7 +815,7 @@ const SESSION_LEASE_RELEASE_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then
 function sessionLeaseKey(username, epoch = '') {
   const canonical = String(username || '').trim().toLowerCase();
   const digest = crypto.createHash('sha256').update(epoch ? `${canonical}:${epoch}` : canonical).digest('hex').slice(0, 40);
-  return `carelink_active_session_v1_${digest}`;
+  return `${TRIAL_MODE ? 'carelink_trial_active_session_v1_' : 'carelink_active_session_v1_'}${digest}`;
 }
 
 function loginSessionId(username, attemptId) {
@@ -2091,7 +2102,7 @@ function scopedDbForSession(db, state, sess) {
   const scope = principalScope(state, sess);
   const patients = Array.isArray(copy.patients) ? copy.patients : [];
   const syntheticOnly = patients.length > 0 && patients.every((p) => p && (p.demo === true || p.synthetic === true));
-  const demoPreview = syntheticOnly && !isGloballyActivated(state) && isDemoDatabase(state);
+  const demoPreview = !TRIAL_MODE && syntheticOnly && !isGloballyActivated(state) && isDemoDatabase(state);
   const visiblePatients = demoPreview
     ? patients
     : (CLINICAL_READ_ROLES.has(scope.roleId)
@@ -2395,7 +2406,7 @@ const MASTER_MAX_CHUNKS = 256;
 const MASTER_MAX_CHUNK_CHARS = 600000;
 const MASTER_MAX_RAW_BYTES = 160 * 1024 * 1024; /* the 4,000-patient register is ~78 MB uncompressed */
 const MASTER_MAX_COMPRESSED_BYTES = 8 * 1024 * 1024;
-const MASTER_CHUNK_PREFIX = 'carelink_reference_master_v1_';
+const MASTER_CHUNK_PREFIX = TRIAL_MODE ? 'carelink_trial_reference_master_v1_' : 'carelink_reference_master_v1_';
 const STATE_PAGE_MAX_BYTES = 3 * 1024 * 1024;
 const STATE_PAGE_THRESHOLD = 512 * 1024;
 const MASTER_PROTECTED_KEYS = new Set([
@@ -3016,13 +3027,16 @@ async function admitLoginDevice(state, req, res, body, cred, {save = true} = {})
   return {ok:true,deviceId:id};
 }
 function rosterMailbox(state, seat) {
-  if (seat.unconfirmed) return '';
+  if (TRIAL_MODE || seat.unconfirmed) return '';
   const attestation = state.mailboxes && state.mailboxes[seat.username];
   const address = String(attestation && attestation.email || '').trim().toLowerCase();
   return attestation && attestation.confirmedBy && /^[a-z0-9._-]+@lomamofoundation\.org$/.test(address) ? address : '';
 }
 
-function staffExportRoster(sess) {
+function staffExportRoster(sess, state) {
+  if (TRIAL_MODE) return (state.db?.users || []).filter(u=>u && u.synthetic === true && u.demo === true).map(u=>({
+    username:u.username,name:u.name,roleId:u.roleId,countyId:u.countyId,areas:u.areaIds || [],dept:u.departmentId,job:u.jobTitle,unconfirmed:false,
+  }));
   // A commissioned Chief may have chosen a different username. Do not export
   // a fictitious chief.admin login that does not exist on this installation.
   return officialStructure.roster.map(seat => seat.roleId === 'chief'
@@ -3049,6 +3063,39 @@ async function handleRequest(req, res) {
     if (!sameOrigin) return sendJson(res, 403, {ok:false,code:'origin_denied',error:'Use this installation’s own origin for account and data changes.'});
   }
   if ((route === '' || route === 'index') && method === 'GET') route = 'health';
+
+  if (!TRIAL_MODE && (process.env.CARELINK_TRIAL_MODE || process.env.CARELINK_TRIAL_HOST || process.env.CARELINK_TRIAL_SETUP_SECRET ||
+      process.env.CARELINK_TRIAL_KV_REST_API_URL || process.env.CARELINK_TRIAL_KV_REST_API_TOKEN)) {
+    return sendJson(res, 503, {ok:false,code:'trial_mode_invalid',error:'Incomplete or invalid isolated-trial configuration. No data was accessed.'});
+  }
+  if (TRIAL_MODE) {
+    const host = String(req.headers.host || '').toLowerCase();
+    const configuredHost = String(process.env.CARELINK_TRIAL_HOST || '').trim().toLowerCase();
+    const protectedHosts = new Set(['care-link-dims-dev-three.vercel.app', 'care-link-dims-dev.vercel.app', 'theqwengacfs.github.io']);
+    if (!configuredHost || host !== configuredHost || protectedHosts.has(host) || !/^[a-z0-9.-]+(?::[0-9]{1,5})?$/.test(host)) {
+      return sendJson(res, 503, {ok:false,code:'trial_host_invalid',error:'The isolated trial host is not configured correctly. No data was accessed.'});
+    }
+    if (!/^[A-Za-z0-9_-]{43,128}$/.test(String(process.env.CARELINK_TRIAL_SETUP_SECRET || ''))) {
+      return sendJson(res, 503, {ok:false,code:'trial_setup_secret_required',error:'The isolated trial requires a 32-byte random base64url setup secret before it can run.'});
+    }
+    /* A distinct variable and key namespace are not a substitute for a
+       separate KV database. Refuse a database containing the live root even
+       if the operator accidentally supplied its credentials here. */
+    const liveKeyExists = await runKvCommand(['EXISTS', LIVE_CLOUD_KEY], 10000, 'read');
+    if (liveKeyExists !== 0 && liveKeyExists !== '0') {
+      return sendJson(res, 503, {ok:false,code:'trial_live_store_detected',error:'This database contains a live CareLink root or could not be checked. Use a separate empty trial database; no trial data was written.'});
+    }
+    if (['setup', 'setup/reset-first-run', 'setup/activate-global'].includes(route) && method === 'POST') {
+      return sendJson(res, 403, {ok:false,code:'trial_setup_locked',error:'The isolated trial is initialized only through its protected one-time setup. Production setup and activation are disabled.'});
+    }
+    if (route === 'trial/initialize' && method === 'POST') {
+      const supplied = String(req.headers['x-carelink-trial-setup-secret'] || '');
+      const expected = String(process.env.CARELINK_TRIAL_SETUP_SECRET || '');
+      const a = crypto.createHash('sha256').update(supplied).digest();
+      const b = crypto.createHash('sha256').update(expected).digest();
+      if (!supplied || !crypto.timingSafeEqual(a, b)) return sendJson(res, 403, {ok:false,code:'trial_setup_denied',error:'Trial setup authorization failed.'});
+    }
+  }
 
   /* 0a. Safe Non-Sensitive KV Connection Diagnostics (never exposes tokens or PII) */
   if (route === 'kv-diagnostics' && method === 'GET') {
@@ -3142,6 +3189,58 @@ async function handleRequest(req, res) {
     ? await loadCloudHead()
     : await loadCloudState({ readOnly: method === 'GET' });
 
+  /* One-time isolated trial initialization. The secret is server-configured,
+     never a default or a URL parameter; an existing root is never replaced.
+     Credentials are returned once and only salted hashes enter the store. */
+  if (route === 'trial/initialize' && method === 'POST') {
+    if (!TRIAL_MODE) return sendJson(res, 404, {ok:false,code:'not_found',error:'Not found.'});
+    if (requestSnapshot.getStore()?.snapshot !== 'missing' || state.setup) {
+      return sendJson(res, 409, {ok:false,code:'trial_already_initialized',error:'Trial storage is not empty. It will not be reset or replaced.'});
+    }
+    const manifest = generateReferenceManifest();
+    const compressed = Buffer.from(manifest.chunks.join(''), 'base64');
+    if (compressed.length !== manifest.compressedBytes || crypto.createHash('sha256').update(compressed).digest('hex') !== manifest.compressedDigest) throw new MasterPackageError('Synthetic reference checksum failed.', 'master_digest_mismatch');
+    const raw = zlib.brotliDecompressSync(compressed, {maxOutputLength:manifest.rawBytes + 1});
+    if (raw.length !== manifest.rawBytes || crypto.createHash('sha256').update(raw).digest('hex') !== manifest.digest) throw new MasterPackageError('Synthetic reference checksum failed.', 'master_digest_mismatch');
+    const payload = JSON.parse(raw.toString('utf8'));
+    const verified = validateReferencePayload(payload);
+    const users = payload.db.users.filter(u => u && u.synthetic === true && u.demo === true && u.active !== false && u.status === 'active');
+    /* A trial seat is not a claim that the corresponding real-world staff seat
+       is occupied. Give unconfirmed seats explicit synthetic labels, only in
+       this separate evaluation database, so every role can be exercised. */
+    for (const user of users) if (user.unconfirmed) {
+      user.name = `Synthetic trial seat · ${user.jobTitle || user.roleId}`;
+      user.unconfirmed = false; user.surnamePending = false;
+      user.seatNote = 'Synthetic trial account; not an attestation of a real staff appointment.';
+    }
+    if (users.filter(u=>u.roleId === 'chief').length !== 1) throw new MasterPackageError('Synthetic trial must have exactly one initial Chief.', 'trial_invalid_users');
+    state.db = payload.db;
+    state.db.meta = {...state.db.meta, trialMode:true, demoMode:true, demoSeeded:true,
+      referenceMaster:{id:'TRIAL-INITIAL',importedAt:nowISO(),importedBy:'trial-initializer',digest:manifest.digest,counts:verified.counts,quality:verified.quality}};
+    state.org = {name:'CareLink synthetic team trial',shortName:'CareLink trial',county:'kisumu',emailDomain:'lomamo.example'};
+    state.creds = {};
+    const issued = [];
+    for (const user of users) {
+      const username = String(user.username || '').toLowerCase();
+      if (!/^[a-z0-9][a-z0-9._-]{2,119}$/.test(username) || FORBIDDEN_KEYS.has(username) || state.creds[username]) throw new MasterPackageError('Invalid synthetic trial account.', 'trial_invalid_users');
+      const password = generateStrongPassword();
+      const {salt,digest} = hashPassword(password);
+      const chief = user.roleId === 'chief';
+      user.mustChange = !chief; user.mustChangePassword = !chief;
+      state.creds[username] = {id:user.id,username,name:user.name,roleId:user.roleId,countyId:user.countyId || 'kisumu',
+        areaIds:Array.isArray(user.areaIds) ? user.areaIds : [],departmentId:user.departmentId || '',email:'',salt,digest,
+        mustChange:!chief,privacyProtected:true,sessionEpoch:crypto.randomBytes(16).toString('hex'),
+        ...(chief ? {privateSetAt:nowISO()} : {temporary:temporaryMetadata(state,'trial-initializer')}),updatedAt:nowISO()};
+      issued.push({username,name:user.name,roleId:user.roleId,countyId:user.countyId || 'kisumu',password,mustChange:!chief,
+        expiresAt:chief ? null : new Date(state.creds[username].temporary.expiresAt).toISOString()});
+    }
+    state.setup = true; state.globallyActivated = false; state.devicePolicyInstalled = false;
+    state.sessions = {}; state.devices = {}; state.rev = 1; state.deltas = [];
+    appendServerAudit(state,'trial-initializer','trial.initialized','installation','synthetic-trial',`Isolated trial initialized with ${verified.counts.patients} synthetic patients and ${issued.length} synthetic accounts.`);
+    await saveCloudState(state);
+    return sendJson(res, 200, {ok:true,trialMode:true,counts:verified.counts,quality:verified.quality,issued});
+  }
+
   /* Newly issued credentials cannot access a workspace or modify records until
      their holder replaces the temporary password. Public login and recovery
      remain available; the signed-in user can only change password or sign out. */
@@ -3167,7 +3266,8 @@ async function handleRequest(req, res) {
       version: '6.9.6',
       cloud: true,
       onlineDatabase: true,
-      mode: 'online-site-db',
+      mode: TRIAL_MODE ? 'isolated-synthetic-trial' : 'online-site-db',
+      ...(TRIAL_MODE ? {trialMode:true} : {}),
       storageMode: driver,
       storageDriver: driver,
       setup: Boolean(state.setup && Object.keys(state.creds || {}).length > 0),
@@ -3352,14 +3452,15 @@ async function handleRequest(req, res) {
   if (route === 'admin/staff-accounts' && method === 'GET') {
     const sess = getSession(state,req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Chief System Administrator access required.'});
-    return sendJson(res,200,{ok:true,domain:OFFICIAL_EMAIL_DOMAIN,config:systemConfig(state),rows:staffExportRoster(sess).map(seat => ({
+    return sendJson(res,200,{ok:true,domain:TRIAL_MODE ? 'lomamo.example' : OFFICIAL_EMAIL_DOMAIN,config:systemConfig(state),rows:staffExportRoster(sess, state).map(seat => ({
       ...credentialExportRow(state,seat), credentialStatus:state.creds[seat.username]?.revokedAt ? 'revoked' : state.creds[seat.username]?.privateSetAt ? 'private password set' : 'not yet issued / temporary'
     }))});
   }
   if (route === 'admin/staff-accounts/mailbox' && method === 'POST') {
+    if (TRIAL_MODE) return sendJson(res,403,{ok:false,code:'trial_mailbox_disabled',error:'Real staff mailbox attestations are disabled in the synthetic trial.'});
     const sess = getSession(state,req), body = await readJsonBody(req);
     if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
-    const seat = staffExportRoster(sess).find(r => r.username === body.username && !r.unconfirmed);
+    const seat = staffExportRoster(sess, state).find(r => r.username === body.username && !r.unconfirmed);
     const email = String(body.email || '').trim().toLowerCase();
     if (!seat || (email && (!/^[a-z0-9._-]+@lomamofoundation\.org$/.test(email) || body.confirm !== 'MAILBOX CONFIRMED'))) {
       return sendJson(res,400,{ok:false,error:'Use a confirmed roster seat, an existing @lomamofoundation.org mailbox and the explicit MAILBOX CONFIRMED attestation. Leave email blank to withdraw confirmation.'});
@@ -3381,12 +3482,12 @@ async function handleRequest(req, res) {
     if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
     if (body.confirm !== 'ISSUE TEMPORARY PASSWORDS') return sendJson(res,400,{ok:false,error:'Confirm ISSUE TEMPORARY PASSWORDS to generate the confidential staff export.'});
     const wanted = Array.isArray(body.usernames) ? new Set(body.usernames.map(String)) : null;
-    if (wanted && (!wanted.size || [...wanted].some(u => !staffExportRoster(sess).some(r => r.username === u)))) return sendJson(res,400,{ok:false,error:'Export selections must come from the official roster.'});
+    if (wanted && (!wanted.size || [...wanted].some(u => !staffExportRoster(sess, state).some(r => r.username === u)))) return sendJson(res,400,{ok:false,error:'Export selections must come from the official roster.'});
     const rows = [], exportId = crypto.randomUUID(), issuedAt = nowISO();
     const expiresAt = Date.now() + systemConfig(state).temporaryPasswordDays * 86400000;
     state.db.users = Array.isArray(state.db.users) ? state.db.users : [];
     let issuedCount = 0;
-    for (const seat of staffExportRoster(sess).filter(r => !wanted || wanted.has(r.username))) {
+    for (const seat of staffExportRoster(sess, state).filter(r => !wanted || wanted.has(r.username))) {
       const row = credentialExportRow(state,seat), previous = state.creds[seat.username];
       if (seat.unconfirmed) { row.credentialStatus = 'unconfirmed seat — no credential'; rows.push(row); continue; }
       if (seat.roleId === 'chief' || (previous && previous.privateSetAt && !previous.mustChange && !previous.revokedAt)) {
@@ -3399,7 +3500,7 @@ async function handleRequest(req, res) {
         sessionEpoch:crypto.randomBytes(16).toString('hex'),temporary:{...temporaryMetadata(state,sess.username),exportId,expiresAt}};
       const index = state.db.users.findIndex(u => u && u.username === seat.username);
       const user = {...(index >= 0 ? state.db.users[index] : {}),id,username:seat.username,name:seat.name,roleId:seat.roleId,countyId:seat.countyId,areaIds:seat.areas || [],departmentId:seat.dept,jobTitle:seat.job,
-        email:row.email,unconfirmed:false,status:'active',active:true,mustChange:true,mustChangePassword:true,demo:false,synthetic:false};
+        email:row.email,unconfirmed:false,status:'active',active:true,mustChange:true,mustChangePassword:true,demo:TRIAL_MODE,synthetic:TRIAL_MODE};
       delete user.hash; delete user.salt;
       if (index >= 0) state.db.users[index] = user; else state.db.users.push(user);
       rows.push({...row,temporaryPassword:password,expiresAt:new Date(expiresAt).toISOString(),credentialStatus:'single-use temporary — change before workspace'});
@@ -3415,14 +3516,14 @@ async function handleRequest(req, res) {
     appendServerAudit(state,sess.username,'staff.credentials_exported','credential-export',exportId,
       `Confidential roster export: ${rows.length} rows; ${issuedCount} temporary credentials; expires ${new Date(expiresAt).toISOString()}.`,{who:sess.username,when:issuedAt,rowCount:rows.length,issuedCount,deviceId:sess.deviceId});
     await saveCloudState(state);
-    return sendJson(res,200,{ok:true,exportId,domain:OFFICIAL_EMAIL_DOMAIN,issuedAt,expiresAt:new Date(expiresAt).toISOString(),rows,rev:state.rev});
+    return sendJson(res,200,{ok:true,exportId,domain:TRIAL_MODE ? 'lomamo.example' : OFFICIAL_EMAIL_DOMAIN,issuedAt,expiresAt:new Date(expiresAt).toISOString(),rows,rev:state.rev});
   }
   if (route === 'admin/staff-accounts/export-log' && method === 'POST') {
     const sess = getSession(state,req), body = await readJsonBody(req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Chief System Administrator access required.'});
     const formats = new Set(['html','csv','sms-text','whatsapp-text','clipboard','directory-text']);
     const usernames = Array.isArray(body.usernames) ? [...new Set(body.usernames.map(String))] : [];
-    const rosterNames = new Set(staffExportRoster(sess).map(seat => seat.username));
+    const rosterNames = new Set(staffExportRoster(sess, state).map(seat => seat.username));
     if (!formats.has(body.format) || !usernames.length || usernames.length > 500 || usernames.some(username =>
       !rosterNames.has(username) || (body.format !== 'directory-text' && !Object.hasOwn(state.creds,username)))) {
       return sendJson(res,400,{ok:false,error:'Export only official roster seats; confidential packs require existing issued accounts.'});
@@ -3600,7 +3701,7 @@ async function handleRequest(req, res) {
         ok: false,
         code: 'locked',
         retryAfterSeconds: Math.ceil(lockMs / 1000),
-        error: `Too many failed sign-in attempts. Try again in ${Math.ceil(lockMs / 60000)} minute(s)${!isGloballyActivated(state) ? ' or click "Reset 4-Step Setup & Set Fresh Password" below' : ' or ask your County Administrator to re-issue a temporary password'}.`,
+        error: `Too many failed sign-in attempts. Try again in ${Math.ceil(lockMs / 60000)} minute(s)${!TRIAL_MODE && !isGloballyActivated(state) ? ' or click "Reset 4-Step Setup & Set Fresh Password" below' : ' or ask your County Administrator to re-issue a temporary password'}.`,
       });
     }
     if (!cred || !verifyPassword(password, cred.salt, cred.digest)) {
@@ -3610,7 +3711,7 @@ async function handleRequest(req, res) {
       recordLoginFailure(state, username || 'anonymous');
       appendServerAudit(state, username || 'anonymous', 'auth.failed', 'user', username, 'Online credential check failed');
       await saveCloudAuthMetadata(state);
-      const preActHint = state.setup && !isGloballyActivated(state)
+      const preActHint = !TRIAL_MODE && state.setup && !isGloballyActivated(state)
         ? 'Invalid username or password. Enter the Chief System Administrator password from Step 2 (both system.admin and chief.admin are accepted), or click "Reset 4-Step Setup & Set Fresh Password" below.'
         : 'Invalid username or password.';
       return sendJson(res, 401, { ok: false, code: 'invalid_credentials', error: preActHint });
@@ -3912,7 +4013,7 @@ async function handleRequest(req, res) {
       if (state.creds[uname] && state.creds[uname].roleId === 'chief') continue;
       if (acc.roleId === 'chief' && sess.roleId !== 'chief') continue;
       const currentUser=(state.db.users||[]).find(u=>u && u.username===uname);
-      if(currentUser?.unconfirmed || officialStructure.roster.some(r=>r.username===uname && r.unconfirmed)) continue;
+      if(currentUser?.unconfirmed || (TRIAL_MODE ? (!currentUser || currentUser.synthetic !== true || currentUser.demo !== true) : officialStructure.roster.some(r=>r.username===uname && r.unconfirmed))) continue;
       if(sess.roleId!=='chief' && (!currentUser || currentUser.roleId==='chief' ||
         (sess.roleId==='countyadmin' && currentUser.countyId!==sess.countyId))) continue;
       if(sess.roleId!=='chief' && ((acc.roleId && acc.roleId!==currentUser.roleId) || (acc.countyId && acc.countyId!==currentUser.countyId))) continue;
@@ -3939,7 +4040,7 @@ async function handleRequest(req, res) {
         const u = state.db.users.find((x) => String(x.username).toLowerCase() === uname);
         if (u) {
           u.mustChange = mustChangeFlag;
-          u.demo = false;
+          u.demo = TRIAL_MODE;
           u.status = 'active';
           u.active = true;
           if (Array.isArray(acc.areaIds)) u.areaIds = acc.areaIds.map((id) => clipString(id, 80)).slice(0, 20);

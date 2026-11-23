@@ -67,9 +67,13 @@ function hostedEntryPending(){
   return typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() &&
     !(typeof APPX !== 'undefined' && APPX.host) && !(SYNC.server);
 }
+function trialEntryActive(){
+  const h = (typeof APPX !== 'undefined' && APPX.host) || (typeof SYNC !== 'undefined' && SYNC.server) || null;
+  return !!(h && h.trialMode === true && h.mode === 'isolated-synthetic-trial');
+}
 function commissionedEntryActive(){
   const h = (typeof APPX !== 'undefined' && APPX.host) || (typeof SYNC !== 'undefined' && SYNC.server) || null;
-  return !!(h && (h.commissioned === true || (h.setup && !h.demoMode)));
+  return !!(h && (h.commissioned === true || (h.setup && (!h.demoMode || trialEntryActive()))));
 }
 function demoEntryBlocked(){
   /* No anonymous/shared-password demo identity is valid at any lifecycle
@@ -263,6 +267,7 @@ function renderLanding6(){
     </header>
 
     <div class="ld-container ld-front-main">
+      ${trialEntryActive()?`<div class="alert warn" role="status"><b>TEAM TRIAL · SYNTHETIC DATA ONLY</b><span>Shared evaluation environment. Never enter real patient, staff or confidential information.</span></div>`:''}
       <section class="ld-hero ld-hero-tight">
         <div class="ld-hero-copy">
           <div class="ld-eyebrow">${ic('heart',14)} CareLink · LOMAMO Foundation Kenya</div>
@@ -271,7 +276,7 @@ function renderLanding6(){
           <p class="ld-lede">Coordinate care, support families and connect every department across Kisumu and Homa Bay.</p>
           <div class="row ld-cta-row" style="align-items:center">
             <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff sign in ${ic('chevron',16)}</button>
-            ${!isCommissioned && !setupPending ? `<button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>` : ''}
+            ${!trialEntryActive() && !isCommissioned && !setupPending ? `<button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>` : ''}
           </div>
           ${isCommissioned ? `<p class="ld-setup-status">System already commissioned. Sign in with your account, or use <button type="button" class="ld-recovery-link" data-act="login-recovery">password recovery</button>.</p>` : setupPending ? `<p class="ld-setup-status">Checking the shared installation before first-run setup can be offered.</p>` : ''}
           <div class="ld-assure">
@@ -467,7 +472,9 @@ function renderLogin6(){
   const host = APPX.host;
   const pCount = (DB.db && DB.db.patients) ? DB.db.patients.length : 0;
   const uCount = (DB.db && DB.db.users) ? DB.db.users.length : 0;
-  const hostLine = isActivated
+  const hostLine = trialEntryActive()
+    ? `<div class="lg-host warn">${ic('shield',13)}<span>TEAM TRIAL · SYNTHETIC DATA ONLY · Never enter real or confidential information.</span></div>`
+    : isActivated
     ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Production active · Issued staff accounts only</span></div>`
     : (isAwaitingAct
       ? `<div class="lg-host warn">${ic('key',13)}<span>4-Step Online Setup complete — sign in as Chief System Administrator to change password &amp; <b>Activate System Globally</b></span></div>`
@@ -487,10 +494,10 @@ function renderLogin6(){
         <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Assigned username or confirmed work email" required></div>
       <div class="field"><label for="lg-p">Password</label>
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
-      <div class="grid g2 lg-device-fields" style="gap:8px">
+      ${trialEntryActive() ? '' : `<div class="grid g2 lg-device-fields" style="gap:8px">
         <div class="field"><label for="lg-device-label">Device label</label><input class="input" id="lg-device-label" aria-describedby="lg-device-note" name="deviceLabel" maxlength="100" autocomplete="off" placeholder="e.g. Field tablet 3" value="${esc(LOGIN6.deviceLabel||'')}" required></div>
         <div class="field"><label for="lg-device-type">Device type</label><select class="input" id="lg-device-type" aria-describedby="lg-device-note" name="deviceType"><option value="computer">Computer</option><option value="tablet">Tablet</option><option value="phone">Phone</option><option value="other">Other</option></select></div>
-      </div>
+      </div>`}
       <p class="lg-note lg-device-note" id="lg-device-note"><span class="entry-security-badge">Registered devices</span> Chief-approved device registration required. Unknown browsers stay pending; the public portal remains open.</p>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
@@ -499,8 +506,8 @@ function renderLogin6(){
       <button class="linkbtn" data-act="login-tab" data-tab="request" type="button">Request county account</button>
       <button class="linkbtn" data-act="login-tab" data-tab="forgot" type="button">Forgotten password?</button>
       <button class="linkbtn" data-act="open-dpa-statement" type="button">Kenya DPA (2019) Notice</button>
-      ${!isActivated && !commissionedEntryActive() ? `<button class="linkbtn" data-act="goto-onboard" type="button">First-run online setup</button>` : ''}
-      ${!isActivated && commissionedEntryActive() ? `<button class="linkbtn" data-act="reset-first-run-fresh" type="button">Reset pre-activation setup</button>` : ''}
+      ${!trialEntryActive() && !isActivated && !commissionedEntryActive() ? `<button class="linkbtn" data-act="goto-onboard" type="button">First-run online setup</button>` : ''}
+      ${!trialEntryActive() && !isActivated && commissionedEntryActive() ? `<button class="linkbtn" data-act="reset-first-run-fresh" type="button">Reset pre-activation setup</button>` : ''}
     </div>`;
 
   const allUsers = (DB.db && DB.db.users && DB.db.users.length) ? DB.db.users : [];
@@ -623,14 +630,14 @@ function renderLogin6(){
           <img src="${window.LOGO||''}" alt="" class="lg6-mark">
           <div style="flex:1">
             <div class="lg6-kicker">${esc(orgName())}</div>
-            <h2>${(!demoBlocked && t==='demo')?'Active Demo Accounts':t==='activate'?'Activate Account':t==='request'?'Urgent County Account Request':t==='forgot'?'Urgent Password Recovery':'Official Staff Sign In'}</h2>
+            <h2>${(!demoBlocked && t==='demo')?'Active Demo Accounts':t==='activate'?'Activate Account':t==='request'?'Urgent County Account Request':t==='forgot'?'Urgent Password Recovery':trialEntryActive()?'Team Trial Sign In':'Official Staff Sign In'}</h2>
           </div>
           <button class="btn btn-xs btn-ghost" data-act="goto-landing" type="button">Front page</button>
         </div>
         ${hostLine}
         ${LOGIN6.error?(()=>{
           const isKvUnavailable = /refused the (read|write)|could not be read|not configured/i.test(LOGIN6.error) && !/WRONGTYPE/i.test(LOGIN6.error);
-          const showResetBtn = !isActivated && !isKvUnavailable && (commissionedEntryActive() || (host && host.setup) || /invalid online database|malformed JSON|WRONGTYPE|corrupted|KV/i.test(LOGIN6.error));
+          const showResetBtn = !trialEntryActive() && !isActivated && !isKvUnavailable && (commissionedEntryActive() || (host && host.setup) || /invalid online database|malformed JSON|WRONGTYPE|corrupted|KV/i.test(LOGIN6.error));
           const showOfflineBtn = isKvUnavailable && !isActivated && !demoBlocked;
           return `<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span><div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">${isKvUnavailable ? `<button class="btn btn-xs btn-primary" type="button" data-act="login-retry-kv">${ic('refresh',12)} Retry Cloud KV Connection</button>` : ''}${showOfflineBtn ? `<button class="btn btn-xs btn-ghost" type="button" data-act="login-offline-device-mode" style="background:#FFFFFF;color:#0F172A;border:1px solid #94A3B8;font-weight:700">${ic('laptop',12)} Open Offline Console on This Device</button>` : ''}${showResetBtn ? `<button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button>` : ''}</div></div></div>`;
         })():''}
