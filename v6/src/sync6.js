@@ -104,7 +104,14 @@ const SYNC = {
   },
   heldOutbox(){ const box = this.loadOutbox(); return box ? box.patches.length : 0; },
 
+  /* A provider quota cannot recover through a fast-pack/page/write retry.
+     Keep failures (never data or authorization) during a short retry window.
+     An explicit KV retry clears it; its expiry is NOT a quota-reset promise. */
+  kvBlocked(){ return Boolean(this._kvFailure && Date.now() < (this._kvRetryAt || 0)); },
+  resetKvBackoff(){ this._kvFailure = null; this._kvRetryAt = 0; },
+
   async _json(url, opts={}){
+    if(this.kvBlocked()) return this._kvFailure;
     const nowMs = () => (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') ? performance.now() : Date.now();
     const t0 = nowMs();
     const { preserveTokenOn401, skipAuthHeader, timeoutMs = 20000, ...fetchOpts } = opts || {};
@@ -151,6 +158,14 @@ const SYNC = {
           ? 'The request exceeded Vercel\'s 4.5 MB Function payload limit. For first-run setup, choose "Start with an empty patient register"; no completion is being claimed.'
           : `The shared online service refused the request (HTTP ${r.status}). No success is being claimed.`
       });
+    }
+    if(!r.ok && body && body.code === 'kv_quota_exceeded'){
+      const retrySeconds = Math.max(300, Math.min(3600, Number(body.retryAfterSeconds) || 300));
+      this._kvRetryAt = Date.now() + retrySeconds * 1000;
+      this._kvFailure = { status:r.status, ok:false, body };
+      this.state = 'error'; this.message = body.error || 'The online database has reached a provider usage limit.';
+      if(this._poll) this.startPolling();
+      this.bump();
     }
     if(r.status === 401 && this.sessionToken && !preserveTokenOn401 && !skipAuthHeader){
       /* The host ended the session (idle window, revocation or restart). Anything
@@ -284,7 +299,7 @@ const SYNC = {
     if(!health || !health.ok){
       this.state = this.available() ? 'error' : 'device';
       this.message = this.available()
-        ? 'The shared online source is unavailable — no local copy is being presented as a live save'
+        ? ((health && health.body && health.body.error) || 'The shared online source is unavailable — no local copy is being presented as a live save')
         : 'This copy runs from the device in offline/static mode';
       this.bump(); return;
     }
@@ -455,6 +470,7 @@ const SYNC = {
           timeoutMs: 35000
         });
       }catch(e){ first = null; }
+      if(this.kvBlocked()) return null;
       const gotRev = first && first.body ? (Number(first.body.rev) || 0) : 0;
       if(first && first.ok && first.body && first.body.fastPack && typeof first.body.part0 === 'string' && (minRev <= 0 || gotRev >= minRev)){
         break;
@@ -476,6 +492,7 @@ const SYNC = {
             preserveTokenOn401: pTry < 3,
             timeoutMs: 35000
           });
+          if(this.kvBlocked()) return false;
           if(pr && pr.ok && pr.body && typeof pr.body.data === 'string'){
             chunks[partIdx] = pr.body.data;
             return true;
@@ -499,6 +516,7 @@ const SYNC = {
       if(requireReferenceMaster && !(unpacked.db.meta && unpacked.db.meta.referenceMaster)) return null;
       this.adoptRemote(unpacked.db, unpacked.rev || packRev, unpacked.saved || first.body.saved);
       await this._catchUpDeltasSince(unpacked.rev || packRev);
+      if(this.kvBlocked()) return false;
       this._idbWriteSnapshot(DB.db, this.rev, this.saved);
       this.state = 'connected';
       this.message = 'Reading the shared online source';
@@ -510,6 +528,7 @@ const SYNC = {
   },
 
   async pullFull(opts={}){
+    if(this.kvBlocked()) return false;
     const minRev = Number(opts && opts.minRev) || 0;
     const requireReferenceMaster = Boolean(opts && opts.requireReferenceMaster);
     const inlineState = opts && opts.inlineState && typeof opts.inlineState === 'object' ? opts.inlineState : null;
@@ -529,10 +548,12 @@ const SYNC = {
       if(await this._tryCachedDeltaPull(minRev, requireReferenceMaster)){
         return true;
       }
+      if(this.kvBlocked()) return false;
 
       /* 2. Fast compressed 2-part stream (~4 MB gzip instead of ~73 MB raw JSON) */
       const fastOk = await this._tryFastPackPull(minRev, requireReferenceMaster);
       if(fastOk === true) return true;
+      if(this.kvBlocked()) return false;
 
       /* 3. Controlled-concurrency, revision-tolerant paged collection loader */
       const delays = [0, 250, 600, 1200];
@@ -547,6 +568,7 @@ const SYNC = {
           }catch(e){
             r = null;
           }
+          if(this.kvBlocked()) return false;
           const gotRev = r && r.body ? (Number(r.body.rev) || 0) : 0;
           const hasMaster = !requireReferenceMaster || Boolean(r && r.body && r.body.db && r.body.db.meta && r.body.db.meta.referenceMaster);
           if(r && r.ok && r.body && r.body.db && (minRev <= 0 || gotRev >= minRev) && hasMaster) break;
@@ -577,6 +599,7 @@ const SYNC = {
             }catch(e){
               page = null;
             }
+            if(this.kvBlocked()) return page;
             if(page && page.ok && page.body && page.body.name === name && Array.isArray(page.body.records)){
               const pgRev = Number(page.body.rev) || 0;
               const pgTotal = Number(page.body.total);
@@ -667,10 +690,12 @@ const SYNC = {
           if(maxSeenRev > baseRev){
             await this._catchUpDeltasSince(baseRev);
           }
+          if(this.kvBlocked()) return false;
           this._idbWriteSnapshot(DB.db, this.rev, this.saved);
           this.state='connected'; this.message='Reading the shared online source'; this.bump();
           return true;
         }catch(err){
+          if(this.kvBlocked()) return false;
           lastPullErr = err;
           if((revMovedIncompatible || fullAttempt < 2) && fullAttempt < 3){
             await this._sleep(350 * (fullAttempt + 1));
@@ -823,6 +848,7 @@ const SYNC = {
     /* Nothing to send yet (offline copy, or signed out): the register itself is
        the record, exactly as before. */
     if(!this.available() || !this.sessionToken) return;
+    if(this.kvBlocked()){ this.holdWork(); return; }
     if(this._pulling || (typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading'))) return;
     if(this._inflight){ this._queuedWhileInflight = true; return; }
     clearTimeout(this._timer);
@@ -831,6 +857,7 @@ const SYNC = {
 
   async push(){
     if(this._pulling || !this.sessionToken) return;
+    if(this.kvBlocked()){ this.holdWork(); return; }
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
     if(this._inflight){
       this._queuedWhileInflight = true;
@@ -863,6 +890,7 @@ const SYNC = {
      the host will never accept (a scope refusal) are reported and dropped;
      transport failures keep the work here for the next attempt. */
   async attemptOutbox(){
+    if(this.kvBlocked()) return false;
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return false;
     const box = this.loadOutbox();
     if(!box) return false;
@@ -934,8 +962,12 @@ const SYNC = {
                                 ts: new Date().toISOString()})
         });
         if(!r.ok){
+          /* Provider/network failures are retryable work, not a successful save
+             or a permanent scope rejection. Persist it before returning. */
+          const held = r.status >= 500 || r.status === 429 ? this.holdWork() : 0;
           this.state = 'error';
-          this.message = r.body.error || 'The shared online source refused the save';
+          this.message = (r.body.error || 'The shared online source refused the save') +
+            (held ? ` ${held} change${held===1?' is':'s are'} held on this device.` : '');
           this.bump(); this._inflight=false; return;
         }
         rev = r.body.rev; merged += (r.body.merged||0);
@@ -977,7 +1009,7 @@ const SYNC = {
     }finally{
       this._inflight = false;
       if(before==='merge' && this.state==='saving') this.state='connected';
-      if(this._queuedWhileInflight && this.sessionToken && !this._pulling){
+      if(this._queuedWhileInflight && this.sessionToken && !this._pulling && !this.kvBlocked()){
         this._queuedWhileInflight = false;
         if(this.patches().length > 0) await this._runPush();
       }
@@ -989,20 +1021,25 @@ const SYNC = {
     this.stopPolling();
     const base = this.pendingRemote ? 2000 : 10000;
     const backoff = Math.min(60000, base * Math.pow(2, Math.min(3, this._pollErrStreak || 0)));
-    this._poll = setInterval(()=>this.tick(), backoff);
+    const quotaWait = this.kvBlocked() ? this._kvRetryAt - Date.now() : 0;
+    this._poll = setInterval(()=>this.tick(), Math.max(backoff, quotaWait));
   },
   stopPolling(){ if(this._poll) clearInterval(this._poll); this._poll=null; },
+  pollFailed(){
+    const prevStreak = this._pollErrStreak || 0;
+    this._pollErrStreak = Math.min(4, prevStreak + 1);
+    if(this._poll && this._pollErrStreak !== prevStreak) this.startPolling();
+  },
 
   async tick(){
-    if(!this.sessionToken || this._inflight || this._pulling || document.hidden) return;
-    if(APPX.dirty){ await this.push(); }
-    if(this._inflight || this._pulling || !this.sessionToken) return;
+    if(!this.sessionToken || this._inflight || this._pulling || this._ticking || document.hidden || this.kvBlocked()) return;
+    this._ticking = true;
     try{
+      if(APPX.dirty){ await this.push(); }
+      if(this._inflight || this._pulling || !this.sessionToken || this.kvBlocked()) return;
       const r = await this._json(`api/state?since=${this.rev}`);
       if(!r || !r.ok || !r.body){
-        const prevStreak = this._pollErrStreak || 0;
-        this._pollErrStreak = Math.min(4, prevStreak + 1);
-        if(this._poll && this._pollErrStreak !== prevStreak) this.startPolling();
+        this.pollFailed();
         return;
       }
       if(this._pollErrStreak){
@@ -1046,7 +1083,13 @@ const SYNC = {
         this.softRefresh();
         return;
       }
-    }catch(e){ /* a dropped poll is not an error worth showing */ }
+    }catch(e){
+      /* Dropped connections back off just like HTTP failures. A slow poll must
+         also finish before another tick can start. */
+      this.pollFailed();
+    }finally{
+      this._ticking = false;
+    }
   },
 
   applyPatchList(patches){

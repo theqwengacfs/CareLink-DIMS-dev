@@ -1,3 +1,4 @@
+import { isSnapshotRead, conditionalPrimaryRead } from './kv-primary-read.cjs';
 import { dispatchWithDeviceCookie } from './device-cookies.cjs';
 import * as requireCrypto from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -30,7 +31,7 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url.pathname === '/' && init.method === 'POST') {
     const [op, ...args] = JSON.parse(init.body);
-    if (failWrites && !(op === 'EVAL' && args[0] === "return redis.call('GET', KEYS[1])")) return response({ error: 'write unavailable' }, 503);
+    if (failWrites && !(op === 'EVAL' && (isSnapshotRead(args[0]) || args[0] === "return redis.call('GET', KEYS[1])"))) return response({ error: 'write unavailable' }, 503);
     if (op === 'SET') {
       const [key, value, ...options] = args;
       if (options.includes('NX') && kv.has(key)) return response({ result: null });
@@ -41,7 +42,8 @@ globalThis.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
-      if (failReads && script === "return redis.call('GET', KEYS[1])") return response({ error: 'read unavailable' }, 503);
+      if (failReads && (isSnapshotRead(script) || script === "return redis.call('GET', KEYS[1])")) return response({ error: 'read unavailable' }, 503);
+      if (isSnapshotRead(script)) return response({ result: conditionalPrimaryRead(kv, key, value) });
       if (script.includes('redis.sha1hex')) {
         const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
         if (actual !== value) return response({ result: kv.get(key) === String(args[3 + keyCount]) ? 2 : 0 });

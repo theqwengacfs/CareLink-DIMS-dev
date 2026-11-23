@@ -1,3 +1,4 @@
+const { isSnapshotRead, conditionalPrimaryRead } = require('./kv-primary-read.cjs');
 const {dispatchWithDeviceCookie}=require('./device-cookies.cjs');
 const requireCrypto = require('node:crypto');
 /* End-to-end verification of:
@@ -86,6 +87,7 @@ global.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (isSnapshotRead(script)) return kvResponse({ result: conditionalPrimaryRead(kv, key, value) });
       if (script.includes('redis.sha1hex')) {
         if (enforceOneMegabyteFreeTierCap && bodyBytes > 1024 * 1024) return kvResponse({ error: 'ERR max request size exceeded' }, 413);
         const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';

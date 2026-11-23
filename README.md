@@ -93,6 +93,17 @@ before opening the console; a failed hosted login, setup, activation or password
 change never falls back to a device-local account or demo register. Browser
 storage is a cache for the online client, not a second installation.
 
+**Quota/bandwidth failures:** `kv_quota_exceeded` (HTTP `503`) is a provider
+usage-limit failure, not an invalid staff password or KV-token error. Unchanged
+root reads now return a digest verified on the writable primary, omitting the
+payload only when its exact bytes still match; no authorization check is
+skipped. Polls cannot overlap, activity-based session renewals are limited to
+once a minute, and quota errors stop retry cascades while retaining held work.
+This reduces future traffic; it does **not** clear counted usage, unsuspend the
+database, reduce stored data, or guarantee a free-tier workload will fit. See
+[the no-upgrade KV bandwidth runbook](tools/KV-BANDWIDTH.md). Run the isolated
+traffic/security/client regressions with `npm run test:kv-bandwidth`.
+
 ### Phase 1 entry identity and registered-device sign-in
 
 The Chief System Administrator selects one of **two official entry themes** in

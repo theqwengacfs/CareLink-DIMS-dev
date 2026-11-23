@@ -29,6 +29,12 @@ const CLOUD_KEY = 'carelink_cloud_v66';
    or records, including saves that do not increment the public revision. */
 const requestSnapshot = new AsyncLocalStorage();
 const PRIMARY_READ_LUA = "return redis.call('GET', KEYS[1])";
+/* Redis hashes the exact current value on its writable primary. An unchanged
+   response omits the payload, NOT the online check. No public revision, TTL or
+   locally cached authorization can stand in for this digest verification. The
+   protocol uses Redis arrays/strings (not cjson re-encoding of stored data). */
+const PRIMARY_SNAPSHOT_LUA = "-- carelink-primary-snapshot-v1\nlocal current=redis.call('GET',KEYS[1]); if not current then return {'missing',false} end; local digest=redis.sha1hex(current); if digest==ARGV[1] then return {digest,false} end; return {digest,current}";
+let _primarySnapshotCache = null; /* one immutable raw root, verified afresh on every use */
 const CLOUD_CAS_LUA = "local current=redis.call('GET',KEYS[1]); local digest=current and redis.sha1hex(current) or 'missing'; if digest~=ARGV[1] then if current==ARGV[2] then return 2 else return 0 end end; redis.call('SET',KEYS[1],ARGV[2]); return 1";
 function snapshotDigest(value) {
   return value == null ? 'missing' : crypto.createHash('sha1').update(String(value)).digest('hex');
@@ -248,7 +254,8 @@ function encodeRespCommand(args) {
   return Buffer.concat(chunks);
 }
 
-function parseNextRespReply(buf, offset = 0) {
+function parseNextRespReply(buf, offset = 0, depth = 0) {
+  if (depth > 8) return { ok:false, error:'Redis response nesting is too deep', next:offset };
   const crlf = buf.indexOf('\r\n', offset);
   if (crlf === -1) return null;
   const prefix = buf[offset];
@@ -263,6 +270,18 @@ function parseNextRespReply(buf, offset = 0) {
     if (buf.length < end + 2) return null;
     const strVal = buf.subarray(crlf + 2, end).toString('utf8');
     return { ok: true, value: strVal, next: end + 2 };
+  }
+  if (prefix === 42) { // '*' — conditional primary reads return [digest, payload-or-null]
+    const count = Number(head);
+    if (count === -1) return { ok:true, value:null, next:crlf+2 };
+    if (!Number.isSafeInteger(count) || count < 0 || count > 1024) return { ok:false, error:'Invalid Redis array response', next:crlf+2 };
+    const values = []; let next = crlf + 2;
+    for (let i = 0; i < count; i++) {
+      const part = parseNextRespReply(buf, next, depth + 1);
+      if (!part || !part.ok) return part;
+      values.push(part.value); next = part.next;
+    }
+    return { ok:true, value:values, next };
   }
   return { ok: false, error: `Unexpected RESP prefix ${String.fromCharCode(prefix)}`, next: crlf + 2 };
 }
@@ -418,6 +437,10 @@ function hostLabelOf(urlStr) {
   try { return new URL(urlStr).host; } catch { return ''; }
 }
 
+function isKvQuotaFailure(status, text) {
+  return status === 429 || /max[\w\s-]*(daily|monthly|requests?\s+limit|bandwidth|data\s*size)|quota|limit\s*exceeded|reached[\w\s-]*plan\s+limits|(?:monthly\s+)?bandwidth\s+limit/i.test(String(text || ''));
+}
+
 function classifyKvFailure(op, status, errText, hostHint = '') {
   const msg = cleanKvErrorSnippet(errText);
   const hostNote = hostHint && !/\.test$|\.local$|^localhost$/i.test(hostHint) ? ` on ${hostHint}` : '';
@@ -430,10 +453,18 @@ function classifyKvFailure(op, status, errText, hostHint = '') {
   if (op === 'write' && (status === 413 || /max[\w\s-]*(request|value|record)[\w\s-]*size|too large|entity too large/i.test(msg))) {
     return new CloudStorageError('kv_payload_too_large', msg || 'KV command exceeded single-key size limit.');
   }
-  if (status === 429 || /max[\w\s-]*(daily|monthly|requests?\s+limit|bandwidth|data\s*size)|quota|limit\s*exceeded|archived|paused|suspended/i.test(msg)) {
+  if (isKvQuotaFailure(status, errText)) {
+    const err = new CloudStorageError(
+      'kv_quota_exceeded',
+      `The mandatory CareLink KV store${hostNote} refused the ${op} because an Upstash usage limit was reached${status ? ' (HTTP ' + status + ')' : ''}: ${msg || 'request limit reached'}. This is a database quota, not a staff password or KV-token rejection. Check bandwidth, commands and storage in the Upstash console, then confirm when service can resume. Reducing traffic cannot reset usage already counted. Do not reset setup or rotate passwords to repair a quota; no local fallback is used and no change is acknowledged.`
+    );
+    err.retryAfterSeconds = 300;
+    return err;
+  }
+  if (/archived|paused|suspended/i.test(msg)) {
     return new CloudStorageError(
       op === 'write' ? 'kv_write_failed' : 'kv_unavailable',
-      `The mandatory CareLink KV store${hostNote} refused the ${op} (Upstash quota or paused/archived database${status ? ' HTTP ' + status : ''}: ${msg || 'request limit reached'} — open console.upstash.com or Vercel Storage to unpause/upgrade or connect a fresh Upstash Redis database); no local fallback is used.`
+      `The mandatory CareLink KV store${hostNote} refused the ${op} (Upstash database is paused/archived${status ? ' HTTP ' + status : ''}: ${msg}). Check its status in the Upstash console; do not reset this installation. No local fallback is used.`
     );
   }
   if (status === 401 || status === 403 || /unauthorized|invalid[\w\s-]*token|wrongpass|noperm|no permissions|forbidden/i.test(msg)) {
@@ -524,7 +555,8 @@ async function readKvStringFromCandidate(kv, key) {
   let { payload, rawText } = await parseKvHttpResponse(response);
   /* On real Upstash/WAF endpoints, if GET /get/<key> returned 403/404/405, retry
      using Upstash's canonical POST root JSON command API (["GET", key]). */
-  if (!isMock && !response.ok && (response.status === 403 || response.status === 404 || response.status === 405)) {
+  if (!isMock && !response.ok && (response.status === 403 || response.status === 404 || response.status === 405)
+      && !isKvQuotaFailure(response.status, payload?.error || rawText)) {
     try {
       const postResp = await fetchKvWithRetry(kv.url, {
         method: 'POST',
@@ -556,12 +588,30 @@ async function readKvStringFromCandidate(kv, key) {
 async function readKvString(key) {
   if (requestSnapshot.getStore()) {
     /* Lua executes on the writable primary, avoiding lagging replica snapshots
-       for both authorization and mutations. */
+       for both authorization and mutations. Capture the immutable cache entry
+       before awaiting: concurrent requests may replace the global entry. */
     let value;
-    try { value = await runKvCommand(['EVAL', PRIMARY_READ_LUA, '1', key]); }
-    catch (err) { if (err && err.code === 'kv_required') throw err; throw new CloudStorageError('kv_unavailable', (err && err.message) || 'The writable online database could not be read; no local fallback is used.'); }
-    const ctx = requestSnapshot.getStore();
-    if (key === CLOUD_KEY) { ctx.snapshot = snapshotDigest(value); ctx.snapshotKnown = true; }
+    if (key === CLOUD_KEY) {
+      const cached = _primarySnapshotCache;
+      const result = await runKvCommand(['EVAL', PRIMARY_SNAPSHOT_LUA, '1', key, cached ? cached.digest : ''], 10000, 'read');
+      if (!Array.isArray(result) || result.length !== 2 || !/^(?:missing|[a-f0-9]{40})$/.test(result[0])) {
+        throw new CloudStorageError('kv_invalid_response', 'CareLink KV returned an invalid primary snapshot check; no cached state was used.');
+      }
+      const [digest, payload] = result;
+      if (digest === 'missing' && payload == null) value = null;
+      else if (payload == null && cached && cached.digest === digest) value = cached.value;
+      else if (typeof payload === 'string' && snapshotDigest(payload) === digest) value = payload;
+      else throw new CloudStorageError('kv_invalid_response', 'CareLink KV could not verify the current primary snapshot; no cached state was used.');
+      /* Bound process memory. Even a warm cache is never a fallback: an error,
+         missing key or different primary digest cannot reuse its old payload. */
+      _primarySnapshotCache = typeof value === 'string' && Buffer.byteLength(value) <= 16 * 1024 * 1024
+        ? { digest, value } : null;
+      const ctx = requestSnapshot.getStore();
+      ctx.snapshot = digest;
+      ctx.snapshotKnown = true;
+    } else {
+      value = await runKvCommand(['EVAL', PRIMARY_READ_LUA, '1', key], 10000, 'read');
+    }
     return unwrapUpstashStringResult(value);
   }
   const candidates = kvCandidates({ allowReadOnlyFallback: true });
@@ -640,7 +690,8 @@ async function writeKvString(key, value, { exSeconds = 0, timeoutMs = 10000 } = 
       continue;
     }
     let { payload, rawText } = await parseKvHttpResponse(response);
-    if (!isMock && !response.ok && (response.status === 403 || response.status === 404 || response.status === 405)) {
+    if (!isMock && !response.ok && (response.status === 403 || response.status === 404 || response.status === 405)
+        && !isKvQuotaFailure(response.status, payload?.error || rawText)) {
       try {
         const cmd = exSeconds
           ? ['SET', key, strVal, 'EX', String(Math.max(60, Math.floor(exSeconds)))]
@@ -659,7 +710,7 @@ async function writeKvString(key, value, { exSeconds = 0, timeoutMs = 10000 } = 
     const errMsg = payload && payload.error ? String(payload.error) : '';
     if (!response.ok || errMsg) {
       const classified = classifyKvFailure('write', response.status, errMsg || rawText, hostHint);
-      if (classified.code === 'kv_payload_too_large') throw classified;
+      if (classified.code === 'kv_payload_too_large' || classified.code === 'kv_quota_exceeded') throw classified;
       lastErr = classified;
       continue;
     }
@@ -676,7 +727,7 @@ async function writeKvString(key, value, { exSeconds = 0, timeoutMs = 10000 } = 
     } catch (err) {
       const msg = String((err && err.message) || '');
       const classified = classifyKvFailure('write', 503, msg, tcpCfg.host);
-      if (classified.code === 'kv_payload_too_large') throw classified;
+      if (classified.code === 'kv_payload_too_large' || classified.code === 'kv_quota_exceeded') throw classified;
       if (!lastErr) lastErr = classified;
     }
   }
@@ -708,7 +759,7 @@ async function deleteKvKey(key) {
 
 /* Atomic Redis commands back the per-account online session lease. These
    commands deliberately use the writable primary, never a read replica. */
-async function runKvCommand(args, timeoutMs = 10000) {
+async function runKvCommand(args, timeoutMs = 10000, op = 'write') {
   const candidates = boundRestCandidates({ allowReadOnlyFallback: false });
   const tcpCandidates = boundTcpCandidates();
   if (!candidates.length && !tcpCandidates.length) { if (requestSnapshot.getStore()?.storageId) throw new CloudStorageError('kv_unavailable', 'The selected online store is unavailable; retry the request.'); requireKv(); }
@@ -723,7 +774,7 @@ async function runKvCommand(args, timeoutMs = 10000) {
       const { payload, rawText } = await parseKvHttpResponse(response);
       const errMsg = payload && payload.error ? String(payload.error) : '';
       if (!response.ok || errMsg) {
-        lastErr = classifyKvFailure('write', response.status, errMsg || rawText, hostLabelOf(kv.url));
+        lastErr = classifyKvFailure(op, response.status, errMsg || rawText, hostLabelOf(kv.url));
         continue;
       }
       if (!payload || !Object.prototype.hasOwnProperty.call(payload, 'result')) {
@@ -739,9 +790,9 @@ async function runKvCommand(args, timeoutMs = 10000) {
   }
   for (const tcpCfg of tcpCandidates) {
     try { const result = await execRedisTcpCommand(tcpCfg, args, timeoutMs); bindRequestStore(tcpStorageId(tcpCfg)); return result; }
-    catch (err) { if (!lastErr) lastErr = classifyKvFailure('write', 503, String((err && err.message) || ''), tcpCfg.host); }
+    catch (err) { if (!lastErr) lastErr = classifyKvFailure(op, 503, String((err && err.message) || ''), tcpCfg.host); }
   }
-  throw lastErr || new CloudStorageError('kv_write_failed', 'CareLink KV refused an atomic session command.');
+  throw lastErr || new CloudStorageError(op === 'read' ? 'kv_unavailable' : 'kv_write_failed', 'CareLink KV refused an atomic primary command.');
 }
 
 const SESSION_LEASE_SECONDS = IDLE_SECONDS + 60;
@@ -1052,7 +1103,11 @@ async function recoverShardedCloudState(unwrapped, currentParts) {
           recovered = decoded;
           break;
         }
-      } catch { /* try next candidate set */ }
+      } catch (err) {
+        if (err && err.code === 'kv_quota_exceeded') throw err;
+        /* Try another stored generation only for an unavailable/broken part,
+           never to work around a provider quota by downloading more shards. */
+      }
     }
   }
 
@@ -1311,7 +1366,10 @@ async function loadCloudHead() {
       },
     };
   }
-  return loadCloudState({ readOnly: true });
+  /* Legacy values without an embedded head may enter device admission below.
+     Clone their verified raw snapshot: a failed auth save must never leave
+     an uncommitted approval in the shared decoded read-only cache. */
+  return loadCloudState({ readOnly: false });
 }
 
 async function loadCloudState({ readOnly = false } = {}) {
@@ -1400,11 +1458,12 @@ async function loadCloudState({ readOnly = false } = {}) {
   if (unwrapped && unwrapped.format === CLOUD_GZIP_FORMAT && typeof unwrapped.data === 'string') {
     const cacheKey = `gzip:${sha256Hex(unwrapped.data)}`;
     if (_decodedCache && _decodedCache.cacheKey === cacheKey) {
-      if (readOnly && _decodedCache.state) {
-        return { state: _decodedCache.state, driver: 'cloud-kv-redis' };
-      }
-      if (_decodedCache.rawJson) {
-        return { state: normalizeStore(JSON.parse(_decodedCache.rawJson)), driver: 'cloud-kv-redis' };
+      const cached = readOnly && _decodedCache.state
+        ? _decodedCache.state
+        : (_decodedCache.rawJson ? normalizeStore(JSON.parse(_decodedCache.rawJson)) : null);
+      if (cached) {
+        overlayAuthoritativeHead(cached, unwrapped.head, unwrapped.rev, unwrapped.saved);
+        return { state: cached, driver: 'cloud-kv-redis' };
       }
     }
     const rawJson = decodeCompressedEnvelopeToRaw(unwrapped.data);
@@ -1412,6 +1471,7 @@ async function loadCloudState({ readOnly = false } = {}) {
     try { parsedObj = JSON.parse(rawJson); }
     catch { throw new CloudStorageError('kv_invalid_state', 'CareLink KV contains malformed JSON; the online database was not reset.'); }
     const normalized = normalizeStore(parsedObj);
+    overlayAuthoritativeHead(normalized, unwrapped.head, unwrapped.rev, unwrapped.saved);
     _decodedCache = {
       cacheKey,
       rawJson,
@@ -2953,6 +3013,7 @@ async function handleRequest(req, res) {
         globallyActivated: Boolean(head.state.globallyActivated),
       });
     } catch (err) {
+      if (err.retryAfterSeconds) res.setHeader('Retry-After', String(err.retryAfterSeconds));
       return sendJson(res, err.statusCode || 503, {
         ok: false,
         configured: true,
@@ -2961,6 +3022,7 @@ async function handleRequest(req, res) {
         tcpCandidates: tcpCands.length,
         hosts,
         code: err.code || 'kv_unavailable',
+        ...(err.retryAfterSeconds ? { retryAfterSeconds: err.retryAfterSeconds } : {}),
         error: err.message || 'CareLink KV diagnostic check failed.',
       });
     }
@@ -3575,7 +3637,10 @@ async function handleRequest(req, res) {
     }
     let sessionReserved = false;
     try { sessionReserved = await reserveLoginSession(username, sessionId, cred.sessionEpoch); }
-    catch { return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' }); }
+    catch (err) {
+      if (err && err.code === 'kv_quota_exceeded') throw err;
+      return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' });
+    }
     if (!sessionReserved) return sendJson(res, 409, {
       ok: false, code: 'session_active', retryAfterSeconds: SESSION_LEASE_SECONDS,
       error: `This account already has an active online session on another device or browser. Sign out there first. If that device is unavailable, wait up to ${Math.ceil(SESSION_LEASE_SECONDS / 60)} minutes for the idle session to expire.`,
@@ -3626,7 +3691,10 @@ async function handleRequest(req, res) {
     if (!sess) return sendJson(res, 401, { ok: false, error: 'This session has expired. Sign in again.' });
     let sessionId;
     try { sessionId = await ensureSessionLease(sess); }
-    catch { return sendJson(res, 503, { ok: false, error: 'Online session security could not be verified.' }); }
+    catch (err) {
+      if (err && err.code === 'kv_quota_exceeded') throw err;
+      return sendJson(res, 503, { ok: false, error: 'Online session security could not be verified.' });
+    }
     if (!sessionId) return sendJson(res, 401, { ok: false, error: 'This account is active in another session. Sign in again after that session ends.' });
     const body = await readJsonBody(req);
     const cred = (state.creds || {})[sess.username];
@@ -3641,7 +3709,10 @@ async function handleRequest(req, res) {
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Session expired' });
     let sessionId;
     try { sessionId = await ensureSessionLease(sess); }
-    catch { return sendJson(res, 503, { ok: false, error: 'Online session security could not be verified.' }); }
+    catch (err) {
+      if (err && err.code === 'kv_quota_exceeded') throw err;
+      return sendJson(res, 503, { ok: false, error: 'Online session security could not be verified.' });
+    }
     if (!sessionId) return sendJson(res, 401, { ok: false, error: 'This account is active in another session. Sign in again after that session ends.' });
     /* Stateless HMAC tokens slide their idle window by returning a refreshed
        signed token without rewriting the multi-megabyte database every 10s. */
@@ -4773,6 +4844,7 @@ export async function ownerRecoverChief({ username, password, deviceId = null, o
    Most importantly, a failed KV read/write must never be reported as a successful
    online save or silently diverted to an ephemeral local copy. */
 export function __resetCloudCachesForTests() {
+  _primarySnapshotCache = null;
   _decodedCache = null;
   _manifestReadCache = null;
   _manifestReadInflight = null;
@@ -4787,9 +4859,11 @@ export default async function handler(req, res) {
     const storage = err && err.name === 'CloudStorageError';
     const master = err && err.name === 'MasterPackageError';
     const status = storage ? (err.statusCode || 503) : (master ? (err.statusCode || 400) : 500);
+    if (storage && err.retryAfterSeconds) res.setHeader('Retry-After', String(err.retryAfterSeconds));
     return sendJson(res, status, {
       ok: false,
       code: storage || master ? err.code : 'internal_error',
+      ...(storage && err.retryAfterSeconds ? { retryAfterSeconds: err.retryAfterSeconds } : {}),
       error: storage || master ? err.message : 'The CareLink online service could not complete that request.',
     });
   }

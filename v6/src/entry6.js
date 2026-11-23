@@ -938,6 +938,7 @@ Object.assign(ACTIONS, {
   },
   'sync-retry': async () => {
     closeModal();
+    if (typeof SYNC !== 'undefined') SYNC.resetKvBackoff();
     if (typeof SYNC !== 'undefined' && SYNC.deviceOnlyOverride) {
       SYNC.deviceOnlyOverride = false;
       const diag = SYNC._json ? await SYNC._json('api/kv-diagnostics', { skipAuthHeader: true, timeoutMs: 10000 }) : null;
@@ -957,7 +958,7 @@ Object.assign(ACTIONS, {
     if (typeof SYNC !== 'undefined') await SYNC.start();
   },
   'login-retry-kv': async () => {
-    if (typeof SYNC !== 'undefined') SYNC.deviceOnlyOverride = false;
+    if (typeof SYNC !== 'undefined') { SYNC.deviceOnlyOverride = false; SYNC.resetKvBackoff(); }
     LOGIN6.busy = true; LOGIN6.error = ''; LOGIN6.notice = ''; render();
     try {
       const diag = (typeof SYNC !== 'undefined' && SYNC._json)
