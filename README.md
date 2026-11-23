@@ -103,11 +103,21 @@ Both palettes use the root letterhead's red/black/white/grey and pass the
 `safeFill` / `badgeOnFill` text contrast gates. **Letterhead Light is the default**
 when no Chief selection has been saved; explicit Chief choices are preserved.
 The default landing remains white-led, with the original eight-department
-workflow illustration restored on a charcoal panel, graphite counters and a
-soft-black footer for visual relief. Its inline SVG has an accessible name and
-description and works offline. Both identities keep the sign-in form white,
-with natural-colour photography, visible keyboard focus and scrollable access
-controls on small screens. The public-entry stylesheet is scoped separately
+workflow on a charcoal panel, an emblem-red hub and spokes, and restrained teal,
+gold and blue department/counter accents. Its inline SVG has an accessible name
+and description and works offline. The sign-in pairs natural-colour photography
+with a white form, coloured access tabs, a teal online-status strip and a gold
+device-registration notice. Both identities retain visible keyboard focus and
+measured text/placeholder contrast (36 token pairs per identity).
+
+Landing and all four access panels fit one viewport without vertical scrolling
+at the browser-regression sizes **1366×900, 1366×768, 1366×640, 1280×720,
+1024×768, 1024×600, 768×1024 and 390×844**. Short laptop layouts pair the username
+and password fields; compact views omit repeated branding/technical assurances,
+not access controls. Tiny (320×640), keyboard-shortened landscape
+(844×390) and zoom-equivalent views may scroll naturally so every field, recovery
+action and privacy link stays reachable; no hidden overflow or internal form
+scrollbar is used to fake a fit. The public-entry stylesheet is scoped separately
 from workspace palettes, which are unchanged.
 
 Staff sign-in is enforced by the API, not a browser fingerprint or a local flag:

@@ -805,15 +805,15 @@ const WTHEME = {
    badge pairs are measured at runtime rather than chosen by appearance. */
 const ENTRY_THEMES = [
   {id:'clinic',name:'LOMAMO Letterhead Light',mode:'light',accent:'#EE0000',
-    blurb:'The default: a white-led letterhead, charcoal workflow illustration and a clear emblem-red action.',
-    bg:'#FFFFFF',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#E1E1E1',soft:'#F0F0F0',emphasis:'#B31C2B'},
+    blurb:'The default: a white-led letterhead, red-centred workflow and restrained teal, gold and blue accents.',
+    bg:'#FFFFFF',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#E1E1E1',soft:'#F5F3F0',emphasis:'#B31C2B',teal:'#17645D',gold:'#85570B',blue:'#335D91'},
   {id:'heritage',name:'LOMAMO Emblem Dark',mode:'dark',accent:'#EE0000',
-    blurb:'A refined charcoal front door with soft red highlights and the same readable white sign-in form.',
-    bg:'#1C1C1C',surface:'#252525',ink:'#FFFFFF',muted:'#CCCCCC',line:'#454545',soft:'#303030',emphasis:'#FFB8B8'}
+    blurb:'A charcoal front door with a red-centred workflow, coloured highlights and the same white sign-in form.',
+    bg:'#1C1C1C',surface:'#252525',ink:'#FFFFFF',muted:'#CCCCCC',line:'#454545',soft:'#303030',emphasis:'#FFB8B8',teal:'#8ED8CE',gold:'#F2C56F',blue:'#A9CFF5'}
 ];
 const ENTRY_THEME = {
-  // Shared dark relief surfaces do not change the Chief's selected identity.
-  relief:Object.freeze({surface:'#232323',backdrop:'#1A1A1A',raised:'#333333',ink:'#FFFFFF',muted:'#CECECE',line:'#8B8B8B',accent:'#FFB8B8',footer:'#171717'}),
+  // Shared relief/accent surfaces enrich both identities, not a third theme.
+  relief:Object.freeze({surface:'#232323',backdrop:'#1A1A1A',raised:'#333333',ink:'#FFFFFF',muted:'#CECECE',line:'#8B8B8B',accent:'#FFB8B8',footer:'#171717',red:'#FF8996','red-fill':'#902238',teal:'#8ED8CE','teal-fill':'#194643',gold:'#F2C56F','gold-fill':'#4A3921',blue:'#A9CFF5','blue-fill':'#293F58'}),
   previewId:null, previewed:new Set(),
   tokens(id){
     const t=ENTRY_THEMES.find(x=>x.id===id)||ENTRY_THEMES[0];
@@ -838,12 +838,26 @@ const ENTRY_THEME = {
       {label:'Workflow supporting text / charcoal panel',ratio:WTC.contrast(r.muted,r.surface)},
       {label:'Workflow department / graphite node',ratio:WTC.contrast(r.ink,r.raised)},
       {label:'Workflow connectors / dark backdrop',ratio:WTC.contrast(r.line,r.backdrop)},
-      {label:'Footer text / soft black',ratio:WTC.contrast(r.muted,r.footer)}
+      {label:'Footer text / soft black',ratio:WTC.contrast(r.muted,r.footer)},
+      ...['teal','gold','blue'].map(key=>({label:key+' accent / entry canvas',ratio:WTC.contrast(t[key],t.bg)})),
+      ...['red','teal','gold','blue'].flatMap(key=>[
+        {label:key+' workflow label / coloured node',ratio:WTC.contrast(r.ink,r[key+'-fill'])},
+        {label:key+' counter / graphite',ratio:WTC.contrast(r[key],r.raised)}
+      ]),
+      {label:'Workflow core / emblem red',ratio:WTC.contrast('#FFFFFF','#B31C2B')},
+      {label:'Workflow core subtitle / emblem red',ratio:WTC.contrast('#FFE0E5','#B31C2B')},
+      {label:'Red workflow connector / backdrop',ratio:WTC.contrast(r.red,r.backdrop)},
+      {label:'Online status / pale teal',ratio:WTC.contrast('#205A50','#EAF5F1')},
+      {label:'Device notice / pale gold',ratio:WTC.contrast('#725016','#FFF6E5')},
+      {label:'Sign-in tab / pale red',ratio:WTC.contrast('#A11D32','#FCECEF')},
+      {label:'Activate tab / pale teal',ratio:WTC.contrast('#17645D','#EAF5F1')},
+      {label:'Request tab / pale blue',ratio:WTC.contrast('#335D91','#EBF2FB')},
+      {label:'Recover tab / pale gold',ratio:WTC.contrast('#85570B','#FFF6E5')}
     ];
   },
   style(id){
     const t=this.tokens(id);
-    return `--entry-bg:${t.bg};--entry-surface:${t.surface};--entry-ink:${t.ink};--entry-muted:${t.muted};--entry-line:${t.line};--entry-soft:${t.soft};--entry-emphasis:${t.emphasis};--entry-fill:${t.fill};--entry-badge:${t.badge};--accent:${t.fill};--accent-ink:#FFFFFF;${Object.entries(this.relief).map(([key,value])=>`--entry-relief-${key}:${value}`).join(';')}`;
+    return `--entry-bg:${t.bg};--entry-surface:${t.surface};--entry-ink:${t.ink};--entry-muted:${t.muted};--entry-line:${t.line};--entry-soft:${t.soft};--entry-emphasis:${t.emphasis};--entry-teal:${t.teal};--entry-gold:${t.gold};--entry-blue:${t.blue};--entry-fill:${t.fill};--entry-badge:${t.badge};--accent:${t.fill};--accent-ink:#FFFFFF;${Object.entries(this.relief).map(([key,value])=>`--entry-relief-${key}:${value}`).join(';')}`;
   },
   async apply(id){
     if(!AUTH.user || AUTH.user.roleId!=='chief' || !RBAC.has(AUTH.user,'system.config')) throw new Error('Only the Chief System Administrator may change the public entry theme.');
