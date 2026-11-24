@@ -710,3 +710,51 @@ html[data-wt="foundation"] .shell .ws67-mod-tabs{gap:10px;padding-block:8px 18px
 .monday-review-ledger>summary{cursor:pointer;font-weight:650;min-height:40px;}
 .monday-review-ledger>summary:focus-visible{outline:3px solid var(--focus);outline-offset:4px;}
 @media(max-width:600px){.monday-review-period{padding:18px;gap:18px;}.monday-review-period form{width:100%;}.monday-review-period form .field{flex:1;min-width:0;}}
+
+/* Coordinated identity bands: vivid chrome over a white reading canvas.
+   The three hero fills are contrast-corrected by WTHEME.safeFill. */
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{
+  background:linear-gradient(112deg,var(--console-hero-1,#1e40af) 0%,var(--console-hero-2,#0f655d) 64%,var(--console-hero-3,#6d28a8) 100%) !important;
+  color:#fff !important;border:1px solid transparent !important;border-inline-start:6px solid #facc15 !important;
+  box-shadow:0 10px 28px #14233e20 !important;
+}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-greeting,.ws67-sub){color:#fff !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-greeting{font-family:var(--font-head,var(--font));font-weight:750;letter-spacing:-.035em;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-arch-pill,.ws67-scope-pill){background:#fff !important;color:#243455 !important;border:1px solid #fff !important;box-shadow:0 2px 8px #14233e16;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs{border-top:1px solid #ffffff55 !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-workspace-tools,.ws67-layout-options)>summary{background:#fff;color:#243455;border-color:#fff;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(button,summary):focus-visible{outline:3px solid #fde047 !important;outline-offset:4px;}
+html[data-wt="foundation"] .shell .npane .np-brand{
+  background:linear-gradient(145deg,var(--console-hero-1,#1e40af),var(--console-hero-2,#0f655d));
+  color:#fff;border-bottom:4px solid #facc15;padding-block:24px !important;
+}
+html[data-wt="foundation"] .shell .npane .np-brand .np-id :is(.np-os,b,span,small,strong){color:#fff !important;}
+html[data-wt="foundation"] .shell .npane .np-brand .np-os{font-size:11px;letter-spacing:.16em;font-weight:800;margin-bottom:8px;}
+html[data-wt="foundation"] .shell .npane .np-brand .np-id>b{font-family:var(--font);font-size:16px;line-height:1.45;font-weight:700;}
+html[data-wt="foundation"] .shell .npane .np-brand>img{background:#fff;border-radius:14px;padding:4px;box-shadow:0 3px 12px #14233e25;}
+html[data-wt="foundation"] .shell .npane .np-brand .np-x{color:#fff;background:#ffffff1f;border-radius:8px;}
+.np-id .np-account-name{display:flex;gap:9px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid #ffffff55;min-width:0;}
+.np-id .np-account-name>svg{flex-shrink:0;}
+.np-id .np-account-name>span{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.np-id .np-account-name small{font-size:10px;letter-spacing:.03em;}
+.np-id .np-account-name strong{font-size:12px;font-weight:650;line-height:1.45;overflow-wrap:anywhere;}
+html[data-wt="foundation"] .shell .npane .np-i:not(.on)>svg{background:#e5edff;color:#1e40af;border-radius:7px;padding:3px;width:25px;height:25px;flex-shrink:0;}
+html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n+2) .np-i:not(.on)>svg{background:#e5f5ef;color:#0f655d;}
+html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n) .np-i:not(.on)>svg{background:#f2e7ff;color:#6d28a8;}
+html[data-wt="foundation"] .shell .npane .np-i.on{background:#1e40af !important;color:#fff !important;box-shadow:inset 4px 0 0 #facc15,0 3px 8px #1e40af20;border-radius:10px;}
+html[data-wt="foundation"] .shell .npane .np-i.on :is(svg,.np-l){color:#fff !important;}
+/* Dense data stays on white; navigational boxes and their icons carry colour. */
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert){
+  --identity-fill:#1e40af;background:var(--identity-fill) !important;border:1px solid #ffffff77 !important;border-top:4px solid #ffffff88 !important;border-radius:14px !important;
+}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert):nth-child(3n+2){--identity-fill:#0f655d;background:var(--identity-fill) !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert):nth-child(3n){--identity-fill:#6d28a8;background:var(--identity-fill) !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert) :is(.ws67-qnum,.ws67-qlbl,.ws67-qlbl svg){color:#fff !important;}
+html[data-wt="foundation"] .shell .npane .np-brand :is(button,a):focus-visible{outline:3px solid #fde047;outline-offset:3px;}
+@media(max-width:760px){html[data-wt="foundation"] .shell .npane .np-brand{padding-block:18px !important;}}
+@media print{html[data-wt="foundation"] .shell .npane .np-brand{background:#fff !important;color:#000 !important;}}
+/* Long account names wrap instead of disappearing inside the narrow pane. */
+.np-id .np-account-name{white-space:normal;border-top-color:var(--chrome-line,var(--line));}
+.np-id .np-account-name>span{white-space:normal;overflow:visible;align-items:flex-start;}
+.np-id .np-account-name strong{color:var(--chrome-ink,var(--ink));white-space:normal;}
+html[data-wt="foundation"] .shell .npane .np-brand .np-account-name{border-top-color:#ffffff55;}
