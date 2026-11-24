@@ -204,7 +204,7 @@ async function boot(){
      BEFORE the first render() or network probe so clicking Sign-In or
      submitting a form works immediately even while /api/health is loading. */
   AUTH.listeners.push(()=>render());
-  window.addEventListener('hashchange', ()=>{ parseHash(); render(); });
+  window.addEventListener('hashchange', ()=>{ parseHash(); render();if(AUTH.user)revealWorkspace(APPX.view); });
   document.addEventListener('click', onClick, false);
   document.addEventListener('submit', onSubmit, false);
   document.addEventListener('change', onChange, false);
@@ -300,13 +300,16 @@ function revealWorkspace(view){
   const content = document.querySelector && document.querySelector('#content');
   const shell = document.querySelector && document.querySelector('.app.shell.has-pane');
   if(!content || !content.getBoundingClientRect){ if(window.scrollTo) window.scrollTo(0,0); return; }
+  if(content.setAttribute)content.setAttribute('tabindex','-1');
+  if(content.focus)content.focus({preventScroll:true});
+  if(typeof getComputedStyle==='function'&&/auto|scroll/.test(getComputedStyle(content).overflowY)&&typeof content.scrollTo==='function')content.scrollTo({top:0,behavior:'auto'});
   const bar = document.querySelector('.topbar.cbar');
   const sticky = bar && typeof getComputedStyle==='function' && getComputedStyle(bar).position==='sticky' ? bar.getBoundingClientRect().height : 0;
   if(shell && typeof shell.scrollTo==='function' && typeof getComputedStyle==='function' && /auto|scroll/.test(getComputedStyle(shell).overflowY)){
-    const top = view==='home' ? 0 : shell.scrollTop + content.getBoundingClientRect().top - shell.getBoundingClientRect().top - sticky;
+    const top = shell.scrollTop + content.getBoundingClientRect().top - shell.getBoundingClientRect().top - sticky;
     shell.scrollTo({top:Math.max(0,top),behavior:'auto'});
   }else if(window.scrollTo){
-    const top = view==='home' ? 0 : (window.scrollY||0) + content.getBoundingClientRect().top - sticky;
+    const top = (window.scrollY||0) + content.getBoundingClientRect().top - sticky;
     window.scrollTo({top:Math.max(0,top),behavior:'auto'});
   }
 }
@@ -556,7 +559,7 @@ function renderShell(){
       </div>
       <div class="searchbox"><span>${ic('search',16)}</span><input placeholder="${esc(searchPh)}" data-search aria-label="Search"></div>
       <div class="tb-actions">
-        <span class="tb-os-identity" aria-label="CareLink OS">CareLink OS</span>
+        <span class="tb-os-identity" aria-label="CareLink OS">CareLink OS</span><span class="cb-build" title="Application build">${esc(window.BUILD_STAMP||'')}</span>
         <span class="live-pill neutral" data-live title="Live record indicator"><span class="live-dot"></span><span class="live-t">Live</span></span>
         ${typeof SYNC!=='undefined'?SYNC.chip():''}
         <button class="btn btn-xs btn-ghost no-print tb-ai-label" data-act="toggle-ai" title="Open ${esc(aiProf.title||'Console AI')}">${ic('sparkles',14)} <span>${esc(aiProf.badge||'Console AI')}</span></button>
@@ -581,7 +584,7 @@ function renderShell(){
       <button class="tab" data-act="go" data-v="settings">${ic('settings',15)}<span>Preferences</span></button>
     </nav>
 
-    <main class="content" id="content">
+    <main class="content" id="content" tabindex="-1">
       <nav class="cb-quick console-shortcuts no-print" role="navigation" aria-label="Quick console shortcuts">
         ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
       </nav>
@@ -827,7 +830,10 @@ function onClick(e){
     if(duplicatePress(act)) return;
     el.setAttribute('aria-busy','true'); el.classList.add('is-busy');
   }
-  try{ fn(el.dataset, el); }
+  const priorContent=document.querySelector('#content');
+  try{ fn(el.dataset, el);
+    if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
+  }
   finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
 }
 function onSubmit(e){

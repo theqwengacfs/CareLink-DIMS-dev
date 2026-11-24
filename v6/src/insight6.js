@@ -90,8 +90,45 @@ const DQ6 = {
         .forEach(t=>{ if(!t.receipt) push('warn','receipt-missing',`${t.no||t.id} has no receipt on file`,'transaction',t.id); });
     }
 
+    out.push(...this.crossAccountFindings(user));
     const rank = l => this.LEVELS[l].rank;
     return out.sort((a,b)=>rank(a.level)-rank(b.level) || a.text.localeCompare(b.text));
+  },
+
+  /* Compare only explicit links / unambiguous same-day observations.
+     Findings require review; no source is changed or treated as the truth. */
+  crossAccountFindings(user){
+    if(!RBAC.has(user,'dq.manage')&&!RBAC.has(user,'audit.view'))return [];
+    const patients=new Map(repo.patientList(user).map(p=>[p.id,p]));
+    const out=[],emit=(category,rule,record,other,actor,counterparty,detail,level='warn')=>{
+      out.push({key:rule+':'+record.id+':'+other.id,category,rule,entity:'patient',entityId:record.patientId,level,
+        accounts:[actor,counterparty].filter(Boolean),text:detail,sourceIds:[record.id,other.id]});
+    };
+    if(RBAC.has(user,'patient.view.clinical')&&RBAC.has(user,'form.view')){
+      const visits=new Map();
+      for(const v of DB.db.visits||[]){if(!patients.has(v.patientId))continue;const key=v.patientId+':'+String(v.date||'').slice(0,10);const list=visits.get(key)||[];list.push(v);visits.set(key,list);}
+      const forms=(DB.db.formRecords||[]).filter(f=>f.kind==='home_visit'&&f.status==='verified'&&patients.has(f.patientId));
+      const groups=new Map();for(const f of forms){const key=f.patientId+':'+String(f.data?.visitDate||f.visitDate||'').slice(0,10);const list=groups.get(key)||[];list.push(f);groups.set(key,list);}
+      for(const [key,records] of groups){const rows=visits.get(key)||[];if(records.length!==1||rows.length!==1||key.endsWith(':'))continue;
+        const f=records[0],v=rows[0],actor=v.by||v.enteredBy||v.caregiverId;
+        const a=Number(f.data?.weightKg),b=Number(v.weightKg);
+        if(actor&&f.enteredBy&&actor!==f.enteredBy&&a>0&&b>0&&Math.abs(a-b)>0.05)
+          emit('Clinical observations','cross-account-weight',f,v,f.enteredBy,actor,'One verified home sheet and one visit on the same date record different weights. Check measurement time, units and original sources; neither is automatically preferred.');
+      }
+    }
+    if(RBAC.has(user,'finance.view')){
+      const requests=new Map((DB.db.requests||[]).filter(r=>patients.has(r.patientId)).map(r=>[r.id,r]));
+      const role=roleObj(user.roleId)||{},global=role.scope?.geo==='global'||role.scope?.crossCounty;
+      for(const t of DB.db.transactions||[]){const r=requests.get(t.requestId);if(!r||(!global&&t.countyId!==user.countyId)||!patients.has(t.patientId))continue;
+        if(t.enteredBy&&r.requestedBy&&t.enteredBy!==r.requestedBy&&t.patientId!==r.patientId)
+          emit('Hospital / finance linkage','cross-account-patient-link',t,r,t.enteredBy,r.requestedBy,'The expense patient differs from its explicitly linked hospital request. Review the source linkage.','block');
+        if(t.status==='reconciled'&&t.reviewedBy&&t.reviewedBy===t.enteredBy)
+          emit('Independent financial review','cross-account-self-review',t,r,t.enteredBy,t.reviewedBy,'A reconciled expense names the same entering and reviewing account. Confirm the required independent review.');
+        if(['closed','reconciled'].includes(r.status)&&!t.reviewedBy&&['paid','reconciled'].includes(t.status))
+          emit('Hospital / finance handover','cross-account-review-gap',t,r,t.enteredBy,r.requestedBy,'A closed or reconciled hospital request has a linked paid expense without a recorded financial reviewer.');
+      }
+    }
+    return out;
   },
 
   waiverFor(key){
@@ -141,9 +178,9 @@ const DQ6 = {
   },
 
   csv(user){
-    const rows = [['Level','Finding','Rule','Record','Waived until','Reason']];
-    this.open(user).forEach(i=>rows.push([this.LEVELS[i.level].label, i.text, i.rule, i.entityId, '', '']));
-    this.ensure().filter(w=>w.status==='waived').forEach(w=>rows.push(['Waived', w.text, w.rule, w.entityId, w.until, w.reason]));
+    const rows = [['Level','Finding','Rule','Record','Waived until','Reason','Category','Accounts','Source record IDs']];
+    this.open(user).forEach(i=>rows.push([this.LEVELS[i.level].label, i.text, i.rule, i.entityId, '', '',i.category||'',(i.accounts||[]).join(' / '),(i.sourceIds||[]).join(' / ')]));
+    this.ensure().filter(w=>w.status==='waived').forEach(w=>rows.push(['Waived', w.text, w.rule, w.entityId, w.until, w.reason,'','','']));
     return rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');
   }
 };
@@ -156,6 +193,7 @@ function renderDataQuality(user){
   const page = Math.max(1, +params.page || 1), per = 40;
 
   const all = DQ6.scan(user);
+  const cross=all.filter(i=>i.accounts);
   const c = DQ6.counts(all);
   const waived = DQ6.ensure().filter(w=>w.status==='waived');
   const active = waived.filter(w=>!w.until || new Date(w.until) >= new Date());
@@ -175,6 +213,13 @@ function renderDataQuality(user){
   return pageHead('Data quality',
     'Findings are computed from the records each time this page opens, never stored as an opinion. Blocking findings are corrected in the record; warnings and advisories may be waived, with a written reason, for a stated period.',
     `<button class="btn btn-sm btn-ghost" data-act="dq-export">${ic('download',15)} Export CSV</button>`)
+  + ((RBAC.has(user,'dq.manage')||RBAC.has(user,'audit.view'))?'<div class="note">Cross-account checks compare available authorised evidence only. No finding does not establish agreement where source links, independent accounts or comparable observations are missing.</div>':'')
+  + (cross.length?card('Cross-account reconciliation · review required',
+      '<p class="small">Checks compare relevant source categories, not staff performance. Only authorised records are compared. A discrepancy is a review prompt, not proof of error or misconduct. Multiple same-day observations are not assumed equivalent.</p>'+table([
+        {label:'Category',render:i=>esc(i.category)},
+        {label:'Accounts involved',render:i=>[...new Set(i.accounts)].map(id=>esc(userName(id))).join(' / ')},
+        {label:'Source records',render:i=>i.sourceIds.map(esc).join(' / ')},
+        {label:'Discrepancy',render:i=>esc(i.text)}],cross)):'')
   + `<div class="grid g4" style="margin-bottom:16px">
       ${kpi('Blocking', num(c.block), 'Must be corrected in the record', c.block?'crit':'ok','alert')}
       ${kpi('Warnings', num(c.warn), 'Waivable for a stated period', c.warn?'warn':'ok','alert')}

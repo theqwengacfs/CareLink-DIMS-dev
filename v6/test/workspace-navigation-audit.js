@@ -40,13 +40,24 @@ run(`globalThis.__scroll=[];
   document.querySelector=s=>s==='#content'?__content:s==='.app.shell.has-pane'?__shell:s==='.topbar.cbar'?__bar:null;
   globalThis.getComputedStyle=e=>({position:e===__bar?'sticky':'relative',overflowY:e===__shell?'auto':'visible'});
   revealWorkspace('devices'); revealWorkspace('home');`);
-assert.deepStrictEqual(JSON.parse(run('JSON.stringify(__scroll)')), [430,0]);
+assert.deepStrictEqual(JSON.parse(run('JSON.stringify(__scroll)')), [430,430]);
 run(`__scroll=[];document.querySelector=s=>s==='#content'?__content:s==='.topbar.cbar'?__bar:null;
   window.scrollY=50;window.scrollTo=o=>__scroll.push(o.top);revealWorkspace('patients');revealWorkspace('home');`);
-assert.deepStrictEqual(JSON.parse(run('JSON.stringify(__scroll)')), [400,0]);
+assert.deepStrictEqual(JSON.parse(run('JSON.stringify(__scroll)')), [400,400]);
 const care=fs.readFileSync('v6/src/views_care.js','utf8');
 const css=fs.readFileSync('v6/src/entry_theme.css','utf8');
 assert.ok(care.includes('msg-person-copy') && care.includes('msg-person-actions') && care.includes('msg-pane-actions'));
 assert.match(css,/\.msg-layout \.msg-side\{display:flex/);
 assert.match(css,/\.shell-role-banner \.ws67-hero\.ctx-strip\{width:100%/);
 console.log(`Workspace audit passed across ${audit.roles} seeded role types; scroll roots and message layout checked.`);
+// Keyboard and pointer navigation land on the selected workspace, including
+// Home; background renders do not call this navigation-only helper.
+run(`globalThis.__focused=0;globalThis.__tabIndex='';
+ __content.focus=o=>{if(o.preventScroll)__focused++;};
+ __content.setAttribute=(k,v)=>{if(k==='tabindex')__tabIndex=v;};
+ revealWorkspace('forms');`);
+assert.equal(run('__focused'),1);
+assert.equal(run('__tabIndex'),'-1');
+assert.match(fs.readFileSync('v6/src/app.js','utf8'),/priorContent!==document.querySelector\('#content'\)/);
+assert.match(fs.readFileSync('src/App.tsx','utf8'),/release=20261125-workspace-audit/);
+console.log('Workspace focus, replacement-content reveal and release refresh checks passed.');
