@@ -1273,3 +1273,53 @@ html[data-calm="on"] *{animation:none!important;transition:none!important;scroll
 }
 @media(prefers-reduced-motion:reduce){.call-ringer-icon{animation:none}}
 @media print{.call-ringer,.call-stage{display:none !important}}
+
+/* Returning-patient workspace: focused search, then progressive disclosure. */
+.return-check{max-width:1080px;margin:0 auto;padding:8px 0 32px;color:var(--ink)}
+.return-check__header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:28px}
+.return-check__eyebrow,.return-check__step{display:block;font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--muted);margin-bottom:10px}
+.return-check__header h1{font-size:clamp(24px,3vw,32px);letter-spacing:-.035em}
+.return-check__header p{color:var(--muted);margin:10px 0 0;max-width:58ch}
+.return-check__search{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:30px;box-shadow:var(--shadow-sm)}
+.return-check h2{font-size:20px;letter-spacing:-.02em}
+.return-check__intro{margin:10px 0 24px;color:var(--muted);max-width:65ch;font-size:14px}
+.return-check .pmi-search{display:flex;gap:12px;align-items:flex-end;max-width:none}
+.return-check .pmi-search .field{flex:1;min-width:0;margin:0}
+.return-check .pmi-search .input{min-height:50px;font-size:16px;width:100%}
+.return-check .pmi-search .btn{min-height:50px;padding:12px 22px;white-space:nowrap}
+.return-check__help{display:flex;gap:8px;align-items:center;margin-top:16px;color:var(--muted);font-size:12px}
+.return-check__results{margin-top:30px}
+.return-check__results-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.return-check__results-head h2{font-size:17px}
+.return-check__empty{display:flex;align-items:center;justify-content:center;gap:20px;min-height:170px;padding:28px;border:1px dashed var(--border-strong);border-radius:16px;color:var(--muted)}
+.return-check__empty h3{font-size:16px;color:var(--ink);margin-bottom:8px}
+.return-check__empty p{font-size:14px;max-width:45ch;margin:0}
+.return-check__matches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}
+.return-check__patient{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;min-width:0}
+.return-check__identity{display:flex;gap:12px;align-items:center}
+.return-check__identity>div{min-width:0;flex:1;overflow-wrap:anywhere}
+.return-check__identity h3{font-size:16px;margin-bottom:4px}
+.return-check__avatar{display:grid;place-items:center;flex-shrink:0;width:42px;height:42px;border-radius:12px;background:var(--surface-2);color:var(--muted)}
+.return-check__patient dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:22px 0}
+.return-check__patient dt{font-size:11px;color:var(--muted);margin-bottom:4px}
+.return-check__patient dd{font-size:14px;margin:0;overflow-wrap:anywhere}
+.return-check__patient-foot{border-top:1px solid var(--line);padding-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.return-check__guidance{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.65;margin:22px 0}
+.return-check__guidance svg,.return-check__help svg{flex-shrink:0}
+.return-check__secondary{border-top:1px solid var(--line);margin-top:28px}
+.return-check__disclosure{border-bottom:1px solid var(--line)}
+.return-check__disclosure>summary{padding:20px 4px;cursor:pointer;font-weight:600;font-size:14px;min-height:48px}
+.return-check__disclosure>summary span{display:inline-block;font-weight:400;font-size:12px;color:var(--muted);margin-left:14px}
+.return-check__disclosure>summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.return-check__disclosure-body{padding-bottom:20px;overflow-x:auto}
+.return-check__verdict .rb{flex-wrap:wrap}
+@media(max-width:700px){
+  .return-check__header{align-items:flex-start;flex-direction:column;gap:14px;margin-bottom:20px}
+  .return-check__search{padding:20px;border-radius:14px}
+  .return-check .pmi-search{flex-direction:column;align-items:stretch}
+  .return-check .pmi-search .field{flex:auto}
+  .return-check__matches{grid-template-columns:1fr}
+  .return-check__empty{justify-content:flex-start;padding:22px 18px}
+  .return-check__disclosure>summary span{display:block;margin:6px 0 0 18px}
+  .return-check__identity{flex-wrap:wrap}
+}
