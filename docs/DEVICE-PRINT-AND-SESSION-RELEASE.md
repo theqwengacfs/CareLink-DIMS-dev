@@ -22,7 +22,7 @@ Vercel now permits same-origin microphone/camera access and the app iframe expli
 
 ## Organisation display and artwork
 
-The landing workflow features Administration, Field Care, Hospital, Transport, Media & IT, Homestay, Procurement and Finance. The count is explicitly **11 Major Departments**; the accessible disclosure also includes HR & Staff, Welfare Department and Internal Operations. The same stated structure applies to counties. Role descriptions and overlapping transport/procurement duties are explanatory only, not new permission grants. Internal legacy RBAC capability groups are deliberately not migrated or renamed.
+The landing workflow features Administration, Field Care, Hospital, Transport, Media & IT, Homestay, Procurement and Finance. The count is explicitly **11 Major Departments**; the dedicated “How CareLink works” page lists all eleven, including HR & Staff, Welfare Department and Internal Operations. The landing graphic stays free of the expanded directory. The same stated structure applies to counties. Role descriptions and overlapping transport/procurement duties are explanatory only, not new permission grants. Internal legacy RBAC capability groups are deliberately not migrated or renamed.
 
 `public/media/lake-workspace-original.jpg` is AI-generated Lake Victoria-inspired artwork, not an authenticated photograph of a particular Kisumu site. Its native dimensions are 1376 × 768. Responsive WebP exports are 960, 1920 and 3840 pixels wide; the larger files are resampled, not native 4K detail. Hosted entry selects these separately loaded assets; the standalone file retains the existing bundled lake fallback. A verified native-UHD photograph can replace the artwork later without changing authentication or app code.
 

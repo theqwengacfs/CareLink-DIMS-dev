@@ -214,17 +214,17 @@ const MAJOR_DEPARTMENTS = [
   {name:'Welfare Department',detail:'Staff welfare.'},
   {name:'Internal Operations',detail:'Internal operational coordination.'}
 ];
-/* Original eight-department hub-and-spoke workflow. Red leads the shared
+/* Eight featured departments in a symmetric hub-and-spoke workflow. Red leads the shared
    centre/connections; secondary colours distinguish departments, never status.
    Keep it semantic, self-contained and available in the Chief's inert preview. */
 function renderLandingWorkflow6(){
   const nodes=[
-    [230,24,'Administration','red'], [324,52,'Field Care','teal'],
-    [354,112,'Hospital','red'], [322,174,'Transport','gold'],
-    [230,200,'Media & IT','blue'], [138,174,'Homestay','red'],
+    [230,22,'Administration','red'], [324,52,'Field Care','teal'],
+    [354,112,'Hospital','red'], [324,172,'Transport','gold'],
+    [230,202,'Media & IT','blue'], [136,172,'Homestay','red'],
     [106,112,'Procurement','teal'], [136,52,'Finance','red']
   ];
-  return `<svg viewBox="50 0 360 224" class="ld-scene-svg" role="img" aria-labelledby="ld-workflow-title" aria-describedby="ld-workflow-desc" focusable="false">
+  return `<svg viewBox="40 0 380 224" class="ld-scene-svg" role="img" aria-labelledby="ld-workflow-title" aria-describedby="ld-workflow-desc" focusable="false">
     <title id="ld-workflow-title">CareLink system workflow</title>
     <desc id="ld-workflow-desc">CareLink is the shared centre connecting Administration, Field Care, Hospital, Transport, Media &amp; IT, Homestay, Procurement and Finance: eight featured teams from 11 Major Departments. Every department coordinates through one shared system.</desc>
     <g class="ld-workflow-orbits" fill="none" aria-hidden="true">
@@ -236,9 +236,9 @@ function renderLandingWorkflow6(){
     </g>
     <circle class="ld-workflow-halo" cx="230" cy="112" r="41" fill="none" aria-hidden="true"/>
     ${nodes.map(([x,y,label,tone])=>`<g class="ld-workflow-node" data-workflow-node="${esc(label)}" data-tone="${tone}" style="--node-fill:var(--entry-relief-${tone}-fill);--node-accent:var(--entry-relief-${tone})">
-      <rect x="${x-48}" y="${y-13}" width="96" height="26" rx="13"/>
-      <circle cx="${x-36}" cy="${y}" r="2.6" aria-hidden="true"/>
-      <text x="${x+5}" y="${y}" dy=".35em" text-anchor="middle">${esc(label)}</text>
+      <rect x="${x-56}" y="${y-13}" width="112" height="26" rx="13"/>
+      <circle cx="${x-44}" cy="${y}" r="2.6" aria-hidden="true"/>
+      <text x="${x-34}" y="${y}" dy=".35em" text-anchor="start">${esc(label)}</text>
     </g>`).join('')}
     <g class="ld-workflow-core">
       <circle cx="230" cy="112" r="35"/>
@@ -311,7 +311,6 @@ function renderLanding6(){
                 <h2 id="ld-workflow-heading">One system. Every team connected.</h2>
               </figcaption>
               ${renderLandingWorkflow6()}
-              <details class="ld-department-list"><summary>Explore all 11 Major Departments</summary><p>The same structure applies in each county. Cross-department duties do not automatically grant access.</p><ol>${MAJOR_DEPARTMENTS.map(d=>`<li><b>${esc(d.name)}</b><span>${esc(d.detail)}</span></li>`).join('')}</ol></details>
               <div class="ld-workflow-path" aria-label="Capture, coordinate and report through one shared record">
                 <span>Capture</span>${ic('chevron',12)}<span>Coordinate</span>${ic('chevron',12)}<span>Report</span>
               </div>
@@ -428,7 +427,8 @@ function renderArchitecture6(){
             </div>
           </article>`).join('')}
         </div>
-        <div class="ld-strip">${departments.map(dept).join('')}</div>
+        <div class="ld-band-head"><div><h3>11 Major Departments</h3></div><p class="ld-band-sub">The same structure applies in each county. Cross-department duties require their own authorisation.</p></div>
+        <div class="ld-strip" aria-label="All 11 major departments">${departments.map(dept).join('')}</div>
       </section>
 
       <section class="ld-band">
