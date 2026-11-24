@@ -539,7 +539,7 @@ test('the public portal carries the LOMAMO programme content', ()=>{
   const html = run(`String(renderPublicPortal({}))`);
   ok('the portal renders', html.length>8000, String(html.length));
   ok('the mission is quoted', /orphan prevention/i.test(html));
-  ok('the four pillars are shown', /Patient visits/.test(html) && /Hospital &amp; home-based healthcare/.test(html) && /Education/.test(html) && /Community partnerships/.test(html));
+  ok('the four care pillars are shown without a schooling programme', /Patient visits/.test(html) && /Hospital &amp; home-based healthcare/.test(html) && /Nutrition &amp; household care/.test(html) && /Community partnerships/.test(html) && !/Keeping children in school/.test(html));
   ok('the team in Kenya is shown', /Martin Chamah/.test(html) && /Moses Nyanjong Otieno/.test(html) && /Washington Ayub Odero/.test(html));
   ok('the board and advisors are shown', /Pamela McClanahan/.test(html) && /Desmond Marshall/.test(html));
   ok('the published finances are shown', /230,639|\$230,639/.test(html) && /83-3329252/.test(html));
