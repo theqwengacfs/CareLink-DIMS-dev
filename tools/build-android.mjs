@@ -74,6 +74,10 @@ async function main() {
   // The app entry point is the CareLink bundle, not the root redirect page.
   twaManifest.startUrl = '/carelink-v6.html';
   twaManifest.display = 'standalone';
+  // androidbrowserhelper 2.7.4 requires minSdk 24 (Android 7.0); the
+  // Bubblewrap default of 21 fails manifest merging. API 24 covers every
+  // phone released since 2016.
+  twaManifest.minSdkVersion = 24;
   twaManifest.signingKey = { path: `./${KEYSTORE_FILE}`, alias: KEY_ALIAS };
 
   const validationError = twaManifest.validate();
