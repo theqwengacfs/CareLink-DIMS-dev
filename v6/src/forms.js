@@ -919,6 +919,7 @@ function formDoc(rec){
 }
 
 function printDoc(title, html){
+  html=reportProvenanceHTML()+html;
   /* The document is written once, into a body-level container that only
      printing reveals. The modal shows the same markup for reading. */
   let host=document.getElementById('printRoot');

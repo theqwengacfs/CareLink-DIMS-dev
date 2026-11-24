@@ -505,9 +505,14 @@ const PRINT_CONTROL = {
     let style=document.getElementById('carelink-print-settings');
     if(!style){style=document.createElement('style');style.id='carelink-print-settings';document.head.appendChild(style);}
     style.textContent=`@page { size:${size} ${orientation}; margin:12mm; }`;
+    const printTarget=this.source==='document'?document.getElementById('printRoot'):document.getElementById('content');
+    if(printTarget?.insertAdjacentHTML){
+      const prior=printTarget.querySelector('[data-report-provenance="Print requested"]');if(prior)prior.remove();
+      printTarget.insertAdjacentHTML('afterbegin',reportProvenanceHTML(reportProvenance(),'Print requested'));
+    }
     const mode=this.source==='document'?'print-mode':'print-workspace';
     document.body.classList.add(mode);
-    const clean=()=>document.body.classList.remove(mode);
+    const clean=()=>{document.body.classList.remove(mode);if(printTarget?.insertAdjacentHTML){const stamp=printTarget.querySelector('[data-report-provenance="Print requested"]');if(stamp)stamp.remove();}};
     window.addEventListener('afterprint',clean,{once:true});
     try{window.print();}catch(error){clean();toast('Print dialog unavailable','Open CareLink directly in a browser tab and use its Print menu.','warn');}
     // Some mobile print services do not emit afterprint. Restore screen state
