@@ -881,3 +881,14 @@ html .shell .topbar.cbar .tb-os-identity{
  .console-shortcuts .cb-qbtn{padding:10px 12px;flex:1 1 auto;justify-content:center;}
 }
 @media print{.app.shell>.content>.console-shortcuts{display:none !important;}}
+/* Show the teamwork scene at a legible scale instead of a shallow banner. */
+.lg6[data-theme] .lg6-photo-frame .lg6-photo-main{
+ height:auto !important;aspect-ratio:4 / 3;min-height:260px;
+ object-fit:cover !important;object-position:center;max-height:none;
+}
+.lg6[data-theme] .lg6-thumbs{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.lg6[data-theme] .lg6-thumb{min-height:66px;font-size:11px;gap:10px;text-align:left;}
+.lg6[data-theme] .lg6-thumb img{width:54px;height:46px;border-radius:5px;flex-shrink:0;}
+.cb-build{font-size:9px;color:var(--ink-2);white-space:nowrap;}
+#content:focus{outline:none;}
+@media(max-width:760px){.lg6[data-theme] .lg6-photo-frame .lg6-photo-main{min-height:220px;}}
