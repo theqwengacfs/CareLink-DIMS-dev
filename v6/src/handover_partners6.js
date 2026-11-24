@@ -141,7 +141,7 @@ const HANDOVER_PARTNERS = {
         clinicalNotes:'Single mother of 3 on second-line ART recovering from pulmonary TB; BMI 16.4 kg/m².',
         status:'enrolled_active',
         lomamoCode:'LOM-HB-412',
-        masterReportSummary:'Active in Homa Bay Town caseload: Bag 2 family nutrition + pyridoxine verified; all 3 children retained in school.',
+        masterReportSummary:'Active in Homa Bay Town caseload: Bag 2 family nutrition + pyridoxine verified; dependent-child nutrition and guardian care reviewed.',
         feedbackThread:[]
       }
     ];
@@ -389,7 +389,7 @@ const HANDOVER_PARTNERS = {
     } else if(lens === 'governor'){
       lensBody = `<div class="grid g2" style="margin-bottom:16px">
           ${card('Office of the Governor — Sub-County Health System Relief Brief', `
-            <p class="small" style="margin-top:0">LOMAMO Foundation partners directly with County Departments of Medical Services, Public Health &amp; Sanitation in <b>Kisumu</b> and <b>Homa Bay</b> to stabilise vulnerable post-discharge households — reducing avoidable inpatient readmissions while keeping children safely in school and family care.</p>
+            <p class="small" style="margin-top:0">LOMAMO Foundation partners directly with County Departments of Medical Services, Public Health &amp; Sanitation in <b>Kisumu</b> and <b>Homa Bay</b> to stabilise vulnerable post-discharge households — reducing avoidable inpatient readmissions while supporting recovery, household nutrition and family care.</p>
             <div class="grid g2" style="gap:10px;margin-top:10px">
               <div class="exec-pane"><b>Hospital Decongestion</b><p class="xs muted" style="margin:4px 0 0">Structured bi-weekly home nursing &amp; nutrition follow-up after JOOTRH, KCRH and Homa Bay Referral discharge prevents acute relapse.</p></div>
               <div class="exec-pane"><b>Orphan Prevention</b><p class="xs muted" style="margin:4px 0 0">${num(totalProtectedKids)} dependent children in the current register remain under parental care through household recovery.</p></div>

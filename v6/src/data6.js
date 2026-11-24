@@ -850,13 +850,13 @@ function seedOfficial(db, now, opts={}){
     sofia:['Sofia Estate','Asego','Salama']
   };
   const careObjectives = [
-    ['ART adherence >=95% & viral suppression','Monthly nutrition basket & +3 kg weight recovery','All household children retained in school'],
+    ['ART adherence >=95% & viral suppression','Monthly nutrition basket & +3 kg weight recovery','Dependent-child nutrition and guardian care reviewed'],
     ['Complete specialist hospital review & diagnostics','Stabilise blood pressure / blood glucose within target','Strengthen guardian household income resilience'],
     ['Complete full TB / infection treatment course','Clean wound healing & pain-free mobility','30-day PDCA household hygiene & safe water check'],
     ['Prevent maternal/guardian hospital readmission','Immunisation & MUAC growth catch-up for under-5s','Prepare household graduation & CHU continuity link']
   ];
   const visitSummaries = [
-    'Home visit completed with guardian; ART & medication adherence >=95%, monthly nutrition basket verified, children attending school regularly.',
+    'Home visit completed with guardian; ART & medication adherence >=95%, monthly nutrition basket verified, dependent-child nutrition and guardian care reviewed.',
     'Vitals and weight checked at household; steady clinical improvement noted, safe water & hygiene counselling reinforced.',
     '30-day PDCA household assessment conducted; caregiver reviewed clinic appointment card, nutrition progress and child welfare.',
     'Follow-up after hospital clinic review; prescriptions taken as directed, appetite and functional mobility improving well.'
@@ -1062,7 +1062,7 @@ function seedOfficial(db, now, opts={}){
         notes: 'Enrolled under ' + area.name + ' cluster; 30-day PDCA clinical & household nutrition plan active.'
       },
       carePlan:{
-        needs: diag + ' clinical stabilisation, household food security and child schooling continuity in ' + village,
+        needs: diag + ' clinical stabilisation, household food security and dependent-child wellbeing in ' + village,
         objectives: objSet,
         interventions: 'Bi-weekly caregiver home visits, monthly nutrition support, 30-day PDCA review and hospital clinic linkage.',
         responsible: caregiver,
@@ -1209,9 +1209,9 @@ function seedOfficial(db, now, opts={}){
         dueDay:dueD,
         stage:'Check',
         title:'Day-' + dueD + ' Formal 30-Day Care Plan Review',
-        plan:'Review clinical stability (' + diag + '), weight recovery and child schooling at Day ' + dueD + '.',
+        plan:'Review clinical stability (' + diag + '), weight recovery and household nutrition at Day ' + dueD + '.',
         doNote:'Household visit and guardian review completed on schedule.',
-        checkNote:'Weight ' + currWt + ' kg, adherence ' + pObj.clinical.adherence + '; all children in school.',
+        checkNote:'Weight ' + currWt + ' kg, adherence ' + pObj.clinical.adherence + '; household nutrition and guardian care reviewed.',
         actNote: dueD >= planned ? 'Prepare graduation readiness & continuity referral.' : 'Continue active care plan to next 30-day milestone.',
         due:revDate,
         completedAt:revDate,
@@ -1420,7 +1420,7 @@ function librarySeed(users){
     ['Programme','LOMAMO Constitution and Bylaws (Governance Reference)','governance','22 July 2025','Governing constitution and board accountability framework.'],
     ['Programme','LOMAMO C-DIMS Trial Usage Report, 31 August 2026','research','final','Findings from the field trial and user journey refinements closed in v6.'],
     ['Medical','LOMAMO Adult Patient Assessment Form (LMMK 001)','form','current','Paper form reproduced field for field with National ID returning-patient check first.'],
-    ['Medical','LOMAMO Minor Child Assessment & Orphan Prevention Form (LMMK 004)','form','current','Child health, guardian household capacity and schooling protection form.'],
+    ['Medical','LOMAMO Minor Child Assessment & Orphan Prevention Form (LMMK 004)','form','current','Child health, guardian household capacity and nutrition assessment form.'],
     ['Medical','LOMAMO Outpatient & Inpatient Hospital Visit Forms (LMMK 020)','form','current','Used by Hospital Focal Persons at JOOTRH, Kisumu County Referral and Homa Bay Referral.'],
     ['Medical','Omaha System Care Plan & KBS Rating Reference','reference','v2','Worked HIV/TB, nutrition and chronic care plans used in clinical case management.'],
     ['Finance','County Monthly Budget & Expenditure Controls Workbook FY2026','workbook','October 2026','Configurable expenditure categories, MPESA reference rules and reconciliation checks.'],

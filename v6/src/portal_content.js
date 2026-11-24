@@ -13,7 +13,11 @@
                                        assets, grants, Form 990 filings,
                                        officers)
 
-   Two rules were applied to everything here:
+   Programme scope corrected by the Foundation: schooling assistance and
+   school-continuity outcomes are not part of the care programme. Historical
+   public-source descriptions below have been aligned with that correction.
+
+   Two privacy rules were applied to everything here:
    1. Only what the Foundation has already published about itself is used.
       No patient identity, no clinical detail, no internal figure appears.
    2. No photograph of an identifiable patient is published. Patient
@@ -46,7 +50,7 @@ const PORTAL_CONTENT = {
     quote:'If it is true that HIV inevitably turns into AIDS, then my children will inevitably turn to orphans.'
   },
 
-  /* The four pillars shown on the Foundation's own front page. */
+  /* Foundation programme scope: clinical care, nutrition and community support; no schooling assistance. */
   pillars:[
     { id:'visits', title:'Patient visits', icon:'route',
       body:'Weekly home-based healthcare in the urban slums and remote villages of Kisumu and Homa Bay: clinical review, wound care, adherence counselling, nutrition and prayer with the household.',
@@ -54,18 +58,18 @@ const PORTAL_CONTENT = {
     { id:'hospital', title:'Hospital & home-based healthcare', icon:'hospital',
       body:'Urgent hospitalisation, outpatient and inpatient care, laboratory investigations and escort transport when a patient cannot be treated at home.',
       photo:'roundtable_forms' },
-    { id:'education', title:'Education', icon:'book',
-      body:'Keeping children in school when a parent is sick: uniforms, books and fees, so that a household\u2019s crisis does not become a child\u2019s lost future.',
+    { id:'nutrition', title:'Nutrition & household care', icon:'heart',
+      body:'Nutritious food and household care alongside treatment, supporting recovery and the wellbeing of patients and their dependants.',
       photo:'team_blocks' },
     { id:'community', title:'Community partnerships', icon:'users',
       body:'Working through Community Health Workers and Volunteers, churches, county health facilities and neighbours who know which household is in danger.',
       photo:'puzzle_hands' }
   ],
 
-  /* Programme areas exactly as published for the US entity. */
+  /* Programme summary aligned with the Foundation's current care scope. */
   programAreas:{
-    statement:'To provide medical support, nutritious food, education and encouragement to people suffering from chronic illnesses in Kenya, thus restoring health to families and preventing children from becoming orphans.',
-    usMission:'Love Matters Most\u2019s primary mission is to increase awareness and raise funds for the LOMAMO Foundation in Kisumu, Kenya: to prevent orphans by bringing emergency medical support, nutritious food and education to those suffering from HIV/AIDS and TB in Kenya, and to share the work in Kenya with churches, organisations and individuals through brochures, videos and slideshows.'
+    statement:'To provide medical support, nutritious food, health counselling and encouragement to people suffering from chronic illnesses in Kenya, thus restoring health to families and preventing children from becoming orphans.',
+    usMission:'Love Matters Most\u2019s primary mission is to increase awareness and raise funds for the LOMAMO Foundation in Kisumu, Kenya: to prevent orphans by bringing emergency medical support, nutritious food and health counselling to those suffering from HIV/AIDS and TB in Kenya, and to share the work in Kenya with churches, organisations and individuals through brochures, videos and slideshows.'
   },
 
   /* Verified 2018-2026 cumulative impact from the County Government of Kisumu (CGK)
@@ -224,7 +228,7 @@ const PORTAL_CONTENT = {
   faqs:[
     { q:'Where does LOMAMO work?', a:'In Kisumu County and Homa Bay County in western Kenya - in the urban slums of Kisumu Central and Homa Bay Town, and in the villages of Kisumu West, Kisumu East, Muhoroni and Nyando.' },
     { q:'Who do you serve?', a:'Vulnerable adults and children who have been abandoned to die from HIV/AIDS and TB, and the households around them. Care is home-based first, with hospitalisation when it is needed.' },
-    { q:'What does a household receive?', a:'Weekly home visits, nutritious food (Bag 1, Bag 2 or a Special bag according to household size and need), hygiene packs each quarter, medication support including pyridoxine for TB patients, escort transport to hospital, and school support for children.' },
+    { q:'What does a household receive?', a:'Weekly home visits, nutritious food (Bag 1, Bag 2 or a Special bag according to household size and need), hygiene packs each quarter, medication support including pyridoxine for TB patients, and escort transport to hospital. School fees, uniforms, books and school-continuity support are not part of the care programme.' },
     { q:'How is a patient found?', a:'Through long-standing relationships with Community Health Workers and Volunteers, churches and neighbours who tell us which household is in danger.' },
     { q:'How is money accounted for?', a:'Every cost - hospital fee, transport fare, food bag, medication, SHIF contribution - is attributed to the patient it served, rolled up to ministry area, county and national level, and reconciled against budget and against physical stock counts. The US entity publishes its Form 990 filings each year.' },
     { q:'Can I see patient records on this portal?', a:'No. This portal carries only what the Foundation has published about itself. Patient records live in LOMAMO C-DIMS behind role-based access, and photography of a beneficiary is never published without recorded consent.' }
@@ -255,7 +259,6 @@ const PORTAL_CONTENT = {
     { key:'foodbag_nutrition',  label:'Nutritious food for the week',   dept:'Procurement & Nutrition',       caption:'Bag 1, Bag 2 and the Special bag, issued against the household\u2019s need.' },
     { key:'hospital_escort',    label:'Escort to hospital',             dept:'Hospital Coordination',         caption:'Friday hospital visits with transport and an escort.' },
     { key:'tb_adherence',       label:'TB adherence support',           dept:'Pharmacy & Medical',            caption:'Pyridoxine with every anti-TB course, on a ten-day cycle.' },
-    { key:'children_school',    label:'Children kept in school',        dept:'Education & Orphan Prevention', caption:'Uniforms, books and fees so a crisis does not become a lost future.' },
     { key:'chv_meeting',        label:'Community health volunteers',    dept:'Community Partnerships',        caption:'The volunteers and CHWs who tell us which household is in danger.' },
     { key:'lake_kisumu',        label:'Kisumu, on Lake Victoria',       dept:'Where we serve',                caption:'Urban slums and remote villages across Kisumu and Homa Bay.' },
     { key:'monday_meeting',     label:'Monday management meeting',      dept:'Administration',                caption:'Everyone at the office on Monday, except sick leave and the hospital ministry.' },

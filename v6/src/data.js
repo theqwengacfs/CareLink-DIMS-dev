@@ -416,7 +416,7 @@ const INDICATORS = {
   inpatient:{ l:'Inpatients', def:'Patients with an open hospital admission record at cut-off (admission recorded, discharge not yet recorded).', src:'hospital_encounter.admitted_at' },
   outpatient:{ l:'Outpatients (tracked)', def:'Hospital outpatient encounters recorded in the period, de-duplicated per patient per day.', src:'hospital_encounter.type="outpatient"' },
   support:{ l:'Support items issued', def:'Physical items (foodbags, Bibles, nets, mattresses, blankets, special bags) issued and evidenced in the period, by item type. Not monetary transfers.', src:'support_issue' },
-  orphans_prevented:{ l:'Children supported by orphan-prevention work', def:'Children in enrolled households who meet the approved orphan-prevention outcome definition (education continuity + nutrition + guardian care plan, verified at assessment and review). NOT every child in a household.', src:'household_child + outcome_verification' },
+  orphans_prevented:{ l:'Children supported by orphan-prevention work', def:'Children in enrolled households who meet the approved orphan-prevention outcome definition (health and nutrition + guardian care plan, verified at assessment and review). NOT every child in a household.', src:'household_child + outcome_verification' },
   salvation:{ l:'Reported faith engagement', def:'Patients who voluntarily record a faith decision, where the patient consents to its recording. Restricted field: visible only to authorised ministry and leadership roles. Never used as a performance target for staff.', src:'patient.faith_record (restricted)' },
   hosp_submitted:{ l:'Hospital requests submitted', def:'Hospital appointment/transport requests submitted in the period.', src:'hospital_request.submitted_at' },
   hosp_approved:{ l:'Hospital requests approved', def:'Requests approved by the Medical Case Manager in the period.', src:'hospital_request.decided_at' },
@@ -812,7 +812,7 @@ function seedDemo(db, now){
     if(hasPlan){
       p.carePlan = {
         needs: ['Nutrition and household food security','Adherence support and clinic escort',
-                'Wound care and hygiene','Psychosocial support and school re-entry',
+                'Wound care and hygiene','Psychosocial support and family care',
                 'Transport to hospital appointments'][i%5],
         objectives: ['Stable weight across three consecutive visits','No missed clinical appointment in the quarter',
                      'Caregiver able to describe the treatment plan','Household able to sustain care without support'][i%4],

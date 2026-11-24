@@ -341,7 +341,7 @@ const BMI_CLINICAL = {
         assessment:'Severe / Moderate Acute Malnutrition risk requiring targeted therapeutic foodbag and close hydration review.',
         plan:'Escalate immediately to Special Therapeutic Food Bag, schedule 72-hour caregiver re-weigh, and coordinate facility lab review.' },
       { county:'kisumu', idx:5,  daysAgo:2,  author:'Paediatric Nutrition Lead', role:'Medical Case Manager', acuity:'moderate', bp:'102/64', pulse:88, temp:36.8, spo2:99,
-        subjective:'Guardian reports improved school attendance and 4 structured meals per day using fortified porridge flour.',
+        subjective:'Guardian reports improved appetite and 4 structured meals per day using fortified porridge flour.',
         objective:'Linear growth and mid-upper arm circumference (+0.6 cm vs intake baseline) trending steadily into WHO green zone.',
         assessment:'Sustained paediatric nutritional catch-up growth without intercurrent infection.',
         plan:'Continue monthly Weight, BMI-for-Age and MUAC tape plotting; reinforce household WASH & safe water practices.' },
@@ -367,7 +367,7 @@ const BMI_CLINICAL = {
         plan:'Provide Special Fortified Ration, review blood counts at Homa Bay Teaching & Referral Hospital next week.' },
       { county:'homabay', idx:6, daysAgo:5,  author:'Homa Bay Clinical Desk', role:'Medical Case Manager', acuity:'stable', bp:'120/76', pulse:75, temp:36.6, spo2:99,
         subjective:'Consistent ART adherence and thriving household vegetable kitchen garden supporting daily nutrition.',
-        objective:'BMI 21.4 kg/m² in WHO healthy band; all dependent children attending school with normal MUAC.',
+        objective:'BMI 21.4 kg/m² in WHO healthy band; dependent-child nutrition reviewed with normal MUAC.',
         assessment:'Clinically and nutritionally stable household meeting 90-day care plan milestones.',
         plan:'Continue routine 3-visit weigh-in schedule and prepare 120-day review summary.' }
     ];
