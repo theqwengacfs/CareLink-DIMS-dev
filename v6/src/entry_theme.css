@@ -698,3 +698,15 @@ html[data-wt="foundation"] .shell .ws67-mod-tabs{gap:10px;padding-block:8px 18px
   .ws67-more-workspaces:not([open])>.ws67-more-body{display:block !important;}
   .ws67-workspace-tools,.ws67-layout-options{display:none !important;}
 }
+
+/* Monday meeting review: a clear period, one subject per tab, details on demand. */
+.monday-review-period{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding:24px;margin:22px 0;background:var(--surface);border:1px solid var(--line);border-inline-start:4px solid var(--accent);border-radius:16px;}
+.monday-review-period h3{margin-block:8px;}
+.monday-review-period p{margin:0;max-width:65ch;}
+.monday-review-period .field{margin:0;}
+.monday-review-period form{align-items:flex-end;}
+.monday-review-charts{margin:24px 0;}
+.monday-review-ledger{padding:20px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-top:24px;overflow-x:auto;}
+.monday-review-ledger>summary{cursor:pointer;font-weight:650;min-height:40px;}
+.monday-review-ledger>summary:focus-visible{outline:3px solid var(--focus);outline-offset:4px;}
+@media(max-width:600px){.monday-review-period{padding:18px;gap:18px;}.monday-review-period form{width:100%;}.monday-review-period form .field{flex:1;min-width:0;}}

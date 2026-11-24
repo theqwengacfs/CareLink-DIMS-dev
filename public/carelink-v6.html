@@ -7599,6 +7599,18 @@ html[data-wt="foundation"] .shell .ws67-mod-tabs{gap:10px;padding-block:8px 18px
   .ws67-workspace-tools,.ws67-layout-options{display:none !important;}
 }
 
+/* Monday meeting review: a clear period, one subject per tab, details on demand. */
+.monday-review-period{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding:24px;margin:22px 0;background:var(--surface);border:1px solid var(--line);border-inline-start:4px solid var(--accent);border-radius:16px;}
+.monday-review-period h3{margin-block:8px;}
+.monday-review-period p{margin:0;max-width:65ch;}
+.monday-review-period .field{margin:0;}
+.monday-review-period form{align-items:flex-end;}
+.monday-review-charts{margin:24px 0;}
+.monday-review-ledger{padding:20px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin-top:24px;overflow-x:auto;}
+.monday-review-ledger>summary{cursor:pointer;font-weight:650;min-height:40px;}
+.monday-review-ledger>summary:focus-visible{outline:3px solid var(--focus);outline-offset:4px;}
+@media(max-width:600px){.monday-review-period{padding:18px;gap:18px;}.monday-review-period form{width:100%;}.monday-review-period form .field{flex:1;min-width:0;}}
+
 </style>
 </head>
 <body>
@@ -7608,7 +7620,7 @@ html[data-wt="foundation"] .shell .ws67-mod-tabs{gap:10px;padding-block:8px 18px
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,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";
-window.BUILD_STAMP = "2026-11-24 04:44";
+window.BUILD_STAMP = "2026-11-24 04:58";
 </script>
 <script>
 /* ============================================================
@@ -44561,6 +44573,73 @@ const MONDAY_PROC = {
   },
 
   /* ---------------- 1. MONDAY MANAGEMENT MEETING MODULE ---------------- */
+  /* Monday reviews use Africa/Nairobi calendar dates, never a rolling seven days. */
+  reviewDate(value){
+    if(!value) return '';
+    const raw=String(value);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return Number.isFinite(Date.parse(raw))&&new Date(raw).toISOString().slice(0,10)===raw?raw:'';
+    const date=new Date(raw); if(!Number.isFinite(date.getTime())) return '';
+    const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+    const pick=k=>parts.find(p=>p.type===k).value;
+    return `${pick('year')}-${pick('month')}-${pick('day')}`;
+  },
+  reviewPeriod(week, now=new Date()){
+    const shift=(day,n)=>new Date(Date.parse(day+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
+    let monday=this.reviewDate(week);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(week||''))||!monday||new Date(monday+'T00:00:00Z').getUTCDay()!==1){
+      const today=this.reviewDate(now.toISOString());
+      monday=shift(today,-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7));
+    }
+    return {week:monday,start:shift(monday,-7),end:monday,last:shift(monday,-1),month:monday.slice(0,7),monthStart:monday.slice(0,7)+'-01',monthEnd:shift(monday,1),previous:shift(monday,-7),next:shift(monday,7)};
+  },
+  reviewAssessments(user, patients, period){
+    const byId=new Map(patients.map(p=>[p.id,p])), out=[], seen=new Set();
+    const add=(r, source, kind, date, summary, ref)=>{
+      const p=byId.get(r.patientId); const day=this.reviewDate(date);
+      if(!p||!day||day<period.start||day>=period.end) return;
+      const key=source+':'+(r.id||p.id+':'+day);
+      if(seen.has(key)) return; seen.add(key);
+      out.push({ref:ref||r.id||p.code,patientId:p.id,patientName:p.name,area:areaName(p.areaId),date:day,summary,status:titleCase(r.status||'recorded'),source,kind,sourceId:r.id});
+    };
+    const forms=typeof FORMSX!=='undefined'?FORMSX.records(user):[];
+    forms.filter(r=>['patient_assessment','minor_assessment'].includes(r.kind)&&['submitted','verified','approved','completed'].includes(r.status)).forEach(r=>
+      add(r,'Assessment form',r.kind,r.data?.assessmentDate||r.visitDate, r.data?.chiefComplaints||r.data?.chiefComplaint||r.title, r.code));
+    (DB.db.careReferrals||[]).forEach(r=>add(r,'Repeat / returning assessment',r.kind,r.evaluatedAt,r.newComplaints,r.id));
+    (DB.db.hardcopyBatches||[]).filter(r=>['patient_assessment','minor_assessment'].includes(r.kind)&&!['draft','returned','rejected','void'].includes(r.status)).forEach(r=>{
+      if(r.formRecordId&&forms.some(f=>f.id===r.formRecordId&&['submitted','verified','approved','completed'].includes(f.status)))return;
+      add(r,'Hard-copy assessment',r.kind,r.assessmentDate||r.data?.assessmentDate||r.visitDate,
+        `${r.formCode||r.kind} · ${(r.uploadedPages||[]).length} scanned pages recorded`,r.formCode);
+    });
+    // Legacy records without a linked assessment remain visible, but are explicitly labelled.
+    patients.forEach(p=>{
+      const date=this.reviewDate(p.assessmentDate||p.assessedAt||p.intake);
+      if(out.some(r=>r.patientId===p.id&&r.date===date)) return;
+      add({...p,patientId:p.id},'Patient register (legacy date)','legacy',date,p.clinical?.diagnosis||'Assessment / intake date on register',p.code);
+    });
+    return out.sort((a,b)=>b.date.localeCompare(a.date)||String(a.patientName).localeCompare(String(b.patientName)));
+  },
+  reviewFinance(user, county, period){
+    if(!RBAC.has(user,'finance.view')&&!RBAC.has(user,'finance.reconcile')&&!RBAC.has(user,'audit.view')) return null;
+    const rows=repo.transactions(user).filter(t=>t.countyId===county);
+    const paid=rows.filter(t=>['paid','reconciled'].includes(t.status)&&(!t.currency||t.currency==='KES')&&Number.isFinite(Number(t.amount)));
+    const within=(t,start,end)=>{const d=this.reviewDate(t.date);return d&&d>=start&&d<end;};
+    const weekly=paid.filter(t=>within(t,period.start,period.end));
+    const monthly=paid.filter(t=>within(t,period.monthStart,period.monthEnd));
+    const committed=rows.filter(t=>t.status==='committed'&&(!t.currency||t.currency==='KES')&&within(t,period.monthStart,period.monthEnd)&&Number.isFinite(Number(t.amount)));
+    const versions=new Map();
+    repo.budget(user,county).filter(b=>b.period===period.month&&(!b.currency||b.currency==='KES')&&(!b.effectiveFrom||this.reviewDate(b.effectiveFrom)&&this.reviewDate(b.effectiveFrom)<=period.week)&&!['draft','rejected','void'].includes(b.status)).forEach(b=>{
+      const old=versions.get(b.line);
+      if(!old||String(b.effectiveFrom||'')>String(old.effectiveFrom||'')||(String(b.effectiveFrom||'')===String(old.effectiveFrom||'')&&Number(b.version||0)>Number(old.version||0))) versions.set(b.line,b);
+    });
+    const sum=xs=>xs.reduce((n,t)=>n+Number(t.amount||0),0);
+    const keys=[...new Set([...weekly,...monthly,...committed].map(t=>t.budgetLine||'unallocated').concat([...versions.keys()]))];
+    const lines=keys.map(key=>({key,label:(typeof BUDGET_CATEGORIES!=='undefined'?BUDGET_CATEGORIES.find(c=>c.id===key)?.name:null)||key,
+      week:sum(weekly.filter(t=>(t.budgetLine||'unallocated')===key)),month:sum(monthly.filter(t=>(t.budgetLine||'unallocated')===key)),committed:sum(committed.filter(t=>(t.budgetLine||'unallocated')===key)),budget:versions.has(key)&&Number.isFinite(Number(versions.get(key).amount))?Number(versions.get(key).amount):null}));
+    const budget=lines.some(l=>l.budget!==null)?lines.reduce((n,l)=>n+(l.budget||0),0):null;
+    const daily=Array.from({length:7},(_,i)=>{const date=new Date(Date.parse(period.start)+i*86400000).toISOString().slice(0,10);return {label:date.slice(5),value:sum(weekly.filter(t=>this.reviewDate(t.date)===date))};});
+    return {weekly,monthly,lines,daily,budget,week:sum(weekly),month:sum(monthly),committed:sum(committed),missing:weekly.filter(t=>!t.receipt).length,excludedCurrency:rows.filter(t=>t.currency&&t.currency!=='KES'&&within(t,period.start,period.monthEnd)).length};
+  },
+
   render(user, params={}){
     if(!RBAC.can(user,'monday.meeting',{}).ok) return deniedPanel('monday.meeting');
     this.ensureStore();
@@ -44577,22 +44656,17 @@ const MONDAY_PROC = {
     const secPack = this.buildSecretaryMasterPack(selectedCounty);
 
     const hasPatientScope = RBAC.has(user,'patient.list') && !['mediahead','pr','finance','procurement','hr','welfare','vehicle','auditor','it','gov.partner','president'].includes(user.roleId);
-    const ps = hasPatientScope ? repo.patientList(user).filter(p=>!selectedCounty || isGlobal(user) ? p.countyId===selectedCounty : true) : [];
-
-    const recentAssessments = hasPatientScope ? [
-      ...((DB.db.hardcopyBatches||[]).filter(b=>b.countyId===selectedCounty && b.kind!=='discharge').map(b=>({
-        ref:b.formCode, patientName:b.patientName, patientId:b.patientId, area:areaName(b.areaId), date:b.enteredAt,
-        summary:`Hard-copy ${b.formCode} (${b.uploadedPages?.length||4} scanned pages verified)`, status:'Verified & Scanned'
-      }))),
-      ...(ps.slice(0,8).map(p=>({
-        ref:p.code, patientName:p.name, patientId:p.id, area:areaName(p.areaId), date:(p.enrolledAt||p.intake||todayISO()).slice(0,10),
-        summary:p.clinical?.diagnosis || 'Initial household & nutritional assessment', status:titleCase(p.status)
-      })))
-    ].slice(0,12) : [];
-
-    const openConcerns = hasPatientScope
-      ? (DB.db.concerns||[]).filter(c=>c.status==='open' && ps.some(p=>p.id===c.patientId))
-      : [];
+    const ps = hasPatientScope ? repo.patientList(user).filter(p=>p.countyId===selectedCounty) : [];
+    const review = this.reviewPeriod(params.week);
+    const recentAssessments = hasPatientScope ? this.reviewAssessments(user,ps,review) : [];
+    const assessmentGaps = hasPatientScope ? (DB.db.hardcopyBatches||[]).filter(r=>ps.some(p=>p.id===r.patientId)&&['patient_assessment','minor_assessment'].includes(r.kind)&&!this.reviewDate(r.assessmentDate||r.data?.assessmentDate||r.visitDate)) : [];
+    const patientIds = new Set(ps.map(p=>p.id));
+    const openConcerns = hasPatientScope ? (DB.db.concerns||[]).filter(c=>{
+      if(!patientIds.has(c.patientId)) return false;
+      const day=this.reviewDate(c.opened||c.createdAt||c.date);
+      return (day&&day>=review.start&&day<review.end)||(c.status==='open'&&(!day||day<review.end));
+    }).sort((a,b)=>({critical:0,high:1,moderate:2}[a.severity]??3)-({critical:0,high:1,moderate:2}[b.severity]??3)) : [];
+    const finance = this.reviewFinance(user,selectedCounty,review);
 
     const visibleNotes = (DB.db.mondayNotes||[]).filter(n=>
       n.countyId===selectedCounty && (n.visibility==='team' || n.authorId===user.id || canManageAgenda)
@@ -44600,18 +44674,18 @@ const MONDAY_PROC = {
     const proposals = (DB.db.mondayProposals||[]).filter(p=>p.countyId===selectedCounty);
 
     const countySwitcher = isGlobal(user) ? `<div class="row" style="gap:6px">
-      ${COUNTIES.map(c=>`<button class="btn btn-xs ${selectedCounty===c.id?'btn-primary':'btn-ghost'}" data-act="go" data-v="monday" data-county="${c.id}" data-tab="${esc(tab)}">${esc(c.name)}</button>`).join('')}
+      ${COUNTIES.map(c=>`<button class="btn btn-xs ${selectedCounty===c.id?'btn-primary':'btn-ghost'}" data-act="go" data-v="monday" data-county="${c.id}" data-week="${review.week}" data-tab="${esc(tab)}">${esc(c.name)}</button>`).join('')}
     </div>` : '';
 
     const utilDrop = (typeof utilMenu==='function') ? utilMenu('Sitting Utilities', [
-      { label:'Propose Team Agenda Item', icon:'plus', act:'monday-propose-modal', attrs:`data-county="${esc(selectedCounty)}"` },
+      { label:'Propose Team Agenda Item', icon:'plus', act:'monday-propose-modal', attrs:`data-county="${esc(selectedCounty)}" data-week="${review.week}"` },
       ...(canManageAgenda ? [
-        { label:'Add Official Agenda Block', icon:'clipboard', act:'monday-agenda-modal', attrs:`data-county="${esc(selectedCounty)}"` },
-        { label:`Broadcast Reminder to ${countyName(selectedCounty)}`, icon:'send', act:'monday-push-notify', attrs:`data-county="${esc(selectedCounty)}"` },
+        { label:'Add Official Agenda Block', icon:'clipboard', act:'monday-agenda-modal', attrs:`data-county="${esc(selectedCounty)}" data-week="${review.week}"` },
+        { label:`Broadcast Reminder to ${countyName(selectedCounty)}`, icon:'send', act:'monday-push-notify', attrs:`data-county="${esc(selectedCounty)}" data-week="${review.week}"` },
         { divider:true },
         isClosed
-          ? { label:'Reopen Sitting for Addendum', icon:'refresh', act:'monday-reopen-sitting', attrs:`data-county="${esc(selectedCounty)}"` }
-          : { label:'Close Sitting & Run AI Processing Engine', icon:'sparkles', act:'monday-close-and-process', attrs:`data-county="${esc(selectedCounty)}"` }
+          ? { label:'Reopen Sitting for Addendum', icon:'refresh', act:'monday-reopen-sitting', attrs:`data-county="${esc(selectedCounty)}" data-week="${review.week}"` }
+          : { label:'Close Sitting & Run AI Processing Engine', icon:'sparkles', act:'monday-close-and-process', attrs:`data-county="${esc(selectedCounty)}" data-week="${review.week}"` }
       ] : []),
       { divider:true },
       { label:'Print / Export Sitting Pack', icon:'download', act:'print' }
@@ -44638,7 +44712,7 @@ const MONDAY_PROC = {
           <div class="divider"></div>
           <div class="spread" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
             <span class="xs bold muted" style="text-transform:uppercase;letter-spacing:.08em">Proposed by ${esc(countyName(selectedCounty))} Accounts &amp; Ministry Areas (${proposals.length})</span>
-            <button class="btn btn-xs btn-primary" data-act="monday-propose-modal" data-county="${esc(selectedCounty)}">${ic('plus',12)} Propose Agenda Item</button>
+            <button class="btn btn-xs btn-primary" data-act="monday-propose-modal" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('plus',12)} Propose Agenda Item</button>
           </div>
           <div class="col" style="gap:8px">
             ${proposals.map(pr=>`<div class="monday-note-card">
@@ -44652,7 +44726,7 @@ const MONDAY_PROC = {
               <div class="xs muted" style="margin-top:3px">${esc(pr.rationale||'')}</div>
               <div class="spread xs muted" style="margin-top:5px">
                 <span>Proposed by: <b>${esc(pr.proposedBy)}</b> (${esc(pr.minutesEst||10)} min)</span>
-                ${canManageAgenda && pr.status==='proposed' ? `<button class="btn btn-xs btn-ghost" data-act="monday-adopt-proposal" data-id="${esc(pr.id)}" data-county="${esc(selectedCounty)}">${ic('check',11)} Adopt onto Agenda</button>` : ''}
+                ${canManageAgenda && pr.status==='proposed' ? `<button class="btn btn-xs btn-ghost" data-act="monday-adopt-proposal" data-id="${esc(pr.id)}" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('check',11)} Adopt onto Agenda</button>` : ''}
               </div>
             </div>`).join('') || `<div class="xs muted">No additional team proposals submitted yet.</div>`}
           </div>
@@ -44746,7 +44820,7 @@ const MONDAY_PROC = {
             <div class="spread" style="gap:8px;flex-wrap:wrap">
               <div class="row" style="gap:8px;flex-wrap:wrap">
                 <button type="button" class="btn btn-sm btn-primary" data-act="monday-minutes-save">${ic('save',14)} Save Official Minutes</button>
-                <button type="button" class="btn btn-sm btn-ghost" data-act="monday-minutes-word" data-county="${esc(selectedCounty)}">${ic('download',14)} Export Minutes (.doc)</button>
+                <button type="button" class="btn btn-sm btn-ghost" data-act="monday-minutes-word" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('download',14)} Export Minutes (.doc)</button>
               </div>
               <button type="button" class="btn btn-xs btn-soft" data-act="monday-upload-minutes-tpl">${ic('upload',12)} Upload Custom Minutes Template</button>
             </div>
@@ -44779,7 +44853,7 @@ const MONDAY_PROC = {
         emptyState('Sitting still open for team proposals & notes',
           `Once the ${countyName(selectedCounty)} Monday Management Sitting concludes, click "Close Sitting & Push to AI Engine" to process all proposed agendas, notes, patient escalations and action items into weekly departmental operational plans and the Admin Assistant's Master Minutes Pack.`,
           'sparkles',
-          canManageAgenda ? `<button class="btn btn-sm btn-primary" data-act="monday-close-and-process" data-county="${esc(selectedCounty)}">${ic('sparkles',14)} Close Sitting &amp; Run AI Processing Engine Now</button>` : ''));
+          canManageAgenda ? `<button class="btn btn-sm btn-primary" data-act="monday-close-and-process" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('sparkles',14)} Close Sitting &amp; Run AI Processing Engine Now</button>` : ''));
     }
 
     if(tab==='assessments'){
@@ -44791,34 +44865,69 @@ const MONDAY_PROC = {
               {label:'Ministry Area', render:r=>esc(r.area)},
               {label:'Assessment Date', render:r=>esc(fmtDate(r.date))},
               {label:'Clinical / Intake Summary', render:r=>`<span class="small">${esc(r.summary)}</span>`},
-              {label:'Status', render:r=>badge(r.status,'b-ok')}
-            ], recentAssessments, {emptyMsg:'No recent assessments in your county/ministry-area scope.'}),
-            {sub:'Reviewed jointly by Caregivers, Coordinators, MCM, and County Admin Assistants every Monday morning.'})
+              {label:'Source', render:r=>esc(r.source)},
+              {label:'Status', render:r=>badge(r.status,r.status==='Verified'?'b-ok':'b-info')}
+            ], recentAssessments, {emptyMsg:'No recorded assessments for the previous Monday–Sunday in your scope.'}),
+            {sub:`${fmtDate(review.start)} – ${fmtDate(review.last)} · All recorded assessment events; no sample limit. Draft forms excluded. ${assessmentGaps.length} hard-copy record(s) lack an actual assessment date and cannot be assigned to a week. Legacy register dates are labelled.`})
         : card('Role Confidentiality Boundary', emptyState('Patient-level assessments belong to Field & Clinical Consoles',
             'Your non-clinical department participates in the Monday county agenda, logistics, and action tracker without exposing individual clinical assessment charts.', 'shield'));
     }
 
     if(tab==='concerns'){
       body = hasPatientScope
-        ? card(`Open Ministry Patient Concerns & Escalations · ${countyName(selectedCounty)} (${openConcerns.length})`,
+        ? card(`Patient Concerns: Previous Week & Open Carryovers · ${countyName(selectedCounty)} (${openConcerns.length})`,
             table([
               {label:'Severity', render:c=>badge(titleCase(c.severity||'moderate'), c.severity==='critical'||c.severity==='high'?'b-crit':'b-warn')},
               {label:'Patient & Area', render:c=>{ const p=ps.find(x=>x.id===c.patientId); return p?`<button class="linkbtn cellname" data-act="go" data-v="patient" data-id="${esc(p.id)}">${esc(p.name)}</button><div class="xs muted mono">${esc(p.code)} &middot; ${esc(areaName(p.areaId))}</div>`:esc(c.patientId); }},
               {label:'Concern Raised by Caregiver', render:c=>`<b>${esc(c.title||c.category||'Household / Clinical Concern')}</b><div class="xs muted">${esc(c.detail||c.note||'')}</div>`},
+              {label:'Opened / status', render:c=>`${this.reviewDate(c.opened||c.createdAt||c.date)?esc(fmtDate(this.reviewDate(c.opened||c.createdAt||c.date))):'Date not recorded'}<div class="xs muted">${esc(titleCase(c.status||'unknown'))} · ${this.reviewDate(c.opened||c.createdAt||c.date)>=review.start?'Raised in review week':'Carryover / undated'}</div>`},
               {label:'Monday Escalation', cls:'act', render:c=>`<div class="row" style="gap:6px;justify-content:flex-end">
-                <button class="btn btn-xs btn-soft" data-act="monday-escalate-concern" data-id="${esc(c.id)}" data-county="${esc(selectedCounty)}">${ic('plus',11)} Add to Agenda</button>
+                ${c.status==='open'?`<button class="btn btn-xs btn-soft" data-act="monday-escalate-concern" data-id="${esc(c.id)}" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('plus',11)} Add to current agenda</button>`:''}
                 <button class="btn btn-xs btn-ghost" data-act="go" data-v="patient" data-id="${esc(c.patientId)}">Chart</button>
               </div>`}
-            ], openConcerns, {emptyMsg:'All logged patient concerns in your office location have been resolved.'}))
+            ], openConcerns, {emptyMsg:'No concerns raised in the review week or currently open carryovers in your scope.'}))
         : card('Role Confidentiality Boundary', emptyState('Patient clinical concerns are scoped to Caregivers, Coordinators & MCM',
             'Use the County Agenda & Notes tab to coordinate non-clinical departmental support for the week.', 'shield'));
+    }
+
+    if(tab==='expenditures'){
+      body = !finance ? deniedPanel('finance.view') : `
+        <div class="grid g4 monday-review-metrics">
+          ${kpi('Previous week paid',money(finance.week),`${fmtDate(review.start)} – ${fmtDate(review.last)}`,'info','wallet')}
+          ${kpi('Month-to-date paid',money(finance.month),`Through meeting Monday ${fmtDate(review.week)}`,'','calendar')}
+          ${kpi('Monthly budget',finance.budget===null?'Not set':money(finance.budget),'Latest effective version per budget line','','layers')}
+          ${kpi('Weekly receipt gaps',num(finance.missing),'Paid entries without receipt evidence',finance.missing?'warn':'ok','file')}
+        </div>
+        <div class="grid g2 monday-review-charts">
+          ${card('Daily paid expenditure · previous week',barChart(finance.daily,{fmt:v=>money(v)}))}
+          ${card('Month-to-date paid by budget line',barChart(finance.lines.map(l=>({label:l.label,value:l.month})),{fmt:v=>money(v)}),{sub:'Paid actuals only; budgets and commitments are shown separately below.'})}
+        </div>
+        ${typeof budgetVsActualBoard==='function'&&finance.budget!==null?card('Monthly budget comparison',budgetVsActualBoard(finance.lines.filter(l=>l.budget!==null).map(l=>({label:l.label,budget:l.budget,spent:l.month,committed:l.committed})),{totalBudget:finance.budget,totalSpent:finance.month,showCommitted:true,periodLabel:review.month})):''}
+        ${card('Budget and expenditure review · KES',table([
+          {label:'Budget line',render:r=>esc(r.label)},
+          {label:'Previous week paid',cls:'num',render:r=>money(r.week)},
+          {label:'Month paid',cls:'num',render:r=>money(r.month)},
+          {label:'Month committed',cls:'num',render:r=>money(r.committed)},
+          {label:'Monthly budget',cls:'num',render:r=>r.budget===null?'Not set':money(r.budget)},
+          {label:'Available after commitments',cls:'num',render:r=>r.budget===null?'Not set':money(r.budget-r.month-r.committed)}
+        ],finance.lines,{emptyMsg:'No financial records or monthly budget lines in scope.'}),{sub:`Budget month ${review.month}. Annual and other-month budgets are not treated as monthly budgets. Paid/reconciled KES ledger entries only; requests and procurement estimates are not expenses. ${finance.excludedCurrency} other-currency entries excluded.`})}
+        <details class="monday-review-ledger"><summary>Review previous-week transactions (${finance.weekly.length})</summary>
+        ${table([
+          {label:'Date',render:r=>esc(fmtDate(this.reviewDate(r.date)))},
+          {label:'Reference',render:r=>esc(r.no||r.id)},
+          {label:'Budget line',render:r=>esc(r.budgetLine||'Unallocated')},
+          {label:'Amount (KES)',cls:'num',render:r=>money(r.amount)},
+          {label:'Status',render:r=>esc(titleCase(r.status))},
+          {label:'Receipt',render:r=>r.receipt?badge('Recorded','b-ok'):badge('Missing','b-warn')}
+        ],finance.weekly)}
+        </details>`;
     }
 
     return pageHead('Monday Management Meeting & AI Processing Console',
       `Role- and county-scoped coordination hub (${countyName(selectedCounty)}) — propose agenda items, record deliberations and action items, equip Admin Assistants as Meeting Secretaries, and run the post-close AI Meeting Processing Engine.`,
       `${countySwitcher}
-       <button class="btn btn-sm btn-ghost" data-act="monday-propose-modal" data-county="${esc(selectedCounty)}">${ic('plus',14)} Propose Agenda</button>
-       ${canManageAgenda && !isClosed ? `<button class="btn btn-sm btn-primary" data-act="monday-close-and-process" data-county="${esc(selectedCounty)}">${ic('sparkles',14)} Close &amp; Process Sitting</button>` : ''}
+       <button class="btn btn-sm btn-ghost" data-act="monday-propose-modal" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('plus',14)} Propose Agenda</button>
+       ${canManageAgenda && !isClosed ? `<button class="btn btn-sm btn-primary" data-act="monday-close-and-process" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('sparkles',14)} Close &amp; Process Sitting</button>` : ''}
        ${utilDrop}`)
     + `<div class="monday-banner ${isMondayToday?'is-monday':''}">
         <div class="row" style="gap:12px;flex-wrap:wrap">
@@ -44831,18 +44940,23 @@ const MONDAY_PROC = {
         </div>
         <span class="badge ${isClosed?'b-ok':(isMondayToday?'b-info':'b-warn')}">${isClosed?'Processed & Dispatched':(isMondayToday?'Live Sitting':'Open Preparation')}</span>
       </div>`
+    + `<section class="monday-review-period" aria-label="Meeting review period">
+        <div><span class="xs muted">PREVIOUS WEEK REVIEW</span><h3>${esc(fmtDate(review.start))} – ${esc(fmtDate(review.last))}</h3><p class="small muted">Monday–Sunday · Africa/Nairobi. Concerns include currently open carryovers; historical statuses are not reconstructed. Reporting dates do not change the county agenda or its sitting actions.</p></div>
+        <form data-form="monday-review-period" class="row"><input type="hidden" name="county" value="${esc(selectedCounty)}"><input type="hidden" name="tab" value="${esc(tab)}"><div class="field"><label for="monday-review-week">Meeting Monday</label><input class="input" type="date" id="monday-review-week" name="week" value="${review.week}" required></div><button type="submit" class="btn btn-ghost">Review week</button></form>
+      </section>`
     + `<div class="grid g4" style="margin:14px 0">
         ${kpi('Master agenda & proposals', `${(agenda.items||[]).length} + ${proposals.length}`, `${secPack.masterItems.length} compiled for Secretary`, 'info', 'clipboard')}
-        ${kpi('Ministry concerns & intakes', hasPatientScope?`${openConcerns.length} / ${recentAssessments.length}`:'Role-scoped', hasPatientScope?`${openConcerns.length} concerns · ${recentAssessments.length} intakes`:'Protected clinical boundary', openConcerns.length?'warn':'ok', 'alert')}
+        ${kpi('Patient concerns & assessments', hasPatientScope?`${openConcerns.length} / ${recentAssessments.length}`:'Role-scoped', hasPatientScope?`${openConcerns.length} review concerns · ${recentAssessments.length} assessment events`:'Protected clinical boundary', openConcerns.length?'warn':'ok', 'alert')}
         ${kpi('Notes & action items', num(visibleNotes.length), `${visibleNotes.filter(n=>n.actionItem).length} tracked action item(s)`, 'ok', 'file')}
         ${kpi('AI Processing Engine', isClosed?'Dispatched':'Awaiting Close', isClosed?`${processedPlan?.directives?.length||5} dept plans active`:'Runs when sitting closes', isClosed?'ok':'info', 'sparkles')}
       </div>`
     + `<div class="tabs">
-        <button class="tab ${tab==='agenda'?'active':''}" data-act="go" data-v="monday" data-tab="agenda" data-county="${esc(selectedCounty)}">${ic('clipboard',14)} Agenda, Proposals &amp; Notes</button>
-        ${(canManageAgenda || isSecretaryRole) ? `<button class="tab ${tab==='secretary'?'active':''}" data-act="go" data-v="monday" data-tab="secretary" data-county="${esc(selectedCounty)}">${ic('file',14)} Secretary &amp; Minutes Desk (${secPack.masterItems.length})</button>` : ''}
-        <button class="tab ${tab==='engine'?'active':''}" data-act="go" data-v="monday" data-tab="engine" data-county="${esc(selectedCounty)}">${ic('sparkles',14)} AI Weekly Plan Engine ${isClosed?'✓':''}</button>
-        ${hasPatientScope?`<button class="tab ${tab==='concerns'?'active':''}" data-act="go" data-v="monday" data-tab="concerns" data-county="${esc(selectedCounty)}">Ministry Concerns (${openConcerns.length})</button>
-        <button class="tab ${tab==='assessments'?'active':''}" data-act="go" data-v="monday" data-tab="assessments" data-county="${esc(selectedCounty)}">New Intakes (${recentAssessments.length})</button>`:''}
+        <button class="tab ${tab==='agenda'?'active':''}" data-act="go" data-v="monday" data-tab="agenda" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('clipboard',14)} Agenda, Proposals &amp; Notes</button>
+        ${(canManageAgenda || isSecretaryRole) ? `<button class="tab ${tab==='secretary'?'active':''}" data-act="go" data-v="monday" data-tab="secretary" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('file',14)} Secretary &amp; Minutes Desk (${secPack.masterItems.length})</button>` : ''}
+        <button class="tab ${tab==='engine'?'active':''}" data-act="go" data-v="monday" data-tab="engine" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('sparkles',14)} AI Weekly Plan Engine ${isClosed?'✓':''}</button>
+        ${hasPatientScope?`<button class="tab ${tab==='concerns'?'active':''}" data-act="go" data-v="monday" data-tab="concerns" data-county="${esc(selectedCounty)}" data-week="${review.week}">Patient Concerns (${openConcerns.length})</button>
+        <button class="tab ${tab==='assessments'?'active':''}" data-act="go" data-v="monday" data-tab="assessments" data-county="${esc(selectedCounty)}" data-week="${review.week}">Patient Assessments (${recentAssessments.length})</button>`:''}
+        ${finance?`<button class="tab ${tab==='expenditures'?'active':''}" data-act="go" data-v="monday" data-tab="expenditures" data-county="${esc(selectedCounty)}" data-week="${review.week}">Weekly Expenditures</button>`:''}
       </div>`
     + body;
   },
@@ -45099,21 +45213,25 @@ Object.assign(ACTIONS, {
   },
 
   'monday-escalate-concern': (d={}) => {
-    MONDAY_PROC.ensureStore();
+    if(!AUTH.user||!RBAC.can(AUTH.user,'monday.meeting',{}).ok||!RBAC.has(AUTH.user,'patient.list')||['mediahead','pr','finance','procurement','hr','welfare','vehicle','auditor','it','gov.partner','president'].includes(AUTH.user.roleId)) return toast('Not permitted','Only scoped clinical meeting participants may escalate a concern.','err');
     const c = (DB.db.concerns||[]).find(x=>x.id===d.id);
-    if(!c) return;
-    const p = (DB.db.patients||[]).find(x=>x.id===c.patientId);
-    const countyId = d.county || (p && p.countyId) || AUTH.user.countyId || 'kisumu';
+    const p = c ? repo.patientList(AUTH.user).find(x=>x.id===c.patientId) : null;
+    if(!c||!p||c.status!=='open'||(d.county&&d.county!==p.countyId)) return toast('Not available','This open concern is not in your patient/county scope.','err');
+    MONDAY_PROC.ensureStore();
+    const countyId = p.countyId;
+    const currentWeek = MONDAY_PROC.reviewPeriod().week;
+    if(DB.db.mondayProposals.some(x=>x.concernId===c.id&&x.weekOf===currentWeek&&x.countyId===countyId)) return toast('Already on agenda','This concern already has a proposal for this week.','info');
     DB.db.mondayProposals.unshift({
       id: uid('mp'),
       countyId,
-      weekOf: todayISO().slice(0,10),
+      weekOf: currentWeek,
+      concernId: c.id,
       areaName: p ? areaName(p.areaId) : countyName(countyId),
       dept: 'ministry',
       proposedBy: AUTH.user.name.replace(/^Demo - /,''),
       roleName: (roleObj(AUTH.user.roleId)||{}).name || AUTH.user.roleId,
-      title: `Ministry Patient Concern Escalation (${p?p.code:'Case'} · ${p?areaName(p.areaId):''})`,
-      rationale: `${c.title||c.category||'Concern'}: ${c.detail||c.note||'Requires multidisciplinary Monday review.'}`,
+      title: 'Patient concern — restricted clinical review',
+      rationale: 'Clinical team to review the concern in the authorised patient chart. Patient identity and clinical details are not copied into the shared agenda.',
       minutesEst: 8,
       priority: 'high',
       status: 'proposed',
@@ -45374,6 +45492,14 @@ Object.assign(ACTIONS, {
     closeModal(true);
     toast('Requisition validated & logged', `${tier} applied (${quotes} quote(s), COI signed).`, 'ok');
     render();
+  }
+});
+
+Object.assign(FORMS, {
+  'monday-review-period': d => {
+    const week=String(d.get('week')||'');
+    if(!MONDAY_PROC.reviewDate(week)||new Date(week+'T00:00:00Z').getUTCDay()!==1) return toast('Choose a Monday','The review covers the Monday–Sunday before that meeting.','warn');
+    go('monday',{county:String(d.get('county')||''),tab:String(d.get('tab')||'agenda'),week});
   }
 });
 
@@ -52811,6 +52937,6 @@ Object.assign(FORMS,{
   });
 })();
 </script>
-<!-- Build 2026-11-24 04:44 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-11-24 04:58 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
