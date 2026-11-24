@@ -339,7 +339,7 @@ function renderArchitecture6(){
   const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#EE0000' };
   const departments = MAJOR_DEPARTMENTS.map((d,i)=>({id:'major-'+i,name:d.name,accent:['#b91c3c','#0f655d','#1e40af'][i%3],...d}));
   const dept = d => `<div class="ld-dept" style="--c:${d.accent}">
-      <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.detail||d.short||'')}</span></div>`;
+      <span class="dot" aria-hidden="true"></span><div class="ld-dept-copy"><b>${esc(d.name)}</b><span>${esc(d.detail||d.short||'')}</span></div></div>`;
   const areaCount = (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10);
   const step = (icn, badgeTxt, title, body) => `<article class="ld-step">
       <div class="ld-step-top">

@@ -931,3 +931,24 @@ html .shell .topbar.cbar .tb-os-identity{
 }
 .workspace-view{min-width:0;max-width:100%;scroll-margin-top:16px;}
 .workspace-view:focus{outline:none;}
+/* Architecture department directory: readable cards, not squeezed pills. */
+.ld .ld-strip[aria-label="All 11 major departments"]{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;
+ align-items:stretch;
+}
+.ld .ld-strip .ld-dept{
+ display:grid;grid-template-columns:10px minmax(0,1fr);align-items:start;
+ gap:12px;padding:18px;border-radius:12px;min-width:0;height:auto;
+}
+.ld .ld-strip .ld-dept>.dot{margin-top:6px;width:9px;height:9px;}
+.ld .ld-strip .ld-dept-copy{display:flex;flex-direction:column;gap:8px;min-width:0;}
+.ld .ld-strip .ld-dept-copy b{
+ display:block;font-size:14px;line-height:1.45;font-weight:750;
+ white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;flex:none;
+}
+.ld .ld-strip .ld-dept-copy>span{
+ display:block;font-size:12px;line-height:1.65;font-weight:400;
+ white-space:normal;overflow-wrap:anywhere;min-width:0;max-width:100%;flex:none;
+}
+@media(max-width:1000px){.ld .ld-strip[aria-label="All 11 major departments"]{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:580px){.ld .ld-strip[aria-label="All 11 major departments"]{grid-template-columns:minmax(0,1fr);}}
