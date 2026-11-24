@@ -9,6 +9,7 @@ assert.ok(landing.includes('11 Major Departments'));
 const directory=run('renderArchitecture6()');
 for(const name of JSON.parse(run('JSON.stringify(MAJOR_DEPARTMENTS.map(d=>esc(d.name)))'))) assert.ok(directory.includes(name),name);
 assert.ok(directory.includes('aria-label="All 11 major departments"'));
+assert.equal((directory.match(/class="ld-dept-copy"/g)||[]).length,11,'all departments have separate wrapping name/description containers');
 const svg=run('renderLandingWorkflow6()');
 const nodes=[...svg.matchAll(/data-workflow-node="([^"]+)"[\s\S]*?<rect x="([\d.]+)" y="([\d.]+)" width="112" height="26" rx="13"\/>\s*<circle cx="([\d.]+)" cy="([\d.]+)" r="2.6"[^>]*\/>\s*<text x="([\d.]+)" y="([\d.]+)" dy=".35em" text-anchor="start">/g)];
 assert.equal(nodes.length,8);
