@@ -294,15 +294,19 @@ function go(view, params={}){
 }
 
 /* The desktop pane shell itself scrolls; #content is not the scrollport.
-   Reveal the selected workspace below its sticky toolbar rather than leaving
-   the user at the role introduction banner. Home deliberately starts there. */
+   Reveal the selected workspace in its own scrollport, below the toolbar;
+   older layouts without that scrollport use the shell/window fallback. */
 function revealWorkspace(view){
   const content = document.querySelector && document.querySelector('#content');
   const shell = document.querySelector && document.querySelector('.app.shell.has-pane');
   if(!content || !content.getBoundingClientRect){ if(window.scrollTo) window.scrollTo(0,0); return; }
   if(content.setAttribute)content.setAttribute('tabindex','-1');
   if(content.focus)content.focus({preventScroll:true});
-  if(typeof getComputedStyle==='function'&&/auto|scroll/.test(getComputedStyle(content).overflowY)&&typeof content.scrollTo==='function')content.scrollTo({top:0,behavior:'auto'});
+  if(typeof getComputedStyle==='function'&&/auto|scroll/.test(getComputedStyle(content).overflowY)&&typeof content.scrollTo==='function'){
+    const target=document.getElementById&&document.getElementById('workspaceView');
+    const top=target?.getBoundingClientRect?content.scrollTop+target.getBoundingClientRect().top-content.getBoundingClientRect().top:0;
+    content.scrollTo({top:Math.max(0,top-16),behavior:'auto'});return;
+  }
   const bar = document.querySelector('.topbar.cbar');
   const sticky = bar && typeof getComputedStyle==='function' && getComputedStyle(bar).position==='sticky' ? bar.getBoundingClientRect().height : 0;
   if(shell && typeof shell.scrollTo==='function' && typeof getComputedStyle==='function' && /auto|scroll/.test(getComputedStyle(shell).overflowY)){
@@ -393,7 +397,10 @@ function render(){
   const sheetLeft = (document.querySelector('.sheet')||{}).scrollLeft;
   const oldShell = document.querySelector('.app.shell.has-pane');
   const workspaceTop = oldShell && typeof oldShell.scrollTop==='number' ? oldShell.scrollTop : null;
+  const oldContent=document.querySelector('#content');
+  const contentTop=oldContent&&typeof oldContent.scrollTop==='number'?oldContent.scrollTop:null;
   root.innerHTML = renderShell();
+  const newContent=document.querySelector('#content');if(newContent&&contentTop!==null)newContent.scrollTop=contentTop;
   const newShell = document.querySelector('.app.shell.has-pane');
   if(newShell && workspaceTop!==null) newShell.scrollTop = workspaceTop;
   NAVP.restoreScroll(paneTop);
@@ -544,7 +551,6 @@ function renderShell(){
     ? WORKSPACE_LAYOUTS.renderHomeHero(user, heroCtx) : '';
   return `<div class="app shell ${paneOn?'has-pane':''} ${railOn?'np-rail':''} ${APPX.navOpen?'np-open':''}">
     ${paneOn? NAVP.html(user, here) : ''}${paneOn? '<div class="np-scrim" data-act="nav-close"></div>' : ''}
-    ${roleHero ? `<div class="shell-role-banner no-print" role="region" aria-label="Role console banner" tabindex="0">${roleHero}</div>` : ''}
     <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}" data-role="${esc(user.roleId)}" data-dept="${esc(role.dept||'exec')}">
       <img class="cb-logo" src="${window.LOGO||''}" alt="CareLink · LOMAMO Foundation">
       <div class="cb-nav" role="group" aria-label="Navigation & history">
@@ -585,12 +591,13 @@ function renderShell(){
     </nav>
 
     <main class="content" id="content" tabindex="-1">
+    ${roleHero ? `<div class="shell-role-banner no-print" role="region" aria-label="Role console banner" tabindex="0">${roleHero}</div>` : ''}
       <nav class="cb-quick console-shortcuts no-print" role="navigation" aria-label="Quick console shortcuts">
         ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
       </nav>
       ${!Store.durable?`<div class="alert warn no-print" style="margin-bottom:16px">${ic('info',18)}<div><b>Preview session</b>
         <span class="small">This browser has blocked persistent storage, so changes are held for this session only. Download the file and open it directly in Chrome or Edge for a persistent installation.</span></div></div>`:''}
-      ${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}
+      <div class="workspace-view" id="workspaceView" tabindex="-1">${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}</div>
       ${PAGER.bar(user, here)}</main>
     ${(typeof CALLING!=='undefined' && CALLING.incomingBanner) ? CALLING.incomingBanner() : ''}
   </div>`;

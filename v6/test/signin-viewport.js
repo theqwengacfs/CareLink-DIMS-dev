@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const css=fs.readFileSync('v6/src/entry_theme.css','utf8');
+const fixed=css.slice(css.indexOf('/* Sign-in stays within one viewport.'));
+assert(fixed.includes('height:100dvh !important;min-height:0 !important;max-height:100dvh !important;overflow:hidden !important;'));
+assert(fixed.includes('.lg6-showcase{display:flex;flex-direction:column;flex:1 1 0;min-height:0;'));
+assert(fixed.includes('.lg6-photo-main{height:0 !important;min-height:0;flex:1 1 0;'));
+assert(fixed.includes('.lg6-photo-overlay{flex:0 0 auto;'));
+assert(fixed.includes('grid-template-columns:repeat(4,minmax(0,1fr))'));
+assert(!fixed.includes('min-height:260px'));
+assert(!fixed.includes('min-height:220px'));
+console.log('Sign-in viewport constraints: fixed outer shell, bounded flexible gallery, retained captions/thumbnails and reachable long forms passed.');

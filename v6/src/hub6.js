@@ -408,8 +408,10 @@ function buildFhirBundle(user){
 }
 
 function renderInteropHub(user, params={}){
-  if(params.tab) ANALYTICS_STATE.interopTab = params.tab;
-  if(params.form) ANALYTICS_STATE.khisForm = params.form;
+  if(applyRouteState(ANALYTICS_STATE,params)){
+    if(params.tab) ANALYTICS_STATE.interopTab = params.tab;
+    if(params.form) ANALYTICS_STATE.khisForm = params.form;
+  }
   const tab = ANALYTICS_STATE.interopTab;
   const canConfig = RBAC.has(user,'system.config');
   const cfg = (DB.db.settings && DB.db.settings.interop) || { dhis2Url:'', dhis2OrgUnit:'LOMAMO_KISUMU_HQ', fhirUrl:'', mode:'staged' };

@@ -434,7 +434,7 @@ const TBCARE = {
   /* ---------------- console ---------------- */
   render(user, params={}){
     if(!RBAC.has(user,'tb.view')) return deniedPanel('tb.view');
-    Object.keys(params||{}).forEach(k=>{ if(k in TB_STATE && params[k]!==undefined) TB_STATE[k]=params[k]; });
+    applyRouteState(TB_STATE,params);
     const st = TB_STATE;
     const b = this.board(user);
     const canReview = RBAC.has(user,'tb.request.review');

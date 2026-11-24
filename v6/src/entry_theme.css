@@ -881,14 +881,53 @@ html .shell .topbar.cbar .tb-os-identity{
  .console-shortcuts .cb-qbtn{padding:10px 12px;flex:1 1 auto;justify-content:center;}
 }
 @media print{.app.shell>.content>.console-shortcuts{display:none !important;}}
-/* Show the teamwork scene at a legible scale instead of a shallow banner. */
-.lg6[data-theme] .lg6-photo-frame .lg6-photo-main{
- height:auto !important;aspect-ratio:4 / 3;min-height:260px;
- object-fit:cover !important;object-position:center;max-height:none;
+/* Sign-in stays within one viewport. The gallery uses remaining space rather
+   than imposing an image minimum that makes the entire page overflow. */
+.lg6[data-theme]{height:100dvh !important;min-height:0 !important;max-height:100dvh !important;overflow:hidden !important;}
+.lg6[data-theme] .lg6-panel{min-height:0 !important;max-height:100%;overflow-y:auto !important;justify-content:flex-start;box-sizing:border-box;}
+.lg6[data-theme] .lg6-card{margin-block:auto;}
+@media(min-width:921px){
+ .lg6[data-theme] .lg6-brand{display:flex;flex-direction:column;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box;gap:12px;}
+ .lg6[data-theme] .lg6-brand-top{display:flex;flex-direction:column;flex:1 1 0;min-height:0;}
+ .lg6[data-theme] .lg6-brand-top>.row,.lg6[data-theme] .lg6-brand h1,.lg6[data-theme] .lg6-brand-top>.xs.bold,.lg6[data-theme] .lg6-copy,.lg6[data-theme] .lg6-brand-foot{flex-shrink:0;}
+ .lg6[data-theme] .lg6-brand-top>.row{margin-bottom:12px !important;}
+ .lg6[data-theme] .lg6-brand h1{font-size:clamp(25px,4vh,38px);margin-bottom:10px;}
+ .lg6[data-theme] .lg6-showcase{display:flex;flex-direction:column;flex:1 1 0;min-height:0;margin:0 0 10px !important;gap:8px;}
+ .lg6[data-theme] .lg6-photo-frame{display:flex;flex-direction:column;flex:1 1 0;min-height:0;overflow:hidden;}
+ .lg6[data-theme] .lg6-photo-frame .lg6-photo-main{height:0 !important;min-height:0;flex:1 1 0;aspect-ratio:auto;width:100%;object-fit:cover !important;object-position:center;}
+ .lg6[data-theme] .lg6-photo-overlay{flex:0 0 auto;padding:8px 12px !important;}
+ .lg6[data-theme] .lg6-thumbs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;flex:0 0 auto;margin-top:0;}
+ .lg6[data-theme] .lg6-thumb{min-height:44px;padding:5px;gap:6px;font-size:10px;text-align:left;}
+ .lg6[data-theme] .lg6-thumb img{width:34px;height:32px;border-radius:4px;flex-shrink:0;object-fit:cover;}
+ .lg6[data-theme] .lg6-copy{margin:0;font-size:11px;line-height:1.5;}
 }
-.lg6[data-theme] .lg6-thumbs{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-.lg6[data-theme] .lg6-thumb{min-height:66px;font-size:11px;gap:10px;text-align:left;}
-.lg6[data-theme] .lg6-thumb img{width:54px;height:46px;border-radius:5px;flex-shrink:0;}
 .cb-build{font-size:9px;color:var(--ink-2);white-space:nowrap;}
 #content:focus{outline:none;}
-@media(max-width:760px){.lg6[data-theme] .lg6-photo-frame .lg6-photo-main{min-height:220px;}}
+
+/* One geometry for all desktop consoles: the toolbar occupies its own track;
+   the introduction and workspace scroll inside the remaining track. No sticky
+   toolbar can paint over a request/context title, regardless of its height. */
+@media(min-width:1000px){
+ .app.shell.has-pane{
+  grid-template-rows:max-content minmax(0,1fr) !important;
+  height:100dvh !important;min-height:0 !important;overflow:hidden !important;
+ }
+ .app.shell.has-pane>.npane{grid-row:1 / -1 !important;}
+ .app.shell.has-pane>.topbar.cbar{grid-row:1 !important;position:static !important;top:auto !important;align-self:stretch !important;}
+ .app.shell.has-pane>.content{
+  grid-row:2 !important;min-height:0 !important;height:100% !important;
+  overflow-y:auto !important;overflow-x:hidden !important;box-sizing:border-box;
+  scroll-padding-top:16px;overscroll-behavior:contain;
+ }
+ .content>.shell-role-banner{padding:0;margin-bottom:24px;}
+}
+@media(min-width:1180px){
+ .app.shell>.topbar.cbar{
+  grid-template-columns:auto minmax(240px,1fr) minmax(180px,300px);
+  grid-template-areas:"nav identity search" "actions actions actions";
+  grid-template-rows:max-content max-content;gap:10px 18px;
+ }
+ .app.shell>.topbar.cbar>.tb-actions{justify-content:flex-end;width:100%;margin-left:0;}
+}
+.workspace-view{min-width:0;max-width:100%;scroll-margin-top:16px;}
+.workspace-view:focus{outline:none;}
