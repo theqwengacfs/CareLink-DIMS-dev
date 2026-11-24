@@ -3,8 +3,8 @@
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">#17756B</item>
         <item name="android:statusBarColor">#142D3A</item>
-        <item name="android:navigationBarColor">#F3F6F7</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <!-- Dark navigation surface preserves contrast on Android 7+ without API-27-only attributes. -->
+        <item name="android:navigationBarColor">#142D3A</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>

@@ -1,6 +1,10 @@
 name: Build Native Android Preview
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'native-android/**'
+      - '.github/workflows/build-native-android.yml'
 permissions:
   contents: read
 jobs:
@@ -13,14 +17,61 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Prepare runner Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          # Prevent yes's expected SIGPIPE from masking sdkmanager's exit code.
+          set +o pipefail
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$license_status" -eq 0
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Compile and lint native app
+      - name: Compile, test and lint native app
         working-directory: native-android
-        run: gradle :app:assembleDebug :app:lintDebug --stacktrace
-      - uses: actions/upload-artifact@v4
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --stacktrace --console=plain 2>&1 | tee build.log
+      - name: Surface build failure
+        if: failure()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          log = Path('native-android/build.log')
+          if log.exists():
+              lines = log.read_text(errors='replace').splitlines()
+              start = next((i for i, line in enumerate(lines) if '* What went wrong:' in line), max(0, len(lines)-40))
+              excerpt = '\n'.join(lines[start:start+35])
+          else:
+              excerpt = 'Build setup failed before compilation. Expand Prepare runner Android SDK or Gradle setup in this job.'
+          escaped = excerpt.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Native Android build failed::{escaped}')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('## Native build failure\n```text\n' + excerpt + '\n```\n')
+          PY
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CareLink-Native-Diagnostics
+          path: |
+            native-android/build.log
+            native-android/app/build/reports/
+          if-no-files-found: ignore
+      - name: Upload installable native preview
+        uses: actions/upload-artifact@v4
         with:
           name: CareLink-Native-Preview-APK
           path: native-android/app/build/outputs/apk/debug/app-debug.apk
