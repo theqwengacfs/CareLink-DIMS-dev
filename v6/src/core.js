@@ -1254,3 +1254,14 @@ function runSecuritySelfTest(user){
   DB.save();
   return result;
 }
+
+/* Route defaults apply once per route entry, not after every local tab click.
+   Otherwise an old deep-link tab/filter silently overwrites the new state. */
+const ROUTE_STATE_APPLIED=new WeakMap();
+function applyRouteState(state,params={}){
+  const signature=JSON.stringify(params),prior=ROUTE_STATE_APPLIED.get(state);
+  if(prior?.params===params&&prior.signature===signature)return false;
+  for(const key of Object.keys(params))if(Object.prototype.hasOwnProperty.call(state,key)&&params[key]!==undefined)state[key]=params[key];
+  ROUTE_STATE_APPLIED.set(state,{params,signature});
+  return true;
+}

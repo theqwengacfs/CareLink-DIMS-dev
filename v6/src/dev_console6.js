@@ -1398,7 +1398,7 @@ const DEV_CONSOLE = {
 
   render(user, params = {}) {
     if (!this.canAccess(user)) return deniedPanel('dev.console');
-    if (params.tab) DEV_CONSOLE_STATE.tab = params.tab;
+    applyRouteState(DEV_CONSOLE_STATE,params);
     const tab = DEV_CONSOLE_STATE.tab;
     const real = SILENT_OVERRIDE.realActor() || user;
     const isChief = real.roleId === 'chief';
