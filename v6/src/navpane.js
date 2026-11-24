@@ -304,7 +304,8 @@ const NAVP = {
       <div class="np-brand">
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
         <div class="np-id"><div class="np-os">CareLink OS</div><b>${esc(role.consoleTitle||role.name||'Console')}</b>
-          <span><i class="np-dot" style="background:${esc(dept.accent)}"></i>${esc(role.name||'')}</span></div>
+          <span><i class="np-dot" style="background:${esc(dept.accent)}"></i>${esc(role.name||'')}</span>
+          <span class="np-account-name">${ic('user',13)}<span><small>Signed in as</small><strong>${esc(user.name.replace(/^Demo - /,''))}</strong></span></span></div>
         <button class="np-x" data-act="nav-close" aria-label="Close navigation">${ic('x',18)}</button>
       </div>
       <div class="np-scroll">${body}</div>
