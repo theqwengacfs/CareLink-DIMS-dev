@@ -550,7 +550,7 @@ function renderShell(){
         <button class="icon-btn" data-act="nav-forward" aria-label="Forward" title="Forward (Alt+Right)" ${NAVH.canForward()?'':'disabled aria-disabled="true"'}>${ic('forward',18)}</button>
       </div>
       <div class="cb-id">
-        <div class="cb-k"><span class="cb-os-tag">CareLink</span><span class="cb-county-tag">${esc(countyDisp)}</span></div>
+        <div class="cb-k"><span class="cb-os-tag">CareLink OS</span><span class="cb-county-tag">${esc(countyDisp)}</span></div>
         <h1><span class="cb-console-name">${esc(role.consoleTitle||((role.name||'Staff')+' Console'))}</span>${APPX.view!=='home'?`<span class="cb-title-sep"> / </span><span class="cb-view-name">${esc(crumb.title)}</span>`:''}</h1>
         <div class="xs muted" title="Fixed office role: ${esc(role.name||user.roleId)} · Current role holder: ${esc(user.name)}">Role holder: ${esc(user.displayName||user.name)}</div>
       </div>
@@ -559,6 +559,7 @@ function renderShell(){
       </div>
       <div class="searchbox"><span>${ic('search',16)}</span><input placeholder="${esc(searchPh)}" data-search aria-label="Search"></div>
       <div class="tb-actions">
+        <span class="tb-os-identity" aria-label="CareLink OS">CareLink OS</span>
         <span class="live-pill neutral" data-live title="Live record indicator"><span class="live-dot"></span><span class="live-t">Live</span></span>
         ${typeof SYNC!=='undefined'?SYNC.chip():''}
         <button class="btn btn-xs btn-ghost no-print tb-ai-label" data-act="toggle-ai" title="Open ${esc(aiProf.title||'Console AI')}">${ic('sparkles',14)} <span>${esc(aiProf.badge||'Console AI')}</span></button>

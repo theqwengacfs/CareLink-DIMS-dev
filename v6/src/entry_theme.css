@@ -804,3 +804,46 @@ html[data-wt="foundation"] .shell .msg-pane{border-radius:18px;box-shadow:0 6px 
  body.print-workspace .print-root{display:none !important;}
  body.print-workspace :is(button,input,select,textarea){box-shadow:none;}
 }
+
+/* Screenshot regression: opaque identity badges and flow-sized header rows.
+   Never let a wrapped toolbar spill across the workspace context card. */
+html .shell .npane .np-brand .np-id .np-os,
+html[data-wt="foundation"] .shell .npane .np-brand .np-id .np-os,
+html .shell .topbar.cbar .cb-id .cb-os-tag,
+html .shell .topbar.cbar .tb-os-identity{
+  color:#17324d !important;background:#fff !important;border:1px solid #a9bdcf !important;
+  opacity:1 !important;text-shadow:none !important;-webkit-text-fill-color:#17324d;
+  font-size:11px;font-weight:800;line-height:1.5;letter-spacing:.09em;
+  padding:4px 9px;border-radius:7px;white-space:nowrap;flex-shrink:0;
+}
+.app.shell>.topbar.cbar{
+  height:auto !important;max-height:none !important;min-height:min-content;
+  align-self:start !important;position:relative !important;top:auto !important;
+  overflow:visible;isolation:isolate;margin:0 !important;
+}
+.app.shell>.topbar.cbar>.cb-quick{
+  position:static !important;height:auto !important;min-height:44px;
+  background:transparent !important;border:0 !important;border-radius:0 !important;
+  padding:12px 0 0 !important;margin:0 !important;box-shadow:none !important;
+  align-items:center;align-self:start;flex-wrap:wrap !important;
+}
+.app.shell>.topbar.cbar .cb-id{min-width:0;max-width:none;}
+.app.shell>.topbar.cbar .cb-id h1{margin:5px 0;line-height:1.35;}
+.app.shell>.topbar.cbar .cb-k{overflow:visible;flex-wrap:wrap;white-space:normal;gap:6px;}
+.app.shell>.content{padding-top:28px !important;}
+.content>.ctx-strip{margin-top:0 !important;margin-bottom:24px !important;}
+.content .ctx-strip-top{gap:20px;align-items:flex-start;flex-wrap:wrap;}
+.content .ctx-strip-left{flex:1 1 320px;min-width:0;align-items:flex-start;}
+.content .ctx-strip-kicker{flex-wrap:wrap;gap:7px;line-height:1.6;}
+.content .ctx-strip-right{flex-wrap:wrap;gap:10px;}
+.content .ctx-role-tabs{display:flex;flex-wrap:wrap;gap:10px;padding-top:18px;margin-top:18px;}
+.content .ctx-rtab{min-height:40px;white-space:normal;line-height:1.4;}
+@media(min-width:1180px){
+ .app.shell>.topbar.cbar{grid-template-rows:max-content max-content;grid-auto-rows:max-content;}
+}
+@media(max-width:760px){
+ .app.shell>.content{padding:18px 12px !important;}
+ .content .ctx-strip-left{flex-basis:100%;}
+ .content .ctx-role-tabs{gap:8px;}
+ .content .ctx-rtab{min-height:44px;}
+}
