@@ -22,7 +22,7 @@ check('no missing clinical or demographic field is invented by data / template g
  assert.equal(d.status,'blank_template');assert.equal(d.evaluatedAt,'');assert.equal(d.fields.diagnoses,'Synthetic recorded diagnosis');
  for(const key of ['age','children','maritalStatus','education','heightCm','intakeWeightKg','currentWeightKg','currentBmi','aimDate','aimOutcome','adherence','labsStatus','estimatedDischargeDate'])assert.equal(d.fields[key],'',key);
  const html=run(`CARE_REVIEW.template(CARE_REVIEW.data('synthetic-p',{mode:'120day'}))`);
- assert.equal((html.match(/class="care-template-page"/g)||[]).length,3);assert.equal((html.match(/class="care-template-columns"/g)||[]).length,3);
+ assert.equal((html.match(/class="care-template-page"/g)||[]).length,2);assert.equal((html.match(/class="care-template-columns"/g)||[]).length,2);
  assert.match(html,/BLANK TEMPLATE/);assert.match(html,/Actual evaluation date/);assert.match(html,/next steps &amp; durations/);assert.match(html,/WITH durations/);
  assert.match(html,/&lt;script&gt;not executable&lt;\/script&gt;/);assert.equal(html.includes('<script>not executable'),false);
  const patientView=run(`renderPatient(AUTH.user,{id:'synthetic-p'})`);assert.match(patientView,/Sex not recorded/);assert.match(patientView,/Age not recorded/);
@@ -64,11 +64,11 @@ check('revision exports use the selected immutable snapshot, not the latest muta
  run(`closeModal(true)`);
 });
 function unzipStored(input){const b=Buffer.from(input),out={};let i=0;while(b.readUInt32LE(i)===0x04034b50){assert.equal(b.readUInt16LE(i+8),0);const size=b.readUInt32LE(i+18),n=b.readUInt16LE(i+26),e=b.readUInt16LE(i+28),start=i+30+n+e;out[b.toString('utf8',i+30,i+30+n)]=b.toString('utf8',start,start+size);i=start+size;}assert.equal(b.readUInt32LE(i),0x02014b50);return out;}
-check('Word is an actual OOXML document with three-page core / two columns, all recorded fields and timestamp',()=>{
+check('Word is an actual OOXML document with two-spread core / two columns, all recorded fields and timestamp',()=>{
  const bytes=run(`CARE_REVIEW.wordBytes(CARE_REVIEW.data('synthetic-p'))`),zip=unzipStored(bytes);
  for(const name of ['[Content_Types].xml','_rels/.rels','word/document.xml','word/styles.xml','word/_rels/document.xml.rels'])assert.ok(zip[name],name);
- const xml=zip['word/document.xml'];assert.equal((xml.match(/<w:tbl>/g)||[]).length,3);assert.equal((xml.match(/w:type="page"/g)||[]).length,2);
- assert.equal((xml.match(/<w:gridCol /g)||[]).length,6);assert.match(xml,/Synthetic latest evaluation diagnosis/);assert.match(xml,/2028-06-30T10:23:00.000Z/);assert.match(xml,/Actual evaluation/);
+ const xml=zip['word/document.xml'];assert.equal((xml.match(/<w:tbl>/g)||[]).length,2);assert.equal((xml.match(/w:type="page"/g)||[]).length,1);
+ assert.equal((xml.match(/<w:gridCol /g)||[]).length,4);assert.match(xml,/Synthetic latest evaluation diagnosis/);assert.match(xml,/2028-06-30T10:23:00.000Z/);assert.match(xml,/Actual evaluation/);
  assert.match(xml,/Synthetic patient &lt;script&gt;/);assert.match(xml,/Treatment \/ interventions AND indications/);assert.match(xml,/Next steps AND durations/);
  assert.match(zip['[Content_Types].xml'],/wordprocessingml.document.main\+xml/);
  const discharge=unzipStored(run(`CARE_REVIEW.wordBytes(CARE_REVIEW.data('synthetic-p',{mode:'discharge'}))`));assert.match(discharge['word/document.xml'],/physical signatures/);assert.match(discharge['word/document.xml'],/do not prove physical signatures/);

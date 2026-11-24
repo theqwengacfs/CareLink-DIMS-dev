@@ -1010,6 +1010,7 @@ Object.assign(ACTIONS, {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(pack.countyLabel)} Monday Management Minutes</title>
       <style>body{font-family:Calibri,Arial,sans-serif;margin:28px;color:#15171A}h1{color:#162F59;margin-bottom:2px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #CBD5E1;padding:6px 8px;text-align:left;font-size:10pt}th{background:#F1F5F9}</style>
       </head><body>
+      ${reportProvenanceHTML()}
       <div style="color:#C8102E;font-weight:700;font-size:9pt;letter-spacing:1.2px">LOMAMO CARELINK · C-DIMS OFFICIAL MINUTES</div>
       <h1>${esc(pack.countyLabel)} Monday Management Meeting Minutes</h1>
       <p><b>Week of:</b> ${esc(fmtDate(pack.weekOf))} &nbsp;|&nbsp; <b>Chair:</b> ${esc(pack.chair)} &nbsp;|&nbsp; <b>Secretary:</b> ${esc(min.secretaryName||pack.secretary)}</p>

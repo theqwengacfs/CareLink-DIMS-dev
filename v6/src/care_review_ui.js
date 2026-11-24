@@ -148,23 +148,24 @@ const CARE_REVIEW = (()=>{
       treatments:fields.treatment?[fields.treatment]:[],check_findings:fields.resolvedSymptoms?[fields.resolvedSymptoms]:[],act_actions:fields.nextSteps?[fields.nextSteps]:[],
       dischargeDate:mode==='discharge'?R.date(p.dischargedAt||p.discharge):'',dischargeProtocol:mode==='discharge'?p.dischargeProtocol||{}:null};
   }
-  // Three-page, two-column structure derived from the supplied blank template.
+  // Two balanced spreads retain the supplied template fields and reading order.
   // Text can flow beyond a page when needed; it is never clipped to force fit.
   function pageContent(d){
     const f=d.fields||{},v=k=>f[k]||'Not recorded';
     const block=(title,keys,cls='')=>`<section class="care-template-block ${cls}"><h3>${esc(title)}</h3>${keys.map(k=>`<p class="care-pre"><b>${esc(R.FIELDS.find(([key])=>key===k)?.[1]||k)}:</b><br>${esc(v(k))}</p>`).join('')}</section>`;
     const left=`<h3>PATIENT DATA / CAREGIVER DATA</h3><dl>${R.SECTIONS[0].fields.map(([k,label])=>`<dt>${esc(label)}</dt><dd>${esc(v(k))}</dd>`).join('')}<dt>Actual evaluation date & time</dt><dd>${esc(d.evaluatedAt?fmtDateTime(d.evaluatedAt)+' · '+d.evaluatedAt:'Not recorded')}</dd><dt>Days in program at evaluation</dt><dd>${esc(d.programmeDay??'Not recorded')}</dd><dt>Scheduled due date (not evaluation)</dt><dd>${esc(d.dueDate||'On-demand / no scheduled milestone')}</dd></dl>`;
     const right1=block('Aim (SMART)',['aimDate','aimOutcome','aimFunction'])+block('Diagnosis',['diagnoses'],'cdims-stage-dx')+block('Major symptoms WITH durations',['symptoms'])+block('PLAN (Challenges)',['plan'],'cdims-stage-p')+block('DO — actions, monitoring, additional support',['actions'],'cdims-stage-d');
-    const right2=block('Treatment & indications',['treatment','procedures','educationCounselling'],'cdims-stage-rx')+block('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus'],'cdims-stage-c')+block('ACT (Based on CHECK) — next steps & durations',['nextSteps'],'cdims-stage-a')+block('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']);
-    const right3=block('JUSTIFICATION (continued) — external delays',['externalDelays'])+block('ESTIMATED DATE OF DISCHARGE',['estimatedDischargeDate']);
-    return [[left,right1],['',right2],['',right3]];
+    const right2=block('Treatment & indications',['treatment','procedures','educationCounselling'],'cdims-stage-rx')+block('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus'],'cdims-stage-c');
+    const act=block('ACT (Based on CHECK) — next steps & durations',['nextSteps'],'cdims-stage-a')+block('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']);
+    const right3=act+block('JUSTIFICATION (continued) — external delays',['externalDelays'])+block('ESTIMATED DATE OF DISCHARGE',['estimatedDischargeDate']);
+    return [[left,right1],[right2,right3]];
   }
   function template(d){
     if(!d)return note('No authorized clinical record is available.');
-    const r=d.report||{},f=d.fields||{};
+    const r=d.report||{},f=d.fields||{},provenance=d.outputProvenance||reportProvenance();
     return `<article class="care-template" id="dischargeSummaryPrint" data-review="${esc(r.id||'blank')}">
-      ${pageContent(d).map(([left,right],i)=>`<section class="care-template-page"><header><span>${i+1} | Page</span><h2>${esc(d.report_title)}<br><small>${esc(f.ministryArea||'Ministry area not recorded')} MINISTRY AREA</small></h2><p>${esc(d.patient_code)} · ${esc(statusText(d.status))} · revision ${r.version||0}${!r.id?' · BLANK TEMPLATE — NOT A COMPLETED CLINICAL REPORT':''}</p></header><div class="care-template-columns"><div>${left}</div><div>${right}</div></div>
-      <footer>Confidential clinical record · cycle ${esc(d.cycleId)} · ${esc(r.id||'No saved evaluation')}<br>Prepared: ${esc(r.preparedBy?userName(r.preparedBy):'Not recorded')} · MCM reviewed: ${esc(r.reviewedAt?fmtDateTime(r.reviewedAt):'Not recorded')} · Sharing authorization: ${esc(r.authorizedAt?fmtDateTime(r.authorizedAt):'Not authorized')}</footer></section>`).join('')}
+      ${pageContent(d).map(([left,right],i)=>`<section class="care-template-page"><header><span>CARELINK · CLINICAL QUALITY &amp; CONTINUITY OF CARE · SPREAD ${i+1} / 2</span><h2>${esc(d.report_title)}<br><small>${esc(f.ministryArea||'Ministry area not recorded')} MINISTRY AREA</small></h2><p>${esc(d.patient_code)} · ${esc(statusText(d.status))} · revision ${r.version||0}${!r.id?' · BLANK TEMPLATE — NOT A COMPLETED CLINICAL REPORT':''}</p></header><div class="care-cycle-guide" aria-label="PDCA cycle"><span>01 PLAN</span><span>02 DO</span><span>03 CHECK</span><span>04 ACT</span></div><div class="care-template-columns"><div>${left}</div><div>${right}</div></div>
+      <footer>${reportProvenanceHTML(provenance)}Confidential clinical record · cycle ${esc(d.cycleId)} · ${esc(r.id||'No saved evaluation')}<br>Prepared: ${esc(r.preparedBy?userName(r.preparedBy):'Not recorded')} · MCM reviewed: ${esc(r.reviewedAt?fmtDateTime(r.reviewedAt):'Not recorded')} · Sharing authorization: ${esc(r.authorizedAt?fmtDateTime(r.authorizedAt):'Not authorized')}</footer></section>`).join('')}
       ${d.mode==='discharge'?`<section class="care-physical-signatures"><h3>PATIENT ACKNOWLEDGEMENT &amp; PHYSICAL SIGNATURES — discharge acknowledgement</h3><p>Obtain signatures on paper. Electronic approval and typed names do not replace physical signatures; this printout does not prove signatures or consent.</p><p>Patient / Guardian signature · date: _________________________________</p><p>Caregiver signature · date: _________________________________________</p><p>MCM signature · date: ______________________________________________</p><p>Witness signature · date: ___________________________________________</p><p>CONFIRMED DATE OF DISCHARGE: ${esc(d.dischargeDate||'Not recorded')}</p></section>`:''}</article>`;
   }
   function reportData(r,p){return {careTemplate:true,patientId:p?.id||r.patientId,patient_code:p?.code||r.patientCode||r.patientId,fields:r.fields,report:r,
@@ -205,13 +206,15 @@ const CARE_REVIEW = (()=>{
   function wordBytes(d){
     const p=text=>DOCX.para(text),section=(label,keys)=>DOCX.para(label,'Heading2')+keys.map(k=>p((R.FIELDS.find(([key])=>key===k)?.[1]||k)+': '+(d.fields[k]||'Not recorded'))).join('');
     const right=[section('Aim (SMART)',['aimDate','aimOutcome','aimFunction'])+section('Diagnosis',['diagnoses'])+section('Major symptoms WITH durations',['symptoms'])+section('PLAN (Challenges)',['plan'])+section('DO — actions / monitoring',['actions']),
-      section('Treatment AND indications',['treatment','procedures','educationCounselling'])+section('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus'])+section('ACT — next steps AND durations',['nextSteps'])+section('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']),
+      section('Treatment AND indications',['treatment','procedures','educationCounselling'])+section('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus']),
+      section('ACT — next steps AND durations',['nextSteps'])+section('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']),
       section('JUSTIFICATION (continued)',['externalDelays'])+section('Estimated date of discharge',['estimatedDischargeDate'])];
     const left=R.SECTIONS[0].fields.map(([k,label])=>p(label+': '+(d.fields[k]||'Not recorded'))).join('')+p('Actual evaluation: '+(d.evaluatedAt||'Not recorded'))+p('Programme day: '+(d.programmeDay??'Not recorded'))+p('Scheduled due: '+(d.dueDate||'On demand'));
     const cell=xml=>`<w:tc><w:tcPr><w:tcW w:w="4500" w:type="dxa"/></w:tcPr>${xml||p('')}</w:tc>`;
-    const body=right.map((col,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+DOCX.para(d.report_title,'Title')+p(`${d.fields.ministryArea||'Ministry area not recorded'} MINISTRY AREA · ${d.patient_code} · ${statusText(d.status)} · v${d.report?.version||0}`)+
-      `<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="4500"/><w:gridCol w:w="4500"/></w:tblGrid><w:tr>${cell(i?'':left)}${cell(col)}</w:tr></w:tbl>`+p(`Confidential clinical record · cycle ${d.cycleId} · ${i+1} | Page`)).join('');
-    const r=d.report||{},attribution=p(`Prepared by: ${r.preparedBy||'Not recorded'} · MCM reviewed: ${r.reviewedBy||'Not recorded'} at ${r.reviewedAt||'Not recorded'}`)+
+    const balanced=[{left,right:right[0]},{left:right[1],right:right.slice(2).join('')}];
+    const body=balanced.map((col,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+DOCX.para(d.report_title,'Title')+p(`${d.fields.ministryArea||'Ministry area not recorded'} MINISTRY AREA · ${d.patient_code} · ${statusText(d.status)} · v${d.report?.version||0}`)+
+      `<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="4500"/><w:gridCol w:w="4500"/></w:tblGrid><w:tr>${cell(col.left)}${cell(col.right)}</w:tr></w:tbl>`+p(`Confidential clinical record · cycle ${d.cycleId} · ${i+1} | Page`)).join('');
+    const r=d.report||{},attribution=p(reportProvenanceText(d.outputProvenance||reportProvenance()))+p(`Prepared by: ${r.preparedBy||'Not recorded'} · MCM reviewed: ${r.reviewedBy||'Not recorded'} at ${r.reviewedAt||'Not recorded'}`)+
       p(`Sharing authorization: ${r.authorizedBy||'Not authorized'} at ${r.authorizedAt||'Not authorized'} · revision ${r.authorizedRevisionId||'Not recorded'}`);
     const signatures=d.mode==='discharge'?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>'+DOCX.para('Patient acknowledgement & physical signatures','Heading1')+
       p('Obtain signatures on paper. Typed names and electronic approval do not prove physical signatures or consent.')+
@@ -222,11 +225,12 @@ const CARE_REVIEW = (()=>{
   }
   function output(d,format){
     if(!d)return toast('Not available','No scoped report selected.','err');
+    d={...d,outputProvenance:reportProvenance()};
     if(format==='docx')return downloadBytes(`CareLink-PDCA-${String(d.patient_code).replace(/[^A-Za-z0-9_-]/g,'_')}-v${d.report?.version||0}.docx`,wordBytes(d),'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     if(format==='json')return downloadBytes('CareLink-PDCA-fields.json',UTF8.encode(JSON.stringify(d,null,2)),'application/json');
     const w=window.open('','_blank','width=940,height=920');if(!w)return toast('Allow print window','Your browser blocked the report window.','warn');
     const css=Array.from(document.querySelectorAll('style')).map(s=>s.textContent).join('\n');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Confidential PDCA</title><style>${css}</style></head><body class="care-print-document">${template(d)}</body></html>`);w.document.close();
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Confidential PDCA</title><style>${css}</style></head><body class="care-print-document">${reportProvenanceHTML(d.outputProvenance,'Print requested')}${template(d)}</body></html>`);w.document.close();
     setTimeout(()=>{w.focus();w.print();},150);
   }
   function outputReport(id,revision,format){

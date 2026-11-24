@@ -6906,6 +6906,24 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:hover{background:c
 .care-print-document{background:#fff!important;margin:0!important;padding:0!important}
 @media(max-width:680px){.care-editor-grid{grid-template-columns:1fr;gap:0}.care-template-columns{grid-template-columns:1fr;gap:12px}.care-template-page{padding:16px;min-height:0}.care-template-columns>div:empty{display:none}.care-toolbar .btn{max-width:100%;white-space:normal}}
 @media print{@page{size:A4;margin:12mm}.care-template-page{border:0;padding:0;margin:0;min-height:265mm;max-width:none;break-after:page;page-break-after:always}.care-template-page:last-child{break-after:auto;page-break-after:auto}.care-template-columns{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:8mm}.care-template-columns>div:empty{display:block}.care-template-page header{break-inside:avoid;margin-bottom:14px;padding-bottom:8px}.care-template-page header h2{margin:8px 0;font-size:17px}.care-template-page dt{font-size:9px;line-height:1.2;margin-top:6px}.care-template-page dd{font-size:10px;line-height:1.3;margin-top:1px}.care-template-page .care-template-block p{font-size:10px;line-height:1.35;margin:5px 0}.care-template-page h3{font-size:11px;margin:8px 0 6px}.care-template-block{break-inside:auto}.care-template-page footer{margin-top:auto;padding-top:8px}.care-toolbar{display:none!important}.care-template,.care-template *{color:#171717!important;box-shadow:none!important}.care-print-document .care-template{display:block!important}.care-template-page p{orphans:2;widows:2}}
+/* Balanced PDCA spreads: retain the source's reading order, use both columns. */
+.care-template-page{min-height:0;padding:28px;box-sizing:border-box;border-top:4px solid #ad152e}
+.care-template-page header{margin-bottom:14px}
+.care-template-columns{gap:24px;flex:0 1 auto}
+.care-cycle-guide{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:0 0 18px}
+.care-cycle-guide span{font-size:10px;font-weight:800;letter-spacing:.07em;padding:8px;background:#eef2f7;border-bottom:3px solid #234b76;color:#183858}
+.care-cycle-guide span:nth-child(2){border-color:#0f766e}.care-cycle-guide span:nth-child(3){border-color:#a16207}.care-cycle-guide span:nth-child(4){border-color:#ad152e}
+.care-template-block h3{padding:7px 9px;background:#f1f5f9;border-left:3px solid #234b76;break-after:avoid}
+.report-provenance{font-size:10px;line-height:1.5;padding:8px 0;margin:6px 0;color:#334155;overflow-wrap:anywhere;border-bottom:1px solid #cbd5e1}
+@media print{
+ .care-template-page{min-height:0;padding:0;border:0}
+ .care-template-page footer{margin-top:12px;break-inside:avoid}
+ .care-template-columns{align-items:start}
+ .care-template h3{break-after:avoid}
+ .care-template-block p,.care-template dl dd{orphans:3;widows:3}
+ .care-cycle-guide{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ .report-provenance{color:#171717!important;display:block!important}
+}
 
 /* Public entry only; last in CSS_ORDER. Never clip controls to manufacture a
    zero-scroll result. Desktop/tablet layouts fit the viewport through spacing;
@@ -7800,7 +7818,7 @@ html .shell .topbar.cbar .tb-os-identity{
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,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";
-window.BUILD_STAMP = "2026-11-24 20:35";
+window.BUILD_STAMP = "2026-11-24 21:08";
 </script>
 <script>
 /* ============================================================
@@ -13493,7 +13511,7 @@ const REPORTS = {
     const rec = {
       id:uid('r'), type, title:REPORT_TITLES[type]||titleCase(type),
       countyId: params.countyId||'all', periodKey: periodKeyFor(type,params),
-      params, generatedAt: todayISO(), generatedBy: user.id, generatedByName: user.name||'Scheduled automation',
+      params, generatedAt: todayISO(), generatedBy: user.id, generatedByName: user.name||'Scheduled automation', generatedProvenance:reportProvenance(user),
       version, scheduled: !!params.scheduled, classification:'Internal organisational', checksum:null
     };
     rec.checksum = fnv1a(rec.id+rec.type+rec.periodKey+rec.generatedAt+version);
@@ -13571,6 +13589,19 @@ function toCSV(rows, cols){
   const body = rows.map(r=>cols.map(c=>{ const v=typeof c.get==='function'?c.get(r):r[c.key];
     return `"${String(v??'').replace(/"/g,'""')}"`; }).join(',')).join('\n');
   return '\uFEFF'+head+'\n'+body;
+}
+
+/* Output provenance is distinct from clinical authorship or approval. */
+function reportProvenance(user=AUTH.user){
+  const role=user&&roleObj(user.roleId);
+  const department=(typeof DEPARTMENTS!=='undefined'?DEPARTMENTS:[]).find(d=>d.id===(user?.departmentId||role?.dept));
+  return {userId:user?.id||'',username:user?.username||'',name:user?.displayName||user?.name||'Not recorded',department:department?.name||'Department not recorded',at:new Date().toISOString()};
+}
+function reportProvenanceText(p=reportProvenance(),action='Generated'){
+  return `${action} by: ${p.name}${p.username?' (@'+p.username+')':''} · Department: ${p.department} · ${p.at}`;
+}
+function reportProvenanceHTML(p=reportProvenance(),action='Generated'){
+  return `<div class="report-provenance" data-report-provenance="${esc(action)}"><strong>${esc(action)} by:</strong> ${esc(p.name)}${p.username?' (@'+esc(p.username)+')':''}<br><strong>Department:</strong> ${esc(p.department)} · <time>${esc(p.at)}</time></div>`;
 }
 
 /* ============================================================
@@ -16201,6 +16232,7 @@ function formDoc(rec){
 }
 
 function printDoc(title, html){
+  html=reportProvenanceHTML()+html;
   /* The document is written once, into a body-level container that only
      printing reveals. The modal shows the same markup for reading. */
   let host=document.getElementById('printRoot');
@@ -18100,6 +18132,7 @@ const DOCX = {
   },
 
   fromHtml(title, html){
+    if(!html.includes('data-report-provenance='))html=reportProvenanceHTML()+html;
     const blocks=htmlBlocks(html);
     const body=[this.para(title||'Document','Title')]
       .concat(blocks.map(b=>{
@@ -18171,6 +18204,8 @@ ${Array.from({length:sheetCount},(_,i)=>`<Override PartName="/xl/worksheets/shee
 </worksheet>`;
   },
   fromSheets(sheets, title){
+    const provenance=reportProvenance();
+    sheets=[...sheets,{name:'Report provenance',widths:[24,65],rows:[['Report',title||'CareLink export'],['Generated by',provenance.name],['Username',provenance.username],['Department',provenance.department],['Generated at (UTC)',provenance.at]]}];
     const list=sheets&&sheets.length? sheets: [{name:'Sheet1',rows:[[]]}];
     const names=list.map((s,i)=>String(s.name||('Sheet'+(i+1))).replace(/[\\/?*\[\]:]/g,'-').slice(0,31));
     const workbook=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -24370,6 +24405,7 @@ function reportShell({title, sub, meta, body, footerNote='', classification='Int
     <div class="rpt-trirule" aria-hidden="true"><i style="background:#162F59;flex:5"></i><i style="background:#1E6FA8;flex:2"></i><i style="background:#C8102E;flex:1.5"></i></div>
     <h2>${esc(title)}</h2>
     <div class="rsub">${sub}</div>
+    ${reportProvenanceHTML()}
     <div class="meta-grid">${meta.map(m=>`<div><b>${esc(m.k)}</b>${esc(m.v)}</div>`).join('')}</div>
     <div class="rpt-body-flow">${body}</div>
     <div class="rfoot">
@@ -30419,9 +30455,14 @@ const PRINT_CONTROL = {
     let style=document.getElementById('carelink-print-settings');
     if(!style){style=document.createElement('style');style.id='carelink-print-settings';document.head.appendChild(style);}
     style.textContent=`@page { size:${size} ${orientation}; margin:12mm; }`;
+    const printTarget=this.source==='document'?document.getElementById('printRoot'):document.getElementById('content');
+    if(printTarget?.insertAdjacentHTML){
+      const prior=printTarget.querySelector('[data-report-provenance="Print requested"]');if(prior)prior.remove();
+      printTarget.insertAdjacentHTML('afterbegin',reportProvenanceHTML(reportProvenance(),'Print requested'));
+    }
     const mode=this.source==='document'?'print-mode':'print-workspace';
     document.body.classList.add(mode);
-    const clean=()=>document.body.classList.remove(mode);
+    const clean=()=>{document.body.classList.remove(mode);if(printTarget?.insertAdjacentHTML){const stamp=printTarget.querySelector('[data-report-provenance="Print requested"]');if(stamp)stamp.remove();}};
     window.addEventListener('afterprint',clean,{once:true});
     try{window.print();}catch(error){clean();toast('Print dialog unavailable','Open CareLink directly in a browser tab and use its Print menu.','warn');}
     // Some mobile print services do not emit afterprint. Restore screen state
@@ -45597,6 +45638,7 @@ Object.assign(ACTIONS, {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(pack.countyLabel)} Monday Management Minutes</title>
       <style>body{font-family:Calibri,Arial,sans-serif;margin:28px;color:#15171A}h1{color:#162F59;margin-bottom:2px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #CBD5E1;padding:6px 8px;text-align:left;font-size:10pt}th{background:#F1F5F9}</style>
       </head><body>
+      ${reportProvenanceHTML()}
       <div style="color:#C8102E;font-weight:700;font-size:9pt;letter-spacing:1.2px">LOMAMO CARELINK · C-DIMS OFFICIAL MINUTES</div>
       <h1>${esc(pack.countyLabel)} Monday Management Meeting Minutes</h1>
       <p><b>Week of:</b> ${esc(fmtDate(pack.weekOf))} &nbsp;|&nbsp; <b>Chair:</b> ${esc(pack.chair)} &nbsp;|&nbsp; <b>Secretary:</b> ${esc(min.secretaryName||pack.secretary)}</p>
@@ -46794,23 +46836,24 @@ const CARE_REVIEW = (()=>{
       treatments:fields.treatment?[fields.treatment]:[],check_findings:fields.resolvedSymptoms?[fields.resolvedSymptoms]:[],act_actions:fields.nextSteps?[fields.nextSteps]:[],
       dischargeDate:mode==='discharge'?R.date(p.dischargedAt||p.discharge):'',dischargeProtocol:mode==='discharge'?p.dischargeProtocol||{}:null};
   }
-  // Three-page, two-column structure derived from the supplied blank template.
+  // Two balanced spreads retain the supplied template fields and reading order.
   // Text can flow beyond a page when needed; it is never clipped to force fit.
   function pageContent(d){
     const f=d.fields||{},v=k=>f[k]||'Not recorded';
     const block=(title,keys,cls='')=>`<section class="care-template-block ${cls}"><h3>${esc(title)}</h3>${keys.map(k=>`<p class="care-pre"><b>${esc(R.FIELDS.find(([key])=>key===k)?.[1]||k)}:</b><br>${esc(v(k))}</p>`).join('')}</section>`;
     const left=`<h3>PATIENT DATA / CAREGIVER DATA</h3><dl>${R.SECTIONS[0].fields.map(([k,label])=>`<dt>${esc(label)}</dt><dd>${esc(v(k))}</dd>`).join('')}<dt>Actual evaluation date & time</dt><dd>${esc(d.evaluatedAt?fmtDateTime(d.evaluatedAt)+' · '+d.evaluatedAt:'Not recorded')}</dd><dt>Days in program at evaluation</dt><dd>${esc(d.programmeDay??'Not recorded')}</dd><dt>Scheduled due date (not evaluation)</dt><dd>${esc(d.dueDate||'On-demand / no scheduled milestone')}</dd></dl>`;
     const right1=block('Aim (SMART)',['aimDate','aimOutcome','aimFunction'])+block('Diagnosis',['diagnoses'],'cdims-stage-dx')+block('Major symptoms WITH durations',['symptoms'])+block('PLAN (Challenges)',['plan'],'cdims-stage-p')+block('DO — actions, monitoring, additional support',['actions'],'cdims-stage-d');
-    const right2=block('Treatment & indications',['treatment','procedures','educationCounselling'],'cdims-stage-rx')+block('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus'],'cdims-stage-c')+block('ACT (Based on CHECK) — next steps & durations',['nextSteps'],'cdims-stage-a')+block('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']);
-    const right3=block('JUSTIFICATION (continued) — external delays',['externalDelays'])+block('ESTIMATED DATE OF DISCHARGE',['estimatedDischargeDate']);
-    return [[left,right1],['',right2],['',right3]];
+    const right2=block('Treatment & indications',['treatment','procedures','educationCounselling'],'cdims-stage-rx')+block('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus'],'cdims-stage-c');
+    const act=block('ACT (Based on CHECK) — next steps & durations',['nextSteps'],'cdims-stage-a')+block('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']);
+    const right3=act+block('JUSTIFICATION (continued) — external delays',['externalDelays'])+block('ESTIMATED DATE OF DISCHARGE',['estimatedDischargeDate']);
+    return [[left,right1],[right2,right3]];
   }
   function template(d){
     if(!d)return note('No authorized clinical record is available.');
-    const r=d.report||{},f=d.fields||{};
+    const r=d.report||{},f=d.fields||{},provenance=d.outputProvenance||reportProvenance();
     return `<article class="care-template" id="dischargeSummaryPrint" data-review="${esc(r.id||'blank')}">
-      ${pageContent(d).map(([left,right],i)=>`<section class="care-template-page"><header><span>${i+1} | Page</span><h2>${esc(d.report_title)}<br><small>${esc(f.ministryArea||'Ministry area not recorded')} MINISTRY AREA</small></h2><p>${esc(d.patient_code)} · ${esc(statusText(d.status))} · revision ${r.version||0}${!r.id?' · BLANK TEMPLATE — NOT A COMPLETED CLINICAL REPORT':''}</p></header><div class="care-template-columns"><div>${left}</div><div>${right}</div></div>
-      <footer>Confidential clinical record · cycle ${esc(d.cycleId)} · ${esc(r.id||'No saved evaluation')}<br>Prepared: ${esc(r.preparedBy?userName(r.preparedBy):'Not recorded')} · MCM reviewed: ${esc(r.reviewedAt?fmtDateTime(r.reviewedAt):'Not recorded')} · Sharing authorization: ${esc(r.authorizedAt?fmtDateTime(r.authorizedAt):'Not authorized')}</footer></section>`).join('')}
+      ${pageContent(d).map(([left,right],i)=>`<section class="care-template-page"><header><span>CARELINK · CLINICAL QUALITY &amp; CONTINUITY OF CARE · SPREAD ${i+1} / 2</span><h2>${esc(d.report_title)}<br><small>${esc(f.ministryArea||'Ministry area not recorded')} MINISTRY AREA</small></h2><p>${esc(d.patient_code)} · ${esc(statusText(d.status))} · revision ${r.version||0}${!r.id?' · BLANK TEMPLATE — NOT A COMPLETED CLINICAL REPORT':''}</p></header><div class="care-cycle-guide" aria-label="PDCA cycle"><span>01 PLAN</span><span>02 DO</span><span>03 CHECK</span><span>04 ACT</span></div><div class="care-template-columns"><div>${left}</div><div>${right}</div></div>
+      <footer>${reportProvenanceHTML(provenance)}Confidential clinical record · cycle ${esc(d.cycleId)} · ${esc(r.id||'No saved evaluation')}<br>Prepared: ${esc(r.preparedBy?userName(r.preparedBy):'Not recorded')} · MCM reviewed: ${esc(r.reviewedAt?fmtDateTime(r.reviewedAt):'Not recorded')} · Sharing authorization: ${esc(r.authorizedAt?fmtDateTime(r.authorizedAt):'Not authorized')}</footer></section>`).join('')}
       ${d.mode==='discharge'?`<section class="care-physical-signatures"><h3>PATIENT ACKNOWLEDGEMENT &amp; PHYSICAL SIGNATURES — discharge acknowledgement</h3><p>Obtain signatures on paper. Electronic approval and typed names do not replace physical signatures; this printout does not prove signatures or consent.</p><p>Patient / Guardian signature · date: _________________________________</p><p>Caregiver signature · date: _________________________________________</p><p>MCM signature · date: ______________________________________________</p><p>Witness signature · date: ___________________________________________</p><p>CONFIRMED DATE OF DISCHARGE: ${esc(d.dischargeDate||'Not recorded')}</p></section>`:''}</article>`;
   }
   function reportData(r,p){return {careTemplate:true,patientId:p?.id||r.patientId,patient_code:p?.code||r.patientCode||r.patientId,fields:r.fields,report:r,
@@ -46851,13 +46894,15 @@ const CARE_REVIEW = (()=>{
   function wordBytes(d){
     const p=text=>DOCX.para(text),section=(label,keys)=>DOCX.para(label,'Heading2')+keys.map(k=>p((R.FIELDS.find(([key])=>key===k)?.[1]||k)+': '+(d.fields[k]||'Not recorded'))).join('');
     const right=[section('Aim (SMART)',['aimDate','aimOutcome','aimFunction'])+section('Diagnosis',['diagnoses'])+section('Major symptoms WITH durations',['symptoms'])+section('PLAN (Challenges)',['plan'])+section('DO — actions / monitoring',['actions']),
-      section('Treatment AND indications',['treatment','procedures','educationCounselling'])+section('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus'])+section('ACT — next steps AND durations',['nextSteps'])+section('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']),
+      section('Treatment AND indications',['treatment','procedures','educationCounselling'])+section('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus']),
+      section('ACT — next steps AND durations',['nextSteps'])+section('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']),
       section('JUSTIFICATION (continued)',['externalDelays'])+section('Estimated date of discharge',['estimatedDischargeDate'])];
     const left=R.SECTIONS[0].fields.map(([k,label])=>p(label+': '+(d.fields[k]||'Not recorded'))).join('')+p('Actual evaluation: '+(d.evaluatedAt||'Not recorded'))+p('Programme day: '+(d.programmeDay??'Not recorded'))+p('Scheduled due: '+(d.dueDate||'On demand'));
     const cell=xml=>`<w:tc><w:tcPr><w:tcW w:w="4500" w:type="dxa"/></w:tcPr>${xml||p('')}</w:tc>`;
-    const body=right.map((col,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+DOCX.para(d.report_title,'Title')+p(`${d.fields.ministryArea||'Ministry area not recorded'} MINISTRY AREA · ${d.patient_code} · ${statusText(d.status)} · v${d.report?.version||0}`)+
-      `<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="4500"/><w:gridCol w:w="4500"/></w:tblGrid><w:tr>${cell(i?'':left)}${cell(col)}</w:tr></w:tbl>`+p(`Confidential clinical record · cycle ${d.cycleId} · ${i+1} | Page`)).join('');
-    const r=d.report||{},attribution=p(`Prepared by: ${r.preparedBy||'Not recorded'} · MCM reviewed: ${r.reviewedBy||'Not recorded'} at ${r.reviewedAt||'Not recorded'}`)+
+    const balanced=[{left,right:right[0]},{left:right[1],right:right.slice(2).join('')}];
+    const body=balanced.map((col,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+DOCX.para(d.report_title,'Title')+p(`${d.fields.ministryArea||'Ministry area not recorded'} MINISTRY AREA · ${d.patient_code} · ${statusText(d.status)} · v${d.report?.version||0}`)+
+      `<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="4500"/><w:gridCol w:w="4500"/></w:tblGrid><w:tr>${cell(col.left)}${cell(col.right)}</w:tr></w:tbl>`+p(`Confidential clinical record · cycle ${d.cycleId} · ${i+1} | Page`)).join('');
+    const r=d.report||{},attribution=p(reportProvenanceText(d.outputProvenance||reportProvenance()))+p(`Prepared by: ${r.preparedBy||'Not recorded'} · MCM reviewed: ${r.reviewedBy||'Not recorded'} at ${r.reviewedAt||'Not recorded'}`)+
       p(`Sharing authorization: ${r.authorizedBy||'Not authorized'} at ${r.authorizedAt||'Not authorized'} · revision ${r.authorizedRevisionId||'Not recorded'}`);
     const signatures=d.mode==='discharge'?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>'+DOCX.para('Patient acknowledgement & physical signatures','Heading1')+
       p('Obtain signatures on paper. Typed names and electronic approval do not prove physical signatures or consent.')+
@@ -46868,11 +46913,12 @@ const CARE_REVIEW = (()=>{
   }
   function output(d,format){
     if(!d)return toast('Not available','No scoped report selected.','err');
+    d={...d,outputProvenance:reportProvenance()};
     if(format==='docx')return downloadBytes(`CareLink-PDCA-${String(d.patient_code).replace(/[^A-Za-z0-9_-]/g,'_')}-v${d.report?.version||0}.docx`,wordBytes(d),'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     if(format==='json')return downloadBytes('CareLink-PDCA-fields.json',UTF8.encode(JSON.stringify(d,null,2)),'application/json');
     const w=window.open('','_blank','width=940,height=920');if(!w)return toast('Allow print window','Your browser blocked the report window.','warn');
     const css=Array.from(document.querySelectorAll('style')).map(s=>s.textContent).join('\n');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Confidential PDCA</title><style>${css}</style></head><body class="care-print-document">${template(d)}</body></html>`);w.document.close();
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Confidential PDCA</title><style>${css}</style></head><body class="care-print-document">${reportProvenanceHTML(d.outputProvenance,'Print requested')}${template(d)}</body></html>`);w.document.close();
     setTimeout(()=>{w.focus();w.print();},150);
   }
   function outputReport(id,revision,format){
@@ -53323,6 +53369,6 @@ Object.assign(FORMS,{
   });
 })();
 </script>
-<!-- Build 2026-11-24 20:35 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-11-24 21:08 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

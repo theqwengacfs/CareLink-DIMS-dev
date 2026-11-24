@@ -390,6 +390,7 @@ function reportShell({title, sub, meta, body, footerNote='', classification='Int
     <div class="rpt-trirule" aria-hidden="true"><i style="background:#162F59;flex:5"></i><i style="background:#1E6FA8;flex:2"></i><i style="background:#C8102E;flex:1.5"></i></div>
     <h2>${esc(title)}</h2>
     <div class="rsub">${sub}</div>
+    ${reportProvenanceHTML()}
     <div class="meta-grid">${meta.map(m=>`<div><b>${esc(m.k)}</b>${esc(m.v)}</div>`).join('')}</div>
     <div class="rpt-body-flow">${body}</div>
     <div class="rfoot">

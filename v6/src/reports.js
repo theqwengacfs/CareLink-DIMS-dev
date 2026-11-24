@@ -408,7 +408,7 @@ const REPORTS = {
     const rec = {
       id:uid('r'), type, title:REPORT_TITLES[type]||titleCase(type),
       countyId: params.countyId||'all', periodKey: periodKeyFor(type,params),
-      params, generatedAt: todayISO(), generatedBy: user.id, generatedByName: user.name||'Scheduled automation',
+      params, generatedAt: todayISO(), generatedBy: user.id, generatedByName: user.name||'Scheduled automation', generatedProvenance:reportProvenance(user),
       version, scheduled: !!params.scheduled, classification:'Internal organisational', checksum:null
     };
     rec.checksum = fnv1a(rec.id+rec.type+rec.periodKey+rec.generatedAt+version);
@@ -486,4 +486,17 @@ function toCSV(rows, cols){
   const body = rows.map(r=>cols.map(c=>{ const v=typeof c.get==='function'?c.get(r):r[c.key];
     return `"${String(v??'').replace(/"/g,'""')}"`; }).join(',')).join('\n');
   return '\uFEFF'+head+'\n'+body;
+}
+
+/* Output provenance is distinct from clinical authorship or approval. */
+function reportProvenance(user=AUTH.user){
+  const role=user&&roleObj(user.roleId);
+  const department=(typeof DEPARTMENTS!=='undefined'?DEPARTMENTS:[]).find(d=>d.id===(user?.departmentId||role?.dept));
+  return {userId:user?.id||'',username:user?.username||'',name:user?.displayName||user?.name||'Not recorded',department:department?.name||'Department not recorded',at:new Date().toISOString()};
+}
+function reportProvenanceText(p=reportProvenance(),action='Generated'){
+  return `${action} by: ${p.name}${p.username?' (@'+p.username+')':''} · Department: ${p.department} · ${p.at}`;
+}
+function reportProvenanceHTML(p=reportProvenance(),action='Generated'){
+  return `<div class="report-provenance" data-report-provenance="${esc(action)}"><strong>${esc(action)} by:</strong> ${esc(p.name)}${p.username?' (@'+esc(p.username)+')':''}<br><strong>Department:</strong> ${esc(p.department)} · <time>${esc(p.at)}</time></div>`;
 }

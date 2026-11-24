@@ -503,11 +503,11 @@ test('12. 10-Pillar Overhaul: Monday AI Engine & Secretary Desk, Upright Baselin
       hasStages: ['cdims-stage-dx','cdims-stage-p','cdims-stage-d','cdims-stage-rx','cdims-stage-c','cdims-stage-a'].every(c => html120.includes(c) && htmlDis.includes(c)),
       mergeFieldsReady: Boolean(d120.patient_name && CARE_RULES.FIELDS.every(([key])=>typeof d120.fields[key]==='string') && Array.isArray(d120.challenges) && Array.isArray(d120.interventions) && Array.isArray(d120.treatments) && Array.isArray(d120.check_findings) && Array.isArray(d120.act_actions)),
       noInventedEvaluation: d120.status==='blank_template' && !d120.evaluatedAt && !d120.aim && !d120.fields.adherence && !d120.fields.labsStatus,
-      threePages: (html120.match(/class="care-template-page"/g)||[]).length===3
+      balancedSpreads: (html120.match(/class="care-template-page"/g)||[]).length===2
     };
   })()`);
-  ok('Supplied three-page PDCA format renders both modes and editable merge fields without fabricating an evaluation',
-    pdcaAudit.has120Title && pdcaAudit.hasDisTitle && pdcaAudit.hasStages && pdcaAudit.mergeFieldsReady && pdcaAudit.noInventedEvaluation && pdcaAudit.threePages, JSON.stringify(pdcaAudit));
+  ok('Source-mapped PDCA fields use balanced two-spread layout in both modes and editable merge fields without fabricating an evaluation',
+    pdcaAudit.has120Title && pdcaAudit.hasDisTitle && pdcaAudit.hasStages && pdcaAudit.mergeFieldsReady && pdcaAudit.noInventedEvaluation && pdcaAudit.balancedSpreads, JSON.stringify(pdcaAudit));
   const pdcaRegHtml = String(run(`renderPdca(AUTH.user)`));
   as('chief.admin');
   const intlHtml = String(run(`HANDOVER_PARTNERS.renderIntlMedical(AUTH.user, {})`));
