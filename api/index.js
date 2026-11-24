@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import officialStructure from './official-structure.mjs';
+import {executiveMember,referralVisible,canSubmitMasterReport,BOARD_ROLES,boardSnapshot} from './coordination-policy.mjs';
 import { generateReferenceManifest } from './synthetic-reference.mjs';
 import careRules from '../v6/src/care_rules.js';
 import careWorkflow from '../v6/src/care_workflow.js';
@@ -2108,8 +2109,12 @@ function notificationPatchAllowed(patch, state, sess) {
 }
 
 function scopedDbForSession(db, state, sess) {
+  if(BOARD_ROLES.has(sess.roleId))return boardSnapshot(db||{},sess);
   const copy = sanitizeDbForClient(db || {});
   const scope = principalScope(state, sess);
+  copy.execIssues=executiveMember(db,sess,officialStructure.exec)?(copy.execIssues||[]):[];
+  copy.execMeetings=executiveMember(db,sess,officialStructure.exec)?(copy.execMeetings||[]):[];
+  copy.cccReferrals=(copy.cccReferrals||[]).filter(r=>referralVisible(r,sess,db));
   const patients = Array.isArray(copy.patients) ? copy.patients : [];
   const syntheticOnly = patients.length > 0 && patients.every((p) => p && (p.demo === true || p.synthetic === true));
   const demoPreview = !TRIAL_MODE && syntheticOnly && !isGloballyActivated(state) && isDemoDatabase(state);
@@ -2225,6 +2230,7 @@ function scopedPatchesForSession(patches, state, sess) {
   const events = state.db && Array.isArray(state.db.calendarEvents) ? state.db.calendarEvents : [];
   return (patches || []).flatMap((patch) => {
     if (!patch) return [patch];
+    if(BOARD_ROLES.has(sess.roleId)&&!['personalPrefs'].includes(patch.c))return [];
     if (!ACCOUNT_ADMIN_ROLES.has(scope.roleId)) {
       if (['pendingActivations','emergencyCodes'].includes(patch.c)) return [];
       if (['accountRequests','recoveryRequests'].includes(patch.c)) {
@@ -2255,6 +2261,8 @@ function scopedPatchesForSession(patches, state, sess) {
       const candidate = current || patch.set || {};
       return callVisibleToScope(candidate, state, scope) ? [patch] : [];
     }
+    if(['execIssues','execMeetings'].includes(patch.c)&&!executiveMember(state.db,sess,officialStructure.exec))return [];
+    if(patch.c==='cccReferrals'){const record=(state.db.cccReferrals||[]).find(r=>r.id===patch.id)||patch.set;return referralVisible(record,sess,state.db)?[patch]:[];}
     if (patch.c==='careCommandReceipts') return [];
     if (patch.c==='intlPdcaDossiers') {
       const dossier=(state.db.intlPdcaDossiers||[]).find(r=>r.id===patch.id);
@@ -3850,6 +3858,77 @@ async function handleRequest(req, res) {
     });
   }
 
+  if(route==='coordination/presence'&&method==='POST'){
+    const sess=getSession(state,req);
+    if(!sess)return sendJson(res,401,{ok:false,error:'Sign in online to continue.'});
+    if(state._headOnly)({state,driver}=await loadCloudState({readOnly:false}));
+    const board=BOARD_ROLES.has(sess.roleId);
+    if(!board&&!executiveMember(state.db,sess,officialStructure.exec))return sendJson(res,403,{ok:false,error:'This workspace is not assigned to your account.'});
+    const sid=await ensureSessionLease(sess);
+    if(!sid)return sendJson(res,401,{ok:false,error:'This online session has ended.'});
+    const presenceKey=name=>'carelink_presence_'+crypto.createHash('sha256').update(CLOUD_KEY+':'+name).digest('hex');
+    const at=nowISO();
+    await runKvCommand(['SET',presenceKey(sess.username),JSON.stringify({at,sid,epoch:sess.sessionEpoch||''}),'EX','90']);
+    const members=(state.db.users||[]).filter(u=>u.status==='active'&&u.active!==false&&(board?BOARD_ROLES.has(u.roleId):executiveMember(state.db,{username:u.username,roleId:u.roleId},officialStructure.exec)));
+    const presence={};
+    await Promise.all(members.map(async user=>{
+      const raw=await runKvCommand(['GET',presenceKey(user.username)]);if(!raw)return;
+      let item;try{item=JSON.parse(raw);}catch{return;}
+      if((await runKvCommand(['GET',sessionLeaseKey(user.username,item.epoch)]))===item.sid)presence[user.id]={at:item.at,state:'online'};
+    }));
+    return sendJson(res,200,{ok:true,presence});
+  }
+
+  if(route==='coordination/command'&&method==='POST'){
+    const sess=getSession(state,req);
+    if(!sess)return sendJson(res,401,{ok:false,error:'Sign in online to continue.'});
+    if(state._headOnly)({state,driver}=await loadCloudState({readOnly:false}));
+    const body=await readJsonBody(req),kind=String(body.kind||'');
+    const text=clipString(body.text||'',5000).trim();
+    const commandId=clipString(body.commandId||'',120);
+    if(!/^[A-Za-z0-9_-]{8,120}$/.test(commandId))return sendJson(res,400,{ok:false,error:'A unique request identifier is required.'});
+    let entity;
+    if(kind.startsWith('exec.')){
+      if(!executiveMember(state.db,sess,officialStructure.exec))return sendJson(res,403,{ok:false,error:'Executive committee membership is required.'});
+      state.db.execIssues=state.db.execIssues||[];
+      if(kind==='exec.issue'){
+        const old=state.db.execIssues.find(x=>x.id===commandId);
+        if(old)return sendJson(res,200,{ok:true,id:old.id});
+        const title=clipString(body.title||'',160).trim();
+        if(!title||!text)return sendJson(res,400,{ok:false,error:'Title and issue details are required.'});
+        entity={id:commandId,title,by:sess.userId,at:nowISO(),status:'open',discussion:[{id:commandId,by:sess.userId,at:nowISO(),text}]};
+        state.db.execIssues.push(entity);
+      }else{
+        entity=state.db.execIssues.find(x=>x.id===String(body.id));
+        if(!entity)return sendJson(res,404,{ok:false,error:'Committee issue not found.'});
+        if(kind==='exec.reply'){
+          if(entity.status==='resolved')return sendJson(res,409,{ok:false,error:'This issue is resolved. Raise a follow-up issue.'});
+          if(!text)return sendJson(res,400,{ok:false,error:'Enter a contribution.'});
+          if((entity.discussion||[]).some(x=>x.id===commandId))return sendJson(res,200,{ok:true,id:entity.id});
+          entity.discussion.push({id:commandId,by:sess.userId,at:nowISO(),text});
+        }else if(kind==='exec.resolve'){
+          if(!['director','chief','program.admin'].includes(sess.roleId))return sendJson(res,403,{ok:false,error:'The Director or authorised committee administrator records resolutions.'});
+          if(!text)return sendJson(res,400,{ok:false,error:'Record the resolution.'});
+          if(entity.resolution?.commandId===commandId)return sendJson(res,200,{ok:true,id:entity.id});
+          if(entity.status==='resolved')return sendJson(res,409,{ok:false,error:'This resolution is already recorded.'});
+          entity.status='resolved';entity.resolution={commandId,text,by:sess.userId,at:nowISO()};
+        }else return sendJson(res,400,{ok:false,error:'Unknown committee action.'});
+      }
+    }else if(kind==='referral.report'){
+      entity=(state.db.cccReferrals||[]).find(x=>x.id===String(body.id));
+      if(!canSubmitMasterReport(entity,sess,state.db))return sendJson(res,403,{ok:false,error:'This referral is outside your report-submission scope.'});
+      if(!text)return sendJson(res,400,{ok:false,error:'A progress report is required.'});
+      entity.masterReports=entity.masterReports||[];
+      if(entity.masterReports.some(x=>x.id===commandId))return sendJson(res,200,{ok:true,id:entity.id});
+      entity.masterReports.push({id:commandId,at:nowISO(),by:sess.userId,text,recipient:entity.referredByUsername,facilityName:entity.facilityName});
+      entity.masterReportSummary=text;
+    }else return sendJson(res,400,{ok:false,error:'Unknown coordination action.'});
+    state.rev=(state.rev||0)+1;
+    appendServerAudit(state,sess.userId,kind,'coordination',entity.id,'Authorised coordination record saved.');
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,id:entity.id,rev:state.rev});
+  }
+
   if (route === 'auth/logout' && method === 'POST') {
     const token = extractRequestToken(req);
     let sess = getSession(state, req);
@@ -4553,8 +4632,20 @@ async function handleRequest(req, res) {
 
     for (const p of patches) {
       if (!p || typeof p.c !== 'string' || !SAFE_COLLECTION.test(p.c) || FORBIDDEN_KEYS.has(p.c)) continue;
+      if(BOARD_ROLES.has(sess.roleId)&&p.c!=='personalPrefs'){rejected.push({c:p.c,id:p.id,reason:'oversight_read_only'});continue;}
       if (['devices','devicesPending','devicePolicyInstalled','creds','credentialExports','passwordVault','system','config','reactivationPack','mailboxes'].includes(p.c)) {
         rejected.push({c:p.c, id:p.id, reason:'server_owned_security'}); continue;
+      }
+      if(p.c==='execIssues'){rejected.push({c:p.c,id:p.id,reason:'coordination_command_required'});continue;}
+      if(p.c==='execMeetings'&&(!executiveMember(state.db,sess,officialStructure.exec)||!['chief','director','program.admin'].includes(sess.roleId))){rejected.push({c:p.c,id:p.id,reason:'executive_scope_denied'});continue;}
+      if(p.c==='cccReferrals'){
+        const current=(state.db.cccReferrals||[]).find(r=>r.id===p.id);
+        const candidate={...(current||{}),...(p.set||{})};
+        if(p.del||!referralVisible(candidate,sess,state.db)||(current&&!referralVisible(current,sess,state.db))||
+          (sess.roleId==='ccc.clinician'&&candidate.referredByUsername!==sess.username)||
+          ['masterReports','masterReportSummary'].some(k=>Object.hasOwn(p.set||{},k)&&JSON.stringify(p.set[k])!==JSON.stringify(current?.[k])&&!(k==='masterReportSummary'&&!current&&!p.set[k]))){
+          rejected.push({c:p.c,id:p.id,reason:'referral_scope_or_report_command_required'});continue;
+        }
       }
       const clinicalRefusal=clinicalPatchPolicy(p,state.db,sess);
       if(clinicalRefusal){rejected.push({c:p.c,id:p.id,reason:clinicalRefusal});continue;}

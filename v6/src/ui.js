@@ -110,6 +110,7 @@ function navModel(user){
       { id:'programdays', label:'Programme days', icon:'clock', show:isFieldOrClinical }
     ]},
     { label:'Partner & referral', show:has('ccc.desk')||has('gov.oversight')||(isExternal&&has('pmi.check')), items:[
+      { id:'masterreferrals', label:'Master Referral reports', icon:'file', show:has('ccc.desk')&&['mcm','assistant','countyadmin','liaison','nurse','ccc.clinician'].includes(user.roleId) },
       { id:'cccdesk', label:'CCC / PSC referral desk', icon:'hospital', show:has('ccc.desk') },
       { id:'repeat', label:'Returning patient check', icon:'search', show:user.roleId==='ccc.clinician' && has('pmi.check') },
       { id:'govdashboard', label:'Government partnership', icon:'building2', show:has('gov.oversight') }
@@ -205,6 +206,7 @@ function navModel(user){
     { label:'Leadership', show:has('report.executive')||has('exec.agenda'), items:[
       { id:'executive', label:'Executive summary', icon:'chart', show:has('report.executive') },
       { id:'compare', label:'County comparison', icon:'columns', show:has('report.executive') },
+      { id:'boardworkspace', label:'Board & International Oversight', icon:'users', show:typeof BOARD_ROLE_IDS!=='undefined'&&BOARD_ROLE_IDS.includes(user.roleId) },
       { id:'execconsole', label:'Executive console', icon:'archive', show:has('exec.agenda') }
     ]},
     { label:'Department life', show:has('library.read')||has('credit.view')||has('inventory.view')||has('intern.view')||has('ohs.view')||has('presence.view')||has('weather.view'), items:[
@@ -286,6 +288,7 @@ function navModel(user){
   };
   const roleExcl = user && ROLE_NAV_EXCLUDE[user.roleId] ? ROLE_NAV_EXCLUDE[user.roleId] : null;
   const isAllowedForRoleScope = (itemId) => {
+    if(BOARD_ROLE_IDS.includes(user.roleId))return ['home','boardworkspace','settings'].includes(itemId);
     if(!roleExcl || !roleExcl.has(itemId)) return true;
     const unlockCaps = VIEW_EXPLICIT_CAPS[itemId] || [];
     return unlockCaps.some(c => explicitCaps.has(c) && has(c));

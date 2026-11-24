@@ -647,11 +647,12 @@ function contentFor(view, params, user, options = {}){
     switch(view){
       case 'devices': return user.roleId==='chief' ? renderDevicesConsole(user) : deniedPanel('system.config');
       case 'staffaccounts': return user.roleId==='chief' ? renderStaffAccountsConsole(user) : deniedPanel('system.config');
-      case 'home': return renderHome(user, {omitHeader:options.omitHomeHeader});
+      case 'home': return BOARD_ROLE_IDS.includes(user.roleId)?renderBoardWorkspace(user):renderHome(user, {omitHeader:options.omitHomeHeader});
       case 'attention': return guard('patient.list')||renderAttention(user);
       case 'patients': return guard('patient.list')||renderPatients(user,params);
       case 'patient': return renderPatient(user,params);
       case 'pipeline': return (guard('patient.digitise')||renderPipeline(user));
+      case 'boardworkspace': return renderBoardWorkspace(user);
       case 'visits': return guard('patient.list')||renderVisits(user,params);
       case 'pdca': return guard('patient.list')||renderPdca(user,params);
       case 'requests':
@@ -746,6 +747,7 @@ function contentFor(view, params, user, options = {}){
       case 'hardcopy': return guard('hardcopy.intake')||DISCHARGE_HARDCOPY.renderHardcopyDesk(user, params);
       case 'clinicalmcm': return guard('clinical.mcm')||BMI_CLINICAL.renderMcmConsole(user, params);
       case 'bmiboard': return BMI_CLINICAL.renderBmiBoard(user, params);
+      case 'masterreferrals': return guard('ccc.desk')||HANDOVER_PARTNERS.renderCccDesk(user,{...params,tab:params.tab||'master'});
       case 'cccdesk': return guard('ccc.desk')||HANDOVER_PARTNERS.renderCccDesk(user, params);
       case 'govdashboard': return guard('gov.oversight')||HANDOVER_PARTNERS.renderGovDashboard(user, params);
       case 'intlmedical': return guard('intl.medical')||HANDOVER_PARTNERS.renderIntlMedical(user, params);
@@ -1718,7 +1720,7 @@ function clinicalActions(){ return {
       ...durDefaults.map(n=>({v:String(n), l:`${n} days (Standard ${n/30}-month PDCA review track)`})),
       ...durExtra.map(n=>({v:String(n), l:`${n} days (Custom milestone duration)`}))
     ];
-    openModal({title:'New patient assessment & returning-beneficiary check', sub:'Enter the National ID first to verify instantly whether the person has ever been registered before completing the LOMAMO assessment.',
+    openModal({title:'Register identity & check prior assessment', sub:'Enter the National ID first to verify instantly whether the person has ever been registered before completing the LOMAMO assessment.',
       body:`<form data-form="assessment" id="assessForm">
         <div class="steps" style="margin-bottom:14px"><div class="step cur"><span class="n">1</span>ID check &amp; initiate</div><div class="step"><span class="n">2</span>Physical form</div><div class="step"><span class="n">3</span>Digitised</div><div class="step"><span class="n">4</span>Verified</div><div class="step"><span class="n">5</span>Enrolled</div></div>
         <div class="field"><label for="assessNatId">National ID number (checked first before assessment)</label>
@@ -1822,42 +1824,14 @@ function clinicalActions(){ return {
        start only after the MCM's explicit office decision. */
     AUDIT.append({actor:AUTH.user.id,action:'patient.assessment_initiated',entity:'patient',entityId:p.id,detail:`${p.name} · ${areaName(p.areaId)} · ${plannedDays}d plan`});
     notify(DB.db.users.find(u=>u.roleId==='assistant'&&u.countyId===p.countyId)?.id,'New assessment submitted',p.name+' - awaiting physical form and digitisation','info');
-    DB.save(); closeModal(true); toast('Assessment created — not enrolled', 'Awaiting source verification and final MCM office enrollment. No PDCA completion or programme start was invented.','ok'); go('patient',{id:p.id});
+    DB.save(); closeModal(true); toast('Assessment created — not enrolled', 'Awaiting source verification and final MCM office enrollment. No PDCA completion or programme start was invented.','ok'); go('patient',{id:p.id});openFormEditor(Number(p.age)<18?'minor_assessment':'patient_assessment',p.id);
   },
   'submit_form':()=>{},
-  'record-visit':(d)=>{
-    const ps = repo.patientList(AUTH.user);
-    openModal({title:'Record visit', sub:'Visit records are attributed to you and timestamped.',
-      body:`<form data-form="visit" id="visitForm">
-        ${field('Patient','patientId','select',{required:true,value:d.patient,options:ps.map(p=>({v:p.id,l:p.name+' · '+p.code}))})}
-        <div class="grid g2">
-          ${field('Visit type','type','select',{options:[{v:'home',l:'Home visit'},{v:'clinical',l:'Clinical visit'}]})}
-          ${field('Date','date','date',{value:dateOnly(new Date())})}
-          ${field('Weight (kg)','weight','number',{})}
-          ${field('Blood pressure','bp','text',{})}
-          ${field('Outcome','outcome','select',{options:[{v:'seen',l:'Patient seen'},{v:'not_found',l:'Not found at home'},{v:'refused',l:'Declined visit'},{v:'referred',l:'Referred for clinical review'}]})}
-          ${field('Next visit due','nextDue','date',{})}
-        </div>
-        ${field('Visit notes','notes','textarea',{required:true,hint:'Observations, adherence, household situation, support issued'})}
-        ${field('Escalate as clinical concern','escalate','checkbox',{})}
-      </form>`,
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-visit">Save visit</button>`});
+  'record-visit':(d={})=>{
+    if(d.patient)openFormEditor('home_visit',d.patient);
+    else openPatientPicker('home_visit');
   },
-  'submit-visit':()=>{
-    const d=new FormData($('#visitForm'));
-    const v={ id:uid('v'), patientId:d.get('patientId'), caregiverId:AUTH.user.id, type:d.get('type')||'home',
-      date:d.get('date')||todayISO(), weight:+d.get('weight')||null, bp:d.get('bp')||'', outcome:d.get('outcome')||'seen',
-      notes:d.get('notes'), nextDue:d.get('nextDue')||'', demo:true };
-    DB.db.visits.push(v);
-    const p=DB.db.patients.find(x=>x.id===v.patientId);
-    if(v.weight&&p?.clinical) p.clinical.weightKg=v.weight;
-    if(d.get('escalate')&&p){
-      DB.db.concerns.push({id:uid('cn'),patientId:p.id,type:'field_escalation',level:'clinical',opened:todayISO(),detail:v.notes,by:AUTH.user.id,status:'open',demo:true});
-      notifyPatientCareTeam(p,'Clinical concern needs review','A caregiver escalated a clinical concern. Review the scoped patient record; the concern text is not repeated in this notification.','warn',AUTH.user.id);
-    }
-    AUDIT.append({actor:AUTH.user.id,action:'visit.recorded',entity:'patient',entityId:v.patientId,detail:`${titleCase(v.type)} visit · ${titleCase(v.outcome)}`});
-    DB.save(); closeModal(); toast('Visit recorded', v.outcome==='not_found'?'Marked as not found at home.':'Visit saved.','ok'); render();
-  },
+  'submit-visit':()=>toast('Use the source-mapped visit sheet','Open Record home visit and submit the detailed form for verification. The former short entry is no longer used.','warn'),
   'new-request':(d)=>{
     const ps = repo.patientList(AUTH.user);
     openModal({title:'Hospital appointment & transport request', sub:'Stage 1 of 7 - the request goes to the Medical Case Manager for clinical decision.',

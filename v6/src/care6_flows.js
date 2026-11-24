@@ -932,6 +932,8 @@ const ROLE_CTX = {
   groupLabel(user, groupLabel){
     if(!user) return groupLabel;
     const r = user.roleId;
+    if(BOARD_ROLE_IDS.includes(r))return ({Overview:'Oversight workspace',Leadership:'Board & international oversight'})[groupLabel]||'Oversight account';
+    if(groupLabel==='Partner & referral'&&['assistant','liaison','nurse'].includes(r))return 'Clinical referral reporting';
     const role = roleObj(r) || {};
     const cLabel = user.countyId ? countyName(user.countyId).replace(/\s+County Office$/i,'') : 'National';
     const byRole = {
@@ -1229,6 +1231,8 @@ const ROLE_CTX = {
 
   navLabel(user, id, fallback){
     if(!user) return fallback;
+    if(BOARD_ROLE_IDS.includes(user.roleId))return ({home:'Oversight home',boardworkspace:'Board & International Oversight',settings:'My oversight account'})[id]||fallback;
+    if(id==='masterreferrals')return 'Master Referral reports';
     const r = user.roleId;
     const role = roleObj(r) || {};
     const cShort = user.countyId ? countyName(user.countyId) : 'Global';

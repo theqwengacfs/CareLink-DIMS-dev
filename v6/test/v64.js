@@ -193,9 +193,9 @@ test('9. Paper Forms Open filter, Blank Sheet preview, Trial Report skip-logic &
     hvFields.includes('multivitaminDate') && hvFields.includes('caregiver2Signature') && hvFields.includes('bmi') && hvFields.includes('foodBagCode'));
   const bagOpts = J(`FORMSX.fields('home_visit').find(f=>f.k==='foodBagDelivered').o`);
   const bagCodes = J(`FORMSX.fields('home_visit').find(f=>f.k==='foodBagCode').o`);
-  ok('Home Visit food bag options preserve Normal/Couple/Family/Special + BG1/BG2/SPB codes',
+  ok('Home Visit preserves household bag types with independent BG1/BG2 per trial amendment',
     bagOpts.includes('Normal bag') && bagOpts.includes('Couple bag') && bagOpts.includes('Family bag') && bagOpts.includes('Special bag') &&
-    bagCodes.includes('BG1') && bagCodes.includes('BG2') && bagCodes.includes('SPB'));
+    bagCodes.includes('BG1') && bagCodes.includes('BG2') && !bagCodes.includes('SPB'));
   const edHtml = String(run(`formEditor('home_visit', DB.db.patients[0].id, null)`));
   ok('formEditor renders Trial Report 3-visit weight banner & live BMI badge container',
     edHtml.includes('CareLink Trial Report Alignment') && edHtml.includes('ff_bmi_badge'));

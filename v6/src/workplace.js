@@ -268,6 +268,7 @@ function renderExecConsole(user){
       ${kpi('Agenda & resolutions', `${num(totalAgenda)} / ${num(totalMinutes)}`, 'Published items vs recorded minutes', 'ok', 'clipboard')}
       ${kpi('Executive actions', num(openActions.length), openActions.length ? `${num(doneActions.length)} completed · ${num(openActions.length)} open` : '100% closed on schedule', openActions.length?'warn':'ok', 'target')}
     </div>`
+  + executiveCommitteePanel(user)
   + tabBar
   + (sheet==='agenda' ? agendaCard
     : sheet==='actions' ? actionsCard

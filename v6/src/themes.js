@@ -146,6 +146,13 @@ const DEPT_PALETTES = {
 /* Each account type has an independent, coherent identity; personal scheme
    selections still take precedence. Colors are corrected for contrast in apply(). */
 const ROLE_PALETTES = {
+  founder: ['#312E81','#5B56AC','#9A7531'],
+  cofounder: ['#164E63','#367F91','#986A4B'],
+  'board.member': ['#334155','#64748B','#997A4E'],
+  'intl.advisory': ['#3730A3','#7165B8','#987C39'],
+  'intl.finance': ['#065F46','#3C8A68','#A17D40'],
+  'intl.legal': ['#581C87','#8B56AA','#A77554'],
+  'intl.data': ['#075985','#388BA5','#6D799F'],
   chief:             ['#143454','#236795','#0F766E'],
   president:         ['#39245F','#7452A3','#B8860B'],
   director:          ['#193B70','#3268A8','#BD7C19'],

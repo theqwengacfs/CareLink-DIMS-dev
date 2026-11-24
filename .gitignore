@@ -47,3 +47,6 @@ native-android/.gradle/
 native-android/**/build/
 native-android/local.properties
 native-android/.idea/
+
+# Developer source handover archives (generated locally, never committed)
+/deliverables/CareLink-Developer-Handover-*.zip
