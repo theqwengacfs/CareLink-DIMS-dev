@@ -138,9 +138,9 @@ const OMAHA_TEMPLATES = [
   { id:'wound', name:'Wound care at home', domainFocus:'Healing, hygiene and follow-up',
     problems:['F06','E03','H05','F04','H01'],
     note:'Built from the home-visit form wound section and the outpatient wound questions.' },
-  { id:'child_nutrition', name:'Child nutrition and growth', domainFocus:'Malnutrition, feeding and school',
+  { id:'child_nutrition', name:'Child nutrition and growth', domainFocus:'Malnutrition, feeding and guardian support',
     problems:['H01','F11','H03','E03','H06','P02'],
-    note:'Uses the minor assessment form fields for weight, food bag and school contact.' }
+    note:'Uses the minor assessment form fields for weight, food bag and guardian support.' }
 ];
 
 const OMAHAS = {

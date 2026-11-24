@@ -439,7 +439,7 @@ const CARELINK_GOVERNANCE = {
       title: 'Safeguarding & Child Protection Policy (Children Act, 2022)',
       owner: 'Safeguarding Lead · Staff Welfare · Homestay & Care Centre · HR',
       legalBasis: 'Kenya Children Act, 2022 (§27 Privacy & Best Interests) · Sexual Offences Act · LOMAMO Safeguarding Code',
-      summary: 'Protects children at risk of orphanhood and critically ill adults across home visits, hospital escorts, school support, Alumni mentorship and Care Centre placements.',
+      summary: 'Protects children at risk of orphanhood and critically ill adults across home visits, hospital escorts, nutrition support, Alumni mentorship and Care Centre placements.',
       controls: [
         'Zero Tolerance Code: Binding prohibition on physical, emotional, sexual or financial exploitation of beneficiaries or children by any staff member, caregiver, Alumni mentor, intern or volunteer.',
         'Child-Specific Privacy & Care Chains: Documented guardianship (`Households & Care Chains`) during parent hospitalisation, and heightened child privacy review before any media/donor mention.',
