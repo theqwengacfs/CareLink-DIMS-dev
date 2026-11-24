@@ -554,9 +554,6 @@ function renderShell(){
         <h1><span class="cb-console-name">${esc(role.consoleTitle||((role.name||'Staff')+' Console'))}</span>${APPX.view!=='home'?`<span class="cb-title-sep"> / </span><span class="cb-view-name">${esc(crumb.title)}</span>`:''}</h1>
         <div class="xs muted" title="Fixed office role: ${esc(role.name||user.roleId)} · Current role holder: ${esc(user.name)}">Role holder: ${esc(user.displayName||user.name)}</div>
       </div>
-      <div class="cb-quick no-print" role="navigation" aria-label="Quick console shortcuts">
-        ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
-      </div>
       <div class="searchbox"><span>${ic('search',16)}</span><input placeholder="${esc(searchPh)}" data-search aria-label="Search"></div>
       <div class="tb-actions">
         <span class="tb-os-identity" aria-label="CareLink OS">CareLink OS</span>
@@ -585,6 +582,9 @@ function renderShell(){
     </nav>
 
     <main class="content" id="content">
+      <nav class="cb-quick console-shortcuts no-print" role="navigation" aria-label="Quick console shortcuts">
+        ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
+      </nav>
       ${!Store.durable?`<div class="alert warn no-print" style="margin-bottom:16px">${ic('info',18)}<div><b>Preview session</b>
         <span class="small">This browser has blocked persistent storage, so changes are held for this session only. Download the file and open it directly in Chrome or Edge for a persistent installation.</span></div></div>`:''}
       ${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}
