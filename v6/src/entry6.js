@@ -202,7 +202,7 @@ async function activateFullDemoDataset(){
 
 /* Foundation-confirmed organisation display; does not grant RBAC capabilities. */
 const MAJOR_DEPARTMENTS = [
-  {name:'Administration',detail:'Country Director, County Administrators and County Admin Assistants.'},
+  {name:'Administration',detail:'Founder / President / CEO, Co-Founder, Country Director, County Administrators and County Admin Assistants.'},
   {name:'Field Care',detail:'Ministry Area Coordinators, Caregivers, Community Health Promoters and Community Health Volunteers.'},
   {name:'Hospital',detail:'Medical Case Managers, Nurses / Nurse Assistants, Clinical Officers, approved Community Health Promoters and Hospital Liaison.'},
   {name:'Transport',detail:'Drivers who also serve as caregivers; transport staff may hold procurement head/deputy responsibilities. Each duty requires its own authorisation.'},

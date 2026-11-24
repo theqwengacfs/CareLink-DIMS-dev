@@ -2867,3 +2867,12 @@ html[data-wmode="dark"] .rc68-tile-ic{
 
 
 
+
+/* Individual oversight-seat console accents. */
+.topbar.cbar[data-role="founder"] { --cb-c1:#312E81; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="cofounder"] { --cb-c1:#164E63; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="board.member"] { --cb-c1:#334155; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.advisory"] { --cb-c1:#3730A3; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.finance"] { --cb-c1:#065F46; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.legal"] { --cb-c1:#581C87; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.data"] { --cb-c1:#075985; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }

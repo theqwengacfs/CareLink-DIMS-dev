@@ -133,6 +133,15 @@ ROLES.forEach(r=>{
   });
 });
 
+/* Individually provisioned oversight seats. No shared credentials or clinical
+   editing privileges; named occupants must be confirmed before activation. */
+const BOARD_ROLE_IDS=['founder','cofounder','board.member','intl.advisory','intl.finance','intl.legal','intl.data'];
+for(const [id,name,section] of [
+  ['founder','Founder / President / CEO','admin'],['cofounder','Co-Founder','admin'],
+  ['board.member','Board Member','exec'],['intl.advisory','International Advisory Team','exec'],
+  ['intl.finance','International Finance Officer','finance'],['intl.legal','International Legal Officer','exec'],['intl.data','International Data Officer','exec']
+])ROLES.push({id,name,dept:section,accent:'#243c75',consoleTitle:'Foundation Board & Oversight',external:id.startsWith('intl.'),scope:{geo:'county',records:'own',readOnly:true},perms:['gov.oversight','presence.view']});
+
 const EXEC_DEFAULT = ['chief.admin','director','president','program.admin','program.assistant','mcm.kisumu','kisumu.admin','homabay.admin'];
 
 /* ---------------- 4. Programme duration reference ---------------- */
@@ -178,6 +187,8 @@ const OFFICIAL_ROSTER = [
   { name:'President / Board Chair (seat to be confirmed)', username:'president', roleId:'president',   countyId:'kisumu',  areas:[], dept:'exec',     job:'President, LOMAMO Foundation', unconfirmed:true },
   { name:'Irene Atieno Omondi',                   username:'program.admin',       roleId:'program.admin',     countyId:'kisumu',  areas:[], dept:'exec',     job:'Internal Operations Manager' },
   { name:'Programme Office Assistant (seat to be confirmed)', username:'program.assistant', roleId:'program.assistant', countyId:'kisumu', areas:[], dept:'exec', job:'Program Administrator Assistant', unconfirmed:true },
+
+  ...BOARD_ROLE_IDS.map(roleId=>({name:(ROLES.find(r=>r.id===roleId)?.name||roleId)+' (seat to be confirmed)',username:roleId==='intl.data'?'intl.data.oversight':roleId,roleId,countyId:'kisumu',areas:[],dept:['founder','cofounder'].includes(roleId)?'admin':'exec',job:ROLES.find(r=>r.id===roleId)?.name,unconfirmed:true})),
 
   /* Chief system administration and distinct county administration seats */
   { name:'Daniel Naphtaly Ombija',         username:'chief.admin',         roleId:'chief',             countyId:'kisumu',  areas:[], dept:'admin',    job:'Chief System Administrator, LOMAMO Foundation' },

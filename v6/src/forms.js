@@ -1,5 +1,5 @@
 /* ============================================================
-   forms.js - The six LOMAMO paper forms, digitised field for field.
+   forms.js - The six LOMAMO paper-form mappings and trial-report amendments.
 
    The paper form remains the primary field record. This module lets a
    caregiver or an administrative assistant enter the same fields, keeps a
@@ -359,10 +359,13 @@ const FORM_SPECS = {
       F('foodBagExtra','Extra','text',{half:true}),
       F('personsSharing','Current number of persons living in the home sharing food bag contents','number',{min:0,half:true}),
       F('changeFromLastVisit','Is this a change from the last visit','select',{o:YESNO,half:true}),
-      F('multivitaminsGiven','11. Multivitamins given (7-day / cycle rule)','select',{o:YESNO,half:true,hint:'Trial Report rule: verify >=7 days since prior course before re-issuing'}),
-      F('multivitaminDate','Date given','date',{half:true,showWhen:'multivitaminsGiven=Yes'}),
+      F('multivitaminsGiven','11. Multivitamins given (7-day / cycle rule)','select',{o:YESNO,half:true,hint:'Review the previous seven-day issue and any remaining supply; do not assume adherence from issuing alone'}),
+      F('multivitaminDate','Date last multivitamins were given','date',{half:true}),
       F('multivitaminDays','Course duration (days)','select',{o:['7 days (Trial standard)','14 days','30 days'],half:true,showWhen:'multivitaminsGiven=Yes'}),
       F('takingMultivitamins','Taking the multivitamins','select',{o:YNN,half:true}),
+      F('multivitaminAdherence','Taking multivitamins consistently and as intended','select',{o:YNN,half:true}),
+      F('multivitaminsRemaining','Multivitamins still remaining from previous issue','select',{o:YNN,half:true}),
+      F('multivitaminExpectedUntil','Expected seven-day course end','computed',{half:true}),
       F('frequencyStatus','12. Home visit frequency','select',{o:['Same','Change frequency'],half:true}),
       F('frequencyChoice','Frequency chosen','select',{o:FREQ,half:true})
     ]},
@@ -497,6 +500,49 @@ const FORM_SPECS = {
   ]
 };
 
+/* Trial-report amendments to the scanned home sheet. These are explicit
+   changes, not a claim that a reconstructed screen is a facsimile. */
+const TRIAL_ARVS=['Abacavir (ABC)','Lamivudine (3TC)','Dolutegravir (DTG)','Tenofovir Disoproxil Fumarate (TDF)','Tenofovir Alafenamide (TAF)','Zidovudine (AZT / ZDV)','Emtricitabine (FTC)','Nevirapine (NVP)','Other'];
+const homeFields=FORM_SPECS.home_visit.flatMap(s=>s.fields);
+const hf=key=>homeFields.find(f=>f.k===key);
+Object.assign(hf('arvList'),{t:'checks',o:TRIAL_ARVS,showWhen:'arvsAsPrescribed=Yes'});
+Object.assign(hf('medsCounted'),{showWhen:undefined,o:YNN});
+Object.assign(hf('medicationDefault'),{o:YNN});
+Object.assign(hf('foodBagDelivered'),{hint:'Record the household bag type separately from Bag 1 or Bag 2. Special bags support dependants of an admitted patient.'});
+Object.assign(hf('foodBagCode'),{o:['BG1','BG2','None'],hint:'Every household bag type, including family, couple and special, must specify Bag 1 or Bag 2.'});
+Object.assign(hf('changeFromLastVisit'),{t:'computed',hint:'Calculated against the preceding submitted or verified form for this patient.'});
+Object.assign(hf('multivitaminsGiven'),{o:YNN});
+Object.assign(hf('frequencyChoice'),{showWhen:'frequencyStatus=Change frequency'});
+Object.assign(hf('waterGuardQty'),{showWhen:'extraWaterGuard=Yes'});
+Object.assign(hf('waterGuardDate'),{showWhen:'extraWaterGuard=Yes'});
+const first=FORM_SPECS.home_visit[0].fields;
+first.splice(first.findIndex(f=>f.k==='atHome')+1,0,
+  F('absenceReason','Reason patient was not at home','select',{o:['Hospital visit or admission','Unknown','At school','Elsewhere','Hospitalised','Other'],showWhen:'atHome=No',req:true}),
+  F('absenceOther','Other reason for absence','textarea',{showWhen:'atHome=No&absenceReason=Other',req:true}));
+const meds=FORM_SPECS.home_visit[1].fields;
+meds.splice(meds.findIndex(f=>f.k==='arvList')+1,0,F('arvOther','Other ARV medication','text',{showWhen:'arvsAsPrescribed=Yes&arvList=Other',req:true}));
+meds.splice(meds.findIndex(f=>f.k==='medicationDefault'),0,meds.splice(meds.findIndex(f=>f.k==='medsCounted'),1)[0]);
+meds.splice(meds.findIndex(f=>f.k==='tbMeds')+1,0,F('tbRegimen','TB medication / TPT','checks',{o:['Rifampicin','Isoniazid','Pyrazinamide','Ethambutol','Pyridoxine','TPT'],showWhen:'tbMeds=Yes'}));
+meds.splice(meds.findIndex(f=>f.k==='woundCareNeeded'),0,F('hasWound','Does the patient have a wound?','select',{o:YESNO}));
+const food=FORM_SPECS.home_visit[2].fields;
+food.unshift(F('foodBagLeft','Food bag outcome','select',{o:['Food bag left','No food bag left'],req:true}));
+food.splice(3,0,F('bagRecipient','Food bag recipient','text',{showWhen:'foodBagLeft=Food bag left',req:true}),F('recipientRelationship','Relationship to patient','text',{showWhen:'foodBagLeft=Food bag left',req:true}),F('recipientPhone','Recipient telephone (if available)','text',{showWhen:'foodBagLeft=Food bag left'}),F('recipientNoPhone','Recipient has no telephone','select',{o:YESNO,showWhen:'foodBagLeft=Food bag left'}),F('spouseName','Enrolled spouse name / identifier','text',{showWhen:'foodBagLeft=Food bag left&foodBagDelivered=Couple bag',req:true}),F('spouseAtHome','Was the spouse at home?','select',{o:YESNO,showWhen:'foodBagLeft=Food bag left&foodBagDelivered=Couple bag',req:true}));
+const clinicalKeys=['weightVisitCycle','weightKg','heightCm','bmi','conditionToday','healthRisks','riskExplain','referred','whereReferred','referralReasons','coveredByLomamo','otherDrugs','otherDrugsExplain','arvsAsPrescribed','arvList','arvOther','tbMeds','tbRegimen','medicationDefault','medsCounted','daysInDefault','defaultNumber','hasWound','woundCareNeeded','materialsLeft','dressingsLeft','salineLeft','salineQty','woundPhotoTaken','photoSent'];
+for(const f of FORM_SPECS.home_visit.flatMap(s=>s.fields)){
+  if(['woundCareNeeded','materialsLeft','dressingsLeft','salineLeft','salineQty','woundPhotoTaken','photoSent'].includes(f.k))f.showWhen='hasWound=Yes'+(f.showWhen?'&'+f.showWhen:'');
+  if(clinicalKeys.includes(f.k))f.showWhen='atHome=Yes'+(f.showWhen?'&'+f.showWhen:'');
+  if(['foodBagDelivered','foodBagCode','specialBagDetail','foodBagExtra'].includes(f.k))f.showWhen='foodBagLeft=Food bag left'+(f.showWhen?'&'+f.showWhen:'');
+}
+function homeHouseholdChange(patientId,visitDate,count){
+  if(count===''||count==null)return '';
+  const previous=(DB.db.formRecords||[]).filter(r=>r.kind==='home_visit'&&['submitted','verified'].includes(r.status)&&r.patientId===patientId&&r.visitDate<visitDate&&r.data?.personsSharing!==''&&r.data?.personsSharing!=null).sort((a,b)=>b.visitDate.localeCompare(a.visitDate))[0];
+  return previous?Number(previous.data.personsSharing)===Number(count)?'No':'Yes':'No previous record';
+}
+function formFieldVisible(expression,data){
+  if(!expression)return true;
+  return expression.split('&').every(part=>{const i=part.indexOf('=');return i<0||(Array.isArray(data[part.slice(0,i)])?data[part.slice(0,i)]:[String(data[part.slice(0,i)]??'').trim()]).some(v=>part.slice(i+1).split('|').includes(v));});
+}
+
 /* ---------------- helpers ---------------- */
 function formSpec(kind){ return FORM_SPECS[kind]||null; }
 function formFields(kind){
@@ -542,11 +588,14 @@ const FORMSX = {
 
   validate(kind, data){
     const errors=[]; const f = formFieldMap(kind);
+    data={...data};
+    const captured={...data};for(const field of formFields(kind))if(!formFieldVisible(field.showWhen,captured))delete data[field.k];
     const val = k => (data[k]===undefined||data[k]===null)?'':String(data[k]).trim();
     const num = k => { const v=val(k); return v===''?null:Number(v); };
     formFields(kind).forEach(x=>{
-      if(x.req && !val(x.k)) errors.push(`${x.l} is required.`);
+      if(x.req && formFieldVisible(x.showWhen,data) && !val(x.k)) errors.push(`${x.l} is required.`);
     });
+    if(kind==='home_visit'&&val('foodBagLeft')==='Food bag left'&&!['BG1','BG2'].includes(val('foodBagCode')))errors.push('Specify Bag 1 or Bag 2 for the issued bag.');
     if(val('age')!==''){
       const a=num('age');
       if(isNaN(a)||a<0||a>120) errors.push('Age must be between 0 and 120.');
@@ -771,15 +820,8 @@ function formEditor(kind, patientId, recordId){
     name:p?.name||'', areaLocation: p? areaName(p.areaId):'',
     heightCm: p?.heightCm||'', visitCycleCount: kind==='home_visit' ? nextVisitNo : '',
     caregiverName:me, dataEnteredBy:me, enteredBy:me, providerName:me};
-  const evalShowWhen = expr => {
-    if(!expr) return true;
-    const eq = expr.indexOf('=');
-    if(eq<0) return true;
-    const key = expr.slice(0,eq), allowed = expr.slice(eq+1).split('|');
-    const cur = String(data[key]??'').trim();
-    if(!cur) return false;
-    return allowed.includes(cur);
-  };
+  const evalShowWhen = expr => formFieldVisible(expr,data);
+  if(kind==='home_visit')data.changeFromLastVisit=homeHouseholdChange(patientId,data.visitDate,data.personsSharing);
   const initBmi = (data.weightKg && data.heightCm && Number(data.heightCm)>0)
     ? Math.round((Number(data.weightKg)/Math.pow(Number(data.heightCm)/100,2))*10)/10 : (data.bmi||'');
   if(initBmi && !data.bmi) data.bmi = initBmi;
@@ -791,9 +833,9 @@ function formEditor(kind, patientId, recordId){
       <div class="formgrid">${sec.fields.map(f=>{
         const shown = evalShowWhen(f.showWhen);
         const bmiExtra = f.k==='bmi' ? `<div id="ff_bmi_badge" style="margin-top:4px">${(typeof BMI_CLINICAL!=='undefined' && initBmi)? BMI_CLINICAL.badgeHTML(Number(initBmi)) : '<span class="xs muted">Auto-calculates from weight (kg) and height (cm)</span>'}</div>` : '';
-        return `<div class="field ${f.full?'full':f.half?'half':''}" ${f.showWhen?`data-show-when="${esc(f.showWhen)}"`:''} style="${shown?'':'display:none'}">
+        return `<div data-form-required="${f.req?1:0}" class="field ${f.full?'full':f.half?'half':''}" ${f.showWhen?`data-show-when="${esc(f.showWhen)}"`:''} style="${shown?'':'display:none'}">
           <label for="ff_${f.k}">${esc(f.l)}${f.req?' <span style="color:var(--crit)">*</span>':''}</label>
-          ${formControl(f,data)}${bmiExtra}${f.hint?`<div class="hint">${esc(f.hint)}</div>`:''}</div>`;
+          ${formControl({...f,req:f.req&&shown},data)}${bmiExtra}${f.hint?`<div class="hint">${esc(f.hint)}</div>`:''}</div>`;
       }).join('')}</div></div>`;
   }).join('');
   const trialBanner = kind==='home_visit' ? `<div class="alert ${weightDue?'warn':'info'} no-print" style="margin-bottom:10px">${ic('activity',16)}<div>
@@ -817,13 +859,13 @@ if(typeof document!=='undefined' && !window.__formLiveWired){
     if(!form) return;
     form.querySelectorAll('[data-show-when]').forEach(wrap=>{
       const expr = wrap.getAttribute('data-show-when')||'';
-      const eq = expr.indexOf('=');
-      if(eq<0) return;
-      const key = expr.slice(0,eq), allowed = expr.slice(eq+1).split('|');
-      const ctrl = form.elements[key];
-      const val = ctrl ? String(ctrl.value||'').trim() : '';
-      wrap.style.display = (val && allowed.includes(val)) ? '' : 'none';
+      const values={},fd=new FormData(form);for(const field of formFields(form.elements.kind.value))values[field.k]=field.t==='checks'?fd.getAll(field.k):String(fd.get(field.k)||'');
+      const shown=formFieldVisible(expr,values);
+      wrap.style.display=shown?'':'none';
+      wrap.querySelectorAll('input,select,textarea').forEach(ctrl=>{ctrl.required=shown&&wrap.getAttribute('data-form-required')==='1';});
     });
+    const change=form.elements['changeFromLastVisit'];if(change)change.value=homeHouseholdChange(form.elements.patientId.value,form.elements.visitDate.value,form.elements.personsSharing.value);
+    const until=form.elements['multivitaminExpectedUntil'],given=form.elements['multivitaminDate'];if(until&&given){const date=new Date(given.value+'T12:00:00Z');until.value=Number.isFinite(date.getTime())?new Date(date.getTime()+7*86400000).toISOString().slice(0,10):'';}
     const wEl = form.elements['weightKg'], hEl = form.elements['heightCm'], bEl = form.elements['bmi'];
     if(wEl && hEl && bEl){
       const w = parseFloat(wEl.value), h = parseFloat(hEl.value);
@@ -1002,6 +1044,7 @@ function formDataFrom(d){
       out[f.k]=String(d.get(f.k)??'').trim();
     }
   });
+  const captured={...out};for(const field of formFields(kind))if(!formFieldVisible(field.showWhen,captured))delete out[field.k];
   out.bmi = FORMSX.bmi(out);
   return out;
 }

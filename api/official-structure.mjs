@@ -45,6 +45,83 @@ export default {
       "reportsTo": "u-director"
     },
     {
+      "name": "Founder / President / CEO (seat to be confirmed)",
+      "username": "founder",
+      "roleId": "founder",
+      "countyId": "kisumu",
+      "areas": [],
+      "dept": "admin",
+      "job": "Founder / President / CEO",
+      "unconfirmed": true,
+      "reportsTo": "u-director"
+    },
+    {
+      "name": "Co-Founder (seat to be confirmed)",
+      "username": "cofounder",
+      "roleId": "cofounder",
+      "countyId": "kisumu",
+      "areas": [],
+      "dept": "admin",
+      "job": "Co-Founder",
+      "unconfirmed": true,
+      "reportsTo": "u-director"
+    },
+    {
+      "name": "Board Member (seat to be confirmed)",
+      "username": "board.member",
+      "roleId": "board.member",
+      "countyId": "kisumu",
+      "areas": [],
+      "dept": "exec",
+      "job": "Board Member",
+      "unconfirmed": true,
+      "reportsTo": "u-director"
+    },
+    {
+      "name": "International Advisory Team (seat to be confirmed)",
+      "username": "intl.advisory",
+      "roleId": "intl.advisory",
+      "countyId": "kisumu",
+      "areas": [],
+      "dept": "exec",
+      "job": "International Advisory Team",
+      "unconfirmed": true,
+      "reportsTo": "u-director"
+    },
+    {
+      "name": "International Finance Officer (seat to be confirmed)",
+      "username": "intl.finance",
+      "roleId": "intl.finance",
+      "countyId": "kisumu",
+      "areas": [],
+      "dept": "exec",
+      "job": "International Finance Officer",
+      "unconfirmed": true,
+      "reportsTo": "u-director"
+    },
+    {
+      "name": "International Legal Officer (seat to be confirmed)",
+      "username": "intl.legal",
+      "roleId": "intl.legal",
+      "countyId": "kisumu",
+      "areas": [],
+      "dept": "exec",
+      "job": "International Legal Officer",
+      "unconfirmed": true,
+      "reportsTo": "u-director"
+    },
+    {
+      "name": "International Data Officer (seat to be confirmed)",
+      "username": "intl.data.oversight",
+      "roleId": "intl.data",
+      "countyId": "kisumu",
+      "areas": [],
+      "dept": "exec",
+      "job": "International Data Officer",
+      "unconfirmed": true,
+      "reportsTo": "u-director"
+    },
+    {
       "name": "Daniel Naphtaly Ombija",
       "username": "chief.admin",
       "roleId": "chief",
@@ -2139,6 +2216,125 @@ export default {
         "intl.medical",
         "gov.oversight",
         "handover.use"
+      ]
+    },
+    {
+      "id": "founder",
+      "name": "Founder / President / CEO",
+      "dept": "admin",
+      "accent": "#243c75",
+      "consoleTitle": "Foundation Board & Oversight",
+      "external": false,
+      "scope": {
+        "geo": "county",
+        "records": "own",
+        "readOnly": true
+      },
+      "perms": [
+        "gov.oversight",
+        "presence.view"
+      ]
+    },
+    {
+      "id": "cofounder",
+      "name": "Co-Founder",
+      "dept": "admin",
+      "accent": "#243c75",
+      "consoleTitle": "Foundation Board & Oversight",
+      "external": false,
+      "scope": {
+        "geo": "county",
+        "records": "own",
+        "readOnly": true
+      },
+      "perms": [
+        "gov.oversight",
+        "presence.view"
+      ]
+    },
+    {
+      "id": "board.member",
+      "name": "Board Member",
+      "dept": "exec",
+      "accent": "#243c75",
+      "consoleTitle": "Foundation Board & Oversight",
+      "external": false,
+      "scope": {
+        "geo": "county",
+        "records": "own",
+        "readOnly": true
+      },
+      "perms": [
+        "gov.oversight",
+        "presence.view"
+      ]
+    },
+    {
+      "id": "intl.advisory",
+      "name": "International Advisory Team",
+      "dept": "exec",
+      "accent": "#243c75",
+      "consoleTitle": "Foundation Board & Oversight",
+      "external": true,
+      "scope": {
+        "geo": "county",
+        "records": "own",
+        "readOnly": true
+      },
+      "perms": [
+        "gov.oversight",
+        "presence.view"
+      ]
+    },
+    {
+      "id": "intl.finance",
+      "name": "International Finance Officer",
+      "dept": "finance",
+      "accent": "#243c75",
+      "consoleTitle": "Foundation Board & Oversight",
+      "external": true,
+      "scope": {
+        "geo": "county",
+        "records": "own",
+        "readOnly": true
+      },
+      "perms": [
+        "gov.oversight",
+        "presence.view"
+      ]
+    },
+    {
+      "id": "intl.legal",
+      "name": "International Legal Officer",
+      "dept": "exec",
+      "accent": "#243c75",
+      "consoleTitle": "Foundation Board & Oversight",
+      "external": true,
+      "scope": {
+        "geo": "county",
+        "records": "own",
+        "readOnly": true
+      },
+      "perms": [
+        "gov.oversight",
+        "presence.view"
+      ]
+    },
+    {
+      "id": "intl.data",
+      "name": "International Data Officer",
+      "dept": "exec",
+      "accent": "#243c75",
+      "consoleTitle": "Foundation Board & Oversight",
+      "external": true,
+      "scope": {
+        "geo": "county",
+        "records": "own",
+        "readOnly": true
+      },
+      "perms": [
+        "gov.oversight",
+        "presence.view"
       ]
     }
   ],

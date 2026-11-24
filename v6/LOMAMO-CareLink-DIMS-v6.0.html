@@ -6478,6 +6478,15 @@ html[data-wmode="dark"] .rc68-tile-ic{
 
 
 
+/* Individual oversight-seat console accents. */
+.topbar.cbar[data-role="founder"] { --cb-c1:#312E81; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="cofounder"] { --cb-c1:#164E63; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="board.member"] { --cb-c1:#334155; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.advisory"] { --cb-c1:#3730A3; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.finance"] { --cb-c1:#065F46; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.legal"] { --cb-c1:#581C87; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.data"] { --cb-c1:#075985; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+
 /* Coordinated multi-colour accents across signed-in workspace cards and tabs.
    This layer never changes the selected theme's surface or status semantics. */
 .console-scheme-grid{
@@ -7714,7 +7723,7 @@ html[data-wt="foundation"] .shell .msg-pane{border-radius:18px;box-shadow:0 6px 
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,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";
-window.BUILD_STAMP = "2026-11-24 16:50";
+window.BUILD_STAMP = "2026-11-24 18:00";
 </script>
 <script>
 /* ============================================================
@@ -8902,6 +8911,15 @@ ROLES.forEach(r=>{
   });
 });
 
+/* Individually provisioned oversight seats. No shared credentials or clinical
+   editing privileges; named occupants must be confirmed before activation. */
+const BOARD_ROLE_IDS=['founder','cofounder','board.member','intl.advisory','intl.finance','intl.legal','intl.data'];
+for(const [id,name,section] of [
+  ['founder','Founder / President / CEO','admin'],['cofounder','Co-Founder','admin'],
+  ['board.member','Board Member','exec'],['intl.advisory','International Advisory Team','exec'],
+  ['intl.finance','International Finance Officer','finance'],['intl.legal','International Legal Officer','exec'],['intl.data','International Data Officer','exec']
+])ROLES.push({id,name,dept:section,accent:'#243c75',consoleTitle:'Foundation Board & Oversight',external:id.startsWith('intl.'),scope:{geo:'county',records:'own',readOnly:true},perms:['gov.oversight','presence.view']});
+
 const EXEC_DEFAULT = ['chief.admin','director','president','program.admin','program.assistant','mcm.kisumu','kisumu.admin','homabay.admin'];
 
 /* ---------------- 4. Programme duration reference ---------------- */
@@ -8947,6 +8965,8 @@ const OFFICIAL_ROSTER = [
   { name:'President / Board Chair (seat to be confirmed)', username:'president', roleId:'president',   countyId:'kisumu',  areas:[], dept:'exec',     job:'President, LOMAMO Foundation', unconfirmed:true },
   { name:'Irene Atieno Omondi',                   username:'program.admin',       roleId:'program.admin',     countyId:'kisumu',  areas:[], dept:'exec',     job:'Internal Operations Manager' },
   { name:'Programme Office Assistant (seat to be confirmed)', username:'program.assistant', roleId:'program.assistant', countyId:'kisumu', areas:[], dept:'exec', job:'Program Administrator Assistant', unconfirmed:true },
+
+  ...BOARD_ROLE_IDS.map(roleId=>({name:(ROLES.find(r=>r.id===roleId)?.name||roleId)+' (seat to be confirmed)',username:roleId==='intl.data'?'intl.data.oversight':roleId,roleId,countyId:'kisumu',areas:[],dept:['founder','cofounder'].includes(roleId)?'admin':'exec',job:ROLES.find(r=>r.id===roleId)?.name,unconfirmed:true})),
 
   /* Chief system administration and distinct county administration seats */
   { name:'Daniel Naphtaly Ombija',         username:'chief.admin',         roleId:'chief',             countyId:'kisumu',  areas:[], dept:'admin',    job:'Chief System Administrator, LOMAMO Foundation' },
@@ -15184,7 +15204,7 @@ function budgetVsActualBoard(lines, opts={}){
 
 
 /* ============================================================
-   forms.js - The six LOMAMO paper forms, digitised field for field.
+   forms.js - The six LOMAMO paper-form mappings and trial-report amendments.
 
    The paper form remains the primary field record. This module lets a
    caregiver or an administrative assistant enter the same fields, keeps a
@@ -15544,10 +15564,13 @@ const FORM_SPECS = {
       F('foodBagExtra','Extra','text',{half:true}),
       F('personsSharing','Current number of persons living in the home sharing food bag contents','number',{min:0,half:true}),
       F('changeFromLastVisit','Is this a change from the last visit','select',{o:YESNO,half:true}),
-      F('multivitaminsGiven','11. Multivitamins given (7-day / cycle rule)','select',{o:YESNO,half:true,hint:'Trial Report rule: verify >=7 days since prior course before re-issuing'}),
-      F('multivitaminDate','Date given','date',{half:true,showWhen:'multivitaminsGiven=Yes'}),
+      F('multivitaminsGiven','11. Multivitamins given (7-day / cycle rule)','select',{o:YESNO,half:true,hint:'Review the previous seven-day issue and any remaining supply; do not assume adherence from issuing alone'}),
+      F('multivitaminDate','Date last multivitamins were given','date',{half:true}),
       F('multivitaminDays','Course duration (days)','select',{o:['7 days (Trial standard)','14 days','30 days'],half:true,showWhen:'multivitaminsGiven=Yes'}),
       F('takingMultivitamins','Taking the multivitamins','select',{o:YNN,half:true}),
+      F('multivitaminAdherence','Taking multivitamins consistently and as intended','select',{o:YNN,half:true}),
+      F('multivitaminsRemaining','Multivitamins still remaining from previous issue','select',{o:YNN,half:true}),
+      F('multivitaminExpectedUntil','Expected seven-day course end','computed',{half:true}),
       F('frequencyStatus','12. Home visit frequency','select',{o:['Same','Change frequency'],half:true}),
       F('frequencyChoice','Frequency chosen','select',{o:FREQ,half:true})
     ]},
@@ -15682,6 +15705,49 @@ const FORM_SPECS = {
   ]
 };
 
+/* Trial-report amendments to the scanned home sheet. These are explicit
+   changes, not a claim that a reconstructed screen is a facsimile. */
+const TRIAL_ARVS=['Abacavir (ABC)','Lamivudine (3TC)','Dolutegravir (DTG)','Tenofovir Disoproxil Fumarate (TDF)','Tenofovir Alafenamide (TAF)','Zidovudine (AZT / ZDV)','Emtricitabine (FTC)','Nevirapine (NVP)','Other'];
+const homeFields=FORM_SPECS.home_visit.flatMap(s=>s.fields);
+const hf=key=>homeFields.find(f=>f.k===key);
+Object.assign(hf('arvList'),{t:'checks',o:TRIAL_ARVS,showWhen:'arvsAsPrescribed=Yes'});
+Object.assign(hf('medsCounted'),{showWhen:undefined,o:YNN});
+Object.assign(hf('medicationDefault'),{o:YNN});
+Object.assign(hf('foodBagDelivered'),{hint:'Record the household bag type separately from Bag 1 or Bag 2. Special bags support dependants of an admitted patient.'});
+Object.assign(hf('foodBagCode'),{o:['BG1','BG2','None'],hint:'Every household bag type, including family, couple and special, must specify Bag 1 or Bag 2.'});
+Object.assign(hf('changeFromLastVisit'),{t:'computed',hint:'Calculated against the preceding submitted or verified form for this patient.'});
+Object.assign(hf('multivitaminsGiven'),{o:YNN});
+Object.assign(hf('frequencyChoice'),{showWhen:'frequencyStatus=Change frequency'});
+Object.assign(hf('waterGuardQty'),{showWhen:'extraWaterGuard=Yes'});
+Object.assign(hf('waterGuardDate'),{showWhen:'extraWaterGuard=Yes'});
+const first=FORM_SPECS.home_visit[0].fields;
+first.splice(first.findIndex(f=>f.k==='atHome')+1,0,
+  F('absenceReason','Reason patient was not at home','select',{o:['Hospital visit or admission','Unknown','At school','Elsewhere','Hospitalised','Other'],showWhen:'atHome=No',req:true}),
+  F('absenceOther','Other reason for absence','textarea',{showWhen:'atHome=No&absenceReason=Other',req:true}));
+const meds=FORM_SPECS.home_visit[1].fields;
+meds.splice(meds.findIndex(f=>f.k==='arvList')+1,0,F('arvOther','Other ARV medication','text',{showWhen:'arvsAsPrescribed=Yes&arvList=Other',req:true}));
+meds.splice(meds.findIndex(f=>f.k==='medicationDefault'),0,meds.splice(meds.findIndex(f=>f.k==='medsCounted'),1)[0]);
+meds.splice(meds.findIndex(f=>f.k==='tbMeds')+1,0,F('tbRegimen','TB medication / TPT','checks',{o:['Rifampicin','Isoniazid','Pyrazinamide','Ethambutol','Pyridoxine','TPT'],showWhen:'tbMeds=Yes'}));
+meds.splice(meds.findIndex(f=>f.k==='woundCareNeeded'),0,F('hasWound','Does the patient have a wound?','select',{o:YESNO}));
+const food=FORM_SPECS.home_visit[2].fields;
+food.unshift(F('foodBagLeft','Food bag outcome','select',{o:['Food bag left','No food bag left'],req:true}));
+food.splice(3,0,F('bagRecipient','Food bag recipient','text',{showWhen:'foodBagLeft=Food bag left',req:true}),F('recipientRelationship','Relationship to patient','text',{showWhen:'foodBagLeft=Food bag left',req:true}),F('recipientPhone','Recipient telephone (if available)','text',{showWhen:'foodBagLeft=Food bag left'}),F('recipientNoPhone','Recipient has no telephone','select',{o:YESNO,showWhen:'foodBagLeft=Food bag left'}),F('spouseName','Enrolled spouse name / identifier','text',{showWhen:'foodBagLeft=Food bag left&foodBagDelivered=Couple bag',req:true}),F('spouseAtHome','Was the spouse at home?','select',{o:YESNO,showWhen:'foodBagLeft=Food bag left&foodBagDelivered=Couple bag',req:true}));
+const clinicalKeys=['weightVisitCycle','weightKg','heightCm','bmi','conditionToday','healthRisks','riskExplain','referred','whereReferred','referralReasons','coveredByLomamo','otherDrugs','otherDrugsExplain','arvsAsPrescribed','arvList','arvOther','tbMeds','tbRegimen','medicationDefault','medsCounted','daysInDefault','defaultNumber','hasWound','woundCareNeeded','materialsLeft','dressingsLeft','salineLeft','salineQty','woundPhotoTaken','photoSent'];
+for(const f of FORM_SPECS.home_visit.flatMap(s=>s.fields)){
+  if(['woundCareNeeded','materialsLeft','dressingsLeft','salineLeft','salineQty','woundPhotoTaken','photoSent'].includes(f.k))f.showWhen='hasWound=Yes'+(f.showWhen?'&'+f.showWhen:'');
+  if(clinicalKeys.includes(f.k))f.showWhen='atHome=Yes'+(f.showWhen?'&'+f.showWhen:'');
+  if(['foodBagDelivered','foodBagCode','specialBagDetail','foodBagExtra'].includes(f.k))f.showWhen='foodBagLeft=Food bag left'+(f.showWhen?'&'+f.showWhen:'');
+}
+function homeHouseholdChange(patientId,visitDate,count){
+  if(count===''||count==null)return '';
+  const previous=(DB.db.formRecords||[]).filter(r=>r.kind==='home_visit'&&['submitted','verified'].includes(r.status)&&r.patientId===patientId&&r.visitDate<visitDate&&r.data?.personsSharing!==''&&r.data?.personsSharing!=null).sort((a,b)=>b.visitDate.localeCompare(a.visitDate))[0];
+  return previous?Number(previous.data.personsSharing)===Number(count)?'No':'Yes':'No previous record';
+}
+function formFieldVisible(expression,data){
+  if(!expression)return true;
+  return expression.split('&').every(part=>{const i=part.indexOf('=');return i<0||(Array.isArray(data[part.slice(0,i)])?data[part.slice(0,i)]:[String(data[part.slice(0,i)]??'').trim()]).some(v=>part.slice(i+1).split('|').includes(v));});
+}
+
 /* ---------------- helpers ---------------- */
 function formSpec(kind){ return FORM_SPECS[kind]||null; }
 function formFields(kind){
@@ -15727,11 +15793,14 @@ const FORMSX = {
 
   validate(kind, data){
     const errors=[]; const f = formFieldMap(kind);
+    data={...data};
+    const captured={...data};for(const field of formFields(kind))if(!formFieldVisible(field.showWhen,captured))delete data[field.k];
     const val = k => (data[k]===undefined||data[k]===null)?'':String(data[k]).trim();
     const num = k => { const v=val(k); return v===''?null:Number(v); };
     formFields(kind).forEach(x=>{
-      if(x.req && !val(x.k)) errors.push(`${x.l} is required.`);
+      if(x.req && formFieldVisible(x.showWhen,data) && !val(x.k)) errors.push(`${x.l} is required.`);
     });
+    if(kind==='home_visit'&&val('foodBagLeft')==='Food bag left'&&!['BG1','BG2'].includes(val('foodBagCode')))errors.push('Specify Bag 1 or Bag 2 for the issued bag.');
     if(val('age')!==''){
       const a=num('age');
       if(isNaN(a)||a<0||a>120) errors.push('Age must be between 0 and 120.');
@@ -15956,15 +16025,8 @@ function formEditor(kind, patientId, recordId){
     name:p?.name||'', areaLocation: p? areaName(p.areaId):'',
     heightCm: p?.heightCm||'', visitCycleCount: kind==='home_visit' ? nextVisitNo : '',
     caregiverName:me, dataEnteredBy:me, enteredBy:me, providerName:me};
-  const evalShowWhen = expr => {
-    if(!expr) return true;
-    const eq = expr.indexOf('=');
-    if(eq<0) return true;
-    const key = expr.slice(0,eq), allowed = expr.slice(eq+1).split('|');
-    const cur = String(data[key]??'').trim();
-    if(!cur) return false;
-    return allowed.includes(cur);
-  };
+  const evalShowWhen = expr => formFieldVisible(expr,data);
+  if(kind==='home_visit')data.changeFromLastVisit=homeHouseholdChange(patientId,data.visitDate,data.personsSharing);
   const initBmi = (data.weightKg && data.heightCm && Number(data.heightCm)>0)
     ? Math.round((Number(data.weightKg)/Math.pow(Number(data.heightCm)/100,2))*10)/10 : (data.bmi||'');
   if(initBmi && !data.bmi) data.bmi = initBmi;
@@ -15976,9 +16038,9 @@ function formEditor(kind, patientId, recordId){
       <div class="formgrid">${sec.fields.map(f=>{
         const shown = evalShowWhen(f.showWhen);
         const bmiExtra = f.k==='bmi' ? `<div id="ff_bmi_badge" style="margin-top:4px">${(typeof BMI_CLINICAL!=='undefined' && initBmi)? BMI_CLINICAL.badgeHTML(Number(initBmi)) : '<span class="xs muted">Auto-calculates from weight (kg) and height (cm)</span>'}</div>` : '';
-        return `<div class="field ${f.full?'full':f.half?'half':''}" ${f.showWhen?`data-show-when="${esc(f.showWhen)}"`:''} style="${shown?'':'display:none'}">
+        return `<div data-form-required="${f.req?1:0}" class="field ${f.full?'full':f.half?'half':''}" ${f.showWhen?`data-show-when="${esc(f.showWhen)}"`:''} style="${shown?'':'display:none'}">
           <label for="ff_${f.k}">${esc(f.l)}${f.req?' <span style="color:var(--crit)">*</span>':''}</label>
-          ${formControl(f,data)}${bmiExtra}${f.hint?`<div class="hint">${esc(f.hint)}</div>`:''}</div>`;
+          ${formControl({...f,req:f.req&&shown},data)}${bmiExtra}${f.hint?`<div class="hint">${esc(f.hint)}</div>`:''}</div>`;
       }).join('')}</div></div>`;
   }).join('');
   const trialBanner = kind==='home_visit' ? `<div class="alert ${weightDue?'warn':'info'} no-print" style="margin-bottom:10px">${ic('activity',16)}<div>
@@ -16002,13 +16064,13 @@ if(typeof document!=='undefined' && !window.__formLiveWired){
     if(!form) return;
     form.querySelectorAll('[data-show-when]').forEach(wrap=>{
       const expr = wrap.getAttribute('data-show-when')||'';
-      const eq = expr.indexOf('=');
-      if(eq<0) return;
-      const key = expr.slice(0,eq), allowed = expr.slice(eq+1).split('|');
-      const ctrl = form.elements[key];
-      const val = ctrl ? String(ctrl.value||'').trim() : '';
-      wrap.style.display = (val && allowed.includes(val)) ? '' : 'none';
+      const values={},fd=new FormData(form);for(const field of formFields(form.elements.kind.value))values[field.k]=field.t==='checks'?fd.getAll(field.k):String(fd.get(field.k)||'');
+      const shown=formFieldVisible(expr,values);
+      wrap.style.display=shown?'':'none';
+      wrap.querySelectorAll('input,select,textarea').forEach(ctrl=>{ctrl.required=shown&&wrap.getAttribute('data-form-required')==='1';});
     });
+    const change=form.elements['changeFromLastVisit'];if(change)change.value=homeHouseholdChange(form.elements.patientId.value,form.elements.visitDate.value,form.elements.personsSharing.value);
+    const until=form.elements['multivitaminExpectedUntil'],given=form.elements['multivitaminDate'];if(until&&given){const date=new Date(given.value+'T12:00:00Z');until.value=Number.isFinite(date.getTime())?new Date(date.getTime()+7*86400000).toISOString().slice(0,10):'';}
     const wEl = form.elements['weightKg'], hEl = form.elements['heightCm'], bEl = form.elements['bmi'];
     if(wEl && hEl && bEl){
       const w = parseFloat(wEl.value), h = parseFloat(hEl.value);
@@ -16187,6 +16249,7 @@ function formDataFrom(d){
       out[f.k]=String(d.get(f.k)??'').trim();
     }
   });
+  const captured={...out};for(const field of formFields(kind))if(!formFieldVisible(field.showWhen,captured))delete out[field.k];
   out.bmi = FORMSX.bmi(out);
   return out;
 }
@@ -18825,6 +18888,13 @@ const DEPT_PALETTES = {
 /* Each account type has an independent, coherent identity; personal scheme
    selections still take precedence. Colors are corrected for contrast in apply(). */
 const ROLE_PALETTES = {
+  founder: ['#312E81','#5B56AC','#9A7531'],
+  cofounder: ['#164E63','#367F91','#986A4B'],
+  'board.member': ['#334155','#64748B','#997A4E'],
+  'intl.advisory': ['#3730A3','#7165B8','#987C39'],
+  'intl.finance': ['#065F46','#3C8A68','#A17D40'],
+  'intl.legal': ['#581C87','#8B56AA','#A77554'],
+  'intl.data': ['#075985','#388BA5','#6D799F'],
   chief:             ['#143454','#236795','#0F766E'],
   president:         ['#39245F','#7452A3','#B8860B'],
   director:          ['#193B70','#3268A8','#BD7C19'],
@@ -19700,6 +19770,7 @@ function navModel(user){
       { id:'programdays', label:'Programme days', icon:'clock', show:isFieldOrClinical }
     ]},
     { label:'Partner & referral', show:has('ccc.desk')||has('gov.oversight')||(isExternal&&has('pmi.check')), items:[
+      { id:'masterreferrals', label:'Master Referral reports', icon:'file', show:has('ccc.desk')&&['mcm','assistant','countyadmin','liaison','nurse','ccc.clinician'].includes(user.roleId) },
       { id:'cccdesk', label:'CCC / PSC referral desk', icon:'hospital', show:has('ccc.desk') },
       { id:'repeat', label:'Returning patient check', icon:'search', show:user.roleId==='ccc.clinician' && has('pmi.check') },
       { id:'govdashboard', label:'Government partnership', icon:'building2', show:has('gov.oversight') }
@@ -19795,6 +19866,7 @@ function navModel(user){
     { label:'Leadership', show:has('report.executive')||has('exec.agenda'), items:[
       { id:'executive', label:'Executive summary', icon:'chart', show:has('report.executive') },
       { id:'compare', label:'County comparison', icon:'columns', show:has('report.executive') },
+      { id:'boardworkspace', label:'Board & International Oversight', icon:'users', show:typeof BOARD_ROLE_IDS!=='undefined'&&BOARD_ROLE_IDS.includes(user.roleId) },
       { id:'execconsole', label:'Executive console', icon:'archive', show:has('exec.agenda') }
     ]},
     { label:'Department life', show:has('library.read')||has('credit.view')||has('inventory.view')||has('intern.view')||has('ohs.view')||has('presence.view')||has('weather.view'), items:[
@@ -19876,6 +19948,7 @@ function navModel(user){
   };
   const roleExcl = user && ROLE_NAV_EXCLUDE[user.roleId] ? ROLE_NAV_EXCLUDE[user.roleId] : null;
   const isAllowedForRoleScope = (itemId) => {
+    if(BOARD_ROLE_IDS.includes(user.roleId))return ['home','boardworkspace','settings'].includes(itemId);
     if(!roleExcl || !roleExcl.has(itemId)) return true;
     const unlockCaps = VIEW_EXPLICIT_CAPS[itemId] || [];
     return unlockCaps.some(c => explicitCaps.has(c) && has(c));
@@ -21492,6 +21565,8 @@ const ROLE_CTX = {
   groupLabel(user, groupLabel){
     if(!user) return groupLabel;
     const r = user.roleId;
+    if(BOARD_ROLE_IDS.includes(r))return ({Overview:'Oversight workspace',Leadership:'Board & international oversight'})[groupLabel]||'Oversight account';
+    if(groupLabel==='Partner & referral'&&['assistant','liaison','nurse'].includes(r))return 'Clinical referral reporting';
     const role = roleObj(r) || {};
     const cLabel = user.countyId ? countyName(user.countyId).replace(/\s+County Office$/i,'') : 'National';
     const byRole = {
@@ -21789,6 +21864,8 @@ const ROLE_CTX = {
 
   navLabel(user, id, fallback){
     if(!user) return fallback;
+    if(BOARD_ROLE_IDS.includes(user.roleId))return ({home:'Oversight home',boardworkspace:'Board & International Oversight',settings:'My oversight account'})[id]||fallback;
+    if(id==='masterreferrals')return 'Master Referral reports';
     const r = user.roleId;
     const role = roleObj(r) || {};
     const cShort = user.countyId ? countyName(user.countyId) : 'Global';
@@ -30930,11 +31007,12 @@ function contentFor(view, params, user, options = {}){
     switch(view){
       case 'devices': return user.roleId==='chief' ? renderDevicesConsole(user) : deniedPanel('system.config');
       case 'staffaccounts': return user.roleId==='chief' ? renderStaffAccountsConsole(user) : deniedPanel('system.config');
-      case 'home': return renderHome(user, {omitHeader:options.omitHomeHeader});
+      case 'home': return BOARD_ROLE_IDS.includes(user.roleId)?renderBoardWorkspace(user):renderHome(user, {omitHeader:options.omitHomeHeader});
       case 'attention': return guard('patient.list')||renderAttention(user);
       case 'patients': return guard('patient.list')||renderPatients(user,params);
       case 'patient': return renderPatient(user,params);
       case 'pipeline': return (guard('patient.digitise')||renderPipeline(user));
+      case 'boardworkspace': return renderBoardWorkspace(user);
       case 'visits': return guard('patient.list')||renderVisits(user,params);
       case 'pdca': return guard('patient.list')||renderPdca(user,params);
       case 'requests':
@@ -31029,6 +31107,7 @@ function contentFor(view, params, user, options = {}){
       case 'hardcopy': return guard('hardcopy.intake')||DISCHARGE_HARDCOPY.renderHardcopyDesk(user, params);
       case 'clinicalmcm': return guard('clinical.mcm')||BMI_CLINICAL.renderMcmConsole(user, params);
       case 'bmiboard': return BMI_CLINICAL.renderBmiBoard(user, params);
+      case 'masterreferrals': return guard('ccc.desk')||HANDOVER_PARTNERS.renderCccDesk(user,{...params,tab:params.tab||'master'});
       case 'cccdesk': return guard('ccc.desk')||HANDOVER_PARTNERS.renderCccDesk(user, params);
       case 'govdashboard': return guard('gov.oversight')||HANDOVER_PARTNERS.renderGovDashboard(user, params);
       case 'intlmedical': return guard('intl.medical')||HANDOVER_PARTNERS.renderIntlMedical(user, params);
@@ -32001,7 +32080,7 @@ function clinicalActions(){ return {
       ...durDefaults.map(n=>({v:String(n), l:`${n} days (Standard ${n/30}-month PDCA review track)`})),
       ...durExtra.map(n=>({v:String(n), l:`${n} days (Custom milestone duration)`}))
     ];
-    openModal({title:'New patient assessment & returning-beneficiary check', sub:'Enter the National ID first to verify instantly whether the person has ever been registered before completing the LOMAMO assessment.',
+    openModal({title:'Register identity & check prior assessment', sub:'Enter the National ID first to verify instantly whether the person has ever been registered before completing the LOMAMO assessment.',
       body:`<form data-form="assessment" id="assessForm">
         <div class="steps" style="margin-bottom:14px"><div class="step cur"><span class="n">1</span>ID check &amp; initiate</div><div class="step"><span class="n">2</span>Physical form</div><div class="step"><span class="n">3</span>Digitised</div><div class="step"><span class="n">4</span>Verified</div><div class="step"><span class="n">5</span>Enrolled</div></div>
         <div class="field"><label for="assessNatId">National ID number (checked first before assessment)</label>
@@ -32105,42 +32184,14 @@ function clinicalActions(){ return {
        start only after the MCM's explicit office decision. */
     AUDIT.append({actor:AUTH.user.id,action:'patient.assessment_initiated',entity:'patient',entityId:p.id,detail:`${p.name} · ${areaName(p.areaId)} · ${plannedDays}d plan`});
     notify(DB.db.users.find(u=>u.roleId==='assistant'&&u.countyId===p.countyId)?.id,'New assessment submitted',p.name+' - awaiting physical form and digitisation','info');
-    DB.save(); closeModal(true); toast('Assessment created — not enrolled', 'Awaiting source verification and final MCM office enrollment. No PDCA completion or programme start was invented.','ok'); go('patient',{id:p.id});
+    DB.save(); closeModal(true); toast('Assessment created — not enrolled', 'Awaiting source verification and final MCM office enrollment. No PDCA completion or programme start was invented.','ok'); go('patient',{id:p.id});openFormEditor(Number(p.age)<18?'minor_assessment':'patient_assessment',p.id);
   },
   'submit_form':()=>{},
-  'record-visit':(d)=>{
-    const ps = repo.patientList(AUTH.user);
-    openModal({title:'Record visit', sub:'Visit records are attributed to you and timestamped.',
-      body:`<form data-form="visit" id="visitForm">
-        ${field('Patient','patientId','select',{required:true,value:d.patient,options:ps.map(p=>({v:p.id,l:p.name+' · '+p.code}))})}
-        <div class="grid g2">
-          ${field('Visit type','type','select',{options:[{v:'home',l:'Home visit'},{v:'clinical',l:'Clinical visit'}]})}
-          ${field('Date','date','date',{value:dateOnly(new Date())})}
-          ${field('Weight (kg)','weight','number',{})}
-          ${field('Blood pressure','bp','text',{})}
-          ${field('Outcome','outcome','select',{options:[{v:'seen',l:'Patient seen'},{v:'not_found',l:'Not found at home'},{v:'refused',l:'Declined visit'},{v:'referred',l:'Referred for clinical review'}]})}
-          ${field('Next visit due','nextDue','date',{})}
-        </div>
-        ${field('Visit notes','notes','textarea',{required:true,hint:'Observations, adherence, household situation, support issued'})}
-        ${field('Escalate as clinical concern','escalate','checkbox',{})}
-      </form>`,
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-visit">Save visit</button>`});
+  'record-visit':(d={})=>{
+    if(d.patient)openFormEditor('home_visit',d.patient);
+    else openPatientPicker('home_visit');
   },
-  'submit-visit':()=>{
-    const d=new FormData($('#visitForm'));
-    const v={ id:uid('v'), patientId:d.get('patientId'), caregiverId:AUTH.user.id, type:d.get('type')||'home',
-      date:d.get('date')||todayISO(), weight:+d.get('weight')||null, bp:d.get('bp')||'', outcome:d.get('outcome')||'seen',
-      notes:d.get('notes'), nextDue:d.get('nextDue')||'', demo:true };
-    DB.db.visits.push(v);
-    const p=DB.db.patients.find(x=>x.id===v.patientId);
-    if(v.weight&&p?.clinical) p.clinical.weightKg=v.weight;
-    if(d.get('escalate')&&p){
-      DB.db.concerns.push({id:uid('cn'),patientId:p.id,type:'field_escalation',level:'clinical',opened:todayISO(),detail:v.notes,by:AUTH.user.id,status:'open',demo:true});
-      notifyPatientCareTeam(p,'Clinical concern needs review','A caregiver escalated a clinical concern. Review the scoped patient record; the concern text is not repeated in this notification.','warn',AUTH.user.id);
-    }
-    AUDIT.append({actor:AUTH.user.id,action:'visit.recorded',entity:'patient',entityId:v.patientId,detail:`${titleCase(v.type)} visit · ${titleCase(v.outcome)}`});
-    DB.save(); closeModal(); toast('Visit recorded', v.outcome==='not_found'?'Marked as not found at home.':'Visit saved.','ok'); render();
-  },
+  'submit-visit':()=>toast('Use the source-mapped visit sheet','Open Record home visit and submit the detailed form for verification. The former short entry is no longer used.','warn'),
   'new-request':(d)=>{
     const ps = repo.patientList(AUTH.user);
     openModal({title:'Hospital appointment & transport request', sub:'Stage 1 of 7 - the request goes to the Medical Case Manager for clinical decision.',
@@ -34421,6 +34472,7 @@ function renderExecConsole(user){
       ${kpi('Agenda & resolutions', `${num(totalAgenda)} / ${num(totalMinutes)}`, 'Published items vs recorded minutes', 'ok', 'clipboard')}
       ${kpi('Executive actions', num(openActions.length), openActions.length ? `${num(doneActions.length)} completed · ${num(openActions.length)} open` : '100% closed on schedule', openActions.length?'warn':'ok', 'target')}
     </div>`
+  + executiveCommitteePanel(user)
   + tabBar
   + (sheet==='agenda' ? agendaCard
     : sheet==='actions' ? actionsCard
@@ -36973,7 +37025,7 @@ async function activateFullDemoDataset(){
 
 /* Foundation-confirmed organisation display; does not grant RBAC capabilities. */
 const MAJOR_DEPARTMENTS = [
-  {name:'Administration',detail:'Country Director, County Administrators and County Admin Assistants.'},
+  {name:'Administration',detail:'Founder / President / CEO, Co-Founder, Country Director, County Administrators and County Admin Assistants.'},
   {name:'Field Care',detail:'Ministry Area Coordinators, Caregivers, Community Health Promoters and Community Health Volunteers.'},
   {name:'Hospital',detail:'Medical Case Managers, Nurses / Nurse Assistants, Clinical Officers, approved Community Health Promoters and Hospital Liaison.'},
   {name:'Transport',detail:'Drivers who also serve as caregivers; transport staff may hold procurement head/deputy responsibilities. Each duty requires its own authorisation.'},
@@ -45692,6 +45744,15 @@ Object.assign(FORMS, {
    4. International Medical Team 120+ Day PDCA Overstay Console
    ============================================================ */
 
+/* Names supplied by the Foundation in its referral-partner screenshot.
+   No phone numbers, contracts, locations or account memberships are inferred. */
+const REFERRAL_PARTNERS = [
+  'Jaramogi Oginga Odinga Teaching & Referral Hospital (JOOTRH)',
+  'Kisumu County Referral', 'Ahero County Hospital', 'Masogo Sub-County Hospital',
+  'Chiga Dispensary', 'Railways Health Centre', 'Nyalunya Health Center',
+  'Bunde Health Centre', 'St. Mark Lela Health Centre', 'Kowino Health Centre',
+  'Ongo Ogosa Health Centre', 'Ogra Foundation', 'Port Florence Community Hospital'
+];
 const CCC_NEED_OPTIONS = [
   'Nutritional stabilisation (Foodbag 1 / Bag 2)',
   'ARV / TB medication adherence home follow-up',
@@ -45953,13 +46014,14 @@ const HANDOVER_PARTNERS = {
       ], myRefs, {emptyMsg:'No facility referrals submitted from this desk yet — click "+ Submit Patient Referral" above.'}))}`;
     }
 
+    if(tab==='partners') body=card('Referral Partners & Health Facilities',`<p class="small muted">Foundation-supplied directory. Each facility account is provisioned individually; listing a partner does not grant access.</p><div class="grid g3">${REFERRAL_PARTNERS.map(name=>`<div class="note"><b>${esc(name)}</b></div>`).join('')}</div>`);
     if(tab==='master'){
       body = card('Master Referral Reports Returned from LOMAMO Ministry Areas', table([
         {label:'Referral / LOMAMO Code', cls:'mono', render:r=>`<b>${esc(r.lomamoCode)}</b><div class="xs muted">${esc(r.id)} · ${esc(r.cccNumber)}</div>`},
         {label:'Referring Facility', render:r=>esc(r.facilityName)},
         {label:'Ministry Area', render:r=>esc(areaName(r.areaId))},
         {label:'Ministry Area & MCM Master Referral Progress Report', render:r=>`<span class="small">${esc(r.masterReportSummary)}</span>`},
-        {label:'Action', cls:'act', render:r=>`<button class="btn btn-xs btn-primary" data-act="ccc-feedback-modal" data-id="${esc(r.id)}">Send Clinical Reply</button>`}
+        {label:'Action', cls:'act', render:r=>`<div class="row" style="gap:8px;flex-wrap:wrap">${!isExtClinician?`<button class="btn btn-xs btn-primary" data-act="coordination-open" data-kind="referral.report" data-id="${esc(r.id)}">Submit progress report</button>`:''}<button class="btn btn-xs btn-ghost" data-act="referral-report-print" data-id="${esc(r.id)}">Report history / print</button><button class="btn btn-xs btn-ghost" data-act="ccc-feedback-modal" data-id="${esc(r.id)}">Reply</button></div>`}
       ], myRefs, {emptyMsg:'Master Referral progress summaries appear here once a referred patient is assessed.'}));
     }
 
@@ -45974,6 +46036,7 @@ const HANDOVER_PARTNERS = {
       </div>`
     + `<div class="tabs">
         <button class="tab ${tab==='referrals'?'active':''}" data-act="go" data-v="cccdesk" data-tab="referrals">Referred Patients & Needs (${myRefs.length})</button>
+        <button class="tab ${tab==='partners'?'active':''}" data-act="go" data-v="cccdesk" data-tab="partners">Partner directory</button>
         <button class="tab ${tab==='master'?'active':''}" data-act="go" data-v="cccdesk" data-tab="master">Master Referral Reports from Ministry Areas</button>
       </div>`
     + body;
@@ -46285,13 +46348,13 @@ Object.assign(ACTIONS, {
       body:`<form id="cccRefForm">
         <div class="grid g3">
           <div class="field"><label>Referring Hospital / CCC / PSC Desk *</label>
-            <input class="input" name="facilityName" value="${esc(AUTH.user.name.includes('KCRH')?'Kisumu County Referral Hospital PSC':AUTH.user.name.includes('Homa Bay')?'Homa Bay County Teaching & Referral Hospital CCC':'JOOTRH Comprehensive Care Centre (CCC)')}" required>
+            <input class="input" name="facilityName" list="referral-partners" value="${esc(AUTH.user.facilityName||'')}" required><datalist id="referral-partners">${REFERRAL_PARTNERS.map(n=>`<option value="${esc(n)}"></option>`).join('')}</datalist>
           </div>
           <div class="field"><label>Patient name / initials *</label>
             <input class="input" name="patientInitials" placeholder="e.g. Beneficiary K.O." required>
           </div>
-          <div class="field"><label>CCC / Clinic Number (format CCC/9xxxx) *</label>
-            <input class="input" name="cccNumber" value="CCC/90845" required>
+          <div class="field"><label>CCC / Clinic Number *</label>
+            <input class="input" name="cccNumber" value="" required>
           </div>
         </div>
         <div class="grid g3">
@@ -46300,12 +46363,12 @@ Object.assign(ACTIONS, {
               ${areas.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} (${esc(countyName(a.countyId))})</option>`).join('')}
             </select>
           </div>
-          <div class="field"><label>Current Weight (kg) *</label><input class="input" type="number" step="0.1" name="weightKg" value="44.5" required></div>
-          <div class="field"><label>Height (cm) *</label><input class="input" type="number" step="0.5" name="heightCm" value="165" required></div>
+          <div class="field"><label>Current Weight (kg) *</label><input class="input" type="number" step="0.1" name="weightKg" value="" required></div>
+          <div class="field"><label>Height (cm) *</label><input class="input" type="number" step="0.5" name="heightCm" value="" required></div>
         </div>
         <div class="field"><label>Select patient clinical & household support needs *</label>
           <div class="checkgrid">
-            ${CCC_NEED_OPTIONS.map((n,i)=>`<label class="check"><input type="checkbox" name="needs" value="${esc(n)}" ${i<2?'checked':''}> ${esc(n)}</label>`).join('')}
+            ${CCC_NEED_OPTIONS.map((n,i)=>`<label class="check"><input type="checkbox" name="needs" value="${esc(n)}" > ${esc(n)}</label>`).join('')}
           </div>
         </div>
         <div class="field"><label>Clinical summary, regimen & home follow-up notes *</label>
@@ -46323,16 +46386,16 @@ Object.assign(ACTIONS, {
     const fd = new FormData(f);
     const notes = String(fd.get('clinicalNotes')||'').trim();
     const patName = String(fd.get('patientInitials')||'').trim();
+    if(!f.reportValidity())return;
     if(!patName || !notes) return toast('Patient & clinical notes required','','err');
     const needs = fd.getAll ? fd.getAll('needs') : [CCC_NEED_OPTIONS[0]];
     const areaId = fd.get('areaId') || 'nyalenda';
     const countyObj = COUNTIES.find(c=>c.areas.some(a=>a.id===areaId)) || COUNTIES[0];
-    const bmi = (typeof BMI_CLINICAL!=='undefined' && BMI_CLINICAL.compute(fd.get('weightKg'), fd.get('heightCm'))) || 16.3;
-    let cccNo = String(fd.get('cccNumber')||'CCC/90845').trim();
-    if(!/^CCC\/9\d{4}$/.test(cccNo)) cccNo = 'CCC/90845';
+    const bmi = typeof BMI_CLINICAL!=='undefined'?BMI_CLINICAL.compute(fd.get('weightKg'),fd.get('heightCm')):null;
+    const cccNo=String(fd.get('cccNumber')||'').trim();
     HANDOVER_PARTNERS.ensureStore();
     const ref = {
-      id: 'CCC-REF-' + (910 + DB.db.cccReferrals.length),
+      id: uid('CCC-REF'),
       facilityName: String(fd.get('facilityName')||'Partner CCC Desk').trim(),
       referredByUsername: AUTH.user.username,
       referredByClinician: AUTH.user.name,
@@ -46340,15 +46403,13 @@ Object.assign(ACTIONS, {
       areaId,
       patientInitials: patName,
       cccNumber: cccNo,
-      nationalId: '98451209',
-      phone: '0700184512',
       referralDate: todayISO().slice(0,10),
       bmiAtReferral: bmi,
       needs: needs.length ? needs : [CCC_NEED_OPTIONS[0]],
       clinicalNotes: notes,
       status: 'awaiting_assessment',
       lomamoCode: 'Queued for Hard-Copy Assessment',
-      masterReportSummary: `Received by ${countyName(countyObj.id)} County Admin Assistant — scheduled for ${areaName(areaId)} physical home assessment.`,
+      masterReportSummary: '',
       feedbackThread: [{ by:AUTH.user.name, role:'Referring Clinician', at:todayISO().slice(0,10), msg:'Referral submitted via CareLink CCC Desk.' }]
     };
     DB.db.cccReferrals.unshift(ref);
@@ -46357,7 +46418,7 @@ Object.assign(ACTIONS, {
     AUDIT.append({ actor:AUTH.user.id, action:'ccc.referral.submitted', entity:'ccc_referral', entityId:ref.id, detail:`${ref.facilityName} -> ${areaName(areaId)}` });
     DB.save();
     closeModal(true);
-    toast('Facility referral transmitted', `${ref.id} routed to ${countyName(countyObj.id)} County Admin Assistant & ${areaName(areaId)} team.`, 'ok');
+    toast('Referral saved for synchronisation', `${ref.id} queued for ${countyName(countyObj.id)} County Admin Assistant & ${areaName(areaId)} team.`, 'ok');
     render();
   },
 
@@ -46436,6 +46497,74 @@ Object.assign(ACTIONS, {
   'intl-review-modal':d=>CARE_REVIEW.internationalReview(d.id),
   'intl-review-save':()=>CARE_REVIEW.submitForm('intlRevForm','international_review',d=>({id:d.get('id'),version:Number(d.get('version')),decision:d.get('decision'),recommendation:d.get('recommendation')}))
 });
+
+/* Explicit server-confirmed committee contributions and facility reports. */
+function executiveCommitteePanel(user){
+  refreshCoordinationPresence();
+  const members=(DB.db.users||[]).filter(u=>u.status==='active'&&u.active!==false&&isExecutive(u));
+  const issues=DB.db.execIssues||[];
+  return card('Director’s Executive Committee Panel',`
+    <p class="small muted">Discuss operational issues, share contributions and record the Director’s resolutions. Oversight decisions remain separate from clinical and financial authorisation.</p>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin:14px 0">${members.map(u=>`<span class="chip">${esc(u.name)} · ${typeof presenceOf==='function'?esc(presenceOf(u.id).label):'Presence unavailable'}</span>`).join('')||'No active members are assigned.'}</div>
+    <button class="btn btn-primary btn-sm" data-act="coordination-open" data-kind="exec.issue">Raise committee issue</button>
+    <div class="col" style="gap:14px;margin-top:16px">${issues.slice().reverse().map(issue=>`<article class="card"><div class="card-b"><h4>${esc(issue.title)}</h4><p class="small muted">${esc(issue.status)} · ${esc(userName(issue.by))} · ${esc(issue.at)}</p>
+      ${(issue.discussion||[]).map(note=>`<div class="note"><span><b>${esc(userName(note.by))}</b> · ${esc(note.at)}<br>${esc(note.text)}</span></div>`).join('')}
+      ${issue.resolution?`<div class="alert ok"><div><b>Recorded resolution</b><p>${esc(issue.resolution.text)}</p><span>${esc(userName(issue.resolution.by))} · ${esc(issue.resolution.at)}</span></div></div>`:`<div class="row" style="gap:8px"><button class="btn btn-sm btn-ghost" data-act="coordination-open" data-kind="exec.reply" data-id="${esc(issue.id)}">Contribute</button>${['director','chief','program.admin'].includes(user.roleId)?`<button class="btn btn-sm btn-primary" data-act="coordination-open" data-kind="exec.resolve" data-id="${esc(issue.id)}">Record resolution</button>`:''}</div>`}
+    </div></article>`).join('')||'<p class="small muted">No committee issues have been raised.</p>'}</div>`);
+}
+const COORDINATION_UI={busy:false};
+Object.assign(ACTIONS,{
+  'coordination-open':d=>{
+    const titles={'exec.issue':'Raise executive committee issue','exec.reply':'Contribute to deliberation','exec.resolve':'Record committee resolution','referral.report':'Submit Master Referral progress report'};
+    if(!titles[d.kind])return;
+    openModal({title:titles[d.kind],sub:d.kind==='referral.report'?'Saved to the referring account’s CareLink desk. No email or external delivery is implied.':'Attributed to your own account; confirmed by the shared server.',wide:true,
+      body:`<form data-form="coordination-submit"><input type="hidden" name="kind" value="${esc(d.kind)}"><input type="hidden" name="id" value="${esc(d.id||'')}"><input type="hidden" name="commandId" value="${esc(uid('coord'))}">
+        ${d.kind==='exec.issue'?'<div class="field"><label>Issue title<input class="input" name="title" maxlength="160" required></label></div>':''}
+        <div class="field"><label>${d.kind==='referral.report'?'Progress, support provided, outstanding needs and next review':'Contribution / resolution'}<textarea class="input" name="text" rows="7" maxlength="5000" required></textarea></label></div>
+        <p class="small muted">Include only information needed by this audience. Do not enter passwords or unrelated beneficiary details.</p>
+        <button class="btn btn-primary" type="submit">Submit to shared workspace</button></form>`,footer:'<button class="btn btn-ghost" data-act="close-modal">Cancel</button>'});
+  },
+  'referral-report-print':d=>{
+    const ref=(DB.db.cccReferrals||[]).find(r=>r.id===d.id);if(!ref)return;
+    printDoc('Master Referral Report',`<h1>Master Referral Report</h1><p>${esc(ref.facilityName)} · ${esc(ref.id)} · ${esc(ref.cccNumber)}</p>${(ref.masterReports||[]).map(r=>`<section><h3>${esc(r.at)}</h3><p>${esc(r.text)}</p><p>Submitted by ${esc(userName(r.by))} · CareLink recipient: ${esc(r.recipient||'Referring desk')}</p></section>`).join('')||'<p>No submitted progress reports are recorded.</p>'}`);
+  }
+});
+Object.assign(FORMS,{'coordination-submit':async fd=>{
+  if(COORDINATION_UI.busy)return;
+  if(!SYNC.available()||!SYNC.sessionToken)return toast('Online sign-in required','No contribution was marked as submitted. Keep this form open and reconnect.','warn');
+  COORDINATION_UI.busy=true;
+  try{
+    const body={};for(const k of ['kind','id','commandId','title','text'])body[k]=String(fd.get(k)||'');
+    const result=await SYNC._json('api/coordination/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!result.ok)return toast('Not submitted',result.body?.error||'The shared server did not confirm this request. Retry the same form.','err');
+    await SYNC.pullFull();closeModal(true);render();toast('Submission confirmed','Recorded in the shared CareLink workspace.','ok');
+  }finally{COORDINATION_UI.busy=false;}
+}});
+
+function renderBoardWorkspace(user){
+  if(!BOARD_ROLE_IDS.includes(user.roleId))return deniedPanel('gov.oversight');
+  refreshCoordinationPresence();
+  const summary=DB.db.oversightSummary||{};
+  const peers=(DB.db.users||[]).filter(u=>BOARD_ROLE_IDS.includes(u.roleId)&&u.status==='active');
+  return pageHead('Foundation Board & International Oversight','Shared oversight workspace · individual accounts · information limited to your assigned scope.')+
+    card('Direction, oversight & accountability','<p>The Board provides organisational oversight and makes decisions about the Foundation’s direction. Founder / President / CEO and Co-Founder seats sit within Administration. International advisory, finance, legal and data functions receive individually assigned access; this workspace does not grant clinical editing or operational approval powers.</p>')+
+    `<div class="grid g3">${kpi('Assigned counties',(summary.counties||[]).length,(summary.counties||[]).map(countyName).join(' · ')||'Awaiting scope assignment','info','map')}${kpi('Registered beneficiaries',summary.registered??'—','Aggregate only','info','users')}${kpi('Active beneficiaries',summary.active??'—','Aggregate only','ok','activity')}</div>`+
+    card('Board & international colleagues',table([{label:'Member',render:u=>esc(u.name)},{label:'Office',render:u=>esc(roleObj(u.roleId)?.name||u.roleId)},{label:'Recent activity',render:u=>typeof presenceOf==='function'?esc(presenceOf(u.id).label):'Unavailable'}],peers))+
+    '<p class="small muted">Recent activity is based on the latest shared presence timestamp, not a guarantee that a browser remains open. Every member uses a separate account. No locations or individual beneficiary records are displayed here.</p>';
+}
+
+let coordinationPresenceAt=0,coordinationPresenceTimer;
+function refreshCoordinationPresence(){
+  if(!SYNC.available()||!SYNC.sessionToken||Date.now()-coordinationPresenceAt<30000)return;
+  coordinationPresenceAt=Date.now();
+  SYNC._json('api/coordination/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>{
+    if(!r.ok)return;
+    DB.db.presence=r.body.presence||{};
+    if((['execconsole','boardworkspace'].includes(APPX.view)||APPX.view==='home'&&BOARD_ROLE_IDS.includes(AUTH.user?.roleId)))render();
+  }).catch(()=>{});
+  clearTimeout(coordinationPresenceTimer);
+  coordinationPresenceTimer=setTimeout(()=>{if((['execconsole','boardworkspace'].includes(APPX.view)||APPX.view==='home'&&BOARD_ROLE_IDS.includes(AUTH.user?.roleId)))refreshCoordinationPresence();},45000);
+}
 
 /* Returning-care assessments & editable PDCA reports.
    Hosted decisions go only through /api/care/command. Offline synthetic
@@ -53116,6 +53245,6 @@ Object.assign(FORMS,{
   });
 })();
 </script>
-<!-- Build 2026-11-24 16:50 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-11-24 18:00 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

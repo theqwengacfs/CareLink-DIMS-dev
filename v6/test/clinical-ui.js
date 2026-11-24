@@ -124,7 +124,7 @@ check('new / legacy paper drafts bind their actual source date on submission and
   DB.db.patients=[{id:'synthetic-draft-patient',name:'Synthetic paper patient',countyId:'kisumu',areaId:'ombeyi',caregiverId:'synthetic-paper-author',status:'active',intake:'2028-06-01',careCycleId:'synthetic-draft-current',clinical:{weightKg:50}}];
   DB.db.careCycles=[{id:'synthetic-draft-prior',patientId:'synthetic-draft-patient',startedAt:'2027-01-01',dischargedAt:'2027-06-30'},
    {id:'synthetic-draft-current',patientId:'synthetic-draft-patient',startedAt:'2028-06-01'}];
-  globalThis.__paperData={visitDate:'2027-03-01',caregiverName:'Synthetic paper author',atHome:'Yes',conditionToday:'Synthetic recorded condition',caregiverRecommendation:'Synthetic documented follow-up',weightKg:'12'};
+  globalThis.__paperData={visitDate:'2027-03-01',caregiverName:'Synthetic paper author',foodBagLeft:'No food bag left',atHome:'Yes',conditionToday:'Synthetic recorded condition',caregiverRecommendation:'Synthetic documented follow-up',weightKg:'12'};
   globalThis.__paperDraft=FORMSX.saveDraft(AUTH.user,{kind:'home_visit',patientId:'synthetic-draft-patient',data:__paperData});`);
  assert.equal(r('__paperDraft.ok'),true);assert.equal(r('__paperDraft.rec.cycleId'),'synthetic-draft-prior');
  assert.equal(r(`FORMSX.submit(AUTH.user,{kind:'home_visit',id:__paperDraft.rec.id,patientId:'synthetic-draft-patient',data:__paperData}).ok`),true);

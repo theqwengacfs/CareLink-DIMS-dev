@@ -68,7 +68,7 @@ delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 delete process.env.OPENAI_API_KEY;
 
-const { default: handler } = await import('../../api/index.js');
+const { default: handler, __resetCloudCachesForTests } = await import('../../api/index.js');
 
 async function call(route, { method = 'GET', body, token } = {}) {
   const req = {
@@ -733,6 +733,36 @@ await check('call records are readable and writable only by their two sides', as
   assert.equal(leaked, false, 'live deltas never leak another pair\'s call');
   await call('auth/logout', { method: 'POST', token: callCaregiverToken });
   await call('auth/logout', { method: 'POST', token: callStaffToken });
+});
+
+await check('committee commands, referral reporting and oversight are enforced on the shared server',async()=>{
+ const fixture=JSON.parse(kv.get('carelink_cloud_v66'));
+ const reference=fixture.creds['staff.one'];
+ for(const [username,roleId] of [['board.fixture','board.member'],['mcm.fixture','mcm'],['ccc.fixture','ccc.clinician']]){
+  fixture.creds[username]={...reference,username,id:'u-'+username,roleId,sessionEpoch:username,temporary:undefined,mustChange:false};
+  fixture.db.users.push({id:'u-'+username,username,name:'Synthetic '+roleId,roleId,countyId:'kisumu',areaIds:['nyalenda'],status:'active',active:true});
+ }
+ fixture.db.cccReferrals=[{id:'synthetic-referral',countyId:'kisumu',areaId:'nyalenda',referredByUsername:'ccc.fixture',facilityName:'Synthetic facility',cccNumber:'SYN-1',masterReportSummary:''},
+  {id:'synthetic-other-referral',countyId:'homabay',areaId:'rangwe',referredByUsername:'someone.else',facilityName:'Synthetic other facility'}];
+ kv.set('carelink_cloud_v66',JSON.stringify(fixture));__resetCloudCachesForTests();
+ const tokens={};for(const username of ['board.fixture','mcm.fixture','ccc.fixture']){
+  const login=await call('auth/login',{method:'POST',body:{username,password:'PrivateStaff#2027!'}});assert.equal(login.status,200,JSON.stringify(login.body));tokens[username]=login.body.token;
+ }
+ let result=await call('coordination/command',{method:'POST',token:chiefToken,body:{kind:'exec.issue',commandId:'synthetic-issue-1',title:'Synthetic committee issue',text:'Synthetic discussion'}});
+ assert.equal(result.status,200,JSON.stringify(result.body));
+ assert.equal((await call('coordination/command',{method:'POST',token:tokens['board.fixture'],body:{kind:'exec.reply',commandId:'synthetic-reply-1',id:'synthetic-issue-1',text:'Not a committee member'}})).status,403);
+ const data=await call('state',{token:tokens['board.fixture']});
+ assert.deepEqual(data.body.db.patients,[]);assert.deepEqual(data.body.db.cccReferrals,[]);assert.deepEqual(data.body.db.execIssues,[]);
+ assert.ok(data.body.db.oversightSummary);assert.ok(!JSON.stringify(data.body.db).includes('Private Kisumu Case'));
+ const write=await call('state',{method:'PUT',token:tokens['board.fixture'],body:{patches:[{c:'patients',id:'synthetic-patient',set:{name:'Must not write'}}]}});
+ assert.equal(write.body.rejected[0].reason,'oversight_read_only');
+ result=await call('coordination/command',{method:'POST',token:tokens['mcm.fixture'],body:{kind:'referral.report',commandId:'synthetic-report-1',id:'synthetic-referral',text:'Synthetic progress confirmed'}});
+ assert.equal(result.status,200,JSON.stringify(result.body));
+ const retry=await call('coordination/command',{method:'POST',token:tokens['mcm.fixture'],body:{kind:'referral.report',commandId:'synthetic-report-1',id:'synthetic-referral',text:'Synthetic progress confirmed'}});assert.equal(retry.status,200);
+ const partner=await call('state',{token:tokens['ccc.fixture']});assert.equal(partner.body.db.cccReferrals.length,1);assert.equal(partner.body.db.cccReferrals[0].masterReports.length,1);
+ assert.equal((await call('coordination/command',{method:'POST',token:tokens['ccc.fixture'],body:{kind:'referral.report',commandId:'synthetic-report-2',id:'synthetic-referral',text:'Cannot impersonate internal report'}})).status,403);
+ assert.equal((await call('coordination/command',{method:'POST',token:tokens['mcm.fixture'],body:{kind:'referral.report',commandId:'synthetic-report-3',id:'synthetic-other-referral',text:'Outside county'}})).status,403);
+ for(const token of Object.values(tokens))await call('auth/logout',{method:'POST',token});
 });
 
 console.log(`api-security: ${passed} checks passed`);
