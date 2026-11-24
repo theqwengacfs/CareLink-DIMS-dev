@@ -589,6 +589,7 @@ const WTHEME = {
     const id = user? WTHEME.resolveId(user) : 'foundation';
     const theme = WTHEME.byId(id) || WTHEME.byId('foundation');
     WTHEME._active = theme;
+    if(typeof CLIENT_UI!=='undefined') CLIENT_UI.apply(user);
     let dept = '#1E3A8A';
     if(user){
       const role = roleObj(user.roleId);
@@ -806,7 +807,7 @@ const WTHEME = {
 const ENTRY_THEMES = [
   {id:'clinic',name:'LOMAMO Letterhead Light',mode:'light',accent:'#EE0000',
     blurb:'The default: a white-led letterhead, red-centred workflow and restrained teal, gold and blue accents.',
-    bg:'#FFFFFF',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#E1E1E1',soft:'#F5F3F0',emphasis:'#B31C2B',teal:'#17645D',gold:'#85570B',blue:'#335D91'},
+    bg:'#FFFFFF',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#E1E1E1',soft:'#F5F3F0',emphasis:'#B81935',teal:'#17645D',gold:'#85570B',blue:'#335D91'},
   {id:'heritage',name:'LOMAMO Emblem Dark',mode:'dark',accent:'#EE0000',
     blurb:'A charcoal front door with a red-centred workflow, coloured highlights and the same white sign-in form.',
     bg:'#1C1C1C',surface:'#252525',ink:'#FFFFFF',muted:'#CCCCCC',line:'#454545',soft:'#303030',emphasis:'#FFB8B8',teal:'#8ED8CE',gold:'#F2C56F',blue:'#A9CFF5'}
@@ -817,7 +818,7 @@ const ENTRY_THEME = {
   previewId:null, previewed:new Set(),
   tokens(id){
     const t=ENTRY_THEMES.find(x=>x.id===id)||ENTRY_THEMES[0];
-    const fill=WTHEME.safeFill(t.accent), badge=WTHEME.badgeOnFill('#D9D9D9',fill);
+    const fill=WTHEME.safeFill('#C51F3B'), badge=WTHEME.badgeOnFill('#D9D9D9',fill);
     return {...t,fill,badge,fillInk:'#FFFFFF'};
   },
   measurements(id){
@@ -844,8 +845,8 @@ const ENTRY_THEME = {
         {label:key+' workflow label / coloured node',ratio:WTC.contrast(r.ink,r[key+'-fill'])},
         {label:key+' counter / graphite',ratio:WTC.contrast(r[key],r.raised)}
       ]),
-      {label:'Workflow core / emblem red',ratio:WTC.contrast('#FFFFFF','#B31C2B')},
-      {label:'Workflow core subtitle / emblem red',ratio:WTC.contrast('#FFE0E5','#B31C2B')},
+      {label:'Workflow core / emblem red',ratio:WTC.contrast('#FFFFFF','#C51F3B')},
+      {label:'Workflow core subtitle / emblem red',ratio:WTC.contrast('#FFE0E5','#C51F3B')},
       {label:'Red workflow connector / backdrop',ratio:WTC.contrast(r.red,r.backdrop)},
       {label:'Online status / pale teal',ratio:WTC.contrast('#205A50','#EAF5F1')},
       {label:'Device notice / pale gold',ratio:WTC.contrast('#725016','#FFF6E5')},
@@ -881,3 +882,29 @@ const ENTRY_THEME = {
     if(typeof SYNC==='undefined' || !SYNC.available()) DB.save();
   }
 };
+
+/* Device hints customise layout only; they are never authentication evidence. */
+const CLIENT_UI = {
+  snapshot(env={}){
+    const nav=env.navigator||(typeof navigator!=='undefined'?navigator:{});
+    const width=env.width||(typeof window!=='undefined'?window.innerWidth:1280)||1280;
+    const height=env.height||(typeof window!=='undefined'?window.innerHeight:800)||800;
+    const ua=String(nav.userAgent||'');
+    const ipad=/iPad/.test(ua)||(/Mac/.test(nav.platform||'')&&Number(nav.maxTouchPoints)>1);
+    const phone=/iPhone|Android.*Mobile|Windows Phone/i.test(ua)||nav.userAgentData?.mobile===true;
+    const tablet=ipad||(/Android/.test(ua)&&!phone);
+    const type=phone?'phone':tablet?'tablet':'computer';
+    const platform=/Windows/.test(ua)?'Windows':/Android/.test(ua)?'Android':ipad?'iPadOS':/iPhone/.test(ua)?'iOS':/Mac/.test(ua)?'macOS':/Linux/.test(ua)?'Linux':'Browser';
+    const browser=/Edg\//.test(ua)?'Edge':/Firefox\//.test(ua)?'Firefox':/Chrome\//.test(ua)?'Chromium':/Safari\//.test(ua)?'Safari':'Browser';
+    return {type,platform,browser,width,height,layout:width<700?'compact':width<1180?'medium':'wide',orientation:width>height?'landscape':'portrait',label:`${platform} ${type} · ${browser}`};
+  },
+  apply(user){
+    const info=this.snapshot(),root=document.documentElement;
+    if(root&&root.setAttribute){root.setAttribute('data-client-kind',info.type);root.setAttribute('data-client-layout',info.layout);root.setAttribute('data-client-orientation',info.orientation);root.setAttribute('data-client-role',user?.roleId||'public');}
+    return info;
+  }
+};
+if(typeof window!=='undefined'&&window.addEventListener){
+  let resizeTimer;
+  window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>CLIENT_UI.apply(typeof AUTH!=='undefined'?AUTH.user:null),120);});
+}

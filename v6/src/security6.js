@@ -68,10 +68,10 @@ function entryAdminStatus(){
 function renderDevicesConsole(user){
   if(user.roleId!=='chief') return deniedPanel('system.config');
   if(!ENTRY_ADMIN.deviceLoaded && !ENTRY_ADMIN.busy && AUTH.online) ENTRY_ADMIN.load('devices');
-  return `${pageHead('Devices','Phase 1 · server-side approval is mandatory for every staff session. The public portal is open to everyone.')}
+  return `${pageHead('Devices','Registered browser history and account use · Chief-only controls. Device labels are hints, not identity proof.')}
     <div class="card"><div class="card-b"><p>After successful account verification, new browsers are registered automatically and do not require prior approval. The Chief can review and revoke a registered browser if needed. Clearing cookies creates a new browser registration.</p><button class="btn btn-sm btn-primary" data-act="entry-admin-refresh" data-kind="devices">Refresh server register</button></div></div>${entryAdminStatus()}
     ${table([{label:'Device / code',render:d=>`<b>${esc(d.label)}</b><div class="xs mono">${esc(d.id.slice(0,12))}${d.id===ENTRY_ADMIN.currentDeviceId?' · this browser':''}</div>`},
-      {label:'Type',render:d=>esc(d.type)},{label:'First seen',render:d=>esc(d.firstSeen)},{label:'Requested by',render:d=>esc(d.requestedBy)},
+      {label:'Type',render:d=>esc(d.type)},{label:'First seen',render:d=>esc(d.firstSeen)},{label:'Last sign-in',render:d=>esc(d.lastSeen||'Not recorded')},{label:'Account use',render:d=>`<details><summary>${(d.users||[]).length} account(s) · recent sign-ins</summary>${(d.logins||[]).slice().reverse().map(x=>`<div class="small">${esc(x.at)} · ${esc(x.username)} · ${esc(x.label||x.type||'Browser')}</div>`).join('')||'No recent history recorded'}</details>`},{label:'Requested by',render:d=>esc(d.requestedBy)},
       {label:'Status',render:d=>badge(d.status,d.status==='approved'?'b-ok':d.status==='pending'?'b-warn':'b-crit')},
       {label:'Decision',render:d=>`<button class="btn btn-xs btn-ghost" data-act="entry-device-review" data-id="${esc(d.id)}">Review</button>`}],ENTRY_ADMIN.devices)}
     <p class="small muted">Phase 2 email/SMS one-time codes are not enabled. No mail or SMS provider credentials are stored in this repository. Lost Chief browser? Use the owner-only recovery runbook; there is no public approval bypass.</p>`;

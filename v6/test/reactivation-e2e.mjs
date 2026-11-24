@@ -142,8 +142,8 @@ const workspace=await api('state','GET',{},token);
 assert.equal(workspace.status,403);
 /* Replacing it rotates the credential and invalidates the old session. */
 r=await api('auth/change-password','POST',{current:director.tempPassword,password:'Private#New2027!'},token);assert.equal(r.status,200,JSON.stringify(r.body));
-/* A fresh session can sign in immediately after the credential change. */
-assert.equal((await api('auth/login','POST',{username:'director',password:'Private#New2027!'})).status,200);
+/* Password replacement retains the current lease until explicit logout. */
+assert.equal((await api('auth/login','POST',{username:'director',password:'Private#New2027!'})).status,409);
 assert.equal((await api('auth/logout','POST',{},token)).status,200);
 assert.equal((await api('auth/login','POST',{username:'director',password:director.tempPassword})).status,401,'the pack password stops working once replaced');
 r=await api('auth/login','POST',{username:'director',password:'Private#New2027!'});assert.equal(r.status,200,JSON.stringify(r.body));

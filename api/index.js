@@ -108,6 +108,15 @@ function verifyPassword(password, saltHex, expectedHex) {
   }
 }
 
+async function verifyLoginPassword(password, saltHex, expectedHex) {
+  if(!saltHex || !expectedHex) return false;
+  try {
+    const actual = await new Promise((resolve,reject)=>crypto.pbkdf2(String(password),Buffer.from(saltHex,'hex'),PBKDF2_ROUNDS,32,'sha256',(error,key)=>error?reject(error):resolve(key)));
+    const expected = Buffer.from(expectedHex,'hex');
+    return actual.length===expected.length && crypto.timingSafeEqual(actual,expected);
+  } catch { return false; }
+}
+
 function generateStrongPassword() {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower = 'abcdefghijkmnopqrstuvwxyz';
@@ -814,17 +823,17 @@ const SESSION_LEASE_RELEASE_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then
 
 function sessionLeaseKey(username, epoch = '', sessionId = '') {
   const canonical = String(username || '').trim().toLowerCase();
-  // A separate lease per session allows simultaneous clients while preserving
-  // per-session expiry, logout and epoch-based credential revocation.
-  const digest = crypto.createHash('sha256').update(JSON.stringify([canonical, epoch, sessionId])).digest('hex').slice(0, 40);
-  return `${TRIAL_MODE ? 'carelink_trial_session_v2_' : 'carelink_session_v2_'}${digest}`;
+  // One atomic account/credential-epoch lease, regardless of client or device.
+  // Its value is the owner session ID; renew/release compare it before writing.
+  const digest = crypto.createHash('sha256').update(JSON.stringify([canonical, epoch])).digest('hex').slice(0, 40);
+  return `${TRIAL_MODE ? 'carelink_trial_account_session_v3_' : 'carelink_account_session_v3_'}${digest}`;
 }
 
-function loginSessionId(username, attemptId) {
+function loginSessionId(username, attemptId, deviceId = '') {
   const attempt = String(attemptId || '').trim();
   if (/^[A-Za-z0-9_-]{8,128}$/.test(attempt)) {
     return crypto.createHmac('sha256', sessionSigningSecret())
-      .update(`carelink-login-attempt-v1:${String(username || '').toLowerCase()}:${attempt}`)
+      .update(`carelink-login-attempt-v1:${String(username || '').toLowerCase()}:${deviceId}:${attempt}`)
       .digest('base64url');
   }
   return crypto.randomBytes(32).toString('base64url');
@@ -861,7 +870,10 @@ async function ensureSessionLease(sess) {
   const canonical = String(sess.username || '').trim().toLowerCase();
   const digest = crypto.createHash('sha256').update(sess.sessionEpoch ? `${canonical}:${sess.sessionEpoch}` : canonical).digest('hex').slice(0,40);
   const oldKey = `${TRIAL_MODE ? 'carelink_trial_active_session_v1_' : 'carelink_active_session_v1_'}${digest}`;
-  if ((await runKvCommand(['GET', oldKey])) !== sessionId) return null;
+  const v2Digest = crypto.createHash('sha256').update(JSON.stringify([canonical, sess.sessionEpoch || '', sessionId])).digest('hex').slice(0,40);
+  const v2Key = `${TRIAL_MODE ? 'carelink_trial_session_v2_' : 'carelink_session_v2_'}${v2Digest}`;
+  if ((await runKvCommand(['GET', oldKey])) !== sessionId && (await runKvCommand(['GET', v2Key])) !== sessionId) return null;
+  // During migration, only the first still-valid old session can own the account.
   if (!await reserveLoginSession(sess.username, sessionId, sess.sessionEpoch)) return null;
   return sessionId;
 }
@@ -3695,7 +3707,7 @@ async function handleRequest(req, res) {
         error: `Too many failed sign-in attempts. Try again in ${Math.ceil(lockMs / 60000)} minute(s)${!TRIAL_MODE && !isGloballyActivated(state) ? ' or click "Reset 4-Step Setup & Set Fresh Password" below' : ' or ask your County Administrator to re-issue a temporary password'}.`,
       });
     }
-    if (!cred || !verifyPassword(password, cred.salt, cred.digest)) {
+    if (!cred || !await verifyLoginPassword(password, cred.salt, cred.digest)) {
       if (state._headOnly && !state._shardedManifest) {
         ({ state, driver } = await loadCloudState({ readOnly: false }));
       }
@@ -3712,13 +3724,13 @@ async function handleRequest(req, res) {
     if (candidateUser && (candidateUser.unconfirmed || candidateUser.active === false || ['inactive','unconfirmed','revoked'].includes(candidateUser.status))) {
       return sendJson(res, 403, { ok:false, code:'account_inactive', error:'This staff seat is not active.' });
     }
-    const sessionId = loginSessionId(username, body.loginAttemptId);
+    const admission = await admitLoginDevice(state, req, res, body, cred, {save:false});
+    if (!admission.ok) return sendJson(res, 403, admission);
+    const sessionId = loginSessionId(username, body.loginAttemptId, admission.deviceId);
     if (cred.temporary && (Number(cred.temporary.expiresAt) <= Date.now() ||
         (cred.temporary.usedAt && (cred.temporary.sessionId !== sessionId || cred.temporary.deviceId !== sha256Hex(deviceProof(req)))))) {
       return sendJson(res, 403, { ok:false, code:'temporary_password_unavailable', error:'This temporary password has expired or has already been used. Ask the Chief System Administrator to re-issue it.' });
     }
-    const admission = await admitLoginDevice(state, req, res, body, cred);
-    if (!admission.ok) return sendJson(res, 403, admission);
     cred = state.creds[username];
     const hadPriorFailures = Boolean(
       state.loginFailures && (
@@ -3801,16 +3813,29 @@ async function handleRequest(req, res) {
       return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' });
     }
     if (!sessionReserved) return sendJson(res, 409, {
-      ok: false, code: 'session_conflict', error: 'This sign-in attempt could not be reserved. Please retry.',
+      ok: false, code: 'session_conflict', error: 'This account is already signed in on another client. Sign out there first, then sign in here. If that client is unavailable, wait for its idle session to expire or contact your administrator.',
     });
+    const loginDevice = state.devices[admission.deviceId];
+    if (loginDevice) {
+      loginDevice.lastSeen = nowISO();
+      if(['computer','tablet','phone','other'].includes(body.deviceType)) loginDevice.type=body.deviceType;
+      if(body.deviceLabel) loginDevice.label=clipString(body.deviceLabel,100);
+      loginDevice.users = [...new Set([...(loginDevice.users || []), username])].slice(-100);
+      loginDevice.logins = [...(loginDevice.logins || []), {at:nowISO(), username,
+        type:loginDevice.type, label:clipString(body.deviceLabel || loginDevice.label,100),
+        browser:clipString(req.headers['user-agent'] || 'Unknown browser',160)}].slice(-50);
+    }
+    appendServerAudit(state, cred.id || username, 'auth.client_login', 'user', cred.id || username,
+      'Successful single-instance sign-in.', {deviceId:admission.deviceId, clientType:loginDevice?.type || 'other'});
     if (cred.temporary && !cred.temporary.usedAt) {
       cred.temporary.usedAt = nowISO();
       cred.temporary.sessionId = sessionId;
       cred.temporary.deviceId = admission.deviceId;
       appendServerAudit(state, cred.id || username, 'credentials.temporary_consumed', 'user', username,
         'Single-use temporary password redeemed; workspace locked until private-password replacement.', { deviceId:admission.deviceId });
-      await saveCloudAuthMetadata(state);
     }
+    try { await saveCloudAuthMetadata(state); }
+    catch (error) { await releaseSessionLease(username, sessionId, cred.sessionEpoch).catch(()=>{}); throw error; }
     return sendJson(res, 200, {
       ok: true,
       token,
@@ -3826,22 +3851,37 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'auth/logout' && method === 'POST') {
-    const sess = getSession(state, req);
-    if (sess) {
-      if (state._headOnly && !state._shardedManifest) {
-        ({ state, driver } = await loadCloudState({ readOnly: false }));
+    const token = extractRequestToken(req);
+    let sess = getSession(state, req);
+    // A prior request may have saved revocation but lost connectivity before
+    // releasing the lease. Only that signed, cookie-bound owner may retry it.
+    if (!sess) {
+      const signed = verifySignedSessionToken(token);
+      const cred = signed && state.creds && state.creds[signed.u];
+      if (signed && signed.sid && cred && signed.e === cred.sessionEpoch &&
+          approvedSessionDevice(state, req, signed.d) && state.revokedSessions &&
+          Object.hasOwn(state.revokedSessions, `sid:${signed.sid}`)) {
+        try { await releaseSessionLease(signed.u, signed.sid, signed.e); }
+        catch { return sendJson(res,503,{ok:false,code:'logout_release_pending',error:'Sign-out is recorded but the online session could not be released. Retry while connected.'}); }
       }
-      if (state.sessions) delete state.sessions[sess.token];
-      state.revokedSessions = state.revokedSessions || {};
-      pruneSessions(state);
-      state.revokedSessions[sess.token] = Date.now();
-      if (sess.sessionId) state.revokedSessions[`sid:${sess.sessionId}`] = Date.now();
-      if (!state._shardedManifest) {
-        appendServerAudit(state, sess.userId || sess.username, 'auth.logout', 'user', sess.userId || sess.username, 'Signed out from online database');
-      }
-      await saveCloudAuthMetadata(state);
-      try { await releaseSessionLease(sess.username, sess.sessionId || crypto.createHash('sha256').update(sess.token).digest('base64url'), sess.sessionEpoch); } catch { /* lease expires automatically if KV is temporarily unavailable */ }
+      return sendJson(res,200,{ok:true});
     }
+    if (state._headOnly && !state._shardedManifest) {
+      ({ state, driver } = await loadCloudState({ readOnly: false }));
+    }
+    if (state.sessions) delete state.sessions[sess.token];
+    state.revokedSessions = state.revokedSessions || {};
+    pruneSessions(state);
+    state.revokedSessions[sess.token] = Date.now();
+    if (sess.sessionId) state.revokedSessions[`sid:${sess.sessionId}`] = Date.now();
+    if (!state._shardedManifest) {
+      appendServerAudit(state, sess.userId || sess.username, 'auth.logout', 'user', sess.userId || sess.username, 'Signed out from online database');
+    }
+    // Never free an account for a second client before the former token is
+    // durably revoked. A failed release is retryable through the branch above.
+    await saveCloudAuthMetadata(state);
+    try { await releaseSessionLease(sess.username, sess.sessionId || crypto.createHash('sha256').update(sess.token).digest('base64url'), sess.sessionEpoch); }
+    catch { return sendJson(res,503,{ok:false,code:'logout_release_pending',error:'Sign-out is recorded but the online session could not be released. Retry while connected before signing in on another client.'}); }
     return sendJson(res, 200, { ok: true });
   }
 
