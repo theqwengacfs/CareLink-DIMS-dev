@@ -18,7 +18,7 @@ const {makeCtx}=require('./dom');
     const html=nodes[nodes.length-1].innerHTML;
     assert.match(html,/data-theme="clinic"/);
     assert.match(html,/Apply to landing &amp; sign-in/);
-    assert.match(html,/4\.53:1/);
+    assert.ok(html.includes(metrics.find(t=>t.id==='clinic').pairs[0].ratio.toFixed(2)+':1'),'preview reports the measured current action contrast');
     assert.match(html,/ inert>/,'previewed login controls are inert, not a second live login form');
     assert.equal(run('JSON.stringify(DB.db)'),before,'preview never writes system.config or an audit event');
     assert.equal(run('ENTRY_THEME.previewId'),null,'preview scope is cleared even after rendering');

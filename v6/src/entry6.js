@@ -200,19 +200,33 @@ async function activateFullDemoDataset(){
   }
 }
 
+/* Foundation-confirmed organisation display; does not grant RBAC capabilities. */
+const MAJOR_DEPARTMENTS = [
+  {name:'Administration',detail:'Country Director, County Administrators and County Admin Assistants.'},
+  {name:'Field Care',detail:'Ministry Area Coordinators, Caregivers, Community Health Promoters and Community Health Volunteers.'},
+  {name:'Hospital',detail:'Medical Case Managers, Nurses / Nurse Assistants, Clinical Officers, approved Community Health Promoters and Hospital Liaison.'},
+  {name:'Transport',detail:'Drivers who also serve as caregivers; transport staff may hold procurement head/deputy responsibilities. Each duty requires its own authorisation.'},
+  {name:'Media & IT',detail:'Media and information technology.'},
+  {name:'Homestay',detail:'Homestay care coordination.'},
+  {name:'Procurement',detail:'Sourcing materials across the organisation.'},
+  {name:'Finance',detail:'Financial records, expenditure and budgets.'},
+  {name:'HR & Staff',detail:'Staff administration.'},
+  {name:'Welfare Department',detail:'Staff welfare.'},
+  {name:'Internal Operations',detail:'Internal operational coordination.'}
+];
 /* Original eight-department hub-and-spoke workflow. Red leads the shared
    centre/connections; secondary colours distinguish departments, never status.
    Keep it semantic, self-contained and available in the Chief's inert preview. */
 function renderLandingWorkflow6(){
   const nodes=[
-    [230,24,'Field Care','red'], [324,52,'Hospital','red'],
-    [354,112,'M&E / DHIS','teal'], [322,174,'Finance','gold'],
-    [230,200,'Homestay','red'], [138,174,'Media & IT','blue'],
-    [106,112,'HR & Leave','red'], [136,52,'Transport','teal']
+    [230,24,'Administration','red'], [324,52,'Field Care','teal'],
+    [354,112,'Hospital','red'], [322,174,'Transport','gold'],
+    [230,200,'Media & IT','blue'], [138,174,'Homestay','red'],
+    [106,112,'Procurement','teal'], [136,52,'Finance','red']
   ];
   return `<svg viewBox="50 0 360 224" class="ld-scene-svg" role="img" aria-labelledby="ld-workflow-title" aria-describedby="ld-workflow-desc" focusable="false">
     <title id="ld-workflow-title">CareLink system workflow</title>
-    <desc id="ld-workflow-desc">CareLink is the shared centre connecting Field Care, Hospital, M&amp;E / DHIS, Finance, Homestay, Media &amp; IT, HR &amp; Leave and Transport. Every department coordinates through one shared system.</desc>
+    <desc id="ld-workflow-desc">CareLink is the shared centre connecting Administration, Field Care, Hospital, Transport, Media &amp; IT, Homestay, Procurement and Finance: eight featured teams from 11 Major Departments. Every department coordinates through one shared system.</desc>
     <g class="ld-workflow-orbits" fill="none" aria-hidden="true">
       <circle cx="230" cy="112" r="82" stroke-dasharray="4 5"/>
       <circle cx="230" cy="112" r="55"/>
@@ -240,11 +254,13 @@ function renderLanding6(){
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const isCommissioned = isActivated || commissionedEntryActive();
   const setupPending = hostedEntryPending();
+  const layout = typeof CLIENT_UI!=='undefined' ? CLIENT_UI.snapshot() : {width:1280};
+  const lakeSource = typeof location!=='undefined' && /^https?:$/.test(location.protocol) ? `./media/lake-workspace-${layout.width>=1600?3840:layout.width>=700?1920:960}.webp` : carelinkPhoto('lake_kisumu');
   const facts = [
     { n: Object.keys(CAPS||{}).length, l:'Capabilities' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.length:2), l:'County Offices' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10), l:'Ministry Areas' },
-    { n: DEPARTMENTS.length, l:'Departments' }
+    { n: 11, l:'Major Departments' }
   ];
 
   return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="${ENTRY_THEME.style(th.id)}">
@@ -266,7 +282,7 @@ function renderLanding6(){
       </nav>
     </header>
 
-    <div class="ld-container ld-front-main" style="--landing-lake:url('${carelinkPhoto('lake_kisumu')}')">
+    <div class="ld-container ld-front-main" style="--landing-lake:url('${lakeSource}')">
       ${trialEntryActive()?`<div class="alert warn" role="status"><b>TEAM TRIAL · SYNTHETIC DATA ONLY</b><span>Shared evaluation environment. Never enter real patient, staff or confidential information.</span></div>`:''}
       <section class="ld-hero ld-hero-tight">
         <div class="ld-hero-copy">
@@ -291,10 +307,11 @@ function renderLanding6(){
           <div class="ld-canvas-card ld-canvas-tight">
             <figure class="ld-workflow" aria-labelledby="ld-workflow-heading">
               <figcaption class="ld-workflow-head">
-                <span class="ld-workflow-kicker">The CareLink workflow</span>
+                <span class="ld-workflow-kicker">11 Major Departments · 8 featured teams</span>
                 <h2 id="ld-workflow-heading">One system. Every team connected.</h2>
               </figcaption>
               ${renderLandingWorkflow6()}
+              <details class="ld-department-list"><summary>Explore all 11 Major Departments</summary><p>The same structure applies in each county. Cross-department duties do not automatically grant access.</p><ol>${MAJOR_DEPARTMENTS.map(d=>`<li><b>${esc(d.name)}</b><span>${esc(d.detail)}</span></li>`).join('')}</ol></details>
               <div class="ld-workflow-path" aria-label="Capture, coordinate and report through one shared record">
                 <span>Capture</span>${ic('chevron',12)}<span>Coordinate</span>${ic('chevron',12)}<span>Report</span>
               </div>
@@ -321,9 +338,9 @@ function renderLanding6(){
 /* ------------------------------------------------------------ dedicated architecture & departments page */
 function renderArchitecture6(){
   const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#EE0000' };
-  const departments = DEPARTMENTS.slice(0, 10);
+  const departments = MAJOR_DEPARTMENTS.map((d,i)=>({id:'major-'+i,name:d.name,accent:['#b91c3c','#0f655d','#1e40af'][i%3],...d}));
   const dept = d => `<div class="ld-dept" style="--c:${d.accent}">
-      <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.short)}</span></div>`;
+      <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.detail||d.short||'')}</span></div>`;
   const areaCount = (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10);
   const step = (icn, badgeTxt, title, body) => `<article class="ld-step">
       <div class="ld-step-top">
@@ -780,7 +797,7 @@ function renderOnboarding6(){
   if(step===4){
     body = `${hostedSetup
       ? `<p class="lg-note">Live Vercel commissioning starts with an <b>empty production register</b>. After these four steps, the Chief can open <b>Master data import</b> before global activation to download and upload the complete reference master in verified chunks. The large package is deliberately not part of this initial request because of Vercel's 4.5 MB Function request limit.</p>`
-      : `<p class="lg-note">Choose whether to start with the full ${num(DEMO_REGISTER.patients)}-patient synthetic reference register across all 10 ministry areas and 14 departments, or an empty production register ready for live intake.</p>`}
+      : `<p class="lg-note">Choose whether to start with the full ${num(DEMO_REGISTER.patients)}-patient synthetic reference register across all 10 ministry areas and 11 major departments, or an empty production register ready for live intake.</p>`}
       <div class="alert info" style="margin-bottom:12px">${ic('info',16)}<div>
         <b>Staff credential downloads follow global activation</b>
         <span class="small">Finish setup, sign in as Chief System Administrator and change your password. After you activate the system globally, download the confidential SMS CSV or text pack from the activation screen.</span>
@@ -1197,7 +1214,7 @@ Object.assign(FORMS, {
       }
       // Device admission is tied to the server-issued cookie and approval code,
       // not a label typed at sign-in. Do not require staff to name their device.
-      let res = await AUTH.loginOnline(username, password, {label:'Staff browser',type:'other'});
+      let res = await AUTH.loginOnline(username, password, CLIENT_UI.snapshot());
       if(!res.ok && !hosted){
         /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
            feature.  A Vercel client never turns a failed server login into a

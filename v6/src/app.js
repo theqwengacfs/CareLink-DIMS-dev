@@ -1386,9 +1386,9 @@ const ACTIONS = {
     toast('Organisation default saved','People who have not chosen their own theme now see it.','ok'); render();
   },
   'toggle-user-menu':()=>{ userMenu(); },
-  logout:()=>{
+  logout:async ()=>{
+    if(typeof SYNC!=='undefined' && SYNC.sessionToken && !await SYNC.logout()) return toast('Sign-out not confirmed','The server could not release this session. Stay connected and retry before signing in on another client.','warn');
     SESSION.stop();
-    if(typeof SYNC!=='undefined') SYNC.logout();
     closeAllModals();
     AUTH.logout();
     APPX.aiOpen=false; APPX.showUserMenu=false; APPX.navOpen=false;
@@ -1398,7 +1398,7 @@ const ACTIONS = {
     try{ history.replaceState(null,'','#/'); }catch(e){}
     render();
   },
-  print:()=>{ try{ window.print(); }catch(e){ toast('Printing blocked','Open the file in a browser tab to print.','warn'); } },
+  print:()=>PRINT_CONTROL.open('workspace'),
   'toggle-pw':(d, el)=>{
     const wrap = el && el.closest ? el.closest('.pw-wrap') : null;
     const inp = wrap ? wrap.querySelector('input') : null;

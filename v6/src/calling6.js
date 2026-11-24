@@ -48,6 +48,8 @@ const CALLING = {
     try{ if(location && !/^https:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return 'Calling needs a secure (https) connection.'; }catch(e){}
     if(typeof SYNC === 'undefined' || !SYNC.available || !SYNC.available()) return 'Calling needs the shared online source; this device is offline.';
     if(!SYNC.sessionToken) return 'Sign in online to place a call.';
+    const policy=document.permissionsPolicy||document.featurePolicy;
+    if(policy&&policy.allowsFeature&&!policy.allowsFeature('microphone')) return 'Microphone access is blocked by the page or embedding policy. Open CareLink directly in a new browser tab and reload after the site update.';
     if(!this.supported()) return 'This browser does not provide a direct audio/video connection. Use the telephone fallback.';
     return '';
   },
@@ -153,10 +155,10 @@ const CALLING = {
       if(kind==='video' && missing){
         try{ return await navigator.mediaDevices.getUserMedia({ audio:true, video:false }); }catch(_e){}
       }
-      openModal({ title: denied ? 'Microphone permission refused' : missing ? 'No microphone or camera found' : 'The media device could not be opened',
+      openModal({ title: denied ? 'Microphone / camera access blocked' : missing ? 'No microphone or camera found' : 'The media device could not be opened',
         narrow:true, sub:'No call was placed.',
         body:`<div class="alert warn">${ic('alert',16)}<div><b>${denied?'This browser is blocking the microphone':missing?'This device has no usable microphone':'The device is in use elsewhere'}</b>
-          <span class="small">${denied?'Allow microphone (and camera for video) in the browser’s site settings for this address, then try again.':missing?'An audio call needs a working microphone.':esc(String(err && err.message || 'Close other apps using the microphone and try again.'))}</span></div></div>
+          <span class="small">${denied?'Allow microphone and camera in this site’s browser settings AND the operating system’s privacy settings. Close other apps using them. If permissions already show Allowed, reload CareLink directly in its own tab: an embedding or server policy may still block access.':missing?'An audio call needs a working microphone.':esc(String(err && err.message || 'Close other apps using the microphone and try again.'))}</span></div></div>
           <p class="small" style="color:var(--ink-2)">You can always message the same person from Team Chat instead.</p>`,
         footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>`});
       return null;

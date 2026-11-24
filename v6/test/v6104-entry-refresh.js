@@ -50,7 +50,7 @@ for(const theme of ['clinic','heritage']){
   assert.match(diagram,/<title id="ld-workflow-title">CareLink system workflow<\/title>/);
   assert.equal((diagram.match(/<line /g)||[]).length,8,'all eight original connections are restored');
   assert.deepEqual([...diagram.matchAll(/data-workflow-node="([^"]+)"/g)].map(m=>m[1].replaceAll('&amp;','&')),
-    ['Field Care','Hospital','M&E / DHIS','Finance','Homestay','Media & IT','HR & Leave','Transport']);
+    ['Administration','Field Care','Hospital','Transport','Media & IT','Homestay','Procurement','Finance']);
   assert.match(diagram,/class="ld-workflow-core-name">CareLink<\/text>/);
   assert.ok(!diagram.includes('<image'),'the vector graphic works offline without external images');
   assert.equal((diagram.match(/data-tone="red"/g)||[]).length,4,'red remains the leading department accent');

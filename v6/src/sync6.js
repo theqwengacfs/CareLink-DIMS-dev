@@ -187,7 +187,7 @@ const SYNC = {
     if(!loginAttemptId){
       try{ const bytes = new Uint8Array(24); cryptoApi.getRandomValues(bytes); loginAttemptId = Array.from(bytes, b=>b.toString(16).padStart(2,'0')).join(''); }catch(_e){ loginAttemptId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`; }
     }
-    const descriptor=device && typeof device==='object' ? device : {label:device||'Staff browser',type:'other'};
+    const descriptor=device && typeof device==='object' ? device : (typeof CLIENT_UI!=='undefined'?CLIENT_UI.snapshot():{label:device||'Staff browser',type:'other'});
     const loginPayload = JSON.stringify({username, password, deviceLabel:String(descriptor.label||'Staff browser').slice(0,100), deviceType:descriptor.type||'other', loginAttemptId});
     let r = null;
     let netErr = null;
@@ -252,7 +252,7 @@ const SYNC = {
     clearTimeout(this._timer);
     if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.clearCredentialPack) PROD_SETUP.clearCredentialPack();
     if(this.sessionToken){
-      try{ await this._json('api/auth/logout', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}', timeoutMs:6000}); }catch(e){}
+      try{ const result=await this._json('api/auth/logout', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}', timeoutMs:6000}); if(!result.ok) return false; }catch(e){ return false; }
     }
     this.deviceOnlyOverride = false;
     this.storeToken(null);
@@ -260,6 +260,7 @@ const SYNC = {
     this.stopPolling();
     this.state = 'idle';
     this.bump();
+    return true;
   },
 
   async beat(){

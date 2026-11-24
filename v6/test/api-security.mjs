@@ -9,6 +9,7 @@ import zlib from 'node:zlib';
 const kv = new Map();
 let failReads = false;
 let failWrites = false;
+let failLeaseRelease = false;
 const response = (body, status = 200) => ({
   ok: status >= 200 && status < 300,
   status,
@@ -31,6 +32,7 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url.pathname === '/' && init.method === 'POST') {
     const [op, ...args] = JSON.parse(init.body);
+    if(failLeaseRelease && op==='EVAL' && String(args[0]).includes("redis.call('DEL'")) return response({error:'release unavailable'},503);
     if (failWrites && !(op === 'EVAL' && (isSnapshotRead(args[0]) || args[0] === "return redis.call('GET', KEYS[1])"))) return response({ error: 'write unavailable' }, 503);
     if (op === 'SET') {
       const [key, value, ...options] = args;
@@ -360,11 +362,10 @@ await check('globally issued staff credentials work from a fresh online session'
   });
   assert.equal(changed.status, 200, JSON.stringify(changed.body));
   const concurrent = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', device: 'pc-test' } });
-  assert.equal(concurrent.status, 200, 'A second session can sign in immediately');
-  assert.equal((await call('session/beat', {method:'POST',token:concurrent.body.token})).status, 200);
+  assert.equal(concurrent.status, 409, 'A second independent session must be refused');
+  assert.equal(concurrent.body.code,'session_conflict');
   const signout = await call('auth/logout', { method: 'POST', token: first.body.token });
   assert.equal(signout.status, 200);
-  assert.equal((await call('session/beat', {method:'POST',token:concurrent.body.token})).status, 200, 'signing out one session does not end another');
   const second = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', device: 'pc-test' } });
   assert.equal(second.status, 200, JSON.stringify(second.body));
   assert.equal(second.body.mustChange, false);
@@ -574,7 +575,7 @@ await check('repeated activation preserves private staff passwords instead of is
   assert.equal(r.body.issued.length, 0);
   assert.deepEqual(r.body.preserved, ['staff.one']);
   const denied = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
-  assert.equal(denied.status, 200, 'Private credentials can open another immediate session');
+  assert.equal(denied.status, 409, 'Private credentials do not bypass single-instance admission');
   const signedOut = await call('auth/logout', { method: 'POST', token: staffToken });
   assert.equal(signedOut.status, 200);
   const login = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!' } });
@@ -585,25 +586,42 @@ await check('repeated activation preserves private staff passwords instead of is
   assert.equal(state.body.db.users.find((u) => u.username === 'staff.one').mustChange, false);
 });
 
-await check('parallel sessions, independent logout and idempotent login retries', async () => {
+await check('parallel attempts have one winner, immediate logout release and idempotent retries', async () => {
   const previousLogout = await call('auth/logout', { method: 'POST', token: staffToken });
   assert.equal(previousLogout.status, 200);
   const [a, b] = await Promise.all([
     call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: 'parallel-device-a-2026' } }),
     call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: 'parallel-device-b-2026' } }),
   ]);
-  assert.equal(a.status, 200, JSON.stringify(a.body)); assert.equal(b.status, 200, JSON.stringify(b.body));
-  const beatA = await call('session/beat', {method:'POST',token:a.body.token});
-  const beatB = await call('session/beat', {method:'POST',token:b.body.token});
-  assert.equal(beatA.status,200); assert.equal(beatB.status,200);
-  assert.equal((await call('auth/logout',{method:'POST',token:beatA.body.token})).status,200);
-  assert.equal((await call('state',{token:a.body.token})).status,401,'logout also invalidates an older token from the same session');
-  assert.equal((await call('session/beat',{method:'POST',token:beatB.body.token})).status,200,'another session remains usable');
+  assert.deepEqual([a.status,b.status].sort(),[200,409]);
+  const winner=a.status===200?a:b;
+  const beat=await call('session/beat',{method:'POST',token:winner.body.token});
+  assert.equal(beat.status,200);
+  assert.equal((await call('auth/logout',{method:'POST',token:beat.body.token})).status,200);
+  assert.equal((await call('state',{token:winner.body.token})).status,401,'old session tokens remain invalid after logout');
   const attempt = 'replayed-network-attempt-2026';
   const original = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: attempt } });
   const retry = await call('auth/login', { method: 'POST', body: { username: 'staff.one', password: 'PrivateStaff#2027!', loginAttemptId: attempt } });
   assert.equal(original.status, 200); assert.equal(retry.status, 200, 'network retry stays idempotent');
   assert.equal((await call('auth/logout', {method:'POST',token:retry.body.token})).status,200);
+});
+
+await check('logout release failures retain the lock and permit an owner retry',async()=>{
+  const login=await call('auth/login',{method:'POST',body:{username:'staff.one',password:'PrivateStaff#2027!'}});
+  assert.equal(login.status,200);
+  failLeaseRelease=true;
+  const logout=await call('auth/logout',{method:'POST',token:login.body.token});
+  failLeaseRelease=false;
+  assert.equal(logout.status,503);
+  assert.equal(logout.body.code,'logout_release_pending');
+  assert.equal((await call('state',{token:login.body.token})).status,401,'revocation persisted before release');
+  assert.equal((await call('auth/login',{method:'POST',body:{username:'staff.one',password:'PrivateStaff#2027!'}})).status,409);
+  assert.equal((await call('auth/logout',{method:'POST',token:login.body.token})).status,200,'revoked owner can retry release');
+  const next=await call('auth/login',{method:'POST',body:{username:'staff.one',password:'PrivateStaff#2027!'}});
+  assert.equal(next.status,200);
+  await call('auth/logout',{method:'POST',token:login.body.token});
+  assert.equal((await call('session/beat',{method:'POST',token:next.body.token})).status,200,'former owner cannot release a newer lease');
+  await call('auth/logout',{method:'POST',token:next.body.token});
 });
 
 await check('anonymous demo bootstrap is permanently refused after global activation', async () => {

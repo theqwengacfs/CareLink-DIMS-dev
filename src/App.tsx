@@ -13,7 +13,7 @@ export default function App() {
         margin: 0,
         padding: 0,
       }}
-      allow="geolocation; clipboard-write"
+      allow="camera; microphone; geolocation; clipboard-write"
     />
   );
 }

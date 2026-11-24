@@ -758,3 +758,53 @@ html[data-wt="foundation"] .shell .npane .np-brand :is(button,a):focus-visible{o
 .np-id .np-account-name>span{white-space:normal;overflow:visible;align-items:flex-start;}
 .np-id .np-account-name strong{color:var(--chrome-ink,var(--ink));white-space:normal;}
 html[data-wt="foundation"] .shell .npane .np-brand .np-account-name{border-top-color:#ffffff55;}
+
+/* Responsive identity is a layout hint, never an access-control decision.
+   A narrow PC window still gets compact layout; touch clients keep 44px targets. */
+html[data-client-kind="tablet"] :is(button,input,select),html[data-client-kind="phone"] :is(button,input,select){touch-action:manipulation;}
+html[data-client-kind="tablet"] .shell :is(.btn,.icon-btn,.tab,.np-i),html[data-client-kind="phone"] .shell :is(.btn,.icon-btn,.tab,.np-i){min-height:44px;}
+/* Two deliberate toolbar rows replace compressed labels and tiny scroll strips. */
+@media(min-width:1180px){
+  .app.shell>.topbar.cbar{display:grid !important;grid-template-columns:auto minmax(190px,1fr) minmax(150px,230px) auto;grid-template-areas:"nav identity search actions" "quick quick quick quick";gap:12px 18px;align-items:center;padding:16px 22px !important;}
+  .app.shell>.topbar.cbar>.cb-nav{grid-area:nav;}
+  .app.shell>.topbar.cbar>.cb-id{grid-area:identity;}
+  .app.shell>.topbar.cbar>.searchbox{grid-area:search;min-width:0;width:100%;}
+  .app.shell>.topbar.cbar>.tb-actions{grid-area:actions;flex-wrap:wrap;overflow:visible;gap:7px;}
+  .app.shell>.topbar.cbar>.cb-quick{grid-area:quick;width:100%;max-width:none;display:flex;flex-wrap:wrap;gap:8px;overflow:visible;padding:0;background:transparent;}
+}
+@media(max-width:1179px){
+  .app.shell>.topbar.cbar{display:flex !important;flex-wrap:wrap !important;gap:12px !important;padding:14px !important;}
+  .app.shell>.topbar.cbar>.cb-id{flex:1 1 190px;}
+  .app.shell>.topbar.cbar>.cb-quick{order:5;flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;max-width:100%;overflow:visible !important;}
+  .app.shell>.topbar.cbar>.tb-actions{flex:1 1 100% !important;justify-content:flex-start;flex-wrap:wrap;overflow:visible !important;}
+  .app.shell>.topbar.cbar>.searchbox{flex:1 1 100%;width:100%;max-width:none;}
+}
+html[data-client-layout="compact"] .shell-role-banner .ws67-hero-main{grid-template-columns:minmax(0,1fr) !important;}
+html[data-client-layout="compact"] .shell-role-banner .ws67-qgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+.topbar.cbar .cb-qbtn{min-height:40px;white-space:normal;text-align:left;}
+html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn{background:#e8efff !important;color:#203c7a !important;border:1px solid #c6d5f0;border-radius:10px;padding:9px 14px;}
+html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn.on{background:#1e40af !important;color:#fff !important;border-color:#1e40af;box-shadow:inset 0 -3px 0 #facc15;}
+.topbar.cbar .cb-id :is(h1,.cb-console-name,.cb-view-name){white-space:normal !important;overflow-wrap:anywhere;max-width:100%;}
+.topbar.cbar .cb-id .xs{line-height:1.5;white-space:normal;}
+.topbar.cbar .sync-chip{max-width:230px;white-space:normal;}
+.topbar.cbar .sync-chip .badge{white-space:normal;line-height:1.4;}
+.topbar.cbar .sync-chip .sync-detail{display:none;}
+.topbar.cbar .icon-btn:disabled{opacity:.45;}
+html[data-wt="foundation"] .shell>.content{background:radial-gradient(ellipse at 98% 0%,#e9efff88,transparent 40%),radial-gradient(ellipse at 0% 70%,#f4eaff55,transparent 36%),#fff;}
+/* Translucent texture stays behind opaque reading cards, never behind patient text. */
+html[data-wt="foundation"] .shell .msg-pane-h{background:linear-gradient(110deg,#e7efff,#f2e8ff);border-bottom:2px solid #6d28a8;padding:18px;}
+html[data-wt="foundation"] .shell .msg-pane-h :is(b,span){color:#203455;}
+html[data-wt="foundation"] .shell .msg-thread.on{background:#e8efff;box-shadow:inset 4px 0 0 #1e40af;}
+html[data-wt="foundation"] .shell .msg-pane{border-radius:18px;box-shadow:0 6px 24px #14233e0a;}
+.ld-department-list{font-size:12px;color:var(--entry-ink);padding:10px 12px;border:1px solid var(--entry-line);border-radius:12px;background:var(--entry-surface);}
+.ld-department-list>summary{cursor:pointer;min-height:32px;font-weight:700;}
+.ld-department-list ol{padding-left:20px;display:grid;gap:10px;margin:12px 0;}
+.ld-department-list li>span{display:block;line-height:1.6;}
+/* A small lift in entry red, retaining AA white-on-red button contrast. */
+.ld[data-front="1"] .ld-workflow-core circle{fill:#c51f3b;}
+@media print{
+ body.print-workspace :is(.npane,.shell-role-banner,.topbar,.sheet,.modal-back,.toasts,.ai-dock,.call-ringer){display:none !important;}
+ body.print-workspace #root,body.print-workspace .app.shell,body.print-workspace .content{display:block !important;height:auto !important;overflow:visible !important;max-height:none !important;background:#fff !important;color:#000 !important;padding:0 !important;margin:0 !important;}
+ body.print-workspace .print-root{display:none !important;}
+ body.print-workspace :is(button,input,select,textarea){box-shadow:none;}
+}

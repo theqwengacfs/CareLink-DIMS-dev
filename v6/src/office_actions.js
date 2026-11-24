@@ -137,12 +137,7 @@ const FORMS_ACTIONS = {
     if(!rec) return;
     printDoc(FORM_KINDS[rec.kind]?.title||'Form', formDoc(rec));
   },
-  'do-print':()=>{
-    document.body.classList.add('print-mode');
-    const done=()=>document.body.classList.remove('print-mode');
-    window.addEventListener('afterprint',done,{once:true});
-    setTimeout(()=>{ try{ window.print(); }catch(e){ toast('Printing blocked','Open the file in a browser tab to print.','warn'); } finally { setTimeout(done,800); } },60);
-  },
+  'do-print':()=>PRINT_CONTROL.open('document'),
   'download-forms-csv':()=>{
     const data=FORMSX.csv(AUTH.user);
     download(`form-records-${todayISO()}.csv`, data);
@@ -483,3 +478,45 @@ const FORMS_FORMS = {
   'apply-leave':()=>ACTIONS['submit-apply-leave']({}),
   'leave-decision':()=>ACTIONS['submit-leave']({})
 };
+
+/* Browser/OS print controller: no direct USB/Bluetooth discovery is claimed. */
+const PRINT_CONTROL = {
+  open(source='workspace'){
+    const active=typeof modalStack!=='undefined'&&modalStack[modalStack.length-1];
+    const visible=source==='document'&&active&&(active.querySelector('.print-area')||active.querySelector('.modal-b'));
+    const documentReady=Boolean(visible&&visible.innerHTML);
+    if(documentReady){
+      let host=document.getElementById('printRoot');
+      if(!host){host=document.createElement('div');host.id='printRoot';host.className='print-root';document.body.appendChild(host);}
+      host.innerHTML=visible.innerHTML;
+    }
+    this.source=documentReady?'document':'workspace';
+    openModal({title:'Print centre',sub:documentReady?'Selected document':'Current workspace',narrow:true,stack:true,
+      body:`<form data-form="print-settings" id="print-settings">
+        <div class="field"><label for="print-orientation">Page orientation</label><select class="input" id="print-orientation" name="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape · wide tables</option></select></div>
+        <div class="field"><label for="print-size">Paper size</label><select class="input" id="print-size" name="size"><option>A4</option><option>Letter</option></select></div>
+        <div class="note">${ic('printer',18)}<span>Choose a Wi-Fi or wired printer, or Save as PDF, in your device’s print dialog. CareLink does not scan your network or send records to an external print service.</span></div>
+        <details><summary>Android and Windows printer setup</summary><p>Android: enable the printer manufacturer’s print service or Default Print Service in system settings. For USB, device/adapter support is required. Windows: add the Wi-Fi/network or USB printer in Settings → Printers & scanners. Both devices must be able to reach the printer.</p><p>Review the print preview before printing sensitive records. Choosing Print does not prove that paper was produced.</p></details>
+        <button class="btn btn-primary" type="submit">Open device print dialog</button></form>`,
+      footer:'<button class="btn btn-ghost" data-act="close-modal">Cancel</button>'});
+  },
+  execute(size,orientation){
+    if(!['A4','Letter'].includes(size)||!['portrait','landscape'].includes(orientation))return;
+    let style=document.getElementById('carelink-print-settings');
+    if(!style){style=document.createElement('style');style.id='carelink-print-settings';document.head.appendChild(style);}
+    style.textContent=`@page { size:${size} ${orientation}; margin:12mm; }`;
+    const mode=this.source==='document'?'print-mode':'print-workspace';
+    document.body.classList.add(mode);
+    const clean=()=>document.body.classList.remove(mode);
+    window.addEventListener('afterprint',clean,{once:true});
+    try{window.print();}catch(error){clean();toast('Print dialog unavailable','Open CareLink directly in a browser tab and use its Print menu.','warn');}
+    // Some mobile print services do not emit afterprint. Restore screen state
+    // on return to the tab, not a timer that may fire while preview is open.
+    window.addEventListener('focus',clean,{once:true});
+  }
+};
+Object.assign(FORMS_ACTIONS,{
+  'print':()=>PRINT_CONTROL.open('workspace'),
+  'do-print':()=>PRINT_CONTROL.open('document')
+});
+Object.assign(FORMS_FORMS,{'print-settings':d=>PRINT_CONTROL.execute(String(d.get('size')),String(d.get('orientation')))});
