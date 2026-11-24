@@ -41,3 +41,9 @@ sensitive_vault/
 # Generated distribution kits must be explicitly rebuilt from reviewed source.
 /v6/*Office-Kit.zip
 /deliverables/CareLink-Chief-Recovery-*.zip
+
+# Native Android local/build state
+native-android/.gradle/
+native-android/**/build/
+native-android/local.properties
+native-android/.idea/
