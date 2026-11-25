@@ -34,7 +34,10 @@ const weeklyOf = (roleOrUser, params = {}) => JSON.parse(run(
 
 // Working-week periods use Nairobi civil dates, including year and UTC boundaries.
 const period = JSON.parse(run(`JSON.stringify(PERIOD.lastCompletedWorkWeek(new Date('2026-11-25T12:00:00Z')))`));
-check('last completed planning period is Monday through Friday', period.civilStart === '2026-11-16' && period.civilEnd === '2026-11-20' && /Monday 16 Nov 2026.*Friday 20 Nov 2026/.test(period.label), JSON.stringify(period));
+check('last completed planning period matches the provisional week 48 example', period.civilStart === '2026-11-16' && period.civilEnd === '2026-11-20' && period.planningWeek===48 && period.planningYear===2026 && /Monday 16 Nov 2026.*Friday 20 Nov 2026/.test(period.label), JSON.stringify(period));
+check('the provisional 52-week convention labels an extra segment without dropping its work days',
+  run(`PERIOD.workWeek('2023-12-18').planningWeek`)===52 && run(`PERIOD.workWeek('2023-12-18').extraSegment`)===true &&
+  run(`PERIOD.workWeek('2023-12-25').planningWeek`)===1 && run(`PERIOD.workWeek('2023-12-25').planningYear`)===2024);
 check('Nairobi midnight and year boundaries select the completed work week',
   run(`PERIOD.lastCompletedWorkWeek(new Date('2027-01-03T21:05:00Z')).civilStart`) === '2026-12-28' &&
   run(`PERIOD.lastCompletedWorkWeek(new Date('2026-11-21T10:00:00Z')).civilStart`) === '2026-11-16');

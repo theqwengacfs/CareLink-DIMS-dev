@@ -31,10 +31,11 @@ const CARE_WORKFLOW = (()=>{
     const success=(rec,event)=>({ok:true,rec:copy(rec),event,patches:staged,msg:'Clinical record saved with its history.'});
     if(!user?.id||!user.roleId) return fail('Sign in to continue.','sign_in_required',401);
     let p=get('patients',payload.patientId);
-    const recCollection=command==='international_review'?'intlPdcaDossiers':command.includes('referral')?'careReferrals':'careReviews';
+    const dossierCommand=['international_review','dossier_comment','dossier_reply'].includes(command);
+    const recCollection=dossierCommand?'intlPdcaDossiers':command.includes('referral')?'careReferrals':'careReviews';
     const existing=payload.id?get(recCollection,payload.id):null;
     if(!p&&existing) p=get('patients',existing.patientId);
-    const intl=command==='international_review'&&user.roleId==='intl.medical';
+    const intl=dossierCommand&&user.roleId==='intl.medical';
     if(!p||(!intl&&!(options.visible?options.visible(p):canSee(user,p)))) return fail('Patient record is outside your clinical scope.','clinical_scope_denied',403);
     const scoped={patientId:p.id,countyId:p.countyId,areaId:p.areaId};
     const mcm=()=>isMcm(user);
@@ -163,6 +164,36 @@ const CARE_WORKFLOW = (()=>{
         foundationSupported:true,supportReference:text(payload.supportReference,500),evidenceId:evidence.id,confirmedBy:user.id,confirmedAt:now});
       return success(admission,'program_admission.confirmed');
     }
+    if(command==='dossier_comment'||command==='dossier_reply'){
+      const dossier=get('intlPdcaDossiers',payload.id);
+      const authorization=dossier&&get('careReviewRevisions',dossier.authorizedRevisionId);
+      const allowedLocal=mcm()||(user.roleId==='caregiver'&&p.caregiverId===user.id);
+      if((command==='dossier_comment'&&!intl)||(command==='dossier_reply'&&!intl&&!allowedLocal)||!dossier||dossier.patientId!==p.id||!dossier.sharedAt||
+        !authorization||authorization.event!=='authorized'||authorization.reviewId!==dossier.reviewId||authorization.patientId!==dossier.patientId||
+        authorization.cycleId!==dossier.cycleId||authorization.by!==dossier.authorizedBy||JSON.stringify(authorization.fields)!==JSON.stringify(dossier.fields))
+        return fail('Only the authorized clinical participants may discuss an explicitly shared revision.','international_scope_denied',403);
+      if(dossier.version!==Number(payload.version)) return fail('This discussion changed. Reopen it before saving.','clinical_version_conflict',409);
+      const message=String(payload.message??'').trim();
+      if(!message||message.length>4000) return fail('Enter a comment of at most 4,000 characters; nothing has been saved.');
+      const threads=copy(dossier.comments||[]);
+      if(command==='dossier_comment'){
+        const field=String(payload.field||''),line=Number(payload.line);
+        if(!R.FIELDS.some(([key])=>key===field)||!Number.isInteger(line)||line<0)return fail('Choose a valid report field and line.');
+        const lines=String(dossier.fields?.[field]||'').split(/\r?\n/);
+        if(line>=lines.length)return fail('That line is not in the authorized revision.');
+        if(!['comment','question','clarification','evidence_request'].includes(payload.kind))return fail('Choose a valid advisory category.');
+        threads.push({id:id('pdca-comment'),field,line,quote:lines[line],kind:payload.kind,message,by:user.id,role:user.roleId,at:now,replies:[]});
+      }else{
+        const thread=threads.find(t=>t.id===payload.commentId);
+        if(!thread)return fail('The requested comment is not in this shared revision.');
+        thread.replies=[...(thread.replies||[]),{id:id('pdca-reply'),message,by:user.id,role:user.roleId,at:now}];
+      }
+      const updated=put('intlPdcaDossiers',{...dossier,version:dossier.version+1,comments:threads});
+      if(intl){notifyMcms('International PDCA discussion updated',`patient:${p.id}`);notifyCaregiver('International PDCA discussion updated');}
+      else list('users').filter(u=>u.roleId==='intl.medical'&&u.status==='active'&&u.active!==false&&!u.unconfirmed)
+        .forEach(u=>notify(u.id,'PDCA discussion response received','A shared report has a new scoped discussion response.','intlmedical'));
+      return success(updated,command==='dossier_comment'?'pdca.international_comment_added':'pdca.international_comment_replied');
+    }
     if(command==='international_review'){
       const dossier=get('intlPdcaDossiers',payload.id);
       const authorization=dossier&&get('careReviewRevisions',dossier.authorizedRevisionId);
@@ -261,8 +292,9 @@ const CARE_WORKFLOW = (()=>{
     }
     if(command==='authorize_review'){
       if(!mcm())return fail('Only the MCM may authorize sharing.','mcm_required',403);
-      if(!long||report.status!=='resubmitted'||report.correctedRole!=='caregiver'||!report.reviewComment||!report.resubmittedAt)return fail('120+ sharing requires MCM comments, a saved caregiver correction and resubmission, in that order.','pdca_review_chain_required',403);
-      if(R.supportedAdmission(p,db)&&report.preparedRole!=='mcm')return fail('Supported hospitalization was recorded after preparation. Review again and return this report for MCM re-preparation before authorization.','pdca_mcm_repreparation_required',409);
+      if(long && (report.status!=='resubmitted'||report.correctedRole!=='caregiver'||!report.reviewComment||!report.resubmittedAt))return fail('120+ sharing requires MCM comments, a saved caregiver correction and resubmission, in that order.','pdca_review_chain_required',403);
+      if(!long && (report.status!=='reviewed'||!report.reviewedBy||!report.reviewedAt||!report.reviewComment))return fail('The MCM must review the submitted PDCA before authorizing its sharing.','pdca_review_chain_required',403);
+      if(long&&R.supportedAdmission(p,db)&&report.preparedRole!=='mcm')return fail('Supported hospitalization was recorded after preparation. Review again and return this report for MCM re-preparation before authorization.','pdca_mcm_repreparation_required',409);
       if(!text(payload.comment))return fail('Record the MCM authorization decision.');
       report.status='authorized';report.authorizedBy=user.id;report.authorizedAt=now;
       const rid=revision('authorized',payload.comment);report.authorizedRevisionId=rid;put('careReviews',report);
@@ -271,8 +303,8 @@ const CARE_WORKFLOW = (()=>{
     }
     if(command==='share_review'){
       const assignedCaregiver=user.roleId==='caregiver' && !!p.caregiverId && user.id===p.caregiverId;
-      if((!mcm()&&!assignedCaregiver)||!long||report.status!=='authorized')return fail('Only the MCM or the assigned caregiver may share an MCM-authorized 120+ report.','pdca_authorization_required',403);
-      if(R.supportedAdmission(p,db)&&report.preparedRole!=='mcm')return fail('Newly confirmed supported hospitalization requires a new MCM-prepared evaluation and review chain. This earlier authorization cannot be shared.','pdca_mcm_repreparation_required',409);
+      if((!mcm()&&!assignedCaregiver)||report.status!=='authorized')return fail('Only the MCM or the assigned caregiver may share an MCM-authorized report.','pdca_authorization_required',403);
+      if(long&&R.supportedAdmission(p,db)&&report.preparedRole!=='mcm')return fail('Newly confirmed supported hospitalization requires a new MCM-prepared evaluation and review chain. This earlier authorization cannot be shared.','pdca_mcm_repreparation_required',409);
       const authorized=get('careReviewRevisions',report.authorizedRevisionId);
       if(!authorized||authorized.event!=='authorized'||JSON.stringify(authorized.fields)!==JSON.stringify(report.fields))return fail('The authorized revision is missing or changed. Nothing was shared.','pdca_authorization_required',403);
       report.status='shared';report.sharedAt=now;report.sharedBy=user.id;
@@ -283,7 +315,10 @@ const CARE_WORKFLOW = (()=>{
         fields:copy(authorized.fields),diagnosis:authorized.fields.diagnoses,planStage:authorized.fields.plan,
         doStage:authorized.fields.actions,checkStage:authorized.fields.resolvedSymptoms,actStage:authorized.fields.nextSteps,
         preparedBy:report.preparedBy,reportVersion:authorized.version,submittedBy:user.id,submittedAt:now,intlStatus:'awaiting_intl_review',intlReviewer:'',intlRecommendation:'',version:1,advisories:[]});
-      revision('shared');return success(report,'pdca.shared');
+      revision('shared');
+      list('users').filter(u=>u.roleId==='intl.medical'&&u.status==='active'&&u.active!==false&&!u.unconfirmed)
+        .forEach(u=>notify(u.id,'Authorized PDCA awaiting advisory','An MCM-authorized report was shared for professional review.', 'intlmedical'));
+      return success(report,'pdca.shared');
     }
     if(command==='schedule_review'){
       if(long||report.status!=='reviewed'||!['mcm','caregiver','coordinator'].includes(user.roleId))return fail('Under-120 PDCAs need completed MCM review before scheduling.','pdca_mcm_review_required',403);
@@ -293,7 +328,7 @@ const CARE_WORKFLOW = (()=>{
       report.status='scheduled';report.nextReviewAt=nextReviewAt;revision('scheduled');return success(report,'pdca.scheduled');
     }
     if(command==='archive_review'){
-      if(!['mcm','caregiver','coordinator'].includes(user.roleId)||!(long?report.status==='shared':['reviewed','scheduled'].includes(report.status)))return fail('MCM review is required before Beneficiary Archive; 120+ reports must complete the review and sharing chain.','pdca_mcm_review_required',403);
+      if(!['mcm','caregiver','coordinator'].includes(user.roleId)||!(long?report.status==='shared':['reviewed','scheduled','shared'].includes(report.status)))return fail('MCM review is required before Beneficiary Archive; 120+ reports must complete the review and sharing chain.','pdca_mcm_review_required',403);
       report.status='archived';report.archivedBy=user.id;report.archivedAt=now;revision('archived');return success(report,'pdca.archived');
     }
     return fail('Unknown clinical command.','clinical_command_not_found',404);

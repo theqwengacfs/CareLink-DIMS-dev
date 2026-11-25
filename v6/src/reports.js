@@ -20,8 +20,18 @@ const PERIOD = {
     const monday=CARE_RULES.addDays(civil,-((dow+6)%7));
     const friday=CARE_RULES.addDays(monday,4);
     const fmt=s=>new Intl.DateTimeFormat('en-GB',{timeZone:'UTC',day:'numeric',month:'short',year:'numeric'}).format(new Date(s+'T00:00:00Z'));
+    // Provisional convention, chosen to match the supplied November 2026
+    // example: week 1 starts one Monday before the week containing January 1.
+    // All extra segments are labelled week 52 with their own dates. Archive
+    // keys remain the existing unique ISO keys, never rewritten retroactively.
+    const firstMonday=y=>{const jan=`${y}-01-01`;const dow=new Date(jan+'T00:00:00Z').getUTCDay();return CARE_RULES.addDays(jan,-7-((dow+6)%7));};
+    let year=Number(monday.slice(0,4));
+    if(monday>=firstMonday(year+1))year++;else if(monday<firstMonday(year))year--;
+    const ordinal=1+Math.round((Date.parse(monday+'T00:00:00Z')-Date.parse(firstMonday(year)+'T00:00:00Z'))/(7*86400000));
+    const week=Math.min(52,ordinal), extra=ordinal>52;
     return {start:new Date(monday+'T00:00:00+03:00'),end:new Date(friday+'T23:59:59.999+03:00'),
-      civilStart:monday,civilEnd:friday,label:`Monday ${fmt(monday)} – Friday ${fmt(friday)} · Africa/Nairobi`};
+      civilStart:monday,civilEnd:friday,planningYear:year,planningWeek:week,extraSegment:extra,
+      label:`Week ${week} of ${year} (provisional)${extra?' · additional week 52 segment':''} · Monday ${fmt(monday)} – Friday ${fmt(friday)} · Africa/Nairobi`};
   },
   lastCompletedWorkWeek:(d=new Date())=>{
     const civil=CARE_RULES.programDate(d);

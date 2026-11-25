@@ -30,6 +30,16 @@ check('no missing clinical or demographic field is invented by data / template g
  assert.match(html,/&lt;script&gt;not executable&lt;\/script&gt;/);assert.equal(html.includes('<script>not executable'),false);
  const patientView=run(`renderPatient(AUTH.user,{id:'synthetic-p'})`);assert.match(patientView,/Sex not recorded/);assert.match(patientView,/Age not recorded/);
 });
+check('line discussion shows escaped text, anchors and role-appropriate actions',()=>{
+ run(`DB.db.intlPdcaDossiers=[{id:'synthetic-dossier',patientId:'synthetic-p',reviewId:'synthetic-review',sharedAt:'2028-06-30T10:00:00Z',authorizedRevisionId:'revision-1',authorizedBy:'synthetic-mcm',version:2,
+  fields:CARE_RULES.cleanFields({nextSteps:'First line\\nSecond line'}),comments:[{id:'thread-1',field:'nextSteps',line:1,kind:'question',by:'synthetic-mcm',at:'2028-06-30T10:00:00Z',message:'<script>synthetic question</script>',replies:[]}]}];`);
+ let html=run(`CARE_REVIEW.discussion(DB.db.intlPdcaDossiers[0])`);
+ assert.match(html,/Second line/);assert.match(html,/&lt;script&gt;synthetic question/);assert.equal(html.includes('<script>synthetic question'),false);
+ assert.match(html,/pdca-reply-open/);assert.doesNotMatch(html,/pdca-comment-open/);
+ run(`AUTH.user={id:'synthetic-intl',roleId:'intl.medical'}`);
+ html=run(`CARE_REVIEW.discussion(DB.db.intlPdcaDossiers[0])`);assert.match(html,/pdca-comment-open/);assert.match(html,/data-field="nextSteps" data-line="1"/);
+ run(`AUTH.user=DB.db.users[0]`);
+});
 check('editable fields cover the supplied format, decimals and actual timestamp independently of milestone date',()=>{
  const fields=J('CARE_RULES.FIELDS.map(([key])=>key)');
  for(const key of ['aimDate','aimOutcome','aimFunction','symptoms','plan','actions','treatment','procedures','educationCounselling','resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus','nextSteps','clinicalReasons','labsStatus','recoveryNeeds','externalDelays','estimatedDischargeDate'])assert.ok(fields.includes(key),key);
@@ -72,6 +82,7 @@ check('Word is an actual OOXML document with two-spread core / two columns, all 
  for(const name of ['[Content_Types].xml','_rels/.rels','word/document.xml','word/styles.xml','word/_rels/document.xml.rels'])assert.ok(zip[name],name);
  const xml=zip['word/document.xml'];assert.equal((xml.match(/<w:tbl>/g)||[]).length,2);assert.equal((xml.match(/w:type="page"/g)||[]).length,1);
  assert.equal((xml.match(/<w:gridCol /g)||[]).length,4);assert.match(xml,/Synthetic latest evaluation diagnosis/);assert.match(xml,/2028-06-30T10:23:00.000Z/);assert.match(xml,/Actual evaluation/);
+ assert.equal((xml.match(/LOMAMO FOUNDATION KENYA/g)||[]).length,2);assert.match(xml,/CONFIDENTIAL CLINICAL DOCUMENT/);
  assert.match(xml,/Synthetic patient &lt;script&gt;/);assert.match(xml,/Treatment \/ interventions AND indications/);assert.match(xml,/Next steps AND durations/);
  assert.match(zip['[Content_Types].xml'],/wordprocessingml.document.main\+xml/);
  const discharge=unzipStored(run(`CARE_REVIEW.wordBytes(CARE_REVIEW.data('synthetic-p',{mode:'discharge'}))`));assert.match(discharge['word/document.xml'],/physical signatures/);assert.match(discharge['word/document.xml'],/do not prove physical signatures/);

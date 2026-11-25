@@ -693,14 +693,14 @@ const ROLE_CONSOLES_68 = {
       }
 
       case 'intl.medical': {
-        const over120 = ps.filter(p => p.status === 'active' && PAT.days(p) >= 120).length;
+        const pending = (DB.db.intlPdcaDossiers||[]).filter(d=>d.sharedAt&&d.authorizedRevisionId&&d.intlStatus==='awaiting_intl_review').length;
         return {
           color: '#4338CA',
           code: 'INTERNATIONAL MEDICAL SPECIALIST REVIEW BOARD',
-          headline: `120+ Day Complex Case Concurrence & PDCA Clinical Advisory (${user.specialty || 'Global Clinical'})`,
-          summary: 'Audited international clinical board under DPA-2019 §48: review 120+ day extended recovery plans, HIV/TB treatment resistance, and nutritional rehabilitation.',
+          headline: `Shared PDCA Clinical Advisory (${user.specialty || 'Global Clinical'})`,
+          summary: 'Review only MCM-authorized shared revisions, discuss individual lines and record an explicit professional advisory.',
           tiles: [
-            { v:'intlmedical', icon:'activity', title:'120+ Day Specialist Queue', sub:'Complex cases awaiting concurrence', count:num(over120), tone:over120 ? 'warn' : 'ok' },
+            { v:'intlmedical', icon:'activity', title:'Shared PDCA Action List', sub:'Authorized reports awaiting specialist review', count:num(pending), tone:pending ? 'warn' : 'ok' },
             { v:'clinicalmcm', icon:'pulse', title:'Joint Clinical Case Board', sub:'Collaborate with Kenya MCMs' },
             { v:'pdca', icon:'repeat', title:'Official C-DIMS PDCA Sheets', sub:'Plan-Do-Check-Act clinical evidence' },
             { v:'conditions', icon:'chart', title:'Cohort Morbidity Profile', sub:'Cross-county clinical patterns' }

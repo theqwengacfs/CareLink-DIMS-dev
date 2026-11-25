@@ -101,6 +101,27 @@ await check('shared dossier contains only the immutable authorized fields and re
  await denied(mcm,'international_review',{id:dossier.id,version:1,decision:'reviewed_concurred',recommendation:'Attempted'},'international_scope_denied');
  const advisory=await good(intl,'international_review',{id:dossier.id,version:1,decision:'awaiting_intl_review',recommendation:'Synthetic specialist asks for new diagnostic result'});assert.equal(advisory.advisories.length,1);
 });
+await check('line discussions are revision-anchored, scope-checked, durable and idempotent',async()=>{
+ let d=f.state().db.intlPdcaDossiers[0];
+ const payload={id:d.id,version:d.version,field:'nextSteps',line:0,kind:'evidence_request',message:'Synthetic please provide dated evidence'};
+ await denied(cg,'dossier_comment',payload,'international_scope_denied');
+ await denied(intl,'dossier_comment',{...payload,field:'not-a-field'});
+ await denied(intl,'dossier_comment',{...payload,line:99});
+ await denied('synthetic-finance.localtest','dossier_reply',{id:d.id,version:d.version,commentId:'unknown',message:'Synthetic unauthorized'},'clinical_scope_denied');
+ const requestId='synthetic-line-comment-retry';
+ const first=await f.command(intl,'dossier_comment',payload,requestId);assert.equal(first.status,200,JSON.stringify(first.body));
+ const again=await f.command(intl,'dossier_comment',payload,requestId);assert.equal(again.status,200);assert.equal(again.body.duplicate,true);
+ d=f.state().db.intlPdcaDossiers[0];assert.equal(d.comments.length,1);assert.equal(d.comments[0].quote,d.fields.nextSteps);
+ assert.equal(d.comments[0].by,'fx-intl');assert.equal(d.comments[0].field,'nextSteps');
+ await denied(cg,'dossier_reply',{id:d.id,version:d.version-1,commentId:d.comments[0].id,message:'Synthetic stale reply'},'clinical_version_conflict');
+ const replied=await good(cg,'dossier_reply',{id:d.id,version:d.version,commentId:d.comments[0].id,message:'Synthetic caregiver response'});
+ assert.equal(replied.comments[0].replies[0].by,'fx-caregiver');
+ const international=await f.call('state',{token:f.tokens[intl]});assert.equal(international.body.db.intlPdcaDossiers[0].comments[0].replies[0].message,'Synthetic caregiver response');
+ const local=await f.call('state',{token:f.tokens[cg]});assert.equal(local.body.db.intlPdcaDossiers[0].comments[0].message,payload.message);
+ assert.ok(f.state().db.audit.some(a=>a.action==='pdca.international_comment_added'));
+ assert.ok(!JSON.stringify(f.state().db.audit).includes(payload.message),'audit does not contain clinical comment text');
+ const forged=await patch(cg,[{c:'intlPdcaDossiers',id:d.id,set:{comments:[]}}]);assert.equal(forged.body.rejected[0].reason,'clinical_command_required');
+});
 await check('coordinator clinical reads are area-limited, and neither widen finance nor alter generic patient scope',async()=>{
  const r=await f.call('state',{token:f.tokens[coord]});assert.ok(r.body.db.patients.some(p=>p.id==='long'));assert.ok(!r.body.db.patients.some(p=>p.id==='otherarea'||p.id==='homa'));
  assert.equal(r.body.db.transactions.length,0);assert.equal(r.body.db.hardcopyBatches.length,0);
@@ -159,6 +180,17 @@ await check('actual reference upload / finalize refuses forged clinical provenan
    for(const key of W.OWNED)assert.equal(f.state().db[key].length,0,'no imported clinical decision / provenance may leak through');
   }
  }finally{f.change(s=>Object.assign(s,old));}
+});
+await check('MCM can explicitly authorize a reviewed under-120 PDCA for assigned-caregiver sharing',async()=>{
+ let r=await good(cg,'create_review',{patientId:'short',evaluatedAt:new Date().toISOString(),fields:f.fields});
+ await denied(cg,'share_review',{id:r.id,version:r.version},'pdca_authorization_required');
+ r=await good(cg,'submit_review',{id:r.id,version:r.version});
+ await denied(mcm,'authorize_review',{id:r.id,version:r.version,comment:'Synthetic premature approval'},'pdca_review_chain_required');
+ r=await good(mcm,'review_report',{id:r.id,version:r.version,comment:'Synthetic careful review'});
+ r=await good(mcm,'authorize_review',{id:r.id,version:r.version,comment:'Synthetic authorization for expert review'});
+ r=await good(cg,'share_review',{id:r.id,version:r.version});assert.equal(r.status,'shared');
+ const dossier=f.state().db.intlPdcaDossiers.find(d=>d.reviewId===r.id);assert.ok(dossier);assert.equal(dossier.sharedBy,'fx-caregiver');
+ assert.deepEqual(dossier.fields,f.state().db.careReviewRevisions.find(v=>v.id===dossier.authorizedRevisionId).fields);
 });
 await check('revoked account / unapproved device cannot keep clinical command authority',async()=>{
  const noDevice=await f.call('care/command',{method:'POST',token:f.tokens[cg],deviceJar:{cookie:''},body:{command:'create_review',payload:{patientId:'short'},requestId:'synthetic-no-device'}});assert.equal(noDevice.status,401);

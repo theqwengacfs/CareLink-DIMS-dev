@@ -33,3 +33,11 @@
 .care-letterhead img{display:block;width:48px;height:48px;object-fit:contain;flex:none}
 .care-letterhead span{font-size:10px;color:#3e5e63}
 @media print{.care-letterhead img{width:38px;height:38px}.care-letterhead{margin-bottom:5px}}
+
+/* Authorized-revision discussion is separate from the clinical document. */
+.pdca-discussion{padding:18px;margin:12px 0 20px;border:1px solid #b8d4d1;border-radius:16px;background:#f2f9f7;color:#173e3a}
+.pdca-discussion>h3{margin:0 0 6px}.pdca-discussion-section{margin:8px 0;border:1px solid #d0e1df;border-radius:10px;background:#fff;overflow:hidden}
+.pdca-discussion-section>summary{cursor:pointer;padding:12px;font-weight:700;background:#e0f0ed}
+.pdca-discussion-field{padding:10px 14px;border-top:1px solid #e2ecea}.pdca-discussion-field h4{margin:4px 0 8px;color:#153a40}
+.pdca-discussion-line{padding:9px;border-left:3px solid #2d827a;background:#f8fbfa;margin:8px 0}.pdca-line-content{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}.pdca-line-content .care-pre{flex:1 1 220px}
+.pdca-thread{margin:9px 0 4px;padding:12px;border:1px solid #e7d3a2;border-radius:9px;background:#fff8e7;color:#4e3816}.pdca-thread p,.pdca-reply p{margin:6px 0}.pdca-reply{border-left:2px solid #d3a94e;padding-left:10px;margin:8px 0}
