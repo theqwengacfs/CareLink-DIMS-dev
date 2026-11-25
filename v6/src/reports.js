@@ -8,10 +8,26 @@
 
 const PERIOD = {
   day:d=>{ const s=new Date(d); s.setHours(0,0,0,0); return {start:s,end:new Date(s.getTime()+DAY-1)}; },
-  week:(d=new Date())=>{ /* ISO week ending Sunday, cut-off Monday 08:00 */
+  week:(d=new Date())=>{ /* Rolling period retained for existing non-planning reports. */
     const e=new Date(d); e.setHours(23,59,59,999);
     const s=new Date(e.getTime()-6*DAY); s.setHours(0,0,0,0);
     return {start:s,end:e,label:'7 days to '+fmtDate(e)};
+  },
+  workWeek:(d=new Date())=>{
+    const civil=CARE_RULES.programDate(d);
+    if(!civil) throw new Error('A valid planning date is required.');
+    const dow=new Date(civil+'T00:00:00Z').getUTCDay();
+    const monday=CARE_RULES.addDays(civil,-((dow+6)%7));
+    const friday=CARE_RULES.addDays(monday,4);
+    const fmt=s=>new Intl.DateTimeFormat('en-GB',{timeZone:'UTC',day:'numeric',month:'short',year:'numeric'}).format(new Date(s+'T00:00:00Z'));
+    return {start:new Date(monday+'T00:00:00+03:00'),end:new Date(friday+'T23:59:59.999+03:00'),
+      civilStart:monday,civilEnd:friday,label:`Monday ${fmt(monday)} – Friday ${fmt(friday)} · Africa/Nairobi`};
+  },
+  lastCompletedWorkWeek:(d=new Date())=>{
+    const civil=CARE_RULES.programDate(d);
+    if(!civil) throw new Error('A valid planning date is required.');
+    const day=new Date(civil+'T00:00:00Z').getUTCDay();
+    return PERIOD.workWeek(day>=1 && day<=5 ? CARE_RULES.addDays(civil,-7) : civil);
   },
   month:(d=new Date())=>{ const s=new Date(d.getFullYear(),d.getMonth(),1); const e=new Date(d.getFullYear(),d.getMonth()+1,0,23,59,59);
     return {start:s,end:e,label:s.toLocaleDateString('en-GB',{month:'long',year:'numeric'})}; },
@@ -199,7 +215,12 @@ const REPORTS = {
      and the couple bag is shown as unreadable because the workbook issues Bag 1
      to normal and couple households alike. */
   weeklyIndicators(user, f={}){
-    const period = f.period || PERIOD.week(new Date());
+    const period = f.period || (f.date ? PERIOD.workWeek(f.date) : PERIOD.lastCompletedWorkWeek());
+    const within = value => {
+      if(!period.civilStart || !period.civilEnd) return inRange(value,period);
+      const day=CARE_RULES.programDate(value);
+      return !!day && day>=period.civilStart && day<=period.civilEnd;
+    };
     const role = roleObj(user.roleId) || { scope:{} };
     const scope = role.scope || {};
     const global = scope.geo === 'global' || !!scope.crossCounty;
@@ -207,11 +228,11 @@ const REPORTS = {
                             : (f.countyId && f.countyId !== 'all' ? f.countyId : (user.countyId || null));
     const all = repo.patientList(user, { countyId: countyId || undefined });
     const idset = new Set(all.map(p=>p.id));
-    const visitIn = v => v && inRange(v.date, period);
+    const visitIn = v => v && within(v.date);
 
     const inProgrammeStatus = ['active','extension','discharge_recommended'];
     const inProgramme = all.filter(p=>inProgrammeStatus.includes(p.status));
-    const dischargedInPeriod = all.filter(p=>p.status==='discharged' && inRange(p.discharge||p.dischargedAt, period));
+    const dischargedInPeriod = all.filter(p=>p.status==='discharged' && within(p.discharge||p.dischargedAt));
     const deceased = all.filter(p=>p.status==='deceased' || (p.master && p.master.deceasedMonth));
 
     /* Children kept out of an orphanage while their parent stays in care, and
@@ -237,7 +258,7 @@ const REPORTS = {
     const byCode = { BG1:0, BG2:0, SPB:0 };
     visitsInPeriod.forEach(v=>{ if(v.foodBag && byCode[v.foodBag]!==undefined) byCode[v.foodBag]++; });
     const supportToday = { Foodbag:0, Bible:0, 'Mosquito net':0, Mattress:0, Blanket:0, 'Special bag':0, 'Hygiene kit':0 };
-    (DB.db.supportIssues||[]).filter(s=>idset.has(s.patientId) && inRange(s.date, period))
+    (DB.db.supportIssues||[]).filter(s=>idset.has(s.patientId) && within(s.date))
       .forEach(s=>{ if(supportToday[s.item]!==undefined) supportToday[s.item]++; });
     const assignedInRegister = all.reduce((n,p)=>{ const b=(p.master||{}).bags||{}; return n + Number(b.BG1||0)+Number(b.BG2||0)+Number(b.SPB||0); }, 0);
     const foodBags = {
@@ -261,7 +282,7 @@ const REPORTS = {
 
     /* ---- hospital activity in the period ---- */
     const hosp = (DB.db.requests||[]).filter(r=>idset.has(r.patientId) && (!countyId || r.countyId===countyId));
-    const hospInPeriod = hosp.filter(r=>inRange(r.submittedAt||r.createdAt, period) || inRange(r.serviceCompletedAt, period));
+    const hospInPeriod = hosp.filter(r=>within(r.submittedAt||r.createdAt) || within(r.serviceCompletedAt));
     const inpatient = hospInPeriod.filter(r=>r.status==='admitted' || /inpatient|admit/i.test(String(r.serviceType||r.admissionType||''))).length;
     const outpatient = hospInPeriod.filter(r=>r.status!=='admitted' && (r.serviceCompletedAt || r.clinicalReport)).length;
 
@@ -280,7 +301,7 @@ const REPORTS = {
       const vs = visitsInPeriod.filter(v=>v.areaId===a.id);
       return { area:a, countyId:a.countyId || countyId, kind: a.cls==='urban' ? 'slum' : 'village',
         patients: ps.length, inProgramme: act.length,
-        discharged: ps.filter(p=>p.status==='discharged' && inRange(p.discharge||p.dischargedAt, period)).length,
+        discharged: ps.filter(p=>p.status==='discharged' && within(p.discharge||p.dischargedAt)).length,
         visits: vs.length, notFound: vs.filter(v=>v.outcome==='not_found').length,
         weights: vs.filter(v=>Number(v.weight)>0).length };
     });
@@ -403,6 +424,10 @@ const REPORTS = {
     ];
   },
   generate(type, params, user){
+    if(type==='weekly_indicators'){
+      const period=params.date ? PERIOD.workWeek(params.date) : PERIOD.lastCompletedWorkWeek();
+      params=Object.assign({},params,{date:period.civilStart});
+    }
     const existing = DB.db.reports.filter(r=>r.type===type && r.periodKey===periodKeyFor(type,params) && r.countyId===(params.countyId||'all'));
     const version = existing.length+1;
     const rec = {
@@ -463,7 +488,13 @@ function periodKeyFor(type, p){
     const week = Math.ceil((((iso - yearStart) / 86400000) + 1) / 7);
     return `${iso.getUTCFullYear()}-W${String(week).padStart(2,'0')}`;
   };
-  if(type==='weekly_indicators' || type==='patient_figures' || type==='patient_days' || type==='home_visits') return weekKey(when);
+  if(type==='weekly_indicators'){
+    // Archive keys remain ISO-based until the organisation defines its custom
+    // 52-week boundary rule. Preserve existing keys; never relabel history.
+    const period=p&&p.date ? PERIOD.workWeek(p.date) : PERIOD.lastCompletedWorkWeek(when);
+    return weekKey(new Date(period.civilStart+'T12:00:00Z'));
+  }
+  if(type==='patient_figures' || type==='patient_days' || type==='home_visits') return weekKey(when);
   if(type==='expenditure') return monthKey(when);
   if(type==='referral') return 'registry-'+monthKey(when);
   if(type==='executive' || type==='donor') return 'Q'+(Math.floor(new Date(when).getUTCMonth()/3)+1)+'-'+new Date(when).getUTCFullYear();

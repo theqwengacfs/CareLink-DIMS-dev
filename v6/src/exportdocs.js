@@ -311,11 +311,11 @@ function downloadBytes(filename, bytes, mime){
    row count. A person who holds the capability can export; a person who
    does not is refused in the data layer, not merely by a hidden button. */
 const DOCEXPORT = {
-  report(user, {type, countyId}){
+  report(user, {type, countyId, date}){
     if(!type) return {ok:false, msg:'Choose a report first.'};
     const title=(typeof REPORT_TITLES!=='undefined'&&REPORT_TITLES[type])||'Report';
     const cid=countyId||user.countyId;
-    const html=buildReportDoc(type,{countyId:cid},user);
+    const html=buildReportDoc(type,{countyId:cid,date},user);
     const bytes=DOCX.fromHtml(title, html);
     const name=`${type}-${cid}-${new Date().toISOString().slice(0,10)}.docx`;
     const r=downloadBytes(name, bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');

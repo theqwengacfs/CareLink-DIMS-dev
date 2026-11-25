@@ -266,10 +266,12 @@ const CARE_WORKFLOW = (()=>{
       if(!text(payload.comment))return fail('Record the MCM authorization decision.');
       report.status='authorized';report.authorizedBy=user.id;report.authorizedAt=now;
       const rid=revision('authorized',payload.comment);report.authorizedRevisionId=rid;put('careReviews',report);
+      notifyCaregiver('PDCA authorized for international sharing');
       return success(report,'pdca.sharing_authorized');
     }
     if(command==='share_review'){
-      if(!mcm()||!long||report.status!=='authorized')return fail('An MCM-authorized 120+ report is required before international sharing.','pdca_authorization_required',403);
+      const assignedCaregiver=user.roleId==='caregiver' && !!p.caregiverId && user.id===p.caregiverId;
+      if((!mcm()&&!assignedCaregiver)||!long||report.status!=='authorized')return fail('Only the MCM or the assigned caregiver may share an MCM-authorized 120+ report.','pdca_authorization_required',403);
       if(R.supportedAdmission(p,db)&&report.preparedRole!=='mcm')return fail('Newly confirmed supported hospitalization requires a new MCM-prepared evaluation and review chain. This earlier authorization cannot be shared.','pdca_mcm_repreparation_required',409);
       const authorized=get('careReviewRevisions',report.authorizedRevisionId);
       if(!authorized||authorized.event!=='authorized'||JSON.stringify(authorized.fields)!==JSON.stringify(report.fields))return fail('The authorized revision is missing or changed. Nothing was shared.','pdca_authorization_required',403);

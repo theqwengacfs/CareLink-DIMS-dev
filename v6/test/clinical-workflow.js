@@ -140,8 +140,9 @@ check('every120+ review requires MCM comments â†’ caregiver saved corrections â†
  denied(db,users.cg,'save_review',{id:r.id,version:oldVersion,fields:complete()},'clinical_version_conflict');
  r=good(db,users.cg,'resubmit_review',{id:r.id,version:r.version});denied(db,users.cg,'authorize_review',{id:r.id,version:r.version,comment:'Attempted'},'mcm_required');
  r=good(db,users.mcm,'authorize_review',{id:r.id,version:r.version,comment:'Synthetic MCM sharing authorization'});assert.equal((db.intlPdcaDossiers||[]).length,0,'authorization alone does not transmit');
- denied(db,users.cg,'share_review',{id:r.id,version:r.version},'pdca_authorization_required');
- const authRevision=r.authorizedRevisionId;r=good(db,users.mcm,'share_review',{id:r.id,version:r.version});assert.equal(r.status,'shared');assert.equal(db.intlPdcaDossiers[0].authorizedRevisionId,authRevision);
+ denied(db,{...users.cg,id:'another-caregiver'},'share_review',{id:r.id,version:r.version},'pdca_authorization_required');
+ assert(db.notifications.some(n=>n.userId===users.cg.id&&/authorized for international sharing/.test(n.title)));
+ const authRevision=r.authorizedRevisionId;r=good(db,users.cg,'share_review',{id:r.id,version:r.version});assert.equal(r.status,'shared');assert.equal(db.intlPdcaDossiers[0].authorizedRevisionId,authRevision);assert.equal(db.intlPdcaDossiers[0].sharedBy,users.cg.id);
  assert.equal(db.intlPdcaDossiers[0].fields.nextSteps,'Synthetic corrected next step for fourteen days');assert.equal(db.careReviewRevisions[0].fields.nextSteps,JSON.parse(oldFields).nextSteps);
  denied(db,users.cg,'save_review',{id:r.id,version:r.version,fields:complete()});
  const dossier=db.intlPdcaDossiers[0];denied(db,users.mcm,'international_review',{id:dossier.id,version:1,decision:'reviewed_concurred',recommendation:'Attempted'},'international_scope_denied');

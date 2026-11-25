@@ -27,3 +27,9 @@
  .care-cycle-guide{print-color-adjust:exact;-webkit-print-color-adjust:exact}
  .report-provenance{color:#171717!important;display:block!important}
 }
+
+/* The clinical report carries an identifiable foundation letterhead on each spread. */
+.care-letterhead{display:flex;align-items:center;gap:12px;margin-bottom:8px;color:#7c1728;font:600 12px/1.35 Calibri,Arial,sans-serif}
+.care-letterhead img{display:block;width:48px;height:48px;object-fit:contain;flex:none}
+.care-letterhead span{font-size:10px;color:#3e5e63}
+@media print{.care-letterhead img{width:38px;height:38px}.care-letterhead{margin-bottom:5px}}

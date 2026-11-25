@@ -530,7 +530,7 @@ function buildReportDoc(type, params, user){
      from a record; where the register cannot answer the question the row says
      so rather than showing a guessed number. */
   if(type==='weekly_indicators'){
-    const w = REPORTS.weeklyIndicators(user,{countyId});
+    const w = REPORTS.weeklyIndicators(user,{countyId,date:params.date});
     const row = (label, value, note) => `<tr><td>${esc(label)}</td><td class="tnum" style="text-align:right"><b>${value===null?'<span style="font-weight:400">restricted</span>':num(value)}</b></td><td style="font-size:10px;color:#5F6B7A">${esc(note||'')}</td></tr>`;
     const areaRows = w.byArea.map(a=>`<tr><td>${esc(a.area.name)}</td><td style="text-transform:capitalize">${esc(AREA_CLASS_LABEL[a.area.cls]||a.area.cls)}</td>
       <td class="tnum">${num(a.patients)}</td><td class="tnum">${num(a.inProgramme)}</td><td class="tnum">${num(a.discharged)}</td>
@@ -595,8 +595,8 @@ function buildReportDoc(type, params, user){
       <tbody>${areaRows||'<tr><td colspan="8">No ministry areas in scope</td></tr>'}</tbody></table>
       <p style="font-size:11px;color:#5F6B7A">${esc(w.basis)}</p>`;
     return reportShell({ title:'Weekly Planning Indicators',
-      sub:'The figures a Monday planning meeting reads, counted from the record rather than typed',
-      meta: metaBase(), body });
+      sub:'Monday–Friday working week · dated activity comes from recorded events; standing totals use the current register. Week numbering remains provisional until the custom calendar rule is specified.',
+      meta: metaBase().map(m=>m.k==='Reporting period'?{...m,v:w.period.label}:m.k==='Cut-off'?{...m,k:'Working period ends',v:`${w.period.civilEnd} 23:59 EAT`}:m), body });
   }
 
   if(type==='patient_days'){
@@ -848,16 +848,16 @@ function renderReportView(user, params){
   const type = rec? rec.type : params.type;
   const countyId = rec? rec.countyId : (params.countyId||user.countyId);
   const tblMode = (typeof isChartTableMode==='function' && isChartTableMode());
-  const html = buildReportDoc(type,{countyId: countyId==='all'?'all':countyId}, user);
+  const html = buildReportDoc(type,{...(rec?.params||{}),countyId: countyId==='all'?'all':countyId}, user);
   const exportMenu = (typeof utilMenu==='function') ? utilMenu('Export & Print', [
     { label:'Print / Save PDF', icon:'download', act:'print' },
-    { label:'Download Word (.doc)', icon:'file', act:'export-report-docx', attrs:`data-type="${esc(type||'')}" data-county-id="${esc(countyId||'')}"` },
+    { label:'Download Word (.doc)', icon:'file', act:'export-report-docx', attrs:`data-type="${esc(type||'')}" data-county-id="${esc(countyId||'')}" data-date="${esc(rec?.params?.date||params.date||'')}"` },
     ...(rec ? [{ label:'Download Structured CSV', icon:'columns', act:'export-report', attrs:`data-id="${esc(rec.id)}"` }] : [])
   ], { icon:'download', primary:true }) : `<button class="btn btn-sm btn-primary" data-act="print">${ic('download',14)} Print / PDF</button>`;
   return `<div class="row no-print" style="margin-bottom:14px;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <button class="btn btn-sm btn-ghost" data-act="go" data-v="reports">${ic('back',13)} Back to Report Centre</button>
       <div class="row" style="gap:8px;flex-wrap:wrap">
-        ${rec?`<span class="chip">${esc(rec.title)} · ${esc(rec.periodKey)} · v${rec.version}</span>`:`<span class="chip">Live Report Preview</span>`}
+        ${rec?`<span class="chip">${esc(rec.title)} · ${type==='weekly_indicators'?'provisional ISO key ':''}${esc(rec.periodKey)} · v${rec.version}</span>`:`<span class="chip">Live Report Preview</span>`}
         <button class="btn btn-sm ${tblMode?'btn-primary':'btn-ghost'}" data-act="toggle-chart-table-mode">${ic('columns',14)} ${tblMode?'Show Charts & Tables':'Tables Only'}</button>
         ${exportMenu}
       </div>

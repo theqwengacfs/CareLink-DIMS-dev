@@ -24,6 +24,9 @@ check('no missing clinical or demographic field is invented by data / template g
  const html=run(`CARE_REVIEW.template(CARE_REVIEW.data('synthetic-p',{mode:'120day'}))`);
  assert.equal((html.match(/class="care-template-page"/g)||[]).length,2);assert.equal((html.match(/class="care-template-columns"/g)||[]).length,2);
  assert.match(html,/BLANK TEMPLATE/);assert.match(html,/Actual evaluation date/);assert.match(html,/next steps &amp; durations/);assert.match(html,/WITH durations/);
+ assert.match(html,/LOMAMO Foundation Kenya/);assert.match(html,/care-letterhead/);
+ run(`window.LOGO='data:image/png;base64,c3ludGhldGlj';`);
+ assert.match(run(`CARE_REVIEW.template(CARE_REVIEW.data('synthetic-p',{mode:'120day'}))`),/alt="LOMAMO Foundation Kenya logo"/);
  assert.match(html,/&lt;script&gt;not executable&lt;\/script&gt;/);assert.equal(html.includes('<script>not executable'),false);
  const patientView=run(`renderPatient(AUTH.user,{id:'synthetic-p'})`);assert.match(patientView,/Sex not recorded/);assert.match(patientView,/Age not recorded/);
 });

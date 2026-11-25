@@ -390,7 +390,7 @@ const FORMS_ACTIONS = {
   'widget-reset':()=>{ DASH.reset(AUTH.user); closeModal(true); toast('Arrangement restored','The default order is back.','ok'); render(); },
 
   /* ---------------- exports ---------------- */
-  'export-report-docx':(d)=>reportExport(DOCEXPORT.report(AUTH.user,{type:d.type,countyId:d.countyId})),
+  'export-report-docx':(d)=>reportExport(DOCEXPORT.report(AUTH.user,{type:d.type,countyId:d.countyId,date:d.date})),
   'export-patients-xlsx':()=>reportExport(DOCEXPORT.patients(AUTH.user)),
   'export-registry-xlsx':()=>reportExport(DOCEXPORT.registry(AUTH.user)),
   'download-leave-week':()=>reportExport(DOCEXPORT.leaveWeek(AUTH.user)),
