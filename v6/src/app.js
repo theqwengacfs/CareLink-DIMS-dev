@@ -222,13 +222,14 @@ async function boot(){
      moment it comes back, not at the next poll; and a lost link must be visible
      in the status chip without waiting for a failed request to time out. */
   window.addEventListener('carelink:network-online', ()=>{
-    try{ if(AUTH.user){ SESSION.touch(); if(typeof SYNC!=='undefined') SYNC.retryNow(); } }catch(e){}
+    try{ if(AUTH.user && typeof SYNC!=='undefined') SYNC.retryNow(); }catch(e){}
   });
   window.addEventListener('carelink:open-sync', ()=>{ try{ if(AUTH.user && typeof openSyncModal==='function') openSyncModal(); }catch(e){} });
   /* Redraw the chip on a plain network change so the console states the truth
      immediately instead of waiting for a request to fail. */
   const refreshChipOnNetworkChange = ()=>{
     try{
+      document.querySelectorAll('[data-network-indicator]').forEach(el=>{ el.hidden = navigator.onLine !== false; });
       if(typeof SYNC==='undefined' || !AUTH.user) return;
       if(SYNC.state==='error' || SYNC.state==='idle' || SYNC.state==='connected') SYNC.bump();
     }catch(e){}
@@ -565,6 +566,7 @@ function renderShell(){
       </div>
       <div class="searchbox"><span>${ic('search',16)}</span><input placeholder="${esc(searchPh)}" data-search aria-label="Search"></div>
       <div class="tb-actions">
+        <button type="button" class="network-indicator workspace-network no-print" data-network-indicator data-act="open-sync" title="Network unavailable; shared saves are not confirmed" ${typeof navigator==='undefined' || navigator.onLine!==false?'hidden':''}>No network</button>
         <span class="tb-os-identity" aria-label="CareLink OS">CareLink OS</span><span class="cb-build" title="Application build">${esc(window.BUILD_STAMP||'')}</span>
         <span class="live-pill neutral" data-live title="Live record indicator"><span class="live-dot"></span><span class="live-t">Live</span></span>
         ${typeof SYNC!=='undefined'?SYNC.chip():''}

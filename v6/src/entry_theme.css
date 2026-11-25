@@ -952,3 +952,9 @@ html .shell .topbar.cbar .tb-os-identity{
 }
 @media(max-width:1000px){.ld .ld-strip[aria-label="All 11 major departments"]{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:580px){.ld .ld-strip[aria-label="All 11 major departments"]{grid-template-columns:minmax(0,1fr);}}
+
+/* In-flow connectivity label: never covers the navigation or a form. */
+.network-indicator{display:inline-flex;align-items:center;flex:0 0 auto;border:1px solid #dc9b42;border-radius:999px;padding:4px 9px;background:#fff4d5;color:#603800;font:700 12px/1.3 system-ui,sans-serif;white-space:nowrap}
+.network-indicator[hidden]{display:none!important}
+.network-indicator-login{white-space:normal;margin:0 0 10px}
+.workspace-network{cursor:pointer}

@@ -129,15 +129,17 @@ function makeShellDom({ online = true, body = true, ios = false } = {}) {
 /* ---- 3. the offline notice is stated, and it is not a false promise ----- */
 {
   const dom = makeShellDom({ body: true, online: false });
-  dom.winListeners.load.forEach(fn => fn());
-  const strip = dom.store.get('carelink-offline');
-  check('a device with no network shows an offline notice', !!strip && strip.style.display === 'flex');
-  check('the offline notice says records stay on the device rather than claiming a shared save',
-    /kept here|stay here/i.test(strip.children.map(c => c.textContent).join(' ')) || /kept here/i.test(strip.textContent));
-  check('the offline notice offers a route to the sync panel', strip.children.some(c => c.tagName === 'BUTTON' && /Details/.test(c.textContent)));
+  (dom.winListeners.load || []).forEach(fn => fn());
+  check('the shell does not place a fixed offline overlay over navigation', !dom.store.get('carelink-offline'));
+  const entry = fs.readFileSync(path.join(ROOT, 'v6/src/entry6.js'), 'utf8');
+  const app = fs.readFileSync(path.join(ROOT, 'v6/src/app.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'v6/src/entry_theme.css'), 'utf8');
+  check('landing and sign-in contain in-flow network indicators', (entry.match(/data-network-indicator/g) || []).length >= 2);
+  check('every workspace has an in-flow network indicator with sync details', /class="network-indicator workspace-network[^>]*data-act="open-sync"/.test(app));
+  check('indicators update on network change and are hidden when online', /querySelectorAll\('\[data-network-indicator\]'\)/.test(app) && /el.hidden = navigator.onLine !== false/.test(app) && /network-indicator\[hidden\]/.test(css));
 
   const online = makeShellDom({ body: true, online: true });
-  online.winListeners.load.forEach(fn => fn());
+  (online.winListeners.load || []).forEach(fn => fn());
   const hidden = online.store.get('carelink-offline');
   check('a connected device shows no offline notice', !hidden || hidden.style.display === 'none');
 
@@ -168,7 +170,7 @@ function makeShellDom({ online = true, body = true, ios = false } = {}) {
 /* ---- 5. the worker keeps its existing guarantees ----------------------- */
 check('the worker bypasses API and authenticated requests', sw.includes("url.pathname.includes('/api/')") && sw.includes("request.headers.has('x-carelink-session')"));
 check('navigation still falls back to the cached shell', sw.includes("request.mode === 'navigate'") && sw.includes('caches.match(APP_URL)'));
-check('the shell cache name was bumped so clients take the new worker', /const CACHE = 'carelink-shell-v8'/.test(sw), (sw.match(/carelink-shell-v\d+/) || [])[0]);
+check('the shell cache name was bumped so clients take the new worker', /const CACHE = 'carelink-shell-v9'/.test(sw), (sw.match(/carelink-shell-v\d+/) || [])[0]);
 check('a stalled navigation falls back to the shell within a bounded time',
   /NAV_TIMEOUT_MS\s*=\s*\d+/.test(sw) && /Promise\.race/.test(sw));
 check('the worker honours the page request to activate a waiting build', /CARELINK_SKIP_WAITING/.test(sw) && /skipWaiting\(\)/.test(sw));

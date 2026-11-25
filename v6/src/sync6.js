@@ -1165,6 +1165,7 @@ const SYNC = {
       saving:'Saving', merge:'Reconciled', error:'Online save unconfirmed' })[this.state] || 'Unknown';
   },
   tone(){
+    if(this.offline()) return 'warn';
     if(this.state==='connected'||this.state==='merge') return 'ok';
     if(this.state==='saving'||this.state==='probing'||this.state==='idle') return 'neutral';
     if(this.state==='device') return 'warn';
@@ -1175,6 +1176,7 @@ const SYNC = {
      point of this flag is that nothing is claimed as shared until it is. */
   offline(){ try{ return typeof navigator!=='undefined' && navigator.onLine === false; }catch(e){ return false; } },
   detail(){
+    if(this.offline()) return 'No network. Shared saves are not confirmed; some actions require the online service.';
     if(this.state==='connected') return `Revision ${this.rev} · live`;
     if(this.state==='merge') return `Revision ${this.rev} · ${this.lastMerged} field(s) reconciled`;
     if(this.state==='saving') return 'Writing to the online source';
