@@ -595,7 +595,7 @@ function buildReportDoc(type, params, user){
       <tbody>${areaRows||'<tr><td colspan="8">No ministry areas in scope</td></tr>'}</tbody></table>
       <p style="font-size:11px;color:#5F6B7A">${esc(w.basis)}</p>`;
     return reportShell({ title:'Weekly Planning Indicators',
-      sub:'Monday–Friday working week · dated activity comes from recorded events; standing totals use the current register. Week numbering remains provisional until the custom calendar rule is specified.',
+      sub:'Monday–Friday working week · dated activity comes from recorded events; standing totals use the current register. The 52-week numbering convention is provisional pending the official calendar.',
       meta: metaBase().map(m=>m.k==='Reporting period'?{...m,v:w.period.label}:m.k==='Cut-off'?{...m,k:'Working period ends',v:`${w.period.civilEnd} 23:59 EAT`}:m), body });
   }
 

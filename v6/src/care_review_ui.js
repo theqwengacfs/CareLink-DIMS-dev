@@ -169,7 +169,7 @@ const CARE_REVIEW = (()=>{
       ${d.mode==='discharge'?`<section class="care-physical-signatures"><h3>PATIENT ACKNOWLEDGEMENT &amp; PHYSICAL SIGNATURES — discharge acknowledgement</h3><p>Obtain signatures on paper. Electronic approval and typed names do not replace physical signatures; this printout does not prove signatures or consent.</p><p>Patient / Guardian signature · date: _________________________________</p><p>Caregiver signature · date: _________________________________________</p><p>MCM signature · date: ______________________________________________</p><p>Witness signature · date: ___________________________________________</p><p>CONFIRMED DATE OF DISCHARGE: ${esc(d.dischargeDate||'Not recorded')}</p></section>`:''}</article>`;
   }
   function reportData(r,p){return {careTemplate:true,patientId:p?.id||r.patientId,patient_code:p?.code||r.patientCode||r.patientId,fields:r.fields,report:r,
-    cycleId:r.cycleId,status:r.status,programmeDay:r.programmeDay??r.policyDays,evaluatedAt:r.evaluatedAt,dueDay:r.dueDay,dueDate:r.dueDate,mode:'120day',report_title:'Patient PDCA 120-Day Report'};}
+    cycleId:r.cycleId,status:r.status,programmeDay:r.programmeDay??r.policyDays,evaluatedAt:r.evaluatedAt,dueDay:r.dueDay,dueDate:r.dueDate,mode:'120day',report_title:Number(r.policyDays)>=120?'Patient PDCA 120-Day Report':'Patient PDCA Review Report'};}
   function openReport(id,revisionId=''){
     const r=(DB.db.careReviews||[]).find(x=>x.id===id),p=r&&scoped(AUTH.user,r.patientId);
     if(!r||!p)return toast('Not available','Outside your clinical scope.','err');
@@ -182,14 +182,15 @@ const CARE_REVIEW = (()=>{
       if(r.status==='draft'&&W.writer(AUTH.user,p,r,DB.db))controls+=button('care-review-edit','Edit draft',attrs,true)+button('care-review-step','Submit to county MCM',attrs+' data-command="submit_review"');
       if(['corrections_requested','correcting'].includes(r.status)&&(r.policyDays>=120?cg:['caregiver','coordinator'].includes(AUTH.user.roleId)))controls+=button('care-review-edit','Re-edit caregiver corrections',attrs,true)+(r.status==='correcting'?button('care-review-step','Resubmit to MCM',attrs+' data-command="resubmit_review"'):'');
       if(['submitted','resubmitted'].includes(r.status)&&mcm)controls+=button('care-review-step','MCM review & comments',attrs+' data-command="review_report"',true);
-      if(r.status==='resubmitted'&&mcm&&r.policyDays>=120)controls+=button('care-review-step','Authorize international sharing',attrs+' data-command="authorize_review"',true);
+      if(mcm&&((r.status==='resubmitted'&&r.policyDays>=120)||(r.status==='reviewed'&&r.policyDays<120)))controls+=button('care-review-step','Authorize international sharing',attrs+' data-command="authorize_review"',true);
       if(r.status==='authorized'&&(mcm||(cg&&p.caregiverId===AUTH.user.id)))controls+=button('care-review-step','Share authorized revision',attrs+' data-command="share_review"',true);
       if(r.policyDays<120&&r.status==='reviewed'&&['mcm','caregiver','coordinator'].includes(AUTH.user.roleId))controls+=button('care-review-step','Schedule reviewed follow-up',attrs+' data-command="schedule_review"');
-      if((r.policyDays<120&&['reviewed','scheduled'].includes(r.status)||r.policyDays>=120&&r.status==='shared')&&['mcm','caregiver','coordinator'].includes(AUTH.user.roleId))controls+=button('care-review-step','Mark for Beneficiary Archive',attrs+' data-command="archive_review"');
+      if((r.policyDays<120&&['reviewed','scheduled','shared'].includes(r.status)||r.policyDays>=120&&r.status==='shared')&&['mcm','caregiver','coordinator'].includes(AUTH.user.roleId))controls+=button('care-review-step','Mark for Beneficiary Archive',attrs+' data-command="archive_review"');
     }
     const d=reportData(selected?{...(selected.reportSnapshot||selected),fields:selected.fields,id:r.id}:r,p);
+    const shared=(DB.db.intlPdcaDossiers||[]).filter(x=>x.reviewId===r.id&&x.sharedAt&&x.authorizedRevisionId);
     openModal({title:`PDCA · ${p.code} · ${statusText(selected?.status||r.status)}`,wide:true,
-      body:`<div class="row care-toolbar">${controls}</div>${r.reviewComment?`<div class="alert info"><div><b>MCM review comments</b><p class="care-pre">${esc(r.reviewComment)}</p></div></div>`:''}
+      body:`<div class="row care-toolbar">${controls}${shared.map(x=>button('care-dossier-open',`International discussion (${(x.comments||[]).length})`,`data-id="${esc(x.id)}"`)).join('')}</div>${r.reviewComment?`<div class="alert info"><div><b>MCM review comments</b><p class="care-pre">${esc(r.reviewComment)}</p></div></div>`:''}
       <details class="care-history-cycle"><summary>Retained revisions & decision history (${revisions.length})</summary>${revisions.map((v,i)=>{
         const prior=revisions[i+1],changes=prior?R.FIELDS.filter(([k])=>prior.fields[k]!==v.fields[k]).map(([,label])=>label):[];
         return `<p class="small">v${v.version} · ${esc(statusText(v.event))} · ${esc(userName(v.by))} · ${esc(fmtDateTime(v.at))}<br><span class="care-pre">${esc(v.comment||'')}</span>${changes.length?'<br>Edited: '+esc(changes.join(', ')):''} ${button('care-review-version','View exact revision',attrs+` data-revision="${esc(v.id)}"`)}</p>`;
@@ -212,7 +213,8 @@ const CARE_REVIEW = (()=>{
     const left=R.SECTIONS[0].fields.map(([k,label])=>p(label+': '+(d.fields[k]||'Not recorded'))).join('')+p('Actual evaluation: '+(d.evaluatedAt||'Not recorded'))+p('Programme day: '+(d.programmeDay??'Not recorded'))+p('Scheduled due: '+(d.dueDate||'On demand'));
     const cell=xml=>`<w:tc><w:tcPr><w:tcW w:w="4500" w:type="dxa"/></w:tcPr>${xml||p('')}</w:tc>`;
     const balanced=[{left,right:right[0]},{left:right[1],right:right.slice(2).join('')}];
-    const body=balanced.map((col,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+DOCX.para(d.report_title,'Title')+p(`${d.fields.ministryArea||'Ministry area not recorded'} MINISTRY AREA · ${d.patient_code} · ${statusText(d.status)} · v${d.report?.version||0}`)+
+    const letterhead=DOCX.para('LOMAMO FOUNDATION KENYA','Heading1')+p('CareLink · Clinical quality & continuity of care')+p('CONFIDENTIAL CLINICAL DOCUMENT  |  PLAN · DO · CHECK · ACT');
+    const body=balanced.map((col,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+letterhead+DOCX.para(d.report_title,'Title')+p(`${d.fields.ministryArea||'Ministry area not recorded'} MINISTRY AREA · ${d.patient_code} · ${statusText(d.status)} · v${d.report?.version||0}`)+
       `<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="4500"/><w:gridCol w:w="4500"/></w:tblGrid><w:tr>${cell(col.left)}${cell(col.right)}</w:tr></w:tbl>`+p(`Confidential clinical record · cycle ${d.cycleId} · ${i+1} | Page`)).join('');
     const r=d.report||{},attribution=p(reportProvenanceText(d.outputProvenance||reportProvenance()))+p(`Prepared by: ${r.preparedBy||'Not recorded'} · MCM reviewed: ${r.reviewedBy||'Not recorded'} at ${r.reviewedAt||'Not recorded'}`)+
       p(`Sharing authorization: ${r.authorizedBy||'Not authorized'} at ${r.authorizedAt||'Not authorized'} · revision ${r.authorizedRevisionId||'Not recorded'}`);
@@ -265,11 +267,12 @@ const CARE_REVIEW = (()=>{
       (user.roleId==='intl.medical'||scoped(user,d.patientId)));
     const shown=dossiers.filter(d=>!params.status||params.status==='all'||d.intlStatus===params.status);
     return pageHead('International Medical Team · MCM-authorized PDCA reports',
-      'Only the exact 120+ day revisions authorized and shared by the MCM appear here. No unshared patient history or automatic clinical concurrence is supplied.')+
+      'Only the exact revisions authorized by the MCM and explicitly shared by the MCM or assigned caregiver appear here. No unshared patient history or automatic clinical concurrence is supplied.')+
       card('Authorized international review queue',shown.map(d=>`<div class="care-history-cycle"><h3>${esc(d.patientCode)} · ${esc(d.patientName)}</h3><p class="small">Actual evaluation ${esc(fmtDateTime(d.evaluatedAt))} · ${esc(d.daysInProgram)} programme days · ${esc(statusText(d.intlStatus))}</p><p class="small">MCM authorization ${esc(fmtDateTime(d.authorizedAt))} · shared ${esc(fmtDateTime(d.sharedAt))} · immutable revision ${esc(d.authorizedRevisionId)}</p>
       <div class="care-pre small">${esc(d.fields?.diagnoses||'Not recorded')}</div>
       <div class="row care-toolbar">${button('care-dossier-open','Read authorized report',`data-id="${esc(d.id)}"`)}${user.roleId==='intl.medical'?button('intl-review-modal','Record specialist advisory',`data-id="${esc(d.id)}"`,true):''}</div>
-      ${(d.advisories||[]).map(a=>`<p class="small care-pre">${esc(fmtDateTime(a.at))} · ${esc(userName(a.by))} · ${esc(statusText(a.decision))}\n${esc(a.recommendation)}</p>`).join('')}</div>`).join('')||emptyState('No authorized shared reports','Reports appear only after MCM comments, caregiver corrections, resubmission, MCM authorization and explicit sharing.','shield'));
+      <p class="small">${(d.comments||[]).length} line discussion thread(s)</p>
+      ${(d.advisories||[]).map(a=>`<p class="small care-pre">${esc(fmtDateTime(a.at))} · ${esc(userName(a.by))} · ${esc(statusText(a.decision))}\n${esc(a.recommendation)}</p>`).join('')}</div>`).join('')||emptyState('No authorized shared reports','Reports appear only after MCM authorization and explicit sharing. 120+ reports also require the existing correction and resubmission chain.','shield'));
   }
   function dossierData(id){
     const d=(DB.db.intlPdcaDossiers||[]).find(d=>d.id===id&&d.sharedAt&&d.authorizedRevisionId&&d.authorizedBy);
@@ -277,6 +280,26 @@ const CARE_REVIEW = (()=>{
     return reportData({id:d.reviewId,patientId:d.patientId,patientCode:d.patientCode,fields:d.fields,cycleId:d.cycleId,
       status:'shared',policyDays:d.daysInProgram,programmeDay:d.programmeDay,evaluatedAt:d.evaluatedAt,dueDay:d.dueDay,dueDate:d.dueDate,
       reviewedBy:d.reviewedBy,reviewedAt:d.reviewedAt,authorizedBy:d.authorizedBy,authorizedAt:d.authorizedAt,preparedBy:d.preparedBy||'',version:d.reportVersion||'',authorizedRevisionId:d.authorizedRevisionId});
+  }
+  function discussion(d){
+    const isIntl=AUTH.user?.roleId==='intl.medical';
+    const patient=!isIntl&&scoped(AUTH.user,d.patientId);
+    const canReply=isIntl || (patient&&(AUTH.user.roleId==='mcm'||(AUTH.user.roleId==='caregiver'&&patient.caregiverId===AUTH.user.id)));
+    const comments=Array.isArray(d.comments)?d.comments:[];
+    return `<section class="pdca-discussion"><h3>Line-by-line professional discussion</h3>
+      <p class="small">Comments are tied to the exact authorized revision. They are advisory; they do not amend or approve the report. Reopen if someone else has updated the discussion.</p>
+      ${R.SECTIONS.map(section=>`<details class="pdca-discussion-section"><summary>${esc(section.title)}</summary>
+        ${section.fields.map(([key,label])=>{
+          const lines=String(d.fields?.[key]||'').split(/\r?\n/);
+          return `<div class="pdca-discussion-field"><h4>${esc(label)}</h4>${lines.map((line,i)=>{
+            const found=comments.filter(c=>c.field===key&&c.line===i);
+            return `<div class="pdca-discussion-line"><div class="pdca-line-content"><span class="xs muted">Line ${i+1}</span><span class="care-pre">${esc(line||'Blank / not recorded')}</span>
+              ${isIntl?button('pdca-comment-open','Comment / question',`data-id="${esc(d.id)}" data-field="${esc(key)}" data-line="${i}"`):''}</div>
+              ${found.map(c=>`<div class="pdca-thread"><b>${esc(statusText(c.kind))}</b> · ${esc(userName(c.by))} · ${esc(fmtDateTime(c.at))}<p class="care-pre">${esc(c.message)}</p>
+                ${(c.replies||[]).map(r=>`<div class="pdca-reply"><b>${esc(userName(r.by))}</b> · ${esc(fmtDateTime(r.at))}<p class="care-pre">${esc(r.message)}</p></div>`).join('')}
+                ${canReply?button('pdca-reply-open','Reply',`data-id="${esc(d.id)}" data-comment="${esc(c.id)}"`):''}</div>`).join('')}</div>`;
+          }).join('')}</div>`;
+        }).join('')}</details>`).join('')}</section>`;
   }
   function internationalReview(id){
     const d=(DB.db.intlPdcaDossiers||[]).find(d=>d.id===id);
@@ -305,15 +328,36 @@ const CARE_REVIEW = (()=>{
       `<div class="care-referral-row">${flag(null)}<p class="small">No match in your authorized register. This does not certify identity in other scopes; the server also checks exact identifiers. Final enrollment belongs to the county MCM at the office.</p></div>`;
   }
   return {command,localCommand,scoped,synthetic,flag,history,panel,editor,data,template,reportData,openReport,patientSheet,wordBytes,output,outputReport,
-    token,hidden,button,sourceFields,sourcePayload,planFields,isoInput,toInstant,submitForm,assessmentHint,statusText,internationalPanel,internationalReview,dossierData,register};
+    token,hidden,button,sourceFields,sourcePayload,planFields,isoInput,toInstant,submitForm,assessmentHint,statusText,internationalPanel,internationalReview,dossierData,discussion,register};
 })();
 
 Object.assign(ACTIONS,{
   'care-dossier-open':d=>{
     const data=CARE_REVIEW.dossierData(d.id);if(!data)return;
-    openModal({title:'Authorized shared clinical revision',wide:true,body:CARE_REVIEW.template(data),
+    const dossier=(DB.db.intlPdcaDossiers||[]).find(x=>x.id===d.id);if(!dossier)return;
+    openModal({title:'Authorized shared clinical revision',wide:true,body:CARE_REVIEW.discussion(dossier)+CARE_REVIEW.template(data),
       footer:CARE_REVIEW.button('close-modal','Close')+CARE_REVIEW.button('care-dossier-print','Print / save PDF',`data-id="${esc(d.id)}"`)+CARE_REVIEW.button('care-dossier-docx','Word (.docx)',`data-id="${esc(d.id)}"`)});
   },
+  'pdca-comment-open':d=>{
+    const item=(DB.db.intlPdcaDossiers||[]).find(x=>x.id===d.id);
+    const fieldDef=CARE_RULES.FIELDS.find(([key])=>key===d.field),line=Number(d.line);
+    const lines=String(item?.fields?.[d.field]||'').split(/\r?\n/);
+    if(!item||!CARE_REVIEW.dossierData(d.id)||AUTH.user.roleId!=='intl.medical'||!fieldDef||!Number.isInteger(line)||line<0||line>=lines.length)return;
+    openModal({title:'Comment on an authorized PDCA line',body:`<p><b>${esc(fieldDef[1])} · line ${line+1}</b></p><blockquote class="care-pre">${esc(lines[line]||'Blank / not recorded')}</blockquote>
+      <form id="pdcaCommentForm">${CARE_REVIEW.hidden('id',item.id)}${CARE_REVIEW.hidden('version',item.version)}${CARE_REVIEW.hidden('field',d.field)}${CARE_REVIEW.hidden('line',line)}${CARE_REVIEW.hidden('requestId',CARE_REVIEW.token())}
+      ${field('Type','kind','select',{required:true,options:[{v:'comment',l:'Comment'},{v:'question',l:'Question'},{v:'clarification',l:'Clarification requested'},{v:'evidence_request',l:'Supporting evidence requested'}]})}
+      ${field('Professional comment or request','message','textarea',{required:true})}</form>`,
+      footer:CARE_REVIEW.button('close-modal','Cancel')+CARE_REVIEW.button('pdca-comment-save','Save comment','',true)});
+  },
+  'pdca-comment-save':()=>CARE_REVIEW.submitForm('pdcaCommentForm','dossier_comment',d=>({id:d.get('id'),version:Number(d.get('version')),field:d.get('field'),line:Number(d.get('line')),kind:d.get('kind'),message:d.get('message')}),r=>r.duplicate?render():ACTIONS['care-dossier-open']({id:r.rec.id})),
+  'pdca-reply-open':d=>{
+    const item=(DB.db.intlPdcaDossiers||[]).find(x=>x.id===d.id),thread=(item?.comments||[]).find(x=>x.id===d.comment);
+    const p=item&&CARE_REVIEW.scoped(AUTH.user,item.patientId);
+    if(!item||!thread||!CARE_REVIEW.dossierData(d.id)||!(AUTH.user.roleId==='intl.medical'||p&&(AUTH.user.roleId==='mcm'||AUTH.user.roleId==='caregiver'&&p.caregiverId===AUTH.user.id)))return;
+    openModal({title:'Reply to PDCA discussion',body:`<blockquote class="care-pre">${esc(thread.message)}</blockquote><form id="pdcaReplyForm">${CARE_REVIEW.hidden('id',item.id)}${CARE_REVIEW.hidden('version',item.version)}${CARE_REVIEW.hidden('commentId',thread.id)}${CARE_REVIEW.hidden('requestId',CARE_REVIEW.token())}${field('Response','message','textarea',{required:true})}</form>`,
+      footer:CARE_REVIEW.button('close-modal','Cancel')+CARE_REVIEW.button('pdca-reply-save','Save reply','',true)});
+  },
+  'pdca-reply-save':()=>CARE_REVIEW.submitForm('pdcaReplyForm','dossier_reply',d=>({id:d.get('id'),version:Number(d.get('version')),commentId:d.get('commentId'),message:d.get('message')}),r=>r.duplicate?render():ACTIONS['care-dossier-open']({id:r.rec.id})),
   'care-dossier-print':d=>CARE_REVIEW.output(CARE_REVIEW.dossierData(d.id),'print'),
   'care-dossier-docx':d=>CARE_REVIEW.output(CARE_REVIEW.dossierData(d.id),'docx'),
   'care-review-new':d=>{

@@ -4592,8 +4592,9 @@ async function handleRequest(req, res) {
     if(receipt){
       if(receipt.actor!==scope.userId || receipt.command!==command || receipt.payloadDigest!==sha256Hex(JSON.stringify(payload)))return sendJson(res,409,{ok:false,code:'request_id_conflict',error:'This command identifier has already been used.'});
       const patient=(state.db.patients||[]).find(p=>p.id===receipt.patientId);
-      const dossier=command==='international_review'&&(state.db.intlPdcaDossiers||[]).find(d=>d.id===payload.id);
-      if(!(command==='international_review'?scope.roleId==='intl.medical'&&authorizedDossier(dossier,state.db):patientInPrincipalScope(patient,scope)))
+      const internationalCommand=['international_review','dossier_comment','dossier_reply'].includes(command) && scope.roleId==='intl.medical';
+      const dossier=internationalCommand&&(state.db.intlPdcaDossiers||[]).find(d=>d.id===payload.id);
+      if(!(internationalCommand?authorizedDossier(dossier,state.db):patientInPrincipalScope(patient,scope)))
         return sendJson(res,403,{ok:false,code:'clinical_scope_denied',error:'The saved command is no longer in this account’s clinical scope.'});
       // A receipt acknowledges the operation, not a snapshot. The client must
       // read from its previous revision to reconcile a lost response safely.
