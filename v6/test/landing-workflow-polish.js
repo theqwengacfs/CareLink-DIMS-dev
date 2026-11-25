@@ -11,7 +11,7 @@ for(const name of JSON.parse(run('JSON.stringify(MAJOR_DEPARTMENTS.map(d=>esc(d.
 assert.ok(directory.includes('aria-label="All 11 major departments"'));
 assert.equal((directory.match(/class="ld-dept-copy"/g)||[]).length,11,'all departments have separate wrapping name/description containers');
 const svg=run('renderLandingWorkflow6()');
-const nodes=[...svg.matchAll(/data-workflow-node="([^"]+)"[\s\S]*?<rect x="([\d.]+)" y="([\d.]+)" width="112" height="26" rx="13"\/>\s*<circle cx="([\d.]+)" cy="([\d.]+)" r="2.6"[^>]*\/>\s*<text x="([\d.]+)" y="([\d.]+)" dy=".35em" text-anchor="start">/g)];
+const nodes=[...svg.matchAll(/data-workflow-node="([^"]+)"[\s\S]*?<rect x="([\d.]+)" y="([\d.]+)" width="112" height="26" rx="13"\/>\s*<circle cx="([\d.]+)" cy="([\d.]+)" r="2.6"[^>]*\/>\s*<text x="([\d.]+)" y="([\d.]+)" dy=".35em" text-anchor="start"[^>]*>/g)];
 assert.equal(nodes.length,8);
 for(const [,name,rx,ry,cx,cy,tx,ty] of nodes){
  assert.equal(+cx-(+rx),12,name+' marker inset');

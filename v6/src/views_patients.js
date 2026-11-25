@@ -744,6 +744,7 @@ function renderPatient(user, params){
     ['hospital','Hospital'],['documents','Documents'],['timeline','History'],['cycles','Support cycles / reassessment'],
     ['discharge', p.status==='discharged' ? 'Discharge summary' : 'Care & discharge summary']
   ].filter(([k])=>k!=='clinical'||clinical);
+  const tabIcons={overview:'home',clinical:'activity',visits:'calendar',pdca:'repeat',hospital:'hospital',documents:'file',timeline:'history',cycles:'refresh',discharge:'clipboard'};
 
   const header = `<div class="card" style="margin-bottom:16px"><div class="card-b">
     <div class="spread" style="align-items:flex-start;flex-wrap:wrap">
@@ -766,7 +767,7 @@ function renderPatient(user, params){
         ${workflowActions('patient',p,user)}
       </div>
     </div></div>
-    <div class="tabs" style="padding:0 12px">${tabs.map(([k,l])=>`<button class="tab ${tab===k?'active':''}" data-act="patient-tab" data-id="${p.id}" data-tab="${k}">${l}</button>`).join('')}</div>
+    <nav class="tabs patient-tabs" aria-label="Patient record sections">${tabs.map(([k,l])=>`<button type="button" class="tab ${tab===k?'active':''}" ${tab===k?'aria-current="true"':''} data-act="patient-tab" data-id="${esc(p.id)}" data-tab="${k}">${ic(tabIcons[k],15)}<span>${esc(l)}</span></button>`).join('')}</nav>
   </div>`;
 
   const body = tab==='overview' ? patientOverview(user,p)

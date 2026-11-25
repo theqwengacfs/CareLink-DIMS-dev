@@ -1,11 +1,13 @@
 /* Optional real-Chromium end-to-end clinical UI + print regression.
-   npm install --no-save --package-lock=false playwright-core @sparticuz/chromium
+   Requires playwright-core, Chromium and Python pymupdf (set PDF_PYTHONPATH
+   when installed outside the Python environment).
    All API/KV data and identities are synthetic and isolated. No production IO. */
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {execFileSync} from 'node:child_process';
 import {chromium} from 'playwright-core';
 import {clinicalFixture} from './clinical-api-fixture.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),f=await clinicalFixture();
@@ -110,12 +112,18 @@ try{
  const download=mcm.waitForEvent('download');await mcm.locator('[data-act="care-review-docx"]').click();const file=await download;assert.match(file.suggestedFilename(),/\.docx$/);await file.saveAs(path.join(dir,'synthetic-pdca.docx'));
  const popup=mcm.waitForEvent('popup');await mcm.locator('[data-act="care-review-print"]').click();const printed=await popup;await printed.waitForSelector('.care-template-page');
  const corePdf=await printed.pdf({path:path.join(dir,'synthetic-pdca.pdf'),preferCSSPageSize:true,printBackground:true});
- const corePages=(corePdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;assert.equal(corePages,3,'moderate actual-browser print must retain the supplied three-page core');
+ const corePages=(corePdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;
+ assert.equal(await printed.locator('.care-template-page').count(),2,'the current clinical template has two balanced spreads');
+ assert.equal(corePages,2,'moderate synthetic content should fit the two clinical spreads');
+ const pdfText=file=>execFileSync('python3',['-c',"import pymupdf,sys; d=pymupdf.open(sys.argv[1]); print(' '.join(p.get_text() for p in d))",file],{encoding:'utf8',env:{...process.env,PYTHONPATH:process.env.PDF_PYTHONPATH||'/tmp/carelink-pdf-check'}});
+ const coreText=pdfText(path.join(dir,'synthetic-pdca.pdf'));
+ for(const marker of ['PLAN','CHECK','ACT','Synthetic corrected next action'])assert.ok(coreText.includes(marker),'printed PDF retains '+marker);
  await printed.screenshot({path:path.join(dir,'report.png'),fullPage:true});
  // Long text must expand, never be hidden in a fixed-height report cell.
  await printed.evaluate(()=>{const ps=document.querySelectorAll('.care-template-block .care-pre');ps[1].append(document.createTextNode('\nSynthetic long evaluation narrative. '.repeat(90)+'SYNTHETIC-END-OF-LONG-NARRATIVE'));});
  const longPdf=await printed.pdf({path:path.join(dir,'synthetic-pdca-long.pdf'),preferCSSPageSize:true,printBackground:true});
  const overflowPages=(longPdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;assert.ok(overflowPages>corePages,'long narrative must flow rather than be clipped');
+ assert.ok(pdfText(path.join(dir,'synthetic-pdca-long.pdf')).replace(/\s+/g,'').includes('SYNTHETIC-END-OF-LONG-NARRATIVE'),'the end of the long narrative is present in the PDF even when wrapped');
  const specialist=await session('synthetic-intl.localtest');await specialist.evaluate(()=>go('intlmedical'));await specialist.waitForFunction(()=>document.body.textContent.includes('MCM-authorized PDCA reports'));
  const state=await specialist.evaluate(()=>({patients:DB.db.patients.length,reviews:DB.db.careReviews.length,dossiers:DB.db.intlPdcaDossiers.length}));assert.deepEqual(state,{patients:0,reviews:0,dossiers:1});
  await specialist.locator('[data-act="care-dossier-open"]').click();assert.ok((await specialist.locator('.care-template').innerText()).includes('Synthetic corrected next action for fourteen days'));

@@ -980,3 +980,33 @@ html .shell .topbar.cbar .tb-os-identity{
 .monday-assessment-group>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;cursor:pointer;background:#f2f8f7;color:#114b47;list-style:none}
 .monday-assessment-group>summary::-webkit-details-marker{display:none}
 .monday-assessment-group>summary:focus-visible{outline:3px solid #bc2444;outline-offset:-3px}
+
+/* A quieter, consistent section-navigation system across workspaces. The
+   user's pill/boxed/underline preference and theme contrast tokens remain in
+   control; colour is decorative and never communicates clinical status. */
+.shell .tabs{
+ gap:6px; padding:6px; border-radius:12px; align-items:stretch;
+}
+.shell .tabs .tab{
+ min-width:0; max-width:100%; height:auto; min-height:40px; margin:0;
+ padding:8px 13px !important; line-height:1.3; white-space:normal;
+ overflow-wrap:anywhere; text-align:left; justify-content:center;
+}
+.shell .tabs .tab svg{flex:0 0 auto;}
+.shell .tabs .tab>span:not(.ct):not(.tcount){min-width:0;overflow-wrap:anywhere;}
+html[data-colorscheme]:not([data-colorscheme="public"]):not([data-tabstyle="underline"]) .shell .tabs .tab:not(.active):not(.on){
+ background:color-mix(in srgb,var(--nav-colour,var(--accent)) 5%,var(--surface)) !important;
+ color:var(--ink) !important;
+ border-color:color-mix(in srgb,var(--nav-colour,var(--accent)) 25%,var(--line)) !important;
+ box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--nav-colour,var(--accent)) 70%,var(--surface)) !important;
+}
+html[data-colorscheme]:not([data-colorscheme="public"]):not([data-tabstyle="underline"]) .shell .tabs .tab:not(.active):not(.on):hover{
+ background:color-mix(in srgb,var(--nav-colour,var(--accent)) 10%,var(--surface)) !important;
+ color:var(--ink) !important;
+}
+.shell .tabs .tab:focus-visible{outline:3px solid var(--focus);outline-offset:-3px;}
+.shell .patient-tabs{margin:0 12px 12px;gap:5px;}
+.shell .patient-tabs .tab{padding-inline:10px !important;gap:5px;}
+.shell .patient-tabs .tab svg{opacity:.9;}
+@media(max-width:860px){.shell .tabs .tab{min-height:44px;}}
+@media(forced-colors:active){.shell .tabs .tab{border:1px solid ButtonText !important;}.shell .tabs .tab:is(.active,.on){outline:2px solid Highlight;outline-offset:-3px;}}

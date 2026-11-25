@@ -17,7 +17,7 @@
     "test:phase1": "node v6/test/v6103-entry-security.mjs && node v6/test/v6103-entry-ui.js && node v6/test/workspace-navigation-audit.js && node v6/test/canonical-host.js && node v6/test/v6103-synthetic.mjs",
     "test:browser:phase1": "node v6/test/v6103-entry-browser.mjs",
     "test:browser:trial": "node v6/test/isolated-trial-browser.mjs",
-    "test:browser:layout": "node v6/test/policy-layout-browser.mjs && node v6/test/navigation-layout-browser.mjs",
+    "test:browser:layout": "node v6/test/policy-layout-browser.mjs && node v6/test/navigation-layout-browser.mjs && node v6/test/patient-tabs-browser.mjs",
     "test:browser:clinical": "node v6/test/clinical-browser.mjs",
     "test:browser:report-print": "node v6/test/report-print-browser.mjs",
     "test:privacy-verifier": "python3 -m unittest discover -s v6/test -p test_privacy_verifier.py -v",

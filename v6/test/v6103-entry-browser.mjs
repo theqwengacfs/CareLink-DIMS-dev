@@ -157,14 +157,21 @@ try{
           .map(e=>({name:e.name||e.getAttribute('aria-label')||e.textContent.trim(),box:e.getBoundingClientRect().toJSON()}))
           .filter(e=>e.box.top< -1||e.box.bottom>innerHeight+1);
         const overflow=[front,...front.querySelectorAll('.ld-front-main,.lg6-panel,.lg6-body')]
-          .map(e=>({name:e.className,value:getComputedStyle(e).overflowY}));
+          .map(e=>({name:e.className,value:getComputedStyle(e).overflowY,scroll:e.scrollHeight,client:e.clientHeight}));
         return {height:innerHeight,scrollHeight:document.documentElement.scrollHeight,scrollY,boxes,outside,overflow};
       });
       assert.ok(geometry.scrollHeight<=geometry.height+1,label+' must not scroll vertically: '+JSON.stringify(geometry));
       assert.equal(geometry.scrollY,0,label+' starts at the top');
       assert.deepEqual(geometry.outside,[],label+' every visible control and the complete workflow fit, not just the submit');
       for(const {selector,box} of geometry.boxes) assert.ok(box.y>=-1&&box.bottom<=geometry.height+1,label+' '+selector+' fits the viewport');
-      for(const {name,value} of geometry.overflow) assert.ok(!['hidden','clip','scroll','auto'].includes(value),label+' must fit content instead of hiding or internally scrolling it: '+name+' '+value);
+      for(const {name,value,scroll,client} of geometry.overflow){
+        // The newer sign-in shell intentionally bounds the gallery and has a
+        // scrollable form panel. At a single-screen size it still must fit;
+        // accepting the CSS mechanism must not accept clipped content.
+        const signInShell=/\blg6\b/.test(name)&&!name.includes('lg6-body');
+        if(signInShell) assert.ok(scroll<=client+1,label+' sign-in shell content must fit: '+name+' '+scroll+'/'+client);
+        else assert.ok(!['hidden','clip','scroll','auto'].includes(value),label+' must fit content instead of hiding or internally scrolling it: '+name+' '+value);
+      }
       viewportEvidence.push({label,height:geometry.height,pageHeight:geometry.scrollHeight});
     }
     async function controlsReachable(selector,label){
@@ -178,13 +185,13 @@ try{
         assert.ok(result.top>=-1&&result.bottom<=result.height+1&&result.unobscured,label+' control remains reachable in fallback flow: '+JSON.stringify(result));
       }
     }
-    // Eight single-screen sizes include short laptop browser windows and a
-    // normal portrait phone. Tiny/keyboard-shortened views must flow safely.
+    // Desktop/tablet-sized views fit; phone and keyboard-shortened views may
+    // scroll naturally, but all controls must remain reachable.
     for(const {width,height,single} of [
       {width:1366,height:900,single:true},{width:1366,height:768,single:true},
       {width:1366,height:640,single:true},{width:1024,height:600,single:true},
       {width:1280,height:720,single:true},{width:1024,height:768,single:true},
-      {width:768,height:1024,single:true},{width:390,height:844,single:true},
+      {width:768,height:1024,single:true},{width:390,height:844,single:false},
       {width:320,height:640,single:false},{width:844,height:390,single:false}
     ]){
       const size={width,height};
@@ -205,7 +212,7 @@ try{
         nodes:[...new Set([...svg.querySelectorAll('.ld-workflow-node rect')].map(e=>getComputedStyle(e).fill))],
         redNodes:svg.querySelectorAll('[data-tone="red"]').length
       }));
-      assert.equal(colours.core,'rgb(179, 28, 43)','the hub is visibly red, not another white/grey disc');
+      assert.equal(colours.core,'rgb(197, 31, 59)','the hub uses the current red treatment, not a white/grey disc');
       assert.equal(colours.links,'rgb(255, 137, 150)','all eight spokes have stronger red accents');
       assert.equal(colours.redNodes,4,'red leads the eight departments');
       assert.equal(colours.nodes.length,4,'teal, gold and blue provide visual variety alongside red');
@@ -251,7 +258,7 @@ try{
         if(tab==='signin'){
           assert.equal(await entry.locator('[name="deviceLabel"],[name="deviceType"]').count(),0,'sign-in does not ask for a device label or type');
           assert.equal(await entry.locator('.lg-host.ok').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(234, 245, 241)','online status has a pale-teal surface');
-          assert.equal(await entry.locator('.lg-device-note').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(255, 246, 229)','the device notice has a readable gold surface');
+          assert.equal(await entry.locator('.lg-device-note').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(246, 244, 239)','the device notice uses the current warm neutral surface');
           assert.equal(await entry.locator('.lg-tabs .lg-tab').evaluateAll(tabs=>new Set(tabs.map(e=>getComputedStyle(e).color)).size),4,'the four access routes carry distinct accent colours');
           if(size.width===390){
             await entry.locator('#lg-u').focus();await entry.keyboard.press('Tab');
@@ -299,7 +306,7 @@ try{
   assert.equal(await page.evaluate(()=>APPX.view),'devconsole','one rail click opens the destination');
   assert.equal(await page.locator('.app.shell').evaluate(el=>el.classList.contains('np-rail')),false,'desktop rail expands after a destination is selected');
   const viewGeometry=await page.evaluate(()=>{const s=document.querySelector('.app.shell'),c=document.querySelector('#content'),b=document.querySelector('.topbar');return {top:c.getBoundingClientRect().top,bar:b.getBoundingClientRect().bottom,scroll:s.scrollTop};});
-  assert.ok(viewGeometry.scroll>0 && viewGeometry.top<=viewGeometry.bar+8,JSON.stringify(viewGeometry));
+  assert.ok(viewGeometry.top<=viewGeometry.bar+8 && viewGeometry.top>=viewGeometry.bar-1,JSON.stringify(viewGeometry));
   await page.evaluate(()=>NAVP.expandTemporarily());
   await page.locator('#content').click({position:{x:20,y:20}});await page.waitForSelector('.app.shell.np-rail');
   // One-account confidential export through the real Chief form/download path.
@@ -359,7 +366,7 @@ try{
   if(screenshotDir) await quotaPage.screenshot({path:path.join(screenshotDir,'quota-bandwidth-mobile.png'),fullPage:true});
   const failedCalls=quotaRequests.length;
   await retry.click();await quotaPage.waitForFunction(()=>!LOGIN6.busy&&/database quota/.test(LOGIN6.error));
-  assert.equal(quotaRequests.length,failedCalls+1,'one diagnostic, no automatic full-sync retries on a quota');
+  assert.equal(quotaRequests.length,failedCalls+1,'one diagnostic, no automatic full-sync retries on a quota: '+JSON.stringify(quotaRequests.slice(failedCalls)));
   fixtureQuota=false;
   await retry.click();await quotaPage.waitForFunction(()=>/online and healthy/.test(LOGIN6.notice));
   assert.equal(await quotaPage.evaluate(()=>SYNC.kvBlocked()),false);

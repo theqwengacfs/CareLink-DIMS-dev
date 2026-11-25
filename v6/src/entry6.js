@@ -238,7 +238,7 @@ function renderLandingWorkflow6(){
     ${nodes.map(([x,y,label,tone])=>`<g class="ld-workflow-node" data-workflow-node="${esc(label)}" data-tone="${tone}" style="--node-fill:var(--entry-relief-${tone}-fill);--node-accent:var(--entry-relief-${tone})">
       <rect x="${x-56}" y="${y-13}" width="112" height="26" rx="13"/>
       <circle cx="${x-44}" cy="${y}" r="2.6" aria-hidden="true"/>
-      <text x="${x-34}" y="${y}" dy=".35em" text-anchor="start">${esc(label)}</text>
+      <text x="${x-34}" y="${y}" dy=".35em" text-anchor="start"${label==='Administration'?' textLength="76" lengthAdjust="spacingAndGlyphs"':''}>${esc(label)}</text>
     </g>`).join('')}
     <g class="ld-workflow-core">
       <circle cx="230" cy="112" r="35"/>
