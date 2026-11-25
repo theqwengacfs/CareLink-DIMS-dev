@@ -6,6 +6,7 @@ const root = path.join(__dirname, '..', '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'public', 'manifest.webmanifest'), 'utf8'));
 const sw = fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8');
 const assert = (ok, message) => { if (!ok) throw new Error(message); console.log('PASS', message); };
+assert(manifest.name === 'CareLink' && manifest.short_name === 'CareLink', 'Installed application is named CareLink');
 assert(manifest.display === 'standalone' && manifest.start_url === './carelink-v6.html', 'Manifest launches the standalone CareLink bundle');
 assert(manifest.icons.some((i) => i.sizes === '192x192') && manifest.icons.some((i) => i.sizes === '512x512'), 'Install manifest declares both required PNG icon sizes');
 for (const icon of manifest.icons) assert(fs.existsSync(path.join(root, 'public', icon.src.replace(/^\.\//, ''))), `Icon exists: ${icon.src}`);

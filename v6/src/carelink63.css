@@ -2330,9 +2330,15 @@ details.wf-strip.wf-slim-ribbon[open] .wf-top-grid{
 }
 @media (max-width:920px){ .gov67-charter-grid{ grid-template-columns:1fr; } }
 .gov67-sec-card{
+  min-width:0; overflow-wrap:anywhere;
   background:var(--surface); color:var(--ink);
   border:1px solid var(--line); border-radius:14px; padding:16px 18px;
 }
+/* Status and classification are independent pieces of text. Allow both to
+   wrap without overlapping at zoom, on tablets, or with translated labels. */
+.gov67-sec-meta{display:flex; flex-wrap:wrap; align-items:flex-start; gap:8px 12px; min-width:0;}
+.gov67-sec-meta .badge{flex:0 1 auto; min-width:0; max-width:100%; white-space:normal; overflow-wrap:anywhere;}
+.gov67-sec-visibility{flex:1 1 180px; min-width:0; line-height:1.5; overflow-wrap:anywhere;}
 .gov67-sec-card h3{ margin:8px 0 4px; font-size:15.5px; font-family:var(--font); font-weight:700; color:var(--ink); }
 .gov67-list{ margin:8px 0 0; padding-left:18px; font-size:12.4px; line-height:1.52; color:var(--ink-2); }
 .gov67-list li{ margin-bottom:5px; }

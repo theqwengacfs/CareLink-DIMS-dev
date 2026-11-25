@@ -498,7 +498,7 @@ test('12. 10-Pillar Overhaul: Monday AI Engine & Secretary Desk, Upright Baselin
     const htmlDis = PAT_DISCHARGE.renderOfficialTemplateHTML(pDis, AUTH.user, 'discharge');
     const d120 = PAT_DISCHARGE.compileOfficialPdcaData(p120, AUTH.user, '120day');
     return {
-      has120Title: html120.includes('Patient PDCA 120-Day Report') && html120.includes('ESTIMATED DATE OF DISCHARGE'),
+      has120Title: html120.includes('Patient PDCA — Blank Template') && html120.includes('ESTIMATED DATE OF DISCHARGE'),
       hasDisTitle: htmlDis.includes('Patient PDCA Discharge Summary Report') && htmlDis.includes('CONFIRMED DATE OF DISCHARGE'),
       hasStages: ['cdims-stage-dx','cdims-stage-p','cdims-stage-d','cdims-stage-rx','cdims-stage-c','cdims-stage-a'].every(c => html120.includes(c) && htmlDis.includes(c)),
       mergeFieldsReady: Boolean(d120.patient_name && CARE_RULES.FIELDS.every(([key])=>typeof d120.fields[key]==='string') && Array.isArray(d120.challenges) && Array.isArray(d120.interventions) && Array.isArray(d120.treatments) && Array.isArray(d120.check_findings) && Array.isArray(d120.act_actions)),

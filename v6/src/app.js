@@ -276,8 +276,10 @@ function parseHash(){
 function go(view, params={}){
   APPX.view = view; APPX.params = params;
   if(typeof NAVP!=='undefined'){
-    NAVP._tempOpen = false;
-    NAVP._workspaceEngaged = true;
+    // A destination chosen from the desktop rail expands it and keeps it open
+    // until deliberate workspace use. Programmatic page reveal must not fold it.
+    NAVP._tempOpen = !!NAVP._keepOpenOnNavigation;
+    NAVP._workspaceEngaged = !NAVP._keepOpenOnNavigation;
   }
   if(typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.isActive()) SILENT_OVERRIDE.recordView(view);
   const q = Object.keys(params).length? '?'+Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&'):'';
@@ -840,10 +842,15 @@ function onClick(e){
     el.setAttribute('aria-busy','true'); el.classList.add('is-busy');
   }
   const priorContent=document.querySelector('#content');
+  const paneDestination=!!(AUTH.user && typeof NAVP!=='undefined' && !NAVP.narrow() && act==='go' && el.closest && el.closest('#npane'));
+  if(paneDestination) NAVP._keepOpenOnNavigation=true;
   try{ fn(el.dataset, el);
     if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
   }
-  finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
+  finally{
+    if(paneDestination) NAVP._keepOpenOnNavigation=false;
+    if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350);
+  }
 }
 function onSubmit(e){
   if(DEMO_PREVIEW.active){ e.preventDefault(); if(typeof toast==='function') toast('Read-only board preview','Form submissions are disabled in the isolated synthetic preview.','info'); return; }
@@ -2690,6 +2697,8 @@ function systemActions(){ return {
 
 function reportActions(){ return {
   generate:(d)=>{
+    const definition=REPORTS.types().find(t=>t.type===d.type);
+    if(!definition||!definition.caps.some(cap=>RBAC.has(AUTH.user,cap)))return toast('Not permitted','This report is not available to your account.','err');
     const county = roleObj(AUTH.user.roleId)?.scope?.geo==='global'? 'all': AUTH.user.countyId;
     const rec=REPORTS.generate(d.type,{countyId:county},AUTH.user);
     toast('Report generated',`${rec.title} · ${rec.periodKey} · v${rec.version}`,'ok');
@@ -2698,8 +2707,8 @@ function reportActions(){ return {
   'preview-report':(d)=>{ go('report',{type:d.type}); },
   'view-report':(d)=>{ go('report',{id:d.id}); },
   'export-report':(d)=>{
-    const r=DB.db.reports.find(x=>x.id===d.id);
-    if(!r) return;
+    const r=REPORTS.archive(AUTH.user,{}).find(x=>x.id===d.id);
+    if(!r) return toast('Report unavailable','This report is not available in your authorised archive.','err');
     if(r.type==='patient_figures'){
       const f=REPORTS.patientFigures(AUTH.user,{countyId:r.countyId==='all'?'all':r.countyId});
       const csv=toCSV(f.byArea,[{label:'Ministry area',get:x=>x.area.name},{label:'Classification',get:x=>x.area.cls},

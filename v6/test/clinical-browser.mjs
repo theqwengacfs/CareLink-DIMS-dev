@@ -53,7 +53,11 @@ try{
  }
  async function newReview(patientId,dueDay){
   await cg.evaluate(({patientId,dueDay})=>{closeAllModals();ACTIONS['care-review-new']({patient:patientId,day:String(dueDay)});},{patientId,dueDay});await cg.locator('#careEditorForm').waitFor();
-  for(const [key,value] of Object.entries(f.fields))await cg.locator(`#careEditorForm [name="${key}"]`).fill(value);
+  for(const [key,value] of Object.entries(f.fields)){
+   const input=cg.locator(`#careEditorForm [name="${key}"]`);
+   if(await input.getAttribute('type')==='hidden')continue;
+   await input.fill(value);
+  }
   const response=cg.waitForResponse(r=>r.url().endsWith('/api/care/command')&&r.request().method()==='POST');await cg.locator('[data-act="care-review-save"]').click();let r;
   try{r=await response;}catch(error){console.error('Synthetic command preflight diagnostic',await cg.evaluate(()=>({text:document.body.innerText.slice(-1700),patches:JSON.stringify(SYNC.patches().map(p=>p.c==='settings'?{c:p.c,set:Object.fromEntries(Object.entries(p.set.value).filter(([k,v])=>JSON.stringify(v)!==JSON.stringify(JSON.parse(SYNC._shadow.__settings.settings)[k])))}:p)),dirty:APPX.dirty,busy:SYNC._clinicalBusy,pulling:SYNC._pulling,ticking:SYNC._ticking,message:SYNC.message})));throw error;}
   assert.equal(r.status(),200,await r.text());const body=await r.json();await cg.locator('#careEditorForm').waitFor({state:'detached'});return body.rec.id;

@@ -43,8 +43,8 @@ const {makeCtx}=require('./dom');
   run("AUTH.user=DB.db.users.find(u=>u.roleId==='caregiver')");
   await assert.rejects(run("ENTRY_THEME.apply('heritage')"),/Only the Chief/);
   assert.ok(!run('settingsLanding(AUTH.user,true)').includes('data-act="preview-theme"'),'non-Chief users cannot see apply/preview controls even with org.manage');
-  // A rail destination opens on the first click. The explicit expand control
-  // still holds the pane open across redraws until workspace engagement.
+  // A rail destination opens on the first click and expands the desktop pane.
+  // It remains open across redraws until deliberate workspace engagement.
   run(`AUTH.user=DB.db.users.find(u=>u.roleId==='chief');APPX.view='home';
     DB.db.personalPrefs[AUTH.user.id]={navRail:true,navAutoFold:true,navRailExplicit:true};
     window.innerWidth=1366;NAVP._tempOpen=false;NAVP._workspaceEngaged=false;
@@ -53,16 +53,18 @@ const {makeCtx}=require('./dom');
     globalThis.__navEvent={target:{closest(selector){return selector==='[data-act]'?__navButton:null}},preventDefault(){}};
     onClick(__navEvent);`);
   assert.equal(run('APPX.view'),'devconsole','first rail click navigates');
-  assert.equal(run('NAVP._tempOpen'),false);
-  assert.equal(run('NAVP.effectiveRail(AUTH.user,APPX.view)'),true);
-  run("NAVP.expandTemporarily();NAVP.foldForWorkspace('scroll');NAVP.toggleGroup(AUTH.user,'System',0);render();");
-  assert.equal(run('NAVP.effectiveRail(AUTH.user,APPX.view)'),false,'explicit expansion holds across programmatic scroll restoration and group redraw');
+  assert.equal(run('NAVP._tempOpen'),true);
+  assert.equal(run('NAVP.effectiveRail(AUTH.user,APPX.view)'),false);
+  run("NAVP.foldForWorkspace('scroll');NAVP.toggleGroup(AUTH.user,'System',0);render();");
+  assert.equal(run('NAVP.effectiveRail(AUTH.user,APPX.view)'),false,'expansion holds across programmatic scroll restoration and group redraw');
   run('onClick(__navEvent)');
   assert.equal(run('APPX.view'),'devconsole');
-  assert.equal(run('NAVP._tempOpen'),false);
-  assert.equal(run('NAVP.effectiveRail(AUTH.user,APPX.view)'),true,'actual navigation collapses the rail');
-  run("NAVP.expandTemporarily();NAVP._hoveringPane=false;NAVP.foldForWorkspace('workspace-pointerdown');");
+  assert.equal(run('NAVP._tempOpen'),true);
+  assert.equal(run('NAVP.effectiveRail(AUTH.user,APPX.view)'),false,'pane navigation retains expansion');
+  run("NAVP._hoveringPane=false;NAVP.foldForWorkspace('workspace-pointerdown');");
   assert.equal(run('NAVP.effectiveRail(AUTH.user,APPX.view)'),true,'deliberate engagement with the right workspace collapses it');
+  run("DB.db.personalPrefs[AUTH.user.id]={navAutoFold:false};NAVP.expandTemporarily();NAVP.foldForWorkspace('wheel');");
+  assert.equal(run('NAVP.effectiveRail(AUTH.user,APPX.view)'),false,'disabled auto-fold keeps the pane open even for older preferences without navRailExplicit');
   // No local commissioning or data entry is allowed on the retired host.
   run(`location.hostname='theqwengacfs.github.io';location.replace=url=>{globalThis.__redirect=url};`);
   assert.equal(run('CANONICAL_HOST.enforce()'),true);

@@ -19,4 +19,13 @@ const word=Buffer.from(run('CARE_REVIEW.wordBytes(__layout)')).toString('utf8');
 assert(word.includes('Department: Medical &amp; Clinical Services'));assert(word.includes('synthetic.exporter'));
 const xlsx=Buffer.from(run(`XLSX.fromSheets([{name:'Results',rows:[['Result'],['Synthetic']]}],'Synthetic report')`)).toString('utf8');
 assert(xlsx.includes('Report provenance'));assert(xlsx.includes('Medical &amp; Clinical Services'));assert(xlsx.includes('synthetic.exporter'));
-console.log('Report layout/provenance: balanced spreads, all source fields, escaped user/department, PDCA graphics and Word/spreadsheet attribution passed.');
+// Archive records are metadata, not immutable report snapshots. A missing or
+// unauthorised id must not turn into a generic preview or CSV export.
+run(`globalThis.__chief=DB.db.users.find(u=>u.roleId==='chief');globalThis.__reporter=DB.db.users.find(u=>RBAC.has(u,'report.patient_figures'));globalThis.__report=REPORTS.generate('patient_figures',{countyId:__reporter.countyId},__reporter);`);
+assert.match(run(`renderReportView(__reporter,{id:__report.id})`),/Live reconstruction/);
+assert.match(run(`renderArchive(__reporter)`),/not a preserved historical snapshot/);
+assert.match(run(`renderReportView(__reporter,{id:'missing-synthetic-report'})`),/Report unavailable/);
+assert.match(run(`renderReportView(__chief,{type:'patient_figures'})`),/Report unavailable/);
+assert.equal(run(`DOCEXPORT.report(__chief,{type:'patient_figures',countyId:'all'}).ok`),false);
+assert.equal(run(`reportCountyForUser({roleId:'mcm',countyId:'kisumu'},'homa-bay')`),'kisumu');
+console.log('Report layout/provenance: balanced spreads, all source fields, escaped user/department, PDCA graphics, attribution and honest scoped archive previews passed.');

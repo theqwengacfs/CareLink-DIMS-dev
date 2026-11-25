@@ -290,13 +290,13 @@ function renderReports(user){
       {label:'Generated',render:r=>fmtDateTime(r.generatedAt)},
       {label:'By',render:r=>`<span class="small">${esc(r.generatedByName)}</span>`},
       {label:'',cls:'act',render:r=>`<button class="btn btn-xs btn-ghost" data-act="view-report" data-id="${r.id}">Open</button>`}
-    ], REPORTS.archive(user,{}).slice(0,8), {empty:emptyState('No reports yet','Generate a report to archive it with its period and integrity block.','file')}),
+    ], REPORTS.archive(user,{}).slice(0,8), {empty:emptyState('No reports yet','Generate a report to retain its generation record. Reports reopen using current data.','file')}),
     {actions:`<button class="btn btn-xs btn-ghost" data-act="go" data-v="archive">View archive ${ic('chevron',12)}</button>`});
 }
 
 function renderArchive(user){
   const rows = REPORTS.archive(user,{});
-  return pageHead('Report archive','Issued reports are preserved. Regeneration creates a new version rather than overwriting.')
+  return pageHead('Report archive','Generation records are retained; opening a record rebuilds its report from current data, not a preserved historical snapshot.')
   + card('', table([
       {label:'Report',render:r=>`<div class="cellname">${esc(r.title)}<span class="sm">${esc(r.periodKey)} ${r.scheduled?'· scheduled':''}</span></div>`},
       {label:'Scope',render:r=>esc(r.countyId==='all'?'Organisation':countyName(r.countyId))},
@@ -305,7 +305,7 @@ function renderArchive(user){
       {label:'Checksum',render:r=>`<span class="mono xs muted">${esc(r.checksum)}</span>`},
       {label:'',cls:'act',render:r=>`<button class="btn btn-xs btn-ghost" data-act="view-report" data-id="${r.id}">Open</button>`}
     ], rows, {emptyMsg:'No archived reports yet.'}),
-    {foot:`<span>${ic('lock',13)} Archive entries are append-only. Each carries a checksum for integrity verification.</span>`});
+    {foot:`<span>${ic('lock',13)} The checksum identifies the generation record; it does not verify a preserved report or its underlying data.</span>`});
 }
 
 function renderTargets(user){
@@ -400,8 +400,14 @@ function reportShell({title, sub, meta, body, footerNote='', classification='Int
   </div>`;
 }
 
+function reportCountyForUser(user, requested){
+  const scope=roleObj(user.roleId)?.scope||{};
+  if(scope.geo!=='global'&&!scope.crossCounty) return user.countyId;
+  return requested&&requested!=='all'?requested:(scope.geo==='global'?'all':user.countyId);
+}
+
 function buildReportDoc(type, params, user){
-  const countyId = params.countyId && params.countyId!=='all' ? params.countyId : (roleObj(user.roleId)?.scope?.geo==='global'? 'all': user.countyId);
+  const countyId = reportCountyForUser(user,params.countyId);
   const metaBase = (extra=[])=>[
     { k:'Reporting period', v: extra.period||PERIOD.week().label },
     { k:'Cut-off', v: fmtDate(new Date())+' 23:59 EAT' },
@@ -844,15 +850,19 @@ function buildReportDoc(type, params, user){
 }
 
 function renderReportView(user, params){
-  const rec = DB.db.reports.find(r=>r.id===params.id);
+  const rec = params.id ? REPORTS.archive(user,{}).find(r=>r.id===params.id) : null;
+  if(params.id&&!rec) return emptyState('Report unavailable','This report cannot be found in your authorised archive.','lock');
   const type = rec? rec.type : params.type;
-  const countyId = rec? rec.countyId : (params.countyId||user.countyId);
+  const definition=REPORTS.types().find(t=>t.type===type);
+  if(!definition||!definition.caps.some(cap=>RBAC.has(user,cap))) return emptyState('Report unavailable','This report is not available to your account.','lock');
+  const countyId = reportCountyForUser(user,rec?rec.countyId:params.countyId);
   const tblMode = (typeof isChartTableMode==='function' && isChartTableMode());
-  const html = buildReportDoc(type,{...(rec?.params||{}),countyId: countyId==='all'?'all':countyId}, user);
+  let html = buildReportDoc(type,{...(rec?.params||params),countyId: countyId==='all'?'all':countyId}, user);
+  if(rec) html=html.replace('<div class="report-doc" id="reportDoc">','<div class="report-doc" id="reportDoc"><p><strong>Live reconstruction:</strong> current data, not a preserved historical report.</p>');
   const exportMenu = (typeof utilMenu==='function') ? utilMenu('Export & Print', [
     { label:'Print / Save PDF', icon:'download', act:'print' },
-    { label:'Download Word (.doc)', icon:'file', act:'export-report-docx', attrs:`data-type="${esc(type||'')}" data-county-id="${esc(countyId||'')}" data-date="${esc(rec?.params?.date||params.date||'')}"` },
-    ...(rec ? [{ label:'Download Structured CSV', icon:'columns', act:'export-report', attrs:`data-id="${esc(rec.id)}"` }] : [])
+    { label:'Download Word (.docx)', icon:'file', act:'export-report-docx', attrs:`data-type="${esc(type||'')}" data-id="${esc(rec?.id||'')}" data-county-id="${esc(countyId||'')}" data-date="${esc(rec?.params?.date||params.date||'')}"` },
+    ...(rec ? [{ label:type==='patient_figures'?'Download current area figures CSV':'Download generation metadata CSV', icon:'columns', act:'export-report', attrs:`data-id="${esc(rec.id)}"` }] : [])
   ], { icon:'download', primary:true }) : `<button class="btn btn-sm btn-primary" data-act="print">${ic('download',14)} Print / PDF</button>`;
   return `<div class="row no-print" style="margin-bottom:14px;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <button class="btn btn-sm btn-ghost" data-act="go" data-v="reports">${ic('back',13)} Back to Report Centre</button>
@@ -861,5 +871,5 @@ function renderReportView(user, params){
         <button class="btn btn-sm ${tblMode?'btn-primary':'btn-ghost'}" data-act="toggle-chart-table-mode">${ic('columns',14)} ${tblMode?'Show Charts & Tables':'Tables Only'}</button>
         ${exportMenu}
       </div>
-    </div>${html}`;
+    </div>${rec?'<div class="note no-print" style="margin-bottom:12px">This is a live reconstruction using current data, not a preserved copy of the report at generation time.</div>':''}${html}`;
 }

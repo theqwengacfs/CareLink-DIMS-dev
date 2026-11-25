@@ -30,6 +30,17 @@ check('no missing clinical or demographic field is invented by data / template g
  assert.match(html,/&lt;script&gt;not executable&lt;\/script&gt;/);assert.equal(html.includes('<script>not executable'),false);
  const patientView=run(`renderPatient(AUTH.user,{id:'synthetic-p'})`);assert.match(patientView,/Sex not recorded/);assert.match(patientView,/Age not recorded/);
 });
+check('normal and extended PDCA output keeps legacy details and uses the right title',()=>{
+ run(`globalThis.__pdcaOutput={fields:CARE_RULES.cleanFields({nextSteps:'Synthetic next step'}),patient_code:'SYNTHETIC-CASE',report:{id:'synthetic-review',policyDays:90,version:1},cycleId:'synthetic-cycle',status:'draft',mode:'120day',report_title:'Patient PDCA Review Report'};`);
+ let html=run('CARE_REVIEW.template(__pdcaOutput)');assert.doesNotMatch(html,/JUSTIFICATION/);assert.match(html,/ESTIMATED DATE OF DISCHARGE/);
+ let word=Buffer.from(run('CARE_REVIEW.wordBytes(__pdcaOutput)')).toString('utf8');assert(!word.includes('JUSTIFICATION'));
+ run(`__pdcaOutput.fields.clinicalReasons='Synthetic historical justification';`);
+ html=run('CARE_REVIEW.template(__pdcaOutput)');assert.match(html,/Previously recorded extended-stay information/);assert.match(html,/Synthetic historical justification/);
+ word=Buffer.from(run('CARE_REVIEW.wordBytes(__pdcaOutput)')).toString('utf8');assert(word.includes('Synthetic historical justification'));
+ run(`__pdcaOutput.report.policyDays=120`);html=run('CARE_REVIEW.template(__pdcaOutput)');assert.match(html,/JUSTIFICATION/);
+ assert.match(run(`CARE_REVIEW.reportData({id:'s',patientId:'synthetic-p',policyDays:180,fields:{},status:'draft'},DB.db.patients[0]).report_title`),/180-Day/);
+ assert.match(run(`CARE_REVIEW.reportData({id:'s',patientId:'synthetic-p',policyDays:120,fields:{},status:'draft'},DB.db.patients[0]).report_title`),/120-Day/);
+});
 check('line discussion shows escaped text, anchors and role-appropriate actions',()=>{
  run(`DB.db.intlPdcaDossiers=[{id:'synthetic-dossier',patientId:'synthetic-p',reviewId:'synthetic-review',sharedAt:'2028-06-30T10:00:00Z',authorizedRevisionId:'revision-1',authorizedBy:'synthetic-mcm',version:2,
   fields:CARE_RULES.cleanFields({nextSteps:'First line\\nSecond line'}),comments:[{id:'thread-1',field:'nextSteps',line:1,kind:'question',by:'synthetic-mcm',at:'2028-06-30T10:00:00Z',message:'<script>synthetic question</script>',replies:[]}]}];`);
@@ -39,6 +50,14 @@ check('line discussion shows escaped text, anchors and role-appropriate actions'
  run(`AUTH.user={id:'synthetic-intl',roleId:'intl.medical'}`);
  html=run(`CARE_REVIEW.discussion(DB.db.intlPdcaDossiers[0])`);assert.match(html,/pdca-comment-open/);assert.match(html,/data-field="nextSteps" data-line="1"/);
  run(`AUTH.user=DB.db.users[0]`);
+});
+check('normal editor keeps old justification fields hidden and offers only transparent review prompts',()=>{
+ run(`CARE_REVIEW.editor('synthetic-p')`);
+ const html=nodes.at(-1).innerHTML;
+ assert.match(html,/Caregiver \/ ministry-area review prompts/);assert.match(html,/not trained on MCM records/);
+ assert.match(html,/Normal PDCA: extended-stay justification is not requested/);
+ assert.match(html,/<input type="hidden" name="clinicalReasons"/);
+ assert.doesNotMatch(html,/<textarea[^>]*name="clinicalReasons"/);
 });
 check('editable fields cover the supplied format, decimals and actual timestamp independently of milestone date',()=>{
  const fields=J('CARE_RULES.FIELDS.map(([key])=>key)');

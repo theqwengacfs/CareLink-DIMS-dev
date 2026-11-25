@@ -297,6 +297,7 @@ try{
   const destination=page.locator('#npane [data-act="go"][data-v="devconsole"]');
   await destination.click();await page.waitForFunction(()=>APPX.view==='devconsole');
   assert.equal(await page.evaluate(()=>APPX.view),'devconsole','one rail click opens the destination');
+  assert.equal(await page.locator('.app.shell').evaluate(el=>el.classList.contains('np-rail')),false,'desktop rail expands after a destination is selected');
   const viewGeometry=await page.evaluate(()=>{const s=document.querySelector('.app.shell'),c=document.querySelector('#content'),b=document.querySelector('.topbar');return {top:c.getBoundingClientRect().top,bar:b.getBoundingClientRect().bottom,scroll:s.scrollTop};});
   assert.ok(viewGeometry.scroll>0 && viewGeometry.top<=viewGeometry.bar+8,JSON.stringify(viewGeometry));
   await page.evaluate(()=>NAVP.expandTemporarily());

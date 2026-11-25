@@ -126,11 +126,27 @@ const CARE_REVIEW = (()=>{
     const permitted=r?correcting?(r.policyDays>=120?AUTH.user.roleId==='caregiver':['caregiver','coordinator'].includes(AUTH.user.roleId)):W.writer(AUTH.user,p,r,DB.db):W.writer(AUTH.user,p,{dueDay,evaluatedAt:new Date().toISOString()},DB.db);
     if(!permitted)return toast('Required preparer','The caregiver / coordinator prepares non-admission cases. The MCM prepares 120+ reports where foundation-supported hospitalization has occurred. Caregiver corrections are a separate step.','warn');
     const values=r?.fields||initialFields(p);
-    const renderFields=section=>`<fieldset class="care-editor-section"><legend>${esc(section.title)}</legend>${section.fields.map(([key,label,type,required])=>field(label,key,type||'text',{value:values[key]??'',required:!!required,hint:type==='textarea'?'Record documented findings; enter not assessed or not applicable explicitly. Maximum 4,000 characters per field; longer text is refused, never silently shortened.':''})).join('')}</fieldset>`;
+    const policyDays=correcting?Number(r.policyDays):R.reportDays(p,r||{dueDay,evaluatedAt:new Date().toISOString()},DB.db);
+    const normal=policyDays<120;
+    const renderFields=section=>{
+      const visible=section.fields.filter(([key])=>!normal||!R.EXTENSION_FIELDS.includes(key));
+      const kept=section.fields.filter(([key])=>normal&&R.EXTENSION_FIELDS.includes(key)).map(([key])=>hidden(key,values[key]||'')).join('');
+      const title=normal&&section.title==='Justification & discharge'?'Estimated discharge':section.title;
+      return kept+`<fieldset class="care-editor-section"><legend>${esc(title)}</legend>${visible.map(([key,label,type,required])=>field(label,key,type||'text',{value:values[key]??'',required:!!required,hint:type==='textarea'?'Record documented findings; enter not assessed or not applicable explicitly. Maximum 4,000 characters per field; longer text is refused, never silently shortened.':''})).join('')}</fieldset>`;
+    };
     openModal({title:correcting?'Caregiver corrections · PDCA':'Editable PDCA evaluation',sub:p.code+' · '+(r?.dueDay||dueDay?'Scheduled day '+(r?.dueDay||dueDay):'On demand'),wide:true,
       body:`<form id="careEditorForm">${hidden('patientId',p.id)}${hidden('id',r?.id||'')}${hidden('version',r?.version||'')}${hidden('dueDay',r?.dueDay??dueDay??'')}${hidden('requestId',token())}
       <p class="small">Values copied below are recorded source values, not new findings. Check them at this evaluation. Nothing is inferred from a diagnosis, age, prior visit or demonstration default.</p>
+      ${normal?'<p class="small">Normal PDCA: extended-stay justification is not requested. If this draft reaches day 120 before submission, reopen it to complete the extended-stay section. Any previously saved information is retained.</p>':''}
       ${r?.reviewComment?`<div class="alert warn"><div><b>MCM comments</b><p class="care-pre">${esc(r.reviewComment)}</p></div></div>`:''}
+      <details class="care-history-cycle"><summary>Caregiver / ministry-area review prompts</summary>
+        <p class="small">A fixed, local checklist to support your own thinking; it is not trained on MCM records, does not interpret the patient's details, and is not an MCM review or clinical advice. It does not change or save any field. Discuss clinical questions with the MCM.</p>
+        <ul class="small"><li>Have you described the patient's own priorities, circumstances and specific challenges in their own context?</li>
+          <li>For each selected action, what exactly will be done, by whom, when, for how long, and how will progress be checked?</li>
+          <li>If education or counselling is planned, which individual topics and practical follow-up are relevant to this patient?</li>
+          <li>Where relevant, have you specified the details of SHA, nutrition, medication adherence, hygiene, transport, referral, psychosocial or spiritual support, prayers, net or Bible? Include only what is agreed and appropriate.</li>
+          <li>Are any unknowns or evidence gaps clearly identified for the MCM, without guessing or changing the household's account?</li></ul>
+      </details>
       ${correcting?hidden('evaluatedAt',isoInput(r.evaluatedAt))+'<p>Original actual evaluation: '+esc(fmtDateTime(r.evaluatedAt))+'. Corrections retain that evaluation; create an on-demand report for a new evaluation.</p>':field('Actual evaluation date & time','evaluatedAt','datetime-local',{value:isoInput(r?.evaluatedAt),required:true,hint:'Your device timezone; stored as an absolute timestamp. Programme days use Africa/Nairobi. The scheduled due date never changes.'})}
       <div class="care-editor-grid"><div>${renderFields(R.SECTIONS[0])}</div><div>${R.SECTIONS.slice(1).map(renderFields).join('')}</div></div>
       ${correcting?field('Corrections made in response to MCM comments','correctionNote','textarea',{required:true,value:r.correctionNote||''}):''}</form>`,
@@ -146,7 +162,7 @@ const CARE_REVIEW = (()=>{
     const records=(DB.db.careReviews||[]).filter(r=>r.patientId===p.id&&r.cycleId===R.cycleId(p)).sort((a,b)=>b.evaluatedAt.localeCompare(a.evaluatedAt));
     const report=opts.reviewId?records.find(r=>r.id===opts.reviewId):records[0];
     const fields=report?.fields||initialFields(p);
-    const title=mode==='discharge'?'Patient PDCA Discharge Summary Report':'Patient PDCA 120-Day Report';
+    const title=mode==='discharge'?'Patient PDCA Discharge Summary Report':!report?'Patient PDCA — Blank Template':Number(report.policyDays)>=180?'Patient PDCA 180-Day Report':Number(report.policyDays)>=120?'Patient PDCA 120-Day Report':'Patient PDCA Review Report';
     return {careTemplate:true,patientId:p.id,patient_code:p.code||p.id,patient_name:fields.patientName,mode,report_title:title,
       report:report||null,fields,cycleId:R.cycleId(p),status:report?.status||'blank_template',evaluatedAt:report?.evaluatedAt||'',
       programmeDay:report?.programmeDay??'',dueDate:report?.dueDate||'',dueDay:report?.dueDay??null,
@@ -162,8 +178,12 @@ const CARE_REVIEW = (()=>{
     const left=`<h3>PATIENT DATA / CAREGIVER DATA</h3><dl>${R.SECTIONS[0].fields.map(([k,label])=>`<dt>${esc(label)}</dt><dd>${esc(v(k))}</dd>`).join('')}<dt>Actual evaluation date & time</dt><dd>${esc(d.evaluatedAt?fmtDateTime(d.evaluatedAt)+' · '+d.evaluatedAt:'Not recorded')}</dd><dt>Days in program at evaluation</dt><dd>${esc(d.programmeDay??'Not recorded')}</dd><dt>Scheduled due date (not evaluation)</dt><dd>${esc(d.dueDate||'On-demand / no scheduled milestone')}</dd></dl>`;
     const right1=block('Aim (SMART)',['aimDate','aimOutcome','aimFunction'])+block('Diagnosis',['diagnoses'],'cdims-stage-dx')+block('Major symptoms WITH durations',['symptoms'])+block('PLAN (Challenges)',['plan'],'cdims-stage-p')+block('DO — actions, monitoring, additional support',['actions'],'cdims-stage-d');
     const right2=block('Treatment & indications',['treatment','procedures','educationCounselling'],'cdims-stage-rx')+block('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus'],'cdims-stage-c');
-    const act=block('ACT (Based on CHECK) — next steps & durations',['nextSteps'],'cdims-stage-a')+block('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']);
-    const right3=act+block('JUSTIFICATION (continued) — external delays',['externalDelays'])+block('ESTIMATED DATE OF DISCHARGE',['estimatedDischargeDate']);
+    const days=d.report?.policyDays;
+    const extended=days==null||!Number.isFinite(Number(days))||Number(days)>=120;
+    const retained=!extended&&R.EXTENSION_FIELDS.some(k=>String(f[k]||'').trim());
+    const extension=extended?block('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds'])+block('JUSTIFICATION (continued) — external delays',['externalDelays']):
+      retained?block('Previously recorded extended-stay information (retained)',['clinicalReasons','labsStatus','recoveryNeeds','externalDelays']):'';
+    const right3=block('ACT (Based on CHECK) — next steps & durations',['nextSteps'],'cdims-stage-a')+extension+block('ESTIMATED DATE OF DISCHARGE',['estimatedDischargeDate']);
     return [[left,right1],[right2,right3]];
   }
   function template(d){
@@ -175,7 +195,7 @@ const CARE_REVIEW = (()=>{
       ${d.mode==='discharge'?`<section class="care-physical-signatures"><h3>PATIENT ACKNOWLEDGEMENT &amp; PHYSICAL SIGNATURES — discharge acknowledgement</h3><p>Obtain signatures on paper. Electronic approval and typed names do not replace physical signatures; this printout does not prove signatures or consent.</p><p>Patient / Guardian signature · date: _________________________________</p><p>Caregiver signature · date: _________________________________________</p><p>MCM signature · date: ______________________________________________</p><p>Witness signature · date: ___________________________________________</p><p>CONFIRMED DATE OF DISCHARGE: ${esc(d.dischargeDate||'Not recorded')}</p></section>`:''}</article>`;
   }
   function reportData(r,p){return {careTemplate:true,patientId:p?.id||r.patientId,patient_code:p?.code||r.patientCode||r.patientId,fields:r.fields,report:r,
-    cycleId:r.cycleId,status:r.status,programmeDay:r.programmeDay??r.policyDays,evaluatedAt:r.evaluatedAt,dueDay:r.dueDay,dueDate:r.dueDate,mode:'120day',report_title:Number(r.policyDays)>=120?'Patient PDCA 120-Day Report':'Patient PDCA Review Report'};}
+    cycleId:r.cycleId,status:r.status,programmeDay:r.programmeDay??r.policyDays,evaluatedAt:r.evaluatedAt,dueDay:r.dueDay,dueDate:r.dueDate,mode:'120day',report_title:Number(r.policyDays)>=180?'Patient PDCA 180-Day Report':Number(r.policyDays)>=120?'Patient PDCA 120-Day Report':'Patient PDCA Review Report'};}
   function openReport(id,revisionId=''){
     const r=(DB.db.careReviews||[]).find(x=>x.id===id),p=r&&scoped(AUTH.user,r.patientId);
     if(!r||!p)return toast('Not available','Outside your clinical scope.','err');
@@ -212,10 +232,15 @@ const CARE_REVIEW = (()=>{
   }
   function wordBytes(d){
     const p=text=>DOCX.para(text),section=(label,keys)=>DOCX.para(label,'Heading2')+keys.map(k=>p((R.FIELDS.find(([key])=>key===k)?.[1]||k)+': '+(d.fields[k]||'Not recorded'))).join('');
+    const days=d.report?.policyDays;
+    const extended=days==null||!Number.isFinite(Number(days))||Number(days)>=120;
+    const retained=!extended&&R.EXTENSION_FIELDS.some(k=>String(d.fields[k]||'').trim());
+    const extension=extended?section('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds'])+section('JUSTIFICATION (continued)',['externalDelays']):
+      retained?section('Previously recorded extended-stay information (retained)',R.EXTENSION_FIELDS):'';
     const right=[section('Aim (SMART)',['aimDate','aimOutcome','aimFunction'])+section('Diagnosis',['diagnoses'])+section('Major symptoms WITH durations',['symptoms'])+section('PLAN (Challenges)',['plan'])+section('DO — actions / monitoring',['actions']),
       section('Treatment AND indications',['treatment','procedures','educationCounselling'])+section('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus']),
-      section('ACT — next steps AND durations',['nextSteps'])+section('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']),
-      section('JUSTIFICATION (continued)',['externalDelays'])+section('Estimated date of discharge',['estimatedDischargeDate'])];
+      section('ACT — next steps AND durations',['nextSteps'])+extension,
+      section('Estimated date of discharge',['estimatedDischargeDate'])];
     const left=R.SECTIONS[0].fields.map(([k,label])=>p(label+': '+(d.fields[k]||'Not recorded'))).join('')+p('Actual evaluation: '+(d.evaluatedAt||'Not recorded'))+p('Programme day: '+(d.programmeDay??'Not recorded'))+p('Scheduled due: '+(d.dueDate||'On demand'));
     const cell=xml=>`<w:tc><w:tcPr><w:tcW w:w="4500" w:type="dxa"/></w:tcPr>${xml||p('')}</w:tc>`;
     const balanced=[{left,right:right[0]},{left:right[1],right:right.slice(2).join('')}];

@@ -4,6 +4,11 @@ run('DB.load();DB.seedDemo();AUTH.user=DB.db.users.find(u=>u.roleId==="chief");'
 const period=JSON.parse(run(`JSON.stringify(MONDAY_PROC.reviewPeriod('2026-11-23'))`));
 assert.equal(period.start,'2026-11-16');assert.equal(period.last,'2026-11-22');assert.equal(period.month,'2026-11');
 assert.equal(run(`MONDAY_PROC.reviewPeriod('2026-01-05').start`),'2025-12-29');
+assert.deepEqual(JSON.parse(run(`JSON.stringify(MONDAY_PROC.calendarMonthSegments('2026-03-30','2026-04-03'))`)),[
+ {month:'2026-03',start:'2026-03-30',end:'2026-03-31'}, {month:'2026-04',start:'2026-04-01',end:'2026-04-03'}]);
+assert.deepEqual(JSON.parse(run(`JSON.stringify(MONDAY_PROC.calendarMonthSegments('2025-12-29','2026-01-04'))`)),[
+ {month:'2025-12',start:'2025-12-29',end:'2025-12-31'}, {month:'2026-01',start:'2026-01-01',end:'2026-01-04'}]);
+assert.deepEqual(JSON.parse(run(`JSON.stringify(MONDAY_PROC.calendarMonthSegments('2026-02-30','2026-03-01'))`)),[]);
 assert.equal(run(`MONDAY_PROC.reviewDate('2026-11-15T22:00:00Z')`),'2026-11-16');
 assert.equal(run(`MONDAY_PROC.reviewDate('2026-02-30')`),'');
 assert.equal(run(`MONDAY_PROC.reviewPeriod('not-a-date',new Date('2026-11-24T10:00:00Z')).week`),'2026-11-23');
@@ -53,12 +58,25 @@ run(`
 run(`AUTH.user=DB.db.users.find(u=>u.roleId==='finance'&&u.countyId==='kisumu');`);
 const finances=JSON.parse(run(`JSON.stringify(MONDAY_PROC.reviewFinance(AUTH.user,'kisumu',MONDAY_PROC.reviewPeriod('2026-11-23')))`));
 assert.equal(finances.week,300);assert.equal(finances.month,350);assert.equal(finances.budget,600);assert.equal(finances.committed,25);assert.equal(finances.missing,1);assert.equal(finances.excludedCurrency,1);assert.equal(finances.daily.length,7);
+run(`DB.db.transactions.push(
+ {id:'split-old',countyId:'kisumu',amount:70,date:'2026-03-31',status:'paid',budgetLine:'food'},
+ {id:'split-new',countyId:'kisumu',amount:30,date:'2026-04-01',status:'paid',budgetLine:'food'},
+ {id:'split-nonfood',countyId:'kisumu',amount:20,date:'2026-04-02',status:'reconciled',budgetLine:'fuel'},
+ {id:'split-unpaid',countyId:'kisumu',amount:500,date:'2026-04-03',status:'committed',budgetLine:'food'},
+ {id:'split-foreign',countyId:'homabay',amount:999,date:'2026-04-01',status:'paid',budgetLine:'food'});`);
+const split=JSON.parse(run(`JSON.stringify(MONDAY_PROC.reviewFinance(AUTH.user,'kisumu',MONDAY_PROC.reviewPeriod('2026-04-06')))`));
+assert.deepEqual(split.monthSegments,[
+ {month:'2026-03',start:'2026-03-30',end:'2026-03-31',paid:70,food:70},
+ {month:'2026-04',start:'2026-04-01',end:'2026-04-05',paid:50,food:30}]);
+assert.equal(split.week,120);
 run(`AUTH.user=DB.db.users.find(u=>u.roleId==='caregiver');`);
 assert.equal(run(`MONDAY_PROC.reviewFinance(AUTH.user,'kisumu',MONDAY_PROC.reviewPeriod('2026-11-23'))`),null);
 console.log('Monday review passed: Nairobi dates, week/year boundaries, no sample cap, source deduplication, drafts/scoping, paid-only ledger and effective monthly budget versions.');
 run(`AUTH.user=DB.db.users.find(u=>u.roleId==='finance'&&u.countyId==='kisumu');`);
 let html=run(`MONDAY_PROC.render(AUTH.user,{tab:'expenditures',week:'2026-11-23'})`);
-assert(html.includes('Weekly Expenditures'));assert(html.includes('Previous week paid'));assert(html.includes('Monthly budget comparison'));assert(!html.includes('Fictional weekly patient'));
+assert(html.includes('Weekly Expenditures'));assert(html.includes('Previous week paid'));assert(html.includes('Monthly budget comparison'));assert(html.includes('Previous week by calendar month'));assert(!html.includes('Fictional weekly patient'));
+html=run(`MONDAY_PROC.renderFoodBudget(AUTH.user,{tab:'calculator'})`);
+assert(html.includes('Current Monday–Friday planning week'));assert(html.includes('not automatically divided or recorded as an expense'));
 run(`AUTH.user=DB.db.users.find(u=>u.roleId==='chief');DB.db.concerns=[
  {id:'last-week',patientId:'weekly-fixture',opened:'2026-11-17',status:'closed',title:'Resolved weekly fixture'},
  {id:'carry',patientId:'weekly-fixture',opened:'2026-11-01',status:'open',title:'Carryover fixture'},

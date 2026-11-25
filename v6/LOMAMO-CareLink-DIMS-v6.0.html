@@ -5940,9 +5940,15 @@ details.wf-strip.wf-slim-ribbon[open] .wf-top-grid{
 }
 @media (max-width:920px){ .gov67-charter-grid{ grid-template-columns:1fr; } }
 .gov67-sec-card{
+  min-width:0; overflow-wrap:anywhere;
   background:var(--surface); color:var(--ink);
   border:1px solid var(--line); border-radius:14px; padding:16px 18px;
 }
+/* Status and classification are independent pieces of text. Allow both to
+   wrap without overlapping at zoom, on tablets, or with translated labels. */
+.gov67-sec-meta{display:flex; flex-wrap:wrap; align-items:flex-start; gap:8px 12px; min-width:0;}
+.gov67-sec-meta .badge{flex:0 1 auto; min-width:0; max-width:100%; white-space:normal; overflow-wrap:anywhere;}
+.gov67-sec-visibility{flex:1 1 180px; min-width:0; line-height:1.5; overflow-wrap:anywhere;}
 .gov67-sec-card h3{ margin:8px 0 4px; font-size:15.5px; font-family:var(--font); font-weight:700; color:var(--ink); }
 .gov67-list{ margin:8px 0 0; padding-left:18px; font-size:12.4px; line-height:1.52; color:var(--ink-2); }
 .gov67-list li{ margin-bottom:5px; }
@@ -7744,6 +7750,22 @@ html[data-wt="foundation"] .shell .msg-pane{border-radius:18px;box-shadow:0 6px 
  body.print-workspace #root,body.print-workspace .app.shell,body.print-workspace .content{display:block !important;height:auto !important;overflow:visible !important;max-height:none !important;background:#fff !important;color:#000 !important;padding:0 !important;margin:0 !important;}
  body.print-workspace .print-root{display:none !important;}
  body.print-workspace :is(button,input,select,textarea){box-shadow:none;}
+ /* Report/document print copies must paginate rather than inherit mobile
+    card tables, scroll containers or the workspace's viewport dimensions. */
+ body.print-mode #printRoot,body.print-mode #printRoot :is(.print-area,.report-doc,.rpt-body-flow,.tbl-wrap,.chart-tbl-wrap){
+   min-width:0!important;max-width:none!important;max-height:none!important;height:auto!important;overflow:visible!important;
+ }
+ body.print-mode #printRoot .report-doc{width:100%!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;}
+ body.print-mode #printRoot :is(.report-doc table,table.tbl){width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;break-inside:auto!important;page-break-inside:auto!important;}
+ body.print-mode #printRoot :is(thead,table.tbl thead){display:table-header-group!important;}
+ body.print-mode #printRoot :is(tbody,table.tbl tbody){display:table-row-group!important;}
+ body.print-mode #printRoot :is(tfoot,table.tbl tfoot){display:table-footer-group!important;}
+ body.print-mode #printRoot :is(tr,table.tbl tbody tr){display:table-row!important;break-inside:avoid;page-break-inside:avoid;}
+ body.print-mode #printRoot :is(th,td,table.tbl td){display:table-cell!important;min-width:0!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;padding:5px 4px!important;vertical-align:top;}
+ body.print-mode #printRoot table.tbl td::before{content:none!important;display:none!important;}
+ body.print-mode #printRoot :is(.chart-fig,.card,.rpt-gauges){break-inside:auto!important;page-break-inside:auto!important;}
+ body.print-mode #printRoot svg.chart{max-width:100%!important;height:auto!important;break-inside:avoid;}
+ body.print-mode #printRoot :is(.no-print,.chart-table-btn){display:none!important;}
 }
 
 /* Screenshot regression: opaque identity badges and flow-sized header rows.
@@ -7915,7 +7937,7 @@ html .shell .topbar.cbar .tb-os-identity{
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,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";
-window.BUILD_STAMP = "2026-11-25 19:49";
+window.BUILD_STAMP = "2026-11-25 21:20";
 </script>
 <script>
 /* ============================================================
@@ -11085,18 +11107,21 @@ const CARE_RULES = (()=>{
   ]);
   const FIELDS=SECTIONS.flatMap(s=>s.fields);
   const cleanFields = input => Object.fromEntries(FIELDS.map(([k])=>[k,String(input?.[k]??'').trim()]));
-  const validateFields = (fields,{draft=false}={}) => {
+  const EXTENSION_FIELDS=Object.freeze(['clinicalReasons','labsStatus','recoveryNeeds','externalDelays']);
+  // Default to the stricter extended policy when the caller has not supplied
+  // an authoritative programme day. Stored older fields are never discarded.
+  const validateFields = (fields,{draft=false,policyDays=120}={}) => {
     for(const [key,label,type,required] of FIELDS){
       const v=fields[key];
       if(v?.length>4000)return `${label} exceeds 4,000 characters. Keep the original form open, shorten this field or record a separate evaluation; nothing has been saved or silently truncated.`;
       if(draft)continue;
-      if(required && !v) return `${label} is required; record not assessed / not applicable explicitly where appropriate.`;
+      if(required && !(Number(policyDays)<120 && EXTENSION_FIELDS.includes(key)) && !v) return `${label} is required; record not assessed / not applicable explicitly where appropriate.`;
       if(v && type==='date' && date(v)!==v) return `${label} needs a valid calendar date.`;
       if(v && type==='number' && (!Number.isFinite(Number(v)) || Number(v)<0)) return `${label} needs a non-negative number.`;
     }
     return '';
   };
-  return {REVIEW_DAYS,SECTIONS,FIELDS,date,programDate,addDays,anniversary,cycleId,cycleStart,days,lastDischarge,supported,classify,recordCycle,openReviewCount,supportedAdmission,reportDays,mcmPrepares,cleanFields,validateFields};
+  return {REVIEW_DAYS,SECTIONS,FIELDS,EXTENSION_FIELDS,date,programDate,addDays,anniversary,cycleId,cycleStart,days,lastDischarge,supported,classify,recordCycle,openReviewCount,supportedAdmission,reportDays,mcmPrepares,cleanFields,validateFields};
 })();
 if(typeof module!=='undefined' && module.exports) module.exports=CARE_RULES;
 
@@ -11414,7 +11439,7 @@ const CARE_WORKFLOW = (()=>{
       report.policyDays=Math.max(report.policyDays,R.days(p,now));
       if(!writer(user,p,report,db,now))return fail('The preparation rule changed at day 120 or after an admission. The required preparer must save this draft before submission.','pdca_preparer_required',403);
       if(R.mcmPrepares(p,report,db,now)?report.preparedRole!=='mcm':!['caregiver','coordinator'].includes(report.preparedRole))return fail('The required preparer must save the report first.');
-      const error=R.validateFields(report.fields);if(error)return fail(error);
+      const error=R.validateFields(report.fields,{policyDays:report.policyDays});if(error)return fail(error);
       report.status='submitted';report.submittedBy=user.id;report.submittedAt=now;
       revision('submitted');notifyMcms('PDCA submitted for MCM review',`patient:${p.id}`);return success(report,'pdca.submitted');
     }
@@ -11438,7 +11463,7 @@ const CARE_WORKFLOW = (()=>{
     if(command==='resubmit_review'){
       if((long?user.roleId!=='caregiver':!['caregiver','coordinator'].includes(user.roleId))||report.status!=='correcting'||report.correctedBy!==user.id) return fail('The caregiver must save corrections before resubmitting.','caregiver_corrections_required',403);
       if(!text(payload.correctionNote||report.correctionNote))return fail('Explain the corrections made in response to the MCM comments.');
-      const error=R.validateFields(report.fields);if(error)return fail(error);
+      const error=R.validateFields(report.fields,{policyDays:report.policyDays});if(error)return fail(error);
       report.status='resubmitted';report.correctionNote=text(payload.correctionNote||report.correctionNote);report.resubmittedBy=user.id;report.resubmittedAt=now;
       revision('resubmitted',report.correctionNote);notifyMcms('Corrected PDCA resubmitted',`patient:${p.id}`);return success(report,'pdca.resubmitted');
     }
@@ -18612,11 +18637,16 @@ function downloadBytes(filename, bytes, mime){
    row count. A person who holds the capability can export; a person who
    does not is refused in the data layer, not merely by a hidden button. */
 const DOCEXPORT = {
-  report(user, {type, countyId, date}){
+  report(user, {id, type, countyId, date}){
+    const rec=id?REPORTS.archive(user,{}).find(r=>r.id===id):null;
+    if(id&&!rec) return {ok:false,msg:'This report is not available in your authorised archive.'};
+    if(rec){type=rec.type;countyId=rec.countyId;}
     if(!type) return {ok:false, msg:'Choose a report first.'};
+    const definition=REPORTS.types().find(t=>t.type===type);
+    if(!definition||!definition.caps.some(cap=>RBAC.has(user,cap))) return {ok:false,msg:'This report is not available to your account.'};
     const title=(typeof REPORT_TITLES!=='undefined'&&REPORT_TITLES[type])||'Report';
-    const cid=countyId||user.countyId;
-    const html=buildReportDoc(type,{countyId:cid,date},user);
+    const cid=reportCountyForUser(user,countyId);
+    const html=(rec?'<p><strong>Live reconstruction:</strong> current data, not a preserved historical report.</p>':'')+buildReportDoc(type,{...(rec?.params||{}),countyId:cid,date:rec?.params?.date||date},user);
     const bytes=DOCX.fromHtml(title, html);
     const name=`${type}-${cid}-${new Date().toISOString().slice(0,10)}.docx`;
     const r=downloadBytes(name, bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
@@ -20800,7 +20830,7 @@ const NAVP = {
     const user = (typeof AUTH!=='undefined' && AUTH.user) ? AUTH.user : null;
     if(!user || !NAVP.enabled(user)) return false;
     const pr = NAVP.prefs(user);
-    if(!pr.autoFold && pr.railExplicit && !pr.rail) return false;
+    if(!pr.autoFold && reason !== 'rail-btn') return false;
     NAVP._tempOpen = false;
     NAVP._workspaceEngaged = true;
     if(typeof APPX!=='undefined' && APPX.navOpen) APPX.navOpen = false;
@@ -24667,13 +24697,13 @@ function renderReports(user){
       {label:'Generated',render:r=>fmtDateTime(r.generatedAt)},
       {label:'By',render:r=>`<span class="small">${esc(r.generatedByName)}</span>`},
       {label:'',cls:'act',render:r=>`<button class="btn btn-xs btn-ghost" data-act="view-report" data-id="${r.id}">Open</button>`}
-    ], REPORTS.archive(user,{}).slice(0,8), {empty:emptyState('No reports yet','Generate a report to archive it with its period and integrity block.','file')}),
+    ], REPORTS.archive(user,{}).slice(0,8), {empty:emptyState('No reports yet','Generate a report to retain its generation record. Reports reopen using current data.','file')}),
     {actions:`<button class="btn btn-xs btn-ghost" data-act="go" data-v="archive">View archive ${ic('chevron',12)}</button>`});
 }
 
 function renderArchive(user){
   const rows = REPORTS.archive(user,{});
-  return pageHead('Report archive','Issued reports are preserved. Regeneration creates a new version rather than overwriting.')
+  return pageHead('Report archive','Generation records are retained; opening a record rebuilds its report from current data, not a preserved historical snapshot.')
   + card('', table([
       {label:'Report',render:r=>`<div class="cellname">${esc(r.title)}<span class="sm">${esc(r.periodKey)} ${r.scheduled?'· scheduled':''}</span></div>`},
       {label:'Scope',render:r=>esc(r.countyId==='all'?'Organisation':countyName(r.countyId))},
@@ -24682,7 +24712,7 @@ function renderArchive(user){
       {label:'Checksum',render:r=>`<span class="mono xs muted">${esc(r.checksum)}</span>`},
       {label:'',cls:'act',render:r=>`<button class="btn btn-xs btn-ghost" data-act="view-report" data-id="${r.id}">Open</button>`}
     ], rows, {emptyMsg:'No archived reports yet.'}),
-    {foot:`<span>${ic('lock',13)} Archive entries are append-only. Each carries a checksum for integrity verification.</span>`});
+    {foot:`<span>${ic('lock',13)} The checksum identifies the generation record; it does not verify a preserved report or its underlying data.</span>`});
 }
 
 function renderTargets(user){
@@ -24777,8 +24807,14 @@ function reportShell({title, sub, meta, body, footerNote='', classification='Int
   </div>`;
 }
 
+function reportCountyForUser(user, requested){
+  const scope=roleObj(user.roleId)?.scope||{};
+  if(scope.geo!=='global'&&!scope.crossCounty) return user.countyId;
+  return requested&&requested!=='all'?requested:(scope.geo==='global'?'all':user.countyId);
+}
+
 function buildReportDoc(type, params, user){
-  const countyId = params.countyId && params.countyId!=='all' ? params.countyId : (roleObj(user.roleId)?.scope?.geo==='global'? 'all': user.countyId);
+  const countyId = reportCountyForUser(user,params.countyId);
   const metaBase = (extra=[])=>[
     { k:'Reporting period', v: extra.period||PERIOD.week().label },
     { k:'Cut-off', v: fmtDate(new Date())+' 23:59 EAT' },
@@ -25221,15 +25257,19 @@ function buildReportDoc(type, params, user){
 }
 
 function renderReportView(user, params){
-  const rec = DB.db.reports.find(r=>r.id===params.id);
+  const rec = params.id ? REPORTS.archive(user,{}).find(r=>r.id===params.id) : null;
+  if(params.id&&!rec) return emptyState('Report unavailable','This report cannot be found in your authorised archive.','lock');
   const type = rec? rec.type : params.type;
-  const countyId = rec? rec.countyId : (params.countyId||user.countyId);
+  const definition=REPORTS.types().find(t=>t.type===type);
+  if(!definition||!definition.caps.some(cap=>RBAC.has(user,cap))) return emptyState('Report unavailable','This report is not available to your account.','lock');
+  const countyId = reportCountyForUser(user,rec?rec.countyId:params.countyId);
   const tblMode = (typeof isChartTableMode==='function' && isChartTableMode());
-  const html = buildReportDoc(type,{...(rec?.params||{}),countyId: countyId==='all'?'all':countyId}, user);
+  let html = buildReportDoc(type,{...(rec?.params||params),countyId: countyId==='all'?'all':countyId}, user);
+  if(rec) html=html.replace('<div class="report-doc" id="reportDoc">','<div class="report-doc" id="reportDoc"><p><strong>Live reconstruction:</strong> current data, not a preserved historical report.</p>');
   const exportMenu = (typeof utilMenu==='function') ? utilMenu('Export & Print', [
     { label:'Print / Save PDF', icon:'download', act:'print' },
-    { label:'Download Word (.doc)', icon:'file', act:'export-report-docx', attrs:`data-type="${esc(type||'')}" data-county-id="${esc(countyId||'')}" data-date="${esc(rec?.params?.date||params.date||'')}"` },
-    ...(rec ? [{ label:'Download Structured CSV', icon:'columns', act:'export-report', attrs:`data-id="${esc(rec.id)}"` }] : [])
+    { label:'Download Word (.docx)', icon:'file', act:'export-report-docx', attrs:`data-type="${esc(type||'')}" data-id="${esc(rec?.id||'')}" data-county-id="${esc(countyId||'')}" data-date="${esc(rec?.params?.date||params.date||'')}"` },
+    ...(rec ? [{ label:type==='patient_figures'?'Download current area figures CSV':'Download generation metadata CSV', icon:'columns', act:'export-report', attrs:`data-id="${esc(rec.id)}"` }] : [])
   ], { icon:'download', primary:true }) : `<button class="btn btn-sm btn-primary" data-act="print">${ic('download',14)} Print / PDF</button>`;
   return `<div class="row no-print" style="margin-bottom:14px;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <button class="btn btn-sm btn-ghost" data-act="go" data-v="reports">${ic('back',13)} Back to Report Centre</button>
@@ -25238,7 +25278,7 @@ function renderReportView(user, params){
         <button class="btn btn-sm ${tblMode?'btn-primary':'btn-ghost'}" data-act="toggle-chart-table-mode">${ic('columns',14)} ${tblMode?'Show Charts & Tables':'Tables Only'}</button>
         ${exportMenu}
       </div>
-    </div>${html}`;
+    </div>${rec?'<div class="note no-print" style="margin-bottom:12px">This is a live reconstruction using current data, not a preserved copy of the report at generation time.</div>':''}${html}`;
 }
 
 /* ============================================================
@@ -30705,7 +30745,7 @@ const FORMS_ACTIONS = {
   'widget-reset':()=>{ DASH.reset(AUTH.user); closeModal(true); toast('Arrangement restored','The default order is back.','ok'); render(); },
 
   /* ---------------- exports ---------------- */
-  'export-report-docx':(d)=>reportExport(DOCEXPORT.report(AUTH.user,{type:d.type,countyId:d.countyId,date:d.date})),
+  'export-report-docx':(d)=>reportExport(DOCEXPORT.report(AUTH.user,{id:d.id,type:d.type,countyId:d.countyId,date:d.date})),
   'export-patients-xlsx':()=>reportExport(DOCEXPORT.patients(AUTH.user)),
   'export-registry-xlsx':()=>reportExport(DOCEXPORT.registry(AUTH.user)),
   'download-leave-week':()=>reportExport(DOCEXPORT.leaveWeek(AUTH.user)),
@@ -30799,14 +30839,14 @@ const PRINT_CONTROL = {
   open(source='workspace'){
     const active=typeof modalStack!=='undefined'&&modalStack[modalStack.length-1];
     const visible=source==='document'&&active&&(active.querySelector('.print-area')||active.querySelector('.modal-b'));
-    const documentReady=Boolean(visible&&visible.innerHTML);
-    if(documentReady){
-      let host=document.getElementById('printRoot');
-      if(!host){host=document.createElement('div');host.id='printRoot';host.className='print-root';document.body.appendChild(host);}
-      host.innerHTML=visible.innerHTML;
-    }
+    const report=source==='workspace'&&document.querySelector('#content .report-doc');
+    // A missing document must never silently print a different workspace.
+    if(source==='document'&&!(visible&&visible.innerHTML))return toast('Nothing to print','Open the document preview first.','warn');
+    if(source==='workspace'&&typeof APPX!=='undefined'&&APPX.view==='report'&&!report)return toast('Report not available','Open an authorized report before printing.','warn');
+    const documentReady=Boolean((visible&&visible.innerHTML)||report);
     this.source=documentReady?'document':'workspace';
-    openModal({title:'Print centre',sub:documentReady?'Selected document':'Current workspace',narrow:true,stack:true,
+    this.printDocument=visible||report||null;
+    openModal({title:'Print centre',sub:report?'Report only':documentReady?'Selected document':'Current workspace',narrow:true,stack:true,
       body:`<form data-form="print-settings" id="print-settings">
         <div class="field"><label for="print-orientation">Page orientation</label><select class="input" id="print-orientation" name="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape · wide tables</option></select></div>
         <div class="field"><label for="print-size">Paper size</label><select class="input" id="print-size" name="size"><option>A4</option><option>Letter</option></select></div>
@@ -30820,19 +30860,34 @@ const PRINT_CONTROL = {
     let style=document.getElementById('carelink-print-settings');
     if(!style){style=document.createElement('style');style.id='carelink-print-settings';document.head.appendChild(style);}
     style.textContent=`@page { size:${size} ${orientation}; margin:12mm; }`;
-    const printTarget=this.source==='document'?document.getElementById('printRoot'):document.getElementById('content');
+    let printTarget;
+    if(this.source==='document'){
+      if(!this.printDocument||!this.printDocument.isConnected)return toast('Document no longer available','Reopen the report or document before printing.','warn');
+      printTarget=document.getElementById('printRoot');
+      if(!printTarget){printTarget=document.createElement('div');printTarget.id='printRoot';printTarget.className='print-root';document.body.appendChild(printTarget);}
+      const copy=this.printDocument.cloneNode(true);
+      // Closed chart tables and other document details carry real source data;
+      // expand them only in the print copy, never change the on-screen preview.
+      copy.querySelectorAll('details').forEach(detail=>{detail.open=true;});
+      printTarget.replaceChildren(copy);
+    }else printTarget=document.getElementById('content');
     if(printTarget?.insertAdjacentHTML){
       const prior=printTarget.querySelector('[data-report-provenance="Print requested"]');if(prior)prior.remove();
       printTarget.insertAdjacentHTML('afterbegin',reportProvenanceHTML(reportProvenance(),'Print requested'));
     }
     const mode=this.source==='document'?'print-mode':'print-workspace';
     document.body.classList.add(mode);
-    const clean=()=>{document.body.classList.remove(mode);if(printTarget?.insertAdjacentHTML){const stamp=printTarget.querySelector('[data-report-provenance="Print requested"]');if(stamp)stamp.remove();}};
+    const clean=()=>{
+      window.removeEventListener('afterprint',clean);window.removeEventListener('focus',clean);
+      document.body.classList.remove(mode);
+      if(printTarget?.insertAdjacentHTML){const stamp=printTarget.querySelector('[data-report-provenance="Print requested"]');if(stamp)stamp.remove();}
+      if(mode==='print-mode'&&printTarget?.replaceChildren)printTarget.replaceChildren();
+    };
     window.addEventListener('afterprint',clean,{once:true});
-    try{window.print();}catch(error){clean();toast('Print dialog unavailable','Open CareLink directly in a browser tab and use its Print menu.','warn');}
     // Some mobile print services do not emit afterprint. Restore screen state
     // on return to the tab, not a timer that may fire while preview is open.
     window.addEventListener('focus',clean,{once:true});
+    try{window.print();}catch(error){clean();toast('Print dialog unavailable','Open CareLink directly in a browser tab and use its Print menu.','warn');}
   }
 };
 Object.assign(FORMS_ACTIONS,{
@@ -31119,8 +31174,10 @@ function parseHash(){
 function go(view, params={}){
   APPX.view = view; APPX.params = params;
   if(typeof NAVP!=='undefined'){
-    NAVP._tempOpen = false;
-    NAVP._workspaceEngaged = true;
+    // A destination chosen from the desktop rail expands it and keeps it open
+    // until deliberate workspace use. Programmatic page reveal must not fold it.
+    NAVP._tempOpen = !!NAVP._keepOpenOnNavigation;
+    NAVP._workspaceEngaged = !NAVP._keepOpenOnNavigation;
   }
   if(typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.isActive()) SILENT_OVERRIDE.recordView(view);
   const q = Object.keys(params).length? '?'+Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&'):'';
@@ -31683,10 +31740,15 @@ function onClick(e){
     el.setAttribute('aria-busy','true'); el.classList.add('is-busy');
   }
   const priorContent=document.querySelector('#content');
+  const paneDestination=!!(AUTH.user && typeof NAVP!=='undefined' && !NAVP.narrow() && act==='go' && el.closest && el.closest('#npane'));
+  if(paneDestination) NAVP._keepOpenOnNavigation=true;
   try{ fn(el.dataset, el);
     if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
   }
-  finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
+  finally{
+    if(paneDestination) NAVP._keepOpenOnNavigation=false;
+    if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350);
+  }
 }
 function onSubmit(e){
   if(DEMO_PREVIEW.active){ e.preventDefault(); if(typeof toast==='function') toast('Read-only board preview','Form submissions are disabled in the isolated synthetic preview.','info'); return; }
@@ -33533,6 +33595,8 @@ function systemActions(){ return {
 
 function reportActions(){ return {
   generate:(d)=>{
+    const definition=REPORTS.types().find(t=>t.type===d.type);
+    if(!definition||!definition.caps.some(cap=>RBAC.has(AUTH.user,cap)))return toast('Not permitted','This report is not available to your account.','err');
     const county = roleObj(AUTH.user.roleId)?.scope?.geo==='global'? 'all': AUTH.user.countyId;
     const rec=REPORTS.generate(d.type,{countyId:county},AUTH.user);
     toast('Report generated',`${rec.title} · ${rec.periodKey} · v${rec.version}`,'ok');
@@ -33541,8 +33605,8 @@ function reportActions(){ return {
   'preview-report':(d)=>{ go('report',{type:d.type}); },
   'view-report':(d)=>{ go('report',{id:d.id}); },
   'export-report':(d)=>{
-    const r=DB.db.reports.find(x=>x.id===d.id);
-    if(!r) return;
+    const r=REPORTS.archive(AUTH.user,{}).find(x=>x.id===d.id);
+    if(!r) return toast('Report unavailable','This report is not available in your authorised archive.','err');
     if(r.type==='patient_figures'){
       const f=REPORTS.patientFigures(AUTH.user,{countyId:r.countyId==='all'?'all':r.countyId});
       const csv=toCSV(f.byArea,[{label:'Ministry area',get:x=>x.area.name},{label:'Classification',get:x=>x.area.cls},
@@ -45371,6 +45435,19 @@ const MONDAY_PROC = {
     }
     return {week:monday,start:shift(monday,-7),end:monday,last:shift(monday,-1),month:monday.slice(0,7),monthStart:monday.slice(0,7)+'-01',monthEnd:shift(monday,1),previous:shift(monday,-7),next:shift(monday,7)};
   },
+  /* Split inclusive civil-date ranges at calendar month boundaries. Do not
+     prorate an order: its actual purchase date determines its budget month. */
+  calendarMonthSegments(start, end){
+    start=this.reviewDate(start);end=this.reviewDate(end);
+    if(!start||!end||end<start)return [];
+    const segments=[];
+    for(let day=start;day<=end;day=CARE_RULES.addDays(day,1)){
+      const month=day.slice(0,7),last=segments[segments.length-1];
+      if(last&&last.month===month)last.end=day;
+      else segments.push({month,start:day,end:day});
+    }
+    return segments;
+  },
   reviewAssessments(user, patients, period){
     const byId=new Map(patients.map(p=>[p.id,p])), out=[], seen=new Set();
     const add=(r, source, kind, date, summary, ref)=>{
@@ -45488,7 +45565,11 @@ const MONDAY_PROC = {
       week:sum(weekly.filter(t=>(t.budgetLine||'unallocated')===key)),month:sum(monthly.filter(t=>(t.budgetLine||'unallocated')===key)),committed:sum(committed.filter(t=>(t.budgetLine||'unallocated')===key)),budget:versions.has(key)&&Number.isFinite(Number(versions.get(key).amount))?Number(versions.get(key).amount):null}));
     const budget=lines.some(l=>l.budget!==null)?lines.reduce((n,l)=>n+(l.budget||0),0):null;
     const daily=Array.from({length:7},(_,i)=>{const date=new Date(Date.parse(period.start)+i*86400000).toISOString().slice(0,10);return {label:date.slice(5),value:sum(weekly.filter(t=>this.reviewDate(t.date)===date))};});
-    return {weekly,monthly,lines,daily,budget,week:sum(weekly),month:sum(monthly),committed:sum(committed),missing:weekly.filter(t=>!t.receipt).length,excludedCurrency:rows.filter(t=>t.currency&&t.currency!=='KES'&&within(t,period.start,period.monthEnd)).length};
+    const monthSegments=this.calendarMonthSegments(period.start,period.last).map(segment=>{
+      const entries=weekly.filter(t=>{const d=this.reviewDate(t.date);return d>=segment.start&&d<=segment.end;});
+      return {...segment,paid:sum(entries),food:sum(entries.filter(t=>costCategoryOf(t.category,t.budgetLine)==='foodbag'))};
+    });
+    return {weekly,monthly,lines,daily,monthSegments,budget,week:sum(weekly),month:sum(monthly),committed:sum(committed),missing:weekly.filter(t=>!t.receipt).length,excludedCurrency:rows.filter(t=>t.currency&&t.currency!=='KES'&&within(t,period.start,period.monthEnd)).length};
   },
 
   render(user, params={}){
@@ -45756,6 +45837,12 @@ const MONDAY_PROC = {
           ${card('Month-to-date paid by budget line',barChart(finance.lines.map(l=>({label:l.label,value:l.month})),{fmt:v=>money(v)}),{sub:'Paid actuals only; budgets and commitments are shown separately below.'})}
         </div>
         ${typeof budgetVsActualBoard==='function'&&finance.budget!==null?card('Monthly budget comparison',budgetVsActualBoard(finance.lines.filter(l=>l.budget!==null).map(l=>({label:l.label,budget:l.budget,spent:l.month,committed:l.committed})),{totalBudget:finance.budget,totalSpent:finance.month,showCommitted:true,periodLabel:review.month})):''}
+        ${card('Previous week by calendar month',table([
+          {label:'Budget month',render:r=>esc(r.month)},
+          {label:'Dates in this week',render:r=>`${esc(fmtDate(r.start))} – ${esc(fmtDate(r.end))}`},
+          {label:'Paid / reconciled',cls:'num',render:r=>money(r.paid)},
+          {label:'Food & foodbags included',cls:'num',render:r=>money(r.food)}
+        ],finance.monthSegments),{sub:'Each paid transaction is assigned to its actual Nairobi calendar date; food is included in the paid total. No weekly estimate is split or treated as a purchase automatically.'})}
         ${card('Budget and expenditure review · KES',table([
           {label:'Budget line',render:r=>esc(r.label)},
           {label:'Previous week paid',cls:'num',render:r=>money(r.week)},
@@ -45836,6 +45923,8 @@ const MONDAY_PROC = {
     const countyId = (isGlobal(user) && params.county) ? params.county : (user.countyId || 'kisumu');
     const st = DB.db.foodCalcState[countyId] || DB.db.foodCalcState.kisumu;
     const calc = this.computeFoodOrder(st);
+    const planningMonday=this.reviewPeriod().week;
+    const planningSegments=this.calendarMonthSegments(planningMonday,CARE_RULES.addDays(planningMonday,4));
     const canManage = RBAC.has(user,'procurement.manage') || RBAC.has(user,'finance.pay') || RBAC.has(user,'finance.budget.manage');
     const reqs = (DB.db.procRequisitions||[]).filter(r=>isGlobal(user)||!user.countyId||r.countyId===countyId);
 
@@ -45874,6 +45963,7 @@ const MONDAY_PROC = {
             <div class="cm"><span class="cm-l">Projected Budget Ceiling</span><b class="cm-v">${money(calc.projectedCost)}</b><span class="cm-s">Bag 1 @ KES 1,525 · Bag 2 @ KES 1,190</span></div>
             <div class="cm"><span class="cm-l">Market Benchmark Estimate</span><b class="cm-v">${money(calc.benchmarkCost)}</b><span class="cm-s">Avg Bag 1 @ 1,313 · Avg Bag 2 @ 1,078</span></div>
           </div>
+          <div class="note">${ic('calendar',14)}<span><b>Current Monday–Friday planning week:</b> ${planningSegments.map(s=>`${esc(s.month)}: ${esc(fmtDate(s.start))} – ${esc(fmtDate(s.end))}`).join(' · ')}. Foodbag purchases should be budgeted in the month of the planned purchase; this weekly projection is not automatically divided or recorded as an expense.</span></div>
           <div class="note">${ic('info',14)}<span><b>Inpatient Nutrition Rule:</b> Hospitalised patients (${calc.inpPacks}) are deducted from dry home foodbags and receive bedside <b>Milk (x4) + Oranges (x4)</b> during inpatient visits.</span></div>
         `)}
       </div>`
@@ -47372,11 +47462,27 @@ const CARE_REVIEW = (()=>{
     const permitted=r?correcting?(r.policyDays>=120?AUTH.user.roleId==='caregiver':['caregiver','coordinator'].includes(AUTH.user.roleId)):W.writer(AUTH.user,p,r,DB.db):W.writer(AUTH.user,p,{dueDay,evaluatedAt:new Date().toISOString()},DB.db);
     if(!permitted)return toast('Required preparer','The caregiver / coordinator prepares non-admission cases. The MCM prepares 120+ reports where foundation-supported hospitalization has occurred. Caregiver corrections are a separate step.','warn');
     const values=r?.fields||initialFields(p);
-    const renderFields=section=>`<fieldset class="care-editor-section"><legend>${esc(section.title)}</legend>${section.fields.map(([key,label,type,required])=>field(label,key,type||'text',{value:values[key]??'',required:!!required,hint:type==='textarea'?'Record documented findings; enter not assessed or not applicable explicitly. Maximum 4,000 characters per field; longer text is refused, never silently shortened.':''})).join('')}</fieldset>`;
+    const policyDays=correcting?Number(r.policyDays):R.reportDays(p,r||{dueDay,evaluatedAt:new Date().toISOString()},DB.db);
+    const normal=policyDays<120;
+    const renderFields=section=>{
+      const visible=section.fields.filter(([key])=>!normal||!R.EXTENSION_FIELDS.includes(key));
+      const kept=section.fields.filter(([key])=>normal&&R.EXTENSION_FIELDS.includes(key)).map(([key])=>hidden(key,values[key]||'')).join('');
+      const title=normal&&section.title==='Justification & discharge'?'Estimated discharge':section.title;
+      return kept+`<fieldset class="care-editor-section"><legend>${esc(title)}</legend>${visible.map(([key,label,type,required])=>field(label,key,type||'text',{value:values[key]??'',required:!!required,hint:type==='textarea'?'Record documented findings; enter not assessed or not applicable explicitly. Maximum 4,000 characters per field; longer text is refused, never silently shortened.':''})).join('')}</fieldset>`;
+    };
     openModal({title:correcting?'Caregiver corrections · PDCA':'Editable PDCA evaluation',sub:p.code+' · '+(r?.dueDay||dueDay?'Scheduled day '+(r?.dueDay||dueDay):'On demand'),wide:true,
       body:`<form id="careEditorForm">${hidden('patientId',p.id)}${hidden('id',r?.id||'')}${hidden('version',r?.version||'')}${hidden('dueDay',r?.dueDay??dueDay??'')}${hidden('requestId',token())}
       <p class="small">Values copied below are recorded source values, not new findings. Check them at this evaluation. Nothing is inferred from a diagnosis, age, prior visit or demonstration default.</p>
+      ${normal?'<p class="small">Normal PDCA: extended-stay justification is not requested. If this draft reaches day 120 before submission, reopen it to complete the extended-stay section. Any previously saved information is retained.</p>':''}
       ${r?.reviewComment?`<div class="alert warn"><div><b>MCM comments</b><p class="care-pre">${esc(r.reviewComment)}</p></div></div>`:''}
+      <details class="care-history-cycle"><summary>Caregiver / ministry-area review prompts</summary>
+        <p class="small">A fixed, local checklist to support your own thinking; it is not trained on MCM records, does not interpret the patient's details, and is not an MCM review or clinical advice. It does not change or save any field. Discuss clinical questions with the MCM.</p>
+        <ul class="small"><li>Have you described the patient's own priorities, circumstances and specific challenges in their own context?</li>
+          <li>For each selected action, what exactly will be done, by whom, when, for how long, and how will progress be checked?</li>
+          <li>If education or counselling is planned, which individual topics and practical follow-up are relevant to this patient?</li>
+          <li>Where relevant, have you specified the details of SHA, nutrition, medication adherence, hygiene, transport, referral, psychosocial or spiritual support, prayers, net or Bible? Include only what is agreed and appropriate.</li>
+          <li>Are any unknowns or evidence gaps clearly identified for the MCM, without guessing or changing the household's account?</li></ul>
+      </details>
       ${correcting?hidden('evaluatedAt',isoInput(r.evaluatedAt))+'<p>Original actual evaluation: '+esc(fmtDateTime(r.evaluatedAt))+'. Corrections retain that evaluation; create an on-demand report for a new evaluation.</p>':field('Actual evaluation date & time','evaluatedAt','datetime-local',{value:isoInput(r?.evaluatedAt),required:true,hint:'Your device timezone; stored as an absolute timestamp. Programme days use Africa/Nairobi. The scheduled due date never changes.'})}
       <div class="care-editor-grid"><div>${renderFields(R.SECTIONS[0])}</div><div>${R.SECTIONS.slice(1).map(renderFields).join('')}</div></div>
       ${correcting?field('Corrections made in response to MCM comments','correctionNote','textarea',{required:true,value:r.correctionNote||''}):''}</form>`,
@@ -47392,7 +47498,7 @@ const CARE_REVIEW = (()=>{
     const records=(DB.db.careReviews||[]).filter(r=>r.patientId===p.id&&r.cycleId===R.cycleId(p)).sort((a,b)=>b.evaluatedAt.localeCompare(a.evaluatedAt));
     const report=opts.reviewId?records.find(r=>r.id===opts.reviewId):records[0];
     const fields=report?.fields||initialFields(p);
-    const title=mode==='discharge'?'Patient PDCA Discharge Summary Report':'Patient PDCA 120-Day Report';
+    const title=mode==='discharge'?'Patient PDCA Discharge Summary Report':!report?'Patient PDCA — Blank Template':Number(report.policyDays)>=180?'Patient PDCA 180-Day Report':Number(report.policyDays)>=120?'Patient PDCA 120-Day Report':'Patient PDCA Review Report';
     return {careTemplate:true,patientId:p.id,patient_code:p.code||p.id,patient_name:fields.patientName,mode,report_title:title,
       report:report||null,fields,cycleId:R.cycleId(p),status:report?.status||'blank_template',evaluatedAt:report?.evaluatedAt||'',
       programmeDay:report?.programmeDay??'',dueDate:report?.dueDate||'',dueDay:report?.dueDay??null,
@@ -47408,8 +47514,12 @@ const CARE_REVIEW = (()=>{
     const left=`<h3>PATIENT DATA / CAREGIVER DATA</h3><dl>${R.SECTIONS[0].fields.map(([k,label])=>`<dt>${esc(label)}</dt><dd>${esc(v(k))}</dd>`).join('')}<dt>Actual evaluation date & time</dt><dd>${esc(d.evaluatedAt?fmtDateTime(d.evaluatedAt)+' · '+d.evaluatedAt:'Not recorded')}</dd><dt>Days in program at evaluation</dt><dd>${esc(d.programmeDay??'Not recorded')}</dd><dt>Scheduled due date (not evaluation)</dt><dd>${esc(d.dueDate||'On-demand / no scheduled milestone')}</dd></dl>`;
     const right1=block('Aim (SMART)',['aimDate','aimOutcome','aimFunction'])+block('Diagnosis',['diagnoses'],'cdims-stage-dx')+block('Major symptoms WITH durations',['symptoms'])+block('PLAN (Challenges)',['plan'],'cdims-stage-p')+block('DO — actions, monitoring, additional support',['actions'],'cdims-stage-d');
     const right2=block('Treatment & indications',['treatment','procedures','educationCounselling'],'cdims-stage-rx')+block('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus'],'cdims-stage-c');
-    const act=block('ACT (Based on CHECK) — next steps & durations',['nextSteps'],'cdims-stage-a')+block('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']);
-    const right3=act+block('JUSTIFICATION (continued) — external delays',['externalDelays'])+block('ESTIMATED DATE OF DISCHARGE',['estimatedDischargeDate']);
+    const days=d.report?.policyDays;
+    const extended=days==null||!Number.isFinite(Number(days))||Number(days)>=120;
+    const retained=!extended&&R.EXTENSION_FIELDS.some(k=>String(f[k]||'').trim());
+    const extension=extended?block('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds'])+block('JUSTIFICATION (continued) — external delays',['externalDelays']):
+      retained?block('Previously recorded extended-stay information (retained)',['clinicalReasons','labsStatus','recoveryNeeds','externalDelays']):'';
+    const right3=block('ACT (Based on CHECK) — next steps & durations',['nextSteps'],'cdims-stage-a')+extension+block('ESTIMATED DATE OF DISCHARGE',['estimatedDischargeDate']);
     return [[left,right1],[right2,right3]];
   }
   function template(d){
@@ -47421,7 +47531,7 @@ const CARE_REVIEW = (()=>{
       ${d.mode==='discharge'?`<section class="care-physical-signatures"><h3>PATIENT ACKNOWLEDGEMENT &amp; PHYSICAL SIGNATURES — discharge acknowledgement</h3><p>Obtain signatures on paper. Electronic approval and typed names do not replace physical signatures; this printout does not prove signatures or consent.</p><p>Patient / Guardian signature · date: _________________________________</p><p>Caregiver signature · date: _________________________________________</p><p>MCM signature · date: ______________________________________________</p><p>Witness signature · date: ___________________________________________</p><p>CONFIRMED DATE OF DISCHARGE: ${esc(d.dischargeDate||'Not recorded')}</p></section>`:''}</article>`;
   }
   function reportData(r,p){return {careTemplate:true,patientId:p?.id||r.patientId,patient_code:p?.code||r.patientCode||r.patientId,fields:r.fields,report:r,
-    cycleId:r.cycleId,status:r.status,programmeDay:r.programmeDay??r.policyDays,evaluatedAt:r.evaluatedAt,dueDay:r.dueDay,dueDate:r.dueDate,mode:'120day',report_title:Number(r.policyDays)>=120?'Patient PDCA 120-Day Report':'Patient PDCA Review Report'};}
+    cycleId:r.cycleId,status:r.status,programmeDay:r.programmeDay??r.policyDays,evaluatedAt:r.evaluatedAt,dueDay:r.dueDay,dueDate:r.dueDate,mode:'120day',report_title:Number(r.policyDays)>=180?'Patient PDCA 180-Day Report':Number(r.policyDays)>=120?'Patient PDCA 120-Day Report':'Patient PDCA Review Report'};}
   function openReport(id,revisionId=''){
     const r=(DB.db.careReviews||[]).find(x=>x.id===id),p=r&&scoped(AUTH.user,r.patientId);
     if(!r||!p)return toast('Not available','Outside your clinical scope.','err');
@@ -47458,10 +47568,15 @@ const CARE_REVIEW = (()=>{
   }
   function wordBytes(d){
     const p=text=>DOCX.para(text),section=(label,keys)=>DOCX.para(label,'Heading2')+keys.map(k=>p((R.FIELDS.find(([key])=>key===k)?.[1]||k)+': '+(d.fields[k]||'Not recorded'))).join('');
+    const days=d.report?.policyDays;
+    const extended=days==null||!Number.isFinite(Number(days))||Number(days)>=120;
+    const retained=!extended&&R.EXTENSION_FIELDS.some(k=>String(d.fields[k]||'').trim());
+    const extension=extended?section('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds'])+section('JUSTIFICATION (continued)',['externalDelays']):
+      retained?section('Previously recorded extended-stay information (retained)',R.EXTENSION_FIELDS):'';
     const right=[section('Aim (SMART)',['aimDate','aimOutcome','aimFunction'])+section('Diagnosis',['diagnoses'])+section('Major symptoms WITH durations',['symptoms'])+section('PLAN (Challenges)',['plan'])+section('DO — actions / monitoring',['actions']),
       section('Treatment AND indications',['treatment','procedures','educationCounselling'])+section('CHECK (Based on DO)',['resolvedSymptoms','newComplaints','adherence','anthropometry','actionStatus']),
-      section('ACT — next steps AND durations',['nextSteps'])+section('JUSTIFICATION',['clinicalReasons','labsStatus','recoveryNeeds']),
-      section('JUSTIFICATION (continued)',['externalDelays'])+section('Estimated date of discharge',['estimatedDischargeDate'])];
+      section('ACT — next steps AND durations',['nextSteps'])+extension,
+      section('Estimated date of discharge',['estimatedDischargeDate'])];
     const left=R.SECTIONS[0].fields.map(([k,label])=>p(label+': '+(d.fields[k]||'Not recorded'))).join('')+p('Actual evaluation: '+(d.evaluatedAt||'Not recorded'))+p('Programme day: '+(d.programmeDay??'Not recorded'))+p('Scheduled due: '+(d.dueDate||'On demand'));
     const cell=xml=>`<w:tc><w:tcPr><w:tcW w:w="4500" w:type="dxa"/></w:tcPr>${xml||p('')}</w:tc>`;
     const balanced=[{left,right:right[0]},{left:right[1],right:right.slice(2).join('')}];
@@ -52418,9 +52533,9 @@ const CARELINK_GOVERNANCE = {
     } else {
       body = `<div class="gov67-charter-grid">
         ${this.CHARTER_SECTIONS.map(sec => `<article class="gov67-sec-card">
-          <div class="spread" style="gap:8px;align-items:flex-start">
+          <div class="gov67-sec-meta">
             <span class="badge ${sec.tone}">${esc(sec.badge)}</span>
-            <span class="xs mono muted">${esc(sec.visibility)}</span>
+            <span class="gov67-sec-visibility xs mono muted">${esc(sec.visibility)}</span>
           </div>
           <h3>${esc(sec.title)}</h3>
           <div class="xs muted" style="margin-bottom:6px"><b>Custodian:</b> ${esc(sec.owner)} · <b>Basis:</b> ${esc(sec.legalBasis)}</div>
@@ -53949,6 +54064,6 @@ Object.assign(FORMS,{
   });
 })();
 </script>
-<!-- Build 2026-11-25 19:49 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-11-25 21:20 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
