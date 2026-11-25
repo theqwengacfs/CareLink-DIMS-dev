@@ -72,21 +72,22 @@ const SYNC = {
   },
 
   /* ---- held work ("outbox") -------------------------------------------- */
-  /* Everything typed while the host was unreachable or half-way through a tick
-     is written here before the screen can be lost. It is a patch list against
-     the shadow the host last confirmed, so replaying it is the same operation
-     as the save that was interrupted. */
+  /* Legacy best-effort plaintext storage. It is not an encrypted offline vault,
+     nor is a retry idempotent after response loss. Never claim durability or
+     shared acceptance unless the relevant checks below actually succeed. */
   writeOutbox(){
     if(typeof Store === 'undefined' || !Store.set) return false;
     const box = this.outbox;
-    if(!box || !Array.isArray(box.patches) || !box.patches.length){
-      try{ Store.del(SYNC_OUTBOX_KEY); }catch(e){}
-      return false;
+    if(!box || !Array.isArray(box.patches) || !box.patches.length) return false;
+    const raw = Store.get(SYNC_OUTBOX_KEY);
+    if(Store.durable === false) return false;
+    if(raw){
+      let current;
+      try{ current = JSON.parse(raw); }catch(e){ return false; }
+      if(!current || current.username !== box.username || JSON.stringify(current.patches) !== JSON.stringify(box.patches)) return false;
     }
     box.savedAt = new Date().toISOString();
-    box.rev = this.rev;
-    try{ Store.set(SYNC_OUTBOX_KEY, JSON.stringify(box)); }catch(e){ return false; }
-    return true;
+    try{ return Store.set(SYNC_OUTBOX_KEY, JSON.stringify(box)) === true; }catch(e){ return false; }
   },
   loadOutbox(){
     if(typeof Store === 'undefined' || !Store.get) return null;
@@ -98,9 +99,16 @@ const SYNC = {
       return parsed;
     }catch(e){ return null; }
   },
-  clearOutbox(){
+  clearOutbox(expected){
+    // Never delete another account's queue or a newer queue written during a save.
+    const current = this.loadOutbox();
+    const signedIn = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
+    if(!expected || !current || !signedIn || current.username !== signedIn ||
+       typeof Store === 'undefined' || Store.durable === false ||
+       JSON.stringify(current.patches) !== JSON.stringify(expected.patches)) return false;
     this.outbox = { patches:[], savedAt:null, rev:null, authFailed:false };
-    try{ if(typeof Store !== 'undefined' && Store.del) Store.del(SYNC_OUTBOX_KEY); }catch(e){}
+    try{ if(typeof Store !== 'undefined' && Store.del) Store.del(SYNC_OUTBOX_KEY); }catch(e){ return false; }
+    return !this.loadOutbox();
   },
   heldOutbox(){ const box = this.loadOutbox(); return box ? box.patches.length : 0; },
 
@@ -769,8 +777,12 @@ const SYNC = {
   queue(){
     /* Nothing to send yet (offline copy, or signed out): the register itself is
        the record, exactly as before. */
-    if(!this.available() || !this.sessionToken || this._clinicalBusy) return;
-    if(this.kvBlocked()){ this.holdWork(); return; }
+    if(!this.available() || !this.sessionToken || this._clinicalBusy || this._passwordBeforeWorkspace) return;
+    if(this.kvBlocked()){
+      this.holdWork({notSent:!this._inflight});
+      if(this._holdFailure){ this.state='error'; this.message=this._holdFailure; this.bump(); }
+      return;
+    }
     if(this._pulling || (typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading'))) return;
     if(this._inflight){ this._queuedWhileInflight = true; return; }
     clearTimeout(this._timer);
@@ -778,8 +790,17 @@ const SYNC = {
   },
 
   async push(opts={}){
-    if(this._pulling || !this.sessionToken || (this._clinicalBusy && !opts.clinicalPreflight)) return;
-    if(this.kvBlocked()){ this.holdWork(); return; }
+    if(this._pulling || !this.sessionToken || this._passwordBeforeWorkspace || (this._clinicalBusy && !opts.clinicalPreflight)) return;
+    const held = this.loadOutbox();
+    const username = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
+    if(held && held.username === username && (held.needsReview || held.replaySafe !== true)){
+      this.state='error'; this.message='Held work requires review; a previous save may have been refused or its outcome is unknown. Newer changes may not be stored on this device.'; this.bump(); return;
+    }
+    if(this.kvBlocked()){
+      this.holdWork({notSent:!this._inflight});
+      if(this._holdFailure){ this.state='error'; this.message=this._holdFailure; this.bump(); }
+      return;
+    }
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
     if(this._inflight){
       this._queuedWhileInflight = true;
@@ -790,27 +811,43 @@ const SYNC = {
     finally{ if(!this._inflight) this._pushPromise = null; }
   },
 
-  /* Hold whatever the host has not confirmed. The patch list is written to
-     durable storage first: losing a reload must not lose a home visit. */
-  holdWork(){
+  /* Attempt to preserve unconfirmed work. A conflicting legacy queue or a
+     storage failure must be reported; do not claim that a reload is safe. */
+  holdWork(opts={}){
     const patches = this.patches();
-    if(!patches.length){ this.outbox.patches = []; this.writeOutbox(); return 0; }
-    let username = null;
-    try{ username = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null; }catch(e){}
-    this.outbox = Object.assign({}, this.outbox, {
-      patches,
-      rev: this.rev,
-      savedAt: new Date().toISOString(),
-      authFailed: false,
-      username
-    });
-    this.writeOutbox();
+    this._holdFailure = '';
+    if(!patches.length) return 0; // Existing held work may not be in the current shadow.
+    const username = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
+    const existing = this.loadOutbox();
+    const raw = typeof Store !== 'undefined' && Store.get ? Store.get(SYNC_OUTBOX_KEY) : null;
+    // A single legacy queue cannot safely combine accounts or conflicting edits.
+    // Preserve it verbatim rather than overwrite work whose outcome is unknown.
+    if(!username || (typeof Store !== 'undefined' && Store.durable === false) || (raw && !existing) ||
+        (existing && (existing.username !== username || JSON.stringify(existing.patches) !== JSON.stringify(patches)))){
+      this._holdFailure = 'An existing or unowned held queue was preserved; these newer changes are not safely stored on this device.';
+      return 0;
+    }
+    if(existing){ this.outbox = existing; return existing.patches.length; }
+    this.outbox = {patches, rev:this.rev, savedAt:new Date().toISOString(), authFailed:false, username,
+      replaySafe:opts.notSent === true};
+    if(!this.writeOutbox()){
+      this._holdFailure = 'Device storage could not be confirmed; these changes may be lost on reload.';
+      return 0;
+    }
     return patches.length;
   },
 
-  /* Replay held work before anything else reads the shared record. Rejections
-     the host will never accept (a scope refusal) are reported and dropped;
-     transport failures keep the work here for the next attempt. */
+  markHeldForReview(){
+    const box = this.loadOutbox();
+    const username = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
+    if(!box || !username || box.username !== username) return false;
+    this.outbox = box; this.outbox.needsReview = true;
+    return this.writeOutbox();
+  },
+
+  /* The legacy queue is not an offline vault or an idempotent command log.
+     Replay only a single identifiable batch; preserve refused or uncertain
+     outcomes for manual review rather than risking duplicate application. */
   async attemptOutbox(){
     if(this.kvBlocked() || this._clinicalBusy) return false;
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return false;
@@ -821,8 +858,20 @@ const SYNC = {
     /* Held work belongs to the account that typed it: a second person signing
        in on this tablet must never publish the first person's edits. */
     const signedIn = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
-    if(box.username && signedIn && box.username !== signedIn) return false;
+    if(!box.username || !signedIn || box.username !== signedIn) return false;
     this.outbox = box;
+    if(box.needsReview || box.replaySafe !== true || box.patches.length > 1200){
+      this.state = 'error';
+      this.message = 'Held work requires review before retry; its shared-save outcome is not confirmed.';
+      this.bump(); return false;
+    }
+    // Persist an uncertainty marker before sending: a tab crash or lost
+    // response must not cause the same batch to be replayed on next startup.
+    this.outbox.needsReview = true;
+    if(!this.writeOutbox()){
+      this.state='error'; this.message='Could not safely mark held work before sending; no replay was attempted.';
+      this.bump(); return false;
+    }
     this._inflight = true;
     try{
       const chunk = 1200;
@@ -834,30 +883,44 @@ const SYNC = {
           body: JSON.stringify({patches: slice, baseRev: this.rev, opId:'op-out-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7), ts:new Date().toISOString()})
         });
         if(!r.ok){
-          if([403, 401, 409, 422].includes(r.status)){
-            /* The host will not accept this work: say so and stop holding it,
-               rather than pretending forever that it will be saved. */
-            this.outbox.authFailed = true;
-            this.clearOutbox();
-            this.state = 'error';
-            this.message = (r.body && r.body.error) || 'The shared online source refused work held on this device';
-            this.bump();
-          }
-          return false;
+          // Even a failure response may follow an unknown server outcome.
+          this.outbox.needsReview = true;
+          const durable = this.writeOutbox();
+          this.state = 'error';
+          this.message = ((r.body && r.body.error) || 'The shared online source did not confirm held work') +
+            (durable ? ' Work is retained for review; it will not be retried automatically.' : ' Device storage is not confirmed; work may be lost on reload.');
+          this.bump(); return false;
+        }
+        if(!r.body || !Number.isSafeInteger(r.body.rev) || !Array.isArray(r.body.rejected) || !Number.isSafeInteger(r.body.appliedCount) ||
+            r.body.appliedCount + r.body.rejected.length !== slice.length || r.body.rejected.length){
+          this.outbox.needsReview = true;
+          const durable = this.writeOutbox();
+          this.state = 'error';
+          this.message = 'Held work was partly refused or not fully acknowledged; it has not been reported as saved.' +
+            (durable ? ' Retained for review; no automatic replay.' : ' Device storage is not confirmed; work may be lost on reload.');
+          this.bump(); return false;
         }
         rev = r.body.rev;
       }
       this.rev = rev;
       this.saved = new Date().toISOString();
       DB.db.meta = Object.assign({}, DB.db.meta, {serverRev:rev, serverSaved:this.saved});
-      this.clearOutbox();
+      if(!this.clearOutbox(box)){
+        this.state = 'error'; this.message = 'The shared source acknowledged the batch, but the held queue could not be safely cleared. Review it before retrying.';
+        this.bump(); return false;
+      }
       this.state = 'connected';
       this.message = 'Held work saved to the shared online source';
       this.bump();
       return true;
     }catch(e){
-      this.holdWork();
-      return false;
+      // The request might have committed before the response was lost.
+      this.outbox.needsReview = true;
+      const durable = this.writeOutbox();
+      this.state = 'error';
+      this.message = 'The held batch has an unknown shared-save outcome; do not replay it automatically.' +
+        (durable ? ' Retained for review.' : ' Device storage is not confirmed; work may be lost on reload.');
+      this.bump(); return false;
     }finally{
       this._inflight = false;
     }
@@ -871,6 +934,14 @@ const SYNC = {
     const rejected = [];
     const patches = this.patches();
     if(!patches.length){ APPX.dirty = false; return; }
+    const held = this.loadOutbox();
+    const username = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
+    if(held && held.username === username && JSON.stringify(held.patches) !== JSON.stringify(patches)){
+      this.state='error'; this.message='Held work differs from the current changes. It was preserved; no save was attempted.'; this.bump(); return;
+    }
+    if(held && held.username === username && !this.markHeldForReview()){
+      this.state='error'; this.message='Could not safely mark held work before sending; no save was attempted.'; this.bump(); return;
+    }
     this._inflight = true;
     const before = this.state;
     if(this.state !== 'merge') { this.state='saving'; this.bump(); }
@@ -886,13 +957,16 @@ const SYNC = {
                                 ts: new Date().toISOString()})
         });
         if(!r.ok){
-          /* Provider/network failures are retryable work, not a successful save
-             or a permanent scope rejection. Persist it before returning. */
-          const held = r.status >= 500 || r.status === 429 ? this.holdWork() : 0;
+          const held = this.holdWork();
+          const retained = held && this.markHeldForReview();
           this.state = 'error';
-          this.message = (r.body.error || 'The shared online source refused the save') +
-            (held ? ` ${held} change${held===1?' is':'s are'} held on this device.` : '');
-          this.bump(); this._inflight=false; return;
+          this.message = ((r.body && r.body.error) || 'The shared online source did not confirm the save') +
+            (retained ? ` ${held} change${held===1?' is':'s are'} retained for review; no automatic replay.` : ` ${this._holdFailure || 'Device storage could not be confirmed; changes may be lost on reload.'}`);
+          this.bump(); return;
+        }
+        if(!r.body || !Number.isSafeInteger(r.body.rev) || !Array.isArray(r.body.rejected) || !Number.isSafeInteger(r.body.appliedCount) ||
+           r.body.appliedCount + r.body.rejected.length !== slice.length){
+          throw new Error('The shared source returned an incomplete save acknowledgement.');
         }
         // A PUT acknowledges our edits, not intervening remote revisions.
         if(r.body.rev === rev+1) rev = r.body.rev;
@@ -923,10 +997,17 @@ const SYNC = {
       APPX.dirty = remaining.length > 0;
       this._retry = 0;
       this.lastMerged = merged;
-      this.clearOutbox();
+      let retained = false;
+      if(rejected.length){
+        const held = this.holdWork();
+        retained = !!held && this.markHeldForReview();
+      } else {
+        // Only clear an exact, same-account batch. Other held work is untouched.
+        this.clearOutbox({patches});
+      }
       this.state = rejected.length ? 'error' : merged ? 'merge' : 'connected';
       this.message = rejected.length
-        ? `${rejected.length} change${rejected.length===1?' was':'s were'} refused by the shared source and remain unsaved (${[...new Set(rejected.map(p=>p.reason))].join(', ')}).`
+        ? `${rejected.length} change${rejected.length===1?' was':'s were'} refused by the shared source and remain unsaved (${[...new Set(rejected.map(p=>p.reason))].join(', ')}). ${retained?'Retained for review; no automatic replay.':(this._holdFailure || 'Device storage could not be confirmed; changes may be lost on reload.')}`
         : merged ? `Saved · ${merged} overlapping field${merged===1?'':'s'} reconciled automatically`
         : 'Saved to the shared online source';
       this.bump();
@@ -939,21 +1020,23 @@ const SYNC = {
       }
     }catch(e){
       this._retry++;
-      this.holdWork();
+      const held = this.holdWork();
+      const retained = held && this.markHeldForReview();
       this.state='error';
-      this.message = this.outbox.patches.length
-        ? `The shared online source is unreachable — ${this.outbox.patches.length} change${this.outbox.patches.length===1?' is':'s are'} held on this device and will be retried`
-        : 'The shared online source is unreachable — the change is held on this device and will be retried';
+      this.message = retained
+        ? `The shared save outcome is unknown — ${held} change${held===1?' is':'s are'} retained for review; no automatic replay.`
+        : `The shared save outcome is unknown. ${this._holdFailure || 'Device storage could not be confirmed; changes may be lost on reload.'}`;
       this.bump();
     }finally{
       this._inflight = false;
       if(before==='merge' && this.state==='saving') this.state='connected';
       if(this._queuedWhileInflight && this.sessionToken && !this._pulling && !this.kvBlocked()){
         this._queuedWhileInflight = false;
-        // A refused row must not strand unrelated edits queued during the
-        // request (for example, a clinician's personal accessibility settings).
-        // The queued flag is consumed once; refusals alone never loop here.
-        if(this.patches().length > 0) await this._runPush();
+        // A partial or uncertain result must not automatically replay work,
+        // even when other edits were made while the request was in flight.
+        const held = this.loadOutbox();
+        const username = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
+        if(!(held && held.username === username && (held.needsReview || held.replaySafe !== true)) && this.patches().length > 0) await this._runPush();
       }
     }
   },
@@ -975,6 +1058,11 @@ const SYNC = {
 
   async tick(){
     if(!this.sessionToken || this._inflight || this._pulling || this._clinicalBusy || this._ticking || document.hidden || this.kvBlocked()) return;
+    const held = this.loadOutbox();
+    const username = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
+    if(held && username && held.username === username){
+      this.state='error'; this.message='Held work is not confirmed by the shared source and requires review before continuing.'; this.bump(); return;
+    }
     this._ticking = true;
     try{
       if(APPX.dirty){ await this.push(); }
@@ -1198,6 +1286,9 @@ const SYNC = {
     try{
       if(APPX.dirty) await this.push();
       await this.attemptOutbox();
+      const held = this.loadOutbox();
+      const username = (typeof AUTH !== 'undefined' && AUTH.user && AUTH.user.username) || null;
+      if(held && username && held.username === username) return false;
       await this.tick();
       this.startPolling();
       return true;

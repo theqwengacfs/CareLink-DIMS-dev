@@ -25,7 +25,7 @@
     "privacy:check": "python3 v6/tools/verify_no_patient_data.py",
     "privacy:repository": "python3 v6/tools/verify_no_patient_data.py --repository-only",
     "test:entry-refresh": "node v6/test/v6104-entry-refresh.js",
-    "test:kv-bandwidth": "node v6/test/v6105-kv-bandwidth.mjs && node v6/test/v6105-sync-bandwidth.js",
+    "test:kv-bandwidth": "node v6/test/v6105-kv-bandwidth.mjs && node v6/test/v6105-sync-bandwidth.js && node v6/test/sync-ack-api.mjs",
     "test:returning-patient": "node v6/test/returning-patient-layout.js",
     "test:foundation-scope": "node v6/test/foundation-scope-and-colour.js",
     "test:workspace-spacing": "node v6/test/workspace-breathing-room.js",

@@ -338,7 +338,11 @@ try{
   assert.equal((await staff.request.get(base+'/api/state',{headers:{'X-CareLink-Session':staffToken}})).status(),403,'temporary session is gated before private replacement');
   const change=tablet.locator('form[data-form="mustchange6"]');
   await change.locator('[name="current"]').fill(account.temporaryPassword);await change.locator('[name="password"]').fill('River#Private2030!Xy');await change.locator('[name="password2"]').fill('River#Private2030!Xy');await change.locator('[type="submit"]').click();
-  await tablet.waitForFunction(()=>AUTH.user&&APPX.screen==='app'&&!AUTH.mustChange&&!LOGIN6.mustChangeBusy);
+  try{ await tablet.waitForFunction(()=>AUTH.user&&APPX.screen==='app'&&!AUTH.mustChange&&!LOGIN6.mustChangeBusy); }
+  catch(error){
+    const state=await tablet.evaluate(()=>({screen:APPX.screen,hasUser:!!AUTH.user,mustChange:AUTH.mustChange,busy:LOGIN6.mustChangeBusy,error:LOGIN6.error,syncState:SYNC.state,syncMessage:SYNC.message,held:SYNC.heldOutbox()}));
+    throw new Error('Synthetic first-login workspace did not open: '+JSON.stringify(state)+'; recent API paths: '+JSON.stringify(staffRequests.slice(-12)),{cause:error});
+  }
   const workspace=await tablet.evaluate(()=>({patients:DB.db.patients.length,inScope:DB.db.patients.every(p=>p.areaId==='ombeyi'),areas:AUTH.user?.areaIds,error:LOGIN6.error,sync:SYNC.message}));
   assert.ok(workspace.patients>0&&workspace.inScope,'approved staff receive only scoped data after private replacement: '+JSON.stringify(workspace));
   const cookies=await staff.cookies(base);assert.ok(cookies.some(c=>c.name==='carelink_device_v1'&&c.httpOnly&&c.sameSite==='Strict'));

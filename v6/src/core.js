@@ -67,8 +67,8 @@ const Store = (()=>{
   try { const k='__cl_probe__'; localStorage.setItem(k,'1'); localStorage.removeItem(k); }
   catch(e){ durable = false; }
   return {
-    durable,
-    get(k){ if(durable){ try{ return localStorage.getItem(k); }catch(e){} } return k in mem ? mem[k] : null; },
+    get durable(){ return durable; },
+    get(k){ if(durable){ try{ return localStorage.getItem(k); }catch(e){ durable=false; } } return k in mem ? mem[k] : null; },
     set(k,v){ if(durable){ try{ localStorage.setItem(k,v); return true; }catch(e){ durable=false; } } mem[k]=v; return false; },
     del(k){ if(durable){ try{ localStorage.removeItem(k); }catch(e){} } delete mem[k]; },
     bytes(){ try{ return new Blob([JSON.stringify(mem)]).size; }catch(e){ return 0; } }

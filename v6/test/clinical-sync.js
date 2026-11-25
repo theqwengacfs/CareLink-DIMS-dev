@@ -40,7 +40,7 @@ async function check(name,fn){await fn();checks++;console.log('  ok  '+name);}
   assert.equal(c.run('SYNC._clinicalBusy'),true);assert.equal(c.requests.length,1);
   const second=await c.run(`CARE_REVIEW.command('enrol_fresh',{patientId:'synthetic-p1'},'synthetic-second-click')`);assert.equal(second.ok,false);
   await c.run('SYNC.tick()');assert.equal(await c.run('SYNC.pullFull()'),false);assert.equal(await c.run('SYNC.attemptOutbox()'),false);await c.run('SYNC.push()');
-  assert.equal(c.requests.length,1);put.resolve(reply({ok:true,rev:13,rejected:[]}));await microtasks();
+  assert.equal(c.requests.length,1);put.resolve(reply({ok:true,rev:13,appliedCount:1,rejected:[]}));await microtasks();
   assert.equal(c.requests.length,2);assert.equal(c.requests[1].url,'api/care/command');
   post.resolve(reply({ok:true,rev:14,patches:[]}));assert.equal((await first).ok,true);assert.equal(c.run('SYNC._clinicalBusy'),false);
  });
@@ -65,26 +65,26 @@ async function check(name,fn){await fn();checks++;console.log('  ok  '+name);}
  });
  await check('host refusals inside HTTP200 stay unsaved and stop clinical preflight',async()=>{
   const c=hosted();c.run(`DB.db.visits[0].notes='Synthetic refused visit';APPX.dirty=true;`);
-  c.ctx.__transport=async(url,opts)=>{c.requests.push({url,opts});return reply({ok:true,rev:13,rejected:[{c:'visits',id:'synthetic-v1',reason:'clinical_scope_denied'}]});};
+  c.ctx.__transport=async(url,opts)=>{c.requests.push({url,opts});return reply({ok:true,rev:13,appliedCount:0,rejected:[{c:'visits',id:'synthetic-v1',reason:'clinical_scope_denied'}]});};
   const r=await c.run(`CARE_REVIEW.command('enrol_fresh',{patientId:'synthetic-p1'},'synthetic-refused-preflight')`);
   assert.equal(r.ok,false);assert.equal(c.requests.length,1);assert.equal(c.requests[0].url,'api/state');assert.equal(c.run('SYNC.patches().length'),1);assert.equal(c.run('APPX.dirty'),true);assert.equal(c.run('SYNC._clinicalBusy'),false);
  });
- await check('a refused settings row remains unsaved without stranding newer accessibility preferences',async()=>{
+ await check('a refused settings row and newer preferences are retained without an automatic replay',async()=>{
   const c=hosted(),first=deferred();let puts=0;
   c.run(`DB.db.settings.syntheticRefused='Synthetic settings change';DB.db.personalPrefs[AUTH.user.id]={wtheme:'harbour'};APPX.dirty=true;`);
-  c.ctx.__transport=async(url,opts)=>{c.requests.push({url,opts});if(++puts===1)return first.promise;return reply({ok:true,rev:14,rejected:[{c:'settings',id:'settings',reason:'chief_configuration_required'}]});};
+  c.ctx.__transport=async(url,opts)=>{c.requests.push({url,opts});puts++;return first.promise;};
   const saving=c.run('SYNC.push()');
   c.run(`DB.db.personalPrefs[AUTH.user.id].font='editorial';DB.db.personalPrefs[AUTH.user.id].textScale=110;`);
-  const queued=c.run('SYNC.push()');first.resolve(reply({ok:true,rev:13,rejected:[{c:'settings',id:'settings',reason:'chief_configuration_required'}]}));
-  await Promise.all([saving,queued]);assert.equal(puts,2,'queued edits are sent once; refusals alone do not loop');
-  const second=JSON.parse(c.requests[1].opts.body).patches.find(p=>p.c==='personalPrefs');assert.equal(second.set.font,'editorial');assert.equal(second.set.textScale,110);
-  assert.equal(c.run(`SYNC.patches().filter(p=>p.c==='settings').length`),1);assert.equal(c.run(`SYNC.patches().filter(p=>p.c==='personalPrefs').length`),0);assert.equal(c.run('APPX.dirty'),true);
+  const queued=c.run('SYNC.push()');first.resolve(reply({ok:true,rev:13,appliedCount:1,rejected:[{c:'settings',id:'settings',reason:'chief_configuration_required'}]}));
+  await Promise.all([saving,queued]);assert.equal(puts,1,'a partial refusal must not cause automatic replay');
+  assert.equal(c.run(`SYNC.patches().filter(p=>p.c==='settings').length`),1);assert.equal(c.run(`SYNC.patches().filter(p=>p.c==='personalPrefs').length`),1);
+  assert.equal(c.run('SYNC.loadOutbox().needsReview'),true);assert.equal(c.run('APPX.dirty'),true);
  });
  await check('full refresh waits for an already-started ordinary save instead of failing first-login reconciliation',async()=>{
   const c=hosted(),put=deferred();c.ctx.__transport=async(url,opts)=>{c.requests.push({url,opts});return put.promise;};
   c.run(`DB.db.visits[0].notes='Synthetic just-saved note';`);const saving=c.run('SYNC.push()');
   const refreshing=c.run(`SYNC.pullFull({inlineState:{db:DB.db,rev:13}})`);await microtasks();assert.equal(c.run('SYNC._inflight'),true);
-  put.resolve(reply({ok:true,rev:13,rejected:[]}));await saving;assert.equal(await refreshing,true);assert.equal(c.run('DB.db.visits[0].notes'),'Synthetic just-saved note');
+  put.resolve(reply({ok:true,rev:13,appliedCount:1,rejected:[]}));await saving;assert.equal(await refreshing,true);assert.equal(c.run('DB.db.visits[0].notes'),'Synthetic just-saved note');
  });
  await check('held work blocks office decisions without changing the outbox or issuing network requests',async()=>{
   const c=hosted();c.run(`DB.db.visits[0].notes='Synthetic already held';SYNC.holdWork();`);const before=c.ctx.localStorage.getItem('carelink.sync.outbox');

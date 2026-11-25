@@ -1,186 +1,85 @@
-/* Held work on a hosted client.
-
-   A hosted tablet is a view of the shared record: it deliberately does not keep
-   the whole register in browser storage. The one thing that must survive a
-   reload is work the clinic typed but the host has not accepted yet. These
-   checks drive the real SYNC object with a stubbed transport.
-
-   The rule the clinic cares about: a home visit saved while the network was
-   down must reach the shared record after a reload, and must never be
-   published under a colleague's name. */
-const assert = require('node:assert/strict');
-const { makeCtx } = require('./dom');
-
-let passed = 0;
-function check(name, condition) {
-  assert.ok(condition, name);
-  passed++;
-  console.log(`  ok  ${name}`);
+/* Synthetic checks: the legacy outbox is not a secure offline vault. */
+const assert=require('node:assert/strict');
+const {makeCtx}=require('./dom');
+let checks=0;
+async function check(name,fn){await fn();checks++;console.log('  ok  '+name);}
+function hosted(){
+ const c=makeCtx({location:{hash:'',protocol:'https:',origin:'https://carelink.test',host:'carelink.test'},
+  setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,
+  sessionStorage:{getItem(){return null;},setItem(){},removeItem(){}}});
+ c.run(`DB.db=DB.blank();DB.db.patients=[{id:'synthetic-p',countyId:'kisumu',areaId:'nyalenda'}];DB.db.visits=[];
+  AUTH.user={id:'synthetic-u1',username:'synthetic-caregiver-one',roleId:'caregiver',countyId:'kisumu',areaIds:['nyalenda']};
+  SYNC.storeToken('synthetic-token');SYNC.rev=12;SYNC.rebase();
+  DB.db.visits.push({id:'synthetic-v1',patientId:'synthetic-p',notes:'Synthetic held visit'});`);
+ return c;
 }
-
-function hostedCtx() {
-  return makeCtx({
-    location: { hash: '', protocol: 'https:', origin: 'https://carelink.test', host: 'carelink.test' },
-    navigator: { userAgent: 'outbox-test' },
-    performance: { now: () => Date.now() },
-    sessionStorage: { getItem(){ return null; }, setItem(){}, removeItem(){} },
-  });
-}
-
-(async () => {
-  /* 1. A refused save is held, not lost. */
-  {
-    const c = hostedCtx();
-    c.run(`DB.db = DB.blank(); DB.db.patients = [{ id:'p1', code:'CL-1', name:'Synthetic One', areaId:'nyalenda', countyId:'kisumu', status:'active' }];
-      DB.db.visits = []; SYNC.rebase();
-      AUTH.user = { id:'u-care-1', username:'caregiver.nyalenda', roleId:'caregiver', countyId:'kisumu', areaIds:['nyalenda'] };
-      SYNC.storeToken('tablet-token'); SYNC.rev = 12;
-      SYNC._json = async () => { throw new Error('network down'); };
-      DB.db.visits.push({ id:'v1', patientId:'p1', date:'2026-11-22', type:'home', weight:48.2, outcome:'seen', notes:'Held visit' });`);
-    await c.run('SYNC.push()');
-    check('a visit typed while the host is unreachable is written to durable storage',
-      c.run(`SYNC.heldOutbox() === 1`));
-    check('the operator is told exactly how many changes are held',
-      c.run(`/1 change is held/.test(SYNC.message)`));
-    check('held work names the account that typed it',
-      c.run(`SYNC.loadOutbox().username === 'caregiver.nyalenda'`));
+(async()=>{
+ await check('unknown save outcomes are retained and cannot replay automatically',async()=>{
+  const c=hosted();let calls=0;c.ctx.__send=async()=>{calls++;throw Error('synthetic response loss');};c.run('SYNC._json=__send');
+  await c.run('SYNC.push()');assert.equal(c.run('SYNC.heldOutbox()'),1);assert.equal(c.run('SYNC.loadOutbox().needsReview'),true);
+  assert.match(c.run('SYNC.message'),/outcome is unknown.*retained for review/);assert.equal(await c.run('SYNC.attemptOutbox()'),false);
+  await c.run('SYNC.push()');await c.run('SYNC.tick()');assert.equal(await c.run('SYNC.retryNow()'),false);
+  assert.equal(calls,1);assert.equal(c.run('SYNC.state'),'error');assert.match(c.run('SYNC.message'),/requires review/);
+ });
+ await check('same-owner unsent work with a complete acknowledgment can be replayed and cleared',async()=>{
+  const c=hosted();c.run('SYNC.holdWork({notSent:true})');let sent;
+  c.ctx.__send=async(url,opts)=>{sent=JSON.parse(opts.body);assert.equal(c.run('SYNC.loadOutbox().needsReview'),true,'uncertainty marker is durable before sending');return {ok:true,status:200,body:{ok:true,rev:13,appliedCount:1,rejected:[]}};};c.run('SYNC._json=__send');
+  assert.equal(await c.run('SYNC.attemptOutbox()'),true);assert.equal(sent.patches[0].set.notes,'Synthetic held visit');
+  assert.equal(c.run('SYNC.heldOutbox()'),0);assert.match(c.run('SYNC.message'),/Held work saved/);
+ });
+ await check('partial HTTP 200 refusals and missing acknowledgements preserve the entire batch for review',async()=>{
+  for(const body of [{ok:true,rev:13,appliedCount:0,rejected:[{c:'visits',id:'synthetic-v1',reason:'clinical_scope_denied'}]}, {ok:true,rev:13}, {ok:true,rev:13,appliedCount:0,rejected:[]}, {ok:true,rev:13,appliedCount:1,rejected:[{c:'visits',id:'synthetic-v1',reason:'denied'}]}]){
+   const c=hosted();c.run('SYNC.holdWork({notSent:true})');c.ctx.__body=body;c.run('SYNC._json=async()=>({ok:true,status:200,body:__body})');
+   assert.equal(await c.run('SYNC.attemptOutbox()'),false);assert.equal(c.run('SYNC.heldOutbox()'),1);
+   assert.equal(c.run('SYNC.loadOutbox().needsReview'),true);assert.match(c.run('SYNC.message'),/not been reported as saved/);
   }
-
-  /* 2. Held work survives a reload and reaches the shared record. */
-  {
-    const c = hostedCtx();
-    const sent = [];
-    c.run(`DB.db = DB.blank();
-      DB.db.patients = [{ id:'p1', code:'CL-1', name:'Synthetic One', areaId:'nyalenda', countyId:'kisumu', status:'active' }];
-      DB.db.visits = [];
-      AUTH.user = { id:'u-care-1', username:'caregiver.nyalenda', roleId:'caregiver', countyId:'kisumu', areaIds:['nyalenda'] };
-      SYNC.storeToken('tablet-token'); SYNC.rev = 12;
-      SYNC._json = async () => { throw new Error('network down'); };
-      SYNC.rebase();
-      DB.db.visits.push({ id:'v1', patientId:'p1', date:'2026-11-22', type:'home', weight:48.2, outcome:'seen', notes:'Held visit' });`);
-    await c.run('SYNC.push()');
-    const held = c.run('SYNC.heldOutbox()');
-
-    /* A reload: fresh module state, same durable storage, host reachable again. */
-    const reloaded = makeCtx({
-      location: { hash: '', protocol: 'https:', origin: 'https://carelink.test', host: 'carelink.test' },
-      navigator: { userAgent: 'outbox-test' },
-      performance: { now: () => Date.now() },
-      sessionStorage: { getItem: () => 'tablet-token', setItem(){}, removeItem(){} },
-    });
-    /* The same browser profile keeps localStorage, so copy the durable keys. */
-    reloaded.ctx.localStorage.setItem('carelink.sync.outbox', c.ctx.localStorage.getItem('carelink.sync.outbox'));
-    reloaded.run(`DB.db = DB.blank();
-      DB.db.patients = [{ id:'p1', code:'CL-1', name:'Synthetic One', areaId:'nyalenda', countyId:'kisumu', status:'active' }];
-      DB.db.visits = [];
-      AUTH.user = { id:'u-care-1', username:'caregiver.nyalenda', roleId:'caregiver', countyId:'kisumu', areaIds:['nyalenda'] };
-      SYNC.loadToken(); SYNC.rev = 12;
-      SYNC._json = async (url, opts) => { if(/api\\/state$/.test(url) && opts && opts.method === 'PUT'){ __sent.push(JSON.parse(opts.body)); return { ok:true, status:200, body:{ rev:13, merged:0 } }; } return { ok:true, status:200, body:{} }; };`);
-    reloaded.ctx.__sent = [];
-    const heldAfterReload = reloaded.run('SYNC.heldOutbox()');
-    const replayed = await reloaded.run('SYNC.attemptOutbox()');
-    const sentPatches = reloaded.ctx.__sent.reduce((n, body) => n + (body.patches || []).length, 0);
-    check('held work survives a reload', held === 1 && heldAfterReload === 1);
-    check('held work is replayed to the shared record after the reload', replayed === true && sentPatches === 1);
-    check('the held visit carries its real content, not an empty shell',
-      reloaded.ctx.__sent[0].patches.some(p => p.c === 'visits' && p.set && p.set.notes === 'Held visit' && p.set.weight === 48.2));
-    check('the outbox is emptied once the host accepts the work', reloaded.run('SYNC.heldOutbox()') === 0);
-    check('the operator is told the held work was saved', reloaded.run(`SYNC.state === 'connected' && /Held work saved/.test(SYNC.message)`));
-  }
-
-  /* 3. Held work is never published under a colleague's name. */
-  {
-    const c = hostedCtx();
-    c.run(`DB.db = DB.blank();
-      DB.db.patients = [{ id:'p1', code:'CL-1', name:'Synthetic One', areaId:'nyalenda', countyId:'kisumu', status:'active' }];
-      DB.db.visits = [];
-      AUTH.user = { id:'u-care-1', username:'caregiver.nyalenda', roleId:'caregiver', countyId:'kisumu', areaIds:['nyalenda'] };
-      SYNC.storeToken('tablet-token'); SYNC.rev = 12;
-      SYNC._json = async () => { throw new Error('network down'); };
-      SYNC.rebase();
-      DB.db.visits.push({ id:'v1', patientId:'p1', date:'2026-11-22', type:'home', weight:48.2, outcome:'seen', notes:'Held visit' });`);
-    await c.run('SYNC.push()');
-    const other = await c.run(`AUTH.user = { id:'u-care-2', username:'caregiver.manyatta', roleId:'caregiver', countyId:'kisumu', areaIds:['manyatta'] };
-      let posted = false;
-      SYNC._json = async () => { posted = true; return { ok:true, status:200, body:{ rev:13 } }; };
-      (async () => { const result = await SYNC.attemptOutbox(); return { result, posted }; })()`);
-    check('a colleague signing in on the same tablet does not publish the first person\'s held work',
-      other.result === false && other.posted === false && c.run('SYNC.heldOutbox()') === 1);
-  }
-
-  /* 4. Work the host will never accept is reported and released, not held forever. */
-  {
-    const c = hostedCtx();
-    c.run(`DB.db = DB.blank();
-      DB.db.patients = [{ id:'p1', code:'CL-1', name:'Synthetic One', areaId:'nyalenda', countyId:'kisumu', status:'active' }];
-      DB.db.visits = [];
-      AUTH.user = { id:'u-care-1', username:'caregiver.nyalenda', roleId:'caregiver', countyId:'kisumu', areaIds:['nyalenda'] };
-      SYNC.storeToken('tablet-token'); SYNC.rev = 12;
-      SYNC._json = async () => { throw new Error('network down'); };
-      SYNC.rebase();
-      DB.db.visits.push({ id:'v1', patientId:'p1', date:'2026-11-22', type:'home', weight:48.2, outcome:'seen', notes:'Held visit' });`);
-    await c.run('SYNC.push()');
-    const refused = await c.run(`SYNC._json = async () => ({ ok:false, status:403, body:{ ok:false, code:'scope_denied', error:'That patient is outside this account\\'s area.' } });
-      (async () => { const result = await SYNC.attemptOutbox(); return { result, held: SYNC.heldOutbox(), message: SYNC.message }; })()`);
-    check('a refusal the host will never accept is reported plainly', refused.result === false && /outside this account/.test(refused.message));
-    check('refused work is released rather than promising a save that cannot happen', refused.held === 0);
-  }
-
-  /* 5. Signing out keeps held work for that account. */
-  {
-    const c = hostedCtx();
-    c.run(`DB.db = DB.blank();
-      DB.db.patients = [{ id:'p1', code:'CL-1', name:'Synthetic One', areaId:'nyalenda', countyId:'kisumu', status:'active' }];
-      DB.db.visits = [];
-      AUTH.user = { id:'u-care-1', username:'caregiver.nyalenda', roleId:'caregiver', countyId:'kisumu', areaIds:['nyalenda'] };
-      SYNC.storeToken('tablet-token'); SYNC.rev = 12;
-      SYNC._json = async () => { throw new Error('network down'); };
-      SYNC.rebase();
-      DB.db.visits.push({ id:'v1', patientId:'p1', date:'2026-11-22', type:'home', weight:48.2, outcome:'seen', notes:'Held visit' });`);
-    await c.run('SYNC.push()');
-    check('signing out does not silently discard held work', c.run('SYNC.heldOutbox()') === 1);
-    check('the outbox is scoped to the account that typed it', c.run(`SYNC.loadOutbox().username === 'caregiver.nyalenda'`));
-  }
-
-  /* 6. A save refused because the session ended is held before the session goes. */
-  {
-    const c = hostedCtx();
-    const result = await c.run(`(() => {
-      DB.db = DB.blank();
-      DB.db.patients = [{ id:'p1', code:'CL-1', name:'Synthetic One', areaId:'nyalenda', countyId:'kisumu', status:'active' }];
-      DB.db.visits = [];
-      AUTH.user = { id:'u-care-1', username:'caregiver.nyalenda', roleId:'caregiver', countyId:'kisumu', areaIds:['nyalenda'] };
-      SYNC.storeToken('expired-token'); SYNC.rev = 12;
-      SYNC.rebase();
-      DB.db.visits.push({ id:'v1', patientId:'p1', date:'2026-11-22', type:'home', weight:48.2, outcome:'seen', notes:'Typed before the session ended' });
-      SYNC._json = async () => { throw new Error('network down'); };
-      SYNC.holdWork();
-      return { held: SYNC.heldOutbox(), token: SYNC.sessionToken };
-    })()`);
-    check('work typed before a session ends is held for that account',
-      result.held === 1 && c.run(`SYNC.loadOutbox().username === 'caregiver.nyalenda'`));
-  }
-
-  /* 7. The status chip tells the truth about where the work is. */
-  {
-    const c = hostedCtx();
-    c.run(`DB.db = DB.blank();
-      DB.db.patients = [{ id:'p1', code:'CL-1', name:'Synthetic One', areaId:'nyalenda', countyId:'kisumu', status:'active' }];
-      DB.db.visits = [];
-      AUTH.user = { id:'u-care-1', username:'caregiver.nyalenda', roleId:'caregiver', countyId:'kisumu', areaIds:['nyalenda'] };
-      SYNC.storeToken('tablet-token'); SYNC.rev = 12;
-      SYNC._json = async () => { throw new Error('network down'); };
-      SYNC.rebase();
-      DB.db.visits.push({ id:'v1', patientId:'p1', date:'2026-11-22', type:'home', weight:48.2, outcome:'seen', notes:'Held visit' });`);
-    await c.run('SYNC.push()');
-    check('the status chip says work is held rather than merely unconfirmed',
-      c.run(`SYNC.state === 'error' && SYNC.label() === 'Held on this device'`));
-    check('the status detail counts the held changes',
-      c.run(`/1 change is held/.test(SYNC.detail())`));
-  }
-
-  console.log(`sync-outbox: ${passed} checks passed`);
-})().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+ });
+ await check('a denied held batch survives sign-out and will not silently replay',async()=>{
+  const c=hosted();c.run(`SYNC.holdWork({notSent:true});SYNC._json=async()=>({ok:false,status:403,body:{error:'Synthetic scope refusal'}})`);
+  assert.equal(await c.run('SYNC.attemptOutbox()'),false);assert.equal(c.run('SYNC.heldOutbox()'),1);assert.equal(c.run('SYNC.loadOutbox().needsReview'),true);
+  assert.match(c.run('SYNC.message'),/scope refusal/);
+ });
+ await check('an uncertain queue survives reload without an automatic replay',async()=>{
+  const c=hosted();c.run(`SYNC._json=async()=>{throw Error('synthetic response loss')}`);await c.run('SYNC.push()');
+  const reloaded=hosted();reloaded.ctx.localStorage.setItem('carelink.sync.outbox',c.ctx.localStorage.getItem('carelink.sync.outbox'));
+  let calls=0;reloaded.ctx.__send=async()=>{calls++;};reloaded.run('SYNC._json=__send');
+  assert.equal(reloaded.run('SYNC.heldOutbox()'),1);assert.equal(await reloaded.run('SYNC.attemptOutbox()'),false);assert.equal(calls,0);
+ });
+ await check('legacy queues without a known-unsent marker cannot be replayed',async()=>{
+  const c=hosted();c.run('SYNC.holdWork()');let calls=0;c.ctx.__send=async()=>{calls++;};c.run('SYNC._json=__send');
+  assert.equal(await c.run('SYNC.attemptOutbox()'),false);await c.run('SYNC.push()');assert.equal(calls,0);assert.equal(c.run('SYNC.heldOutbox()'),1);
+ });
+ await check('held work cannot be replayed under another or unknown account',async()=>{
+  const c=hosted();c.run('SYNC.holdWork()');let calls=0;c.ctx.__send=async()=>{calls++;return {ok:true,body:{rev:13,appliedCount:1,rejected:[]}};};c.run('SYNC._json=__send');
+  c.run(`AUTH.user.username='synthetic-caregiver-two'`);assert.equal(await c.run('SYNC.attemptOutbox()'),false);
+  c.run('AUTH.user=null');assert.equal(await c.run('SYNC.attemptOutbox()'),false);assert.equal(calls,0);assert.equal(c.run('SYNC.heldOutbox()'),1);
+ });
+ await check('foreign, unowned and corrupt queues cannot be overwritten or deleted by another account',async()=>{
+  const c=hosted();c.run('SYNC.holdWork()');const raw=c.ctx.localStorage.getItem('carelink.sync.outbox');
+  c.run(`AUTH.user.username='synthetic-caregiver-two';DB.db.visits.push({id:'synthetic-v2',notes:'Synthetic other work'});SYNC.holdWork()`);
+  assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),raw);assert.match(c.run('SYNC._holdFailure'),/not safely stored/);
+  c.run('SYNC.clearOutbox({patches:SYNC.loadOutbox().patches})');assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),raw);
+  c.ctx.localStorage.setItem('carelink.sync.outbox','{unparseable');c.run('SYNC.holdWork()');assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),'{unparseable');
+ });
+ await check('newer work cannot overwrite an existing same-account queue and empty shadows do not delete it',async()=>{
+  const c=hosted();c.run('SYNC.holdWork()');const raw=c.ctx.localStorage.getItem('carelink.sync.outbox');
+  c.run(`DB.db.visits.push({id:'synthetic-v2',notes:'Synthetic newer change'});SYNC.holdWork()`);
+  assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),raw);assert.match(c.run('SYNC._holdFailure'),/not safely stored/);
+  c.run('SYNC.rebase();SYNC.holdWork()');assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),raw);
+ });
+ await check('partial refusal in a normal save remains visible and retained for review',async()=>{
+  const c=hosted();c.run(`SYNC._json=async()=>({ok:true,status:200,body:{ok:true,rev:13,appliedCount:0,rejected:[{c:'visits',id:'synthetic-v1',reason:'scope_denied'}]}})`);
+  await c.run('SYNC.push()');assert.equal(c.run('SYNC.patches().length'),1);assert.equal(c.run('SYNC.loadOutbox().needsReview'),true);
+  assert.match(c.run('SYNC.message'),/refused.*remain unsaved/);
+ });
+ await check('a normal save without an exact acknowledgement is not called successful',async()=>{
+  const c=hosted();c.run(`SYNC._json=async()=>({ok:true,status:200,body:{ok:true,rev:13}})`);
+  await c.run('SYNC.push()');assert.equal(c.run('SYNC.loadOutbox().needsReview'),true);assert.equal(c.run('SYNC.patches().length'),1);
+  assert.match(c.run('SYNC.message'),/outcome is unknown/);
+ });
+ await check('storage failure warns rather than claiming durable held work',async()=>{
+  const c=hosted();c.ctx.localStorage.setItem=()=>{throw Error('synthetic quota');};c.run(`SYNC._json=async()=>{throw Error('synthetic network outage')}`);
+  await c.run('SYNC.push()');assert.equal(c.run('Store.durable'),false);assert.match(c.run('SYNC.message'),/may be lost on reload/);
+ });
+ console.log(`sync-outbox: ${checks} checks passed`);
+})().catch(e=>{console.error(e);process.exit(1);});

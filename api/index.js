@@ -4904,7 +4904,7 @@ async function handleRequest(req, res) {
         `${rejected.length} patch(es) refused for role ${sess.roleId}; reason(s): ${reasons.join(', ')}.`);
     }
     await saveCloudState(state);
-    return sendJson(res, 200, { ok: true, rev: state.rev, merged, rejected, saved: state.saved });
+    return sendJson(res, 200, { ok: true, rev: state.rev, merged, rejected, appliedCount: applied.length, saved: state.saved });
   }
 
   /* 7. Chief System Administrator Audited Silent Override */
