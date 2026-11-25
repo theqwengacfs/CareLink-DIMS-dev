@@ -22,6 +22,17 @@ run(`
 `);
 const assessments=JSON.parse(run(`JSON.stringify(MONDAY_PROC.reviewAssessments(AUTH.user,[DB.db.patients[0]],MONDAY_PROC.reviewPeriod('2026-11-23')))`));
 assert.equal(assessments.length,21);assert(assessments.some(r=>r.sourceId==='repeat-one'));assert(!assessments.some(r=>['foreign','mirror','undated','old','next','draft'].includes(r.sourceId)));
+// Discussion order follows recorded entry time, not assessment date or patient name.
+run(`DB.db.patients.push({...DB.db.patients[0],id:'weekly-second-area',areaId:'manyatta',name:'Fictional area patient',assessmentDate:''});
+ DB.db.formRecords[0].enteredAt='2026-11-20T12:00:00Z'; DB.db.formRecords[1].enteredAt='2026-11-16T08:00:00Z';
+ DB.db.formRecords[2].enteredAt='2026-11-17';
+ DB.db.formRecords.push({id:'second-area',patientId:'weekly-second-area',kind:'patient_assessment',status:'submitted',enteredAt:'2026-11-17T09:00:00Z',data:{assessmentDate:'2026-11-17'}});`);
+const grouping=JSON.parse(run(`JSON.stringify((()=>{ const rows=MONDAY_PROC.reviewAssessments(AUTH.user,DB.db.patients.filter(p=>p.countyId==='kisumu'),MONDAY_PROC.reviewPeriod('2026-11-23')); const groups=MONDAY_PROC.assessmentGroups(rows,'kisumu','2026-11-23'); return {rows,groups,reverse:MONDAY_PROC.assessmentGroups([...rows].reverse(),'kisumu','2026-11-23').map(g=>g.id),subset:MONDAY_PROC.assessmentGroups(rows.filter(r=>r.areaId==='manyatta'),'kisumu','2026-11-23').map(g=>g.id)};})())`));
+assert.equal(grouping.groups.length,2);assert.deepEqual(grouping.groups.map(g=>g.id),grouping.reverse);assert.deepEqual(grouping.subset,['manyatta']);
+assert(grouping.rows.findIndex(r=>r.sourceId==='weekly-form-1')<grouping.rows.findIndex(r=>r.sourceId==='weekly-form-0'));
+assert.equal(grouping.rows.find(r=>r.sourceId==='weekly-form-2').enteredAt,'');
+assert(grouping.groups.every(g=>g.rows.every(r=>r.areaId===g.id)));
+run(`DB.db.patients=DB.db.patients.filter(p=>p.id!=='weekly-second-area'); DB.db.formRecords=DB.db.formRecords.filter(f=>f.id!=='second-area');`);
 run(`
  DB.db.transactions=[
  {id:'paid',countyId:'kisumu',amount:100,date:'2026-11-16',status:'paid',budgetLine:'food',currency:'KES',receipt:false},

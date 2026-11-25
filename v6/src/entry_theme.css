@@ -958,3 +958,9 @@ html .shell .topbar.cbar .tb-os-identity{
 .network-indicator[hidden]{display:none!important}
 .network-indicator-login{white-space:normal;margin:0 0 10px}
 .workspace-network{cursor:pointer}
+
+/* Monday assessment discussion: grouped, in-flow and keyboard-expandable. */
+.monday-assessment-group{margin:12px 0;border:1px solid #d7e2e8;border-radius:12px;background:var(--surface,#fff);overflow:hidden}
+.monday-assessment-group>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;cursor:pointer;background:#f2f8f7;color:#114b47;list-style:none}
+.monday-assessment-group>summary::-webkit-details-marker{display:none}
+.monday-assessment-group>summary:focus-visible{outline:3px solid #bc2444;outline-offset:-3px}

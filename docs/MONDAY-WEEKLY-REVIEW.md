@@ -13,6 +13,7 @@ The reporting date selector does not select an archived meeting or change county
 - Hard-copy assessment batches use assessment/visit dates. An explicit formRecordId avoids counting a linked scan batch again as a separate assessment form.
 - Register-only legacy assessment/intake dates are labelled as legacy sources, and a same-patient/same-day register fallback is suppressed when assessment evidence already exists for that day.
 - There is no sample-row limit. Separate assessment source records remain separate unless explicitly linked; multiple assessments are not automatically merged based on a name.
+- Assessment records are grouped by ministry area. Area order is a deterministic pseudo-random ranking of county, meeting Monday and area ID, so the same area order is reproducible across refreshes and scoped subsets. It is not a random ballot or a fairness guarantee. Within each group records with an exact recorded entry timestamp appear oldest first; records without one follow, with the missing time labelled rather than invented. This is a presentation order, not a recorded secretary-led discussion or evidence that a discussion occurred.
 - Hard copies without an actual assessment date are excluded from dated totals and flagged in the tab's data-quality message. Entry/upload dates are not passed off as dates of clinical assessment.
 - Patient concerns include all raised in the review week plus older/undated concerns currently open. Closed older concerns and future-dated concerns are excluded.
 

@@ -91,8 +91,9 @@ await check('international full / paged / fast / delta reads see no unshared cli
 });
 await check('shared dossier contains only the immutable authorized fields and remains visible across delta and paged transports',async()=>{
  const baseRev=f.state().rev;
- review=await good(mcm,'share_review',{id:review.id,version:review.version});
+ review=await good(cg,'share_review',{id:review.id,version:review.version});
  const db=f.state().db,dossier=db.intlPdcaDossiers[0],version=db.careReviewRevisions.find(v=>v.id===dossier.authorizedRevisionId);
+ assert.equal(dossier.sharedBy,'fx-caregiver');
  assert.deepEqual(dossier.fields,version.fields);assert.equal(version.event,'authorized');assert.equal(dossier.fields.nextSteps,'Synthetic corrected action for fourteen days');
  const full=await f.call('state',{token:f.tokens[intl]});assert.equal(full.body.db.intlPdcaDossiers.length,1);assert.equal(full.body.db.patients.length,0);assert.equal(full.body.db.careReviews.length,0);assert.equal(full.body.db.careReviewRevisions.length,0);
  const paged=await f.call('state/collection?name=intlPdcaDossiers',{token:f.tokens[intl]});assert.equal(paged.body.records.length,1);

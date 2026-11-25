@@ -32,6 +32,29 @@ run('DB.seedOfficial({ patients: 4000 });');
 const weeklyOf = (roleOrUser, params = {}) => JSON.parse(run(
   `JSON.stringify(REPORTS.weeklyIndicators(${typeof roleOrUser === 'string' ? `DB.db.users.find(u=>u.roleId==='${roleOrUser}')` : `DB.db.users.find(u=>u.username==='${roleOrUser}')`}, ${JSON.stringify(params)}))`));
 
+// Working-week periods use Nairobi civil dates, including year and UTC boundaries.
+const period = JSON.parse(run(`JSON.stringify(PERIOD.lastCompletedWorkWeek(new Date('2026-11-25T12:00:00Z')))`));
+check('last completed planning period is Monday through Friday', period.civilStart === '2026-11-16' && period.civilEnd === '2026-11-20' && /Monday 16 Nov 2026.*Friday 20 Nov 2026/.test(period.label), JSON.stringify(period));
+check('Nairobi midnight and year boundaries select the completed work week',
+  run(`PERIOD.lastCompletedWorkWeek(new Date('2027-01-03T21:05:00Z')).civilStart`) === '2026-12-28' &&
+  run(`PERIOD.lastCompletedWorkWeek(new Date('2026-11-21T10:00:00Z')).civilStart`) === '2026-11-16');
+check('weekly archive key covers the same period and remains explicitly ISO pending the custom rule',
+  run(`periodKeyFor('weekly_indicators',{date:'2026-11-16'})`) === '2026-W47');
+{
+  const c=makeCtx();
+  c.run(`DB.load(); DB.seedDemo(); AUTH.user=DB.db.users.find(u=>u.roleId==='chief');
+    const patient=DB.db.patients[0];
+    DB.db.visits=[{id:'before',patientId:patient.id,date:'2026-11-15T20:59:59Z'},
+      {id:'monday',patientId:patient.id,date:'2026-11-15T21:00:00Z'},
+      {id:'friday',patientId:patient.id,date:'2026-11-20T20:59:59Z'},
+      {id:'saturday',patientId:patient.id,date:'2026-11-20T21:00:00Z'}];`);
+  check('dated activities include Monday through Friday in Nairobi, not weekend instants',
+    c.run(`REPORTS.weeklyIndicators(AUTH.user,{date:'2026-11-18'}).visitsRecorded`) === 2);
+  check('issued planning reports retain the working-period date in their parameters',
+    c.run(`REPORTS.generate('weekly_indicators',{date:'2026-11-18'},AUTH.user).params.date`) === '2026-11-16');
+  check('document metadata states the same working period',
+    /Monday 16 Nov 2026.*Friday 20 Nov 2026/.test(c.run(`buildReportDoc('weekly_indicators',{date:'2026-11-18'},AUTH.user)`)));
+}
 const chief = weeklyOf('chief', { countyId: 'all' });
 
 /* ---- every figure the report names is present --------------------------- */

@@ -321,7 +321,9 @@ const MONDAY_PROC = {
       if(!p||!day||day<period.start||day>=period.end) return;
       const key=source+':'+(r.id||p.id+':'+day);
       if(seen.has(key)) return; seen.add(key);
-      out.push({ref:ref||r.id||p.code,patientId:p.id,patientName:p.name,area:areaName(p.areaId),date:day,summary,status:titleCase(r.status||'recorded'),source,kind,sourceId:r.id});
+      const rawEntry = [r.enteredAt,r.createdAt,r.submittedAt].find(value=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*(?:Z|[+-]\d{2}:\d{2})$/i.test(String(value||'')) && Number.isFinite(Date.parse(value)));
+      const timestamp = rawEntry ? new Date(rawEntry).toISOString() : '';
+      out.push({ref:ref||r.id||p.code,patientId:p.id,patientName:p.name,areaId:p.areaId||'',area:areaName(p.areaId),date:day,enteredAt:timestamp,summary,status:titleCase(r.status||'recorded'),source,kind,sourceId:r.id});
     };
     const forms=typeof FORMSX!=='undefined'?FORMSX.records(user):[];
     forms.filter(r=>['patient_assessment','minor_assessment'].includes(r.kind)&&['submitted','verified','approved','completed'].includes(r.status)).forEach(r=>
@@ -338,7 +340,27 @@ const MONDAY_PROC = {
       if(out.some(r=>r.patientId===p.id&&r.date===date)) return;
       add({...p,patientId:p.id},'Patient register (legacy date)','legacy',date,p.clinical?.diagnosis||'Assessment / intake date on register',p.code);
     });
-    return out.sort((a,b)=>b.date.localeCompare(a.date)||String(a.patientName).localeCompare(String(b.patientName)));
+    return out.sort((a,b)=>{
+      if(!a.enteredAt && b.enteredAt) return 1;
+      if(a.enteredAt && !b.enteredAt) return -1;
+      return String(a.enteredAt).localeCompare(String(b.enteredAt)) || String(a.sourceId||a.ref).localeCompare(String(b.sourceId||b.ref));
+    });
+  },
+  /* A stable pseudo-random area order for the county and meeting date. The
+     ordering is computed from the area identity, not array position, so scoped
+     subsets and newly added areas cannot reshuffle the existing groups. It is
+     not a persisted ballot or a claim of long-term assignment fairness. */
+  assessmentGroups(rows, county, monday){
+    const groups = new Map();
+    for(const row of rows){
+      const key = row.areaId || '__unassigned__';
+      if(!groups.has(key)) groups.set(key,{id:key,name:row.areaId ? row.area : 'Area not recorded',rows:[]});
+      groups.get(key).rows.push(row);
+    }
+    return [...groups.values()].sort((a,b)=>{
+      const rank=id=>fnv1a(`${county}|${monday}|${id}`);
+      return rank(a.id).localeCompare(rank(b.id)) || a.id.localeCompare(b.id);
+    });
   },
   reviewFinance(user, county, period){
     if(!RBAC.has(user,'finance.view')&&!RBAC.has(user,'finance.reconcile')&&!RBAC.has(user,'audit.view')) return null;
@@ -579,18 +601,21 @@ const MONDAY_PROC = {
     }
 
     if(tab==='assessments'){
+      const groups=this.assessmentGroups(recentAssessments,selectedCounty,review.week);
       body = hasPatientScope
         ? card(`Previous Week's Assessments & New Intakes · ${countyName(selectedCounty)}`,
-            table([
-              {label:'Ref / Code', cls:'mono', render:r=>esc(r.ref)},
-              {label:'Beneficiary', render:r=>`<button class="linkbtn cellname" data-act="go" data-v="patient" data-id="${esc(r.patientId)}">${esc(r.patientName)}</button>`},
-              {label:'Ministry Area', render:r=>esc(r.area)},
-              {label:'Assessment Date', render:r=>esc(fmtDate(r.date))},
-              {label:'Clinical / Intake Summary', render:r=>`<span class="small">${esc(r.summary)}</span>`},
-              {label:'Source', render:r=>esc(r.source)},
-              {label:'Status', render:r=>badge(r.status,r.status==='Verified'?'b-ok':'b-info')}
-            ], recentAssessments, {emptyMsg:'No recorded assessments for the previous Monday–Sunday in your scope.'}),
-            {sub:`${fmtDate(review.start)} – ${fmtDate(review.last)} · All recorded assessment events; no sample limit. Draft forms excluded. ${assessmentGaps.length} hard-copy record(s) lack an actual assessment date and cannot be assigned to a week. Legacy register dates are labelled.`})
+            groups.map((group,index)=>`<details class="monday-assessment-group" ${index===0?'open':''}>
+              <summary><b>${index+1}. ${esc(group.name)}</b> <span class="badge b-info nodot">${group.rows.length} assessment${group.rows.length===1?'':'s'}</span></summary>
+              ${table([
+                {label:'Ref / Code', cls:'mono', render:r=>esc(r.ref)},
+                {label:'Beneficiary', render:r=>`<button class="linkbtn cellname" data-act="go" data-v="patient" data-id="${esc(r.patientId)}">${esc(r.patientName)}</button>`},
+                {label:'Assessment Date', render:r=>esc(fmtDate(r.date))},
+                {label:'Entered (Nairobi)', render:r=>r.enteredAt?esc(new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Nairobi',dateStyle:'medium',timeStyle:'short'}).format(new Date(r.enteredAt))):'Exact entry time not recorded'},
+                {label:'Clinical / Intake Summary', render:r=>`<span class="small">${esc(r.summary)}</span>`},
+                {label:'Source', render:r=>esc(r.source)},
+                {label:'Status', render:r=>badge(r.status,r.status==='Verified'?'b-ok':'b-info')}
+              ],group.rows)}</details>`).join('') || emptyState('No recorded assessments','No recorded assessments for the previous Monday–Sunday in your scope.','clipboard'),
+            {sub:`${fmtDate(review.start)} – ${fmtDate(review.last)} · Areas are shuffled consistently for this county and meeting date. Within each area, records with a precise entry timestamp are listed oldest first; records without one follow and are labelled. Draft forms excluded. ${assessmentGaps.length} hard-copy record(s) lack an actual assessment date and cannot be assigned to a week. Legacy register dates are labelled.`})
         : card('Role Confidentiality Boundary', emptyState('Patient-level assessments belong to Field & Clinical Consoles',
             'Your non-clinical department participates in the Monday county agenda, logistics, and action tracker without exposing individual clinical assessment charts.', 'shield'));
     }
