@@ -276,6 +276,7 @@ function renderLanding6(){
         </div>
       </div>
       <nav class="row ld-nav" aria-label="Public and institutional navigation" style="gap:8px;flex-wrap:wrap">
+        <span class="network-indicator" data-network-indicator role="status" ${typeof navigator==='undefined' || navigator.onLine!==false?'hidden':''}>No network</span>
         <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> How CareLink works</button>
         <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Public Impact Portal</button>
         ${!isActivated ? `<button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request Access</button>` : ''}
@@ -647,6 +648,7 @@ function renderLogin6(){
           </div>
           <button class="btn btn-xs btn-ghost" data-act="goto-landing" type="button">Front page</button>
         </div>
+        <span class="network-indicator network-indicator-login" data-network-indicator role="status" ${typeof navigator==='undefined' || navigator.onLine!==false?'hidden':''}>No network · Online sign-in requires a connection</span>
         ${hostLine}
         ${LOGIN6.error?(()=>{
           const isKvUnavailable = /refused the (read|write)|could not be read|not configured/i.test(LOGIN6.error) && !/WRONGTYPE/i.test(LOGIN6.error);
