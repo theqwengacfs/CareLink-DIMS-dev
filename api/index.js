@@ -1735,6 +1735,9 @@ function clinicalPatchPolicy(patch, db, sess) {
   const current=(Array.isArray(db[patch.c])?db[patch.c]:[]).find(r=>r?.id===patch.id);
   const set=safeObject(patch.set), next={...(current||{}),...set};
   if(devotionRules.OWNED.includes(patch.c)) return 'devotion_command_required';
+  // Legacy quality waivers contain arbitrary source descriptions and reasons.
+  // They cannot be accepted as unscoped client patches or trusted decisions.
+  if(patch.c==='dqIssues') return 'quality_command_required';
   if(careWorkflow.OWNED.includes(patch.c)||patch.c==='pdcas') return 'clinical_command_required';
   if(patch.c==='calendarEvents' && (current?.careReviewId || next.careReviewId || /pdca/i.test(String(current?.kind||'')+String(next.kind||'')) || next.source==='care-review')) return 'clinical_command_required';
   if(patch.c!=='patients') return '';
@@ -2113,6 +2116,10 @@ function notificationPatchAllowed(patch, state, sess) {
 function scopedDbForSession(db, state, sess) {
   if(BOARD_ROLES.has(sess.roleId))return boardSnapshot(db||{},sess);
   const copy = sanitizeDbForClient(db || {});
+  // Existing free-text waiver records have no reliable patient/county linkage
+  // or server-owned decision provenance. Retain them at rest but fail closed
+  // in full, paged and packed snapshots until they can be reviewed safely.
+  copy.dqIssues = [];
   const scope = principalScope(state, sess);
   for(const name of ['devotionRosters','devotionMeetings','mondaySittingMinutes'])if(Array.isArray(copy[name]))
     copy[name]=copy[name].filter(r=>devotionRules.visible({...scope,id:scope.userId},r,name));
@@ -2268,7 +2275,8 @@ function scopedPatchesForSession(patches, state, sess) {
     }
     if(['execIssues','execMeetings'].includes(patch.c)&&!executiveMember(state.db,sess,officialStructure.exec))return [];
     if(patch.c==='cccReferrals'){const record=(state.db.cccReferrals||[]).find(r=>r.id===patch.id)||patch.set;return referralVisible(record,sess,state.db)?[patch]:[];}
-    if (patch.c==='careCommandReceipts'||patch.c==='devotionCommandReceipts') return [];
+    // Do not replay historical waiver text through incremental state either.
+    if (patch.c==='dqIssues'||patch.c==='careCommandReceipts'||patch.c==='devotionCommandReceipts') return [];
     if (['devotionRosters','devotionMeetings','mondaySittingMinutes'].includes(patch.c)) {
       const record=(state.db[patch.c]||[]).find(r=>r.id===patch.id)||patch.set;
       // Deltas may include earlier private drafts. Never replay historical draft

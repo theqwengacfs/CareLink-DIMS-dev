@@ -350,7 +350,7 @@ const REPORTS = {
       if(!p.phone) issues.push({level:'warn', text:`${p.code} - no contact number`});
       if(!p.intake) issues.push({level:'crit', text:`${p.code} - missing intake date`});
       if(p.intake && p.discharge && new Date(p.discharge)<new Date(p.intake)) issues.push({level:'crit', text:`${p.code} - discharge precedes intake`});
-      if(!p.docsVerified) issues.push({level:'info', text:`${p.code} - source documents not yet verified`});
+      if(p.docsVerified!==true) issues.push({level:'info', text:`${p.code} - no recorded source-document verification attestation`});
       if(p.ccc){ if(seen[p.ccc]) issues.push({level:'crit', text:`Duplicate CCC number ${p.ccc} - ${seen[p.ccc]} and ${p.code}`}); else seen[p.ccc]=p.code; }
     });
     DB.db.requests.filter(r=>ps.some(p=>p.id===r.patientId))
@@ -360,7 +360,7 @@ const REPORTS = {
     if(RBAC.has(user,'finance.view')||RBAC.has(user,'audit.view')){
       const role=roleObj(user.roleId)||{scope:{}}; const global=(role.scope||{}).geo==='global'||(role.scope||{}).crossCounty;
       DB.db.transactions.filter(t=>global||t.countyId===user.countyId)
-        .forEach(t=>{ if(!t.receipt) issues.push({level:'warn', text:`${t.no} - receipt missing`}); });
+        .forEach(t=>{ if(t.receipt!==true) issues.push({level:'warn', text:`${t.no||t.id} - no recorded receipt attestation; evidence requires independent review`}); });
     }
     return issues;
   },

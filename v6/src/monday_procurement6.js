@@ -448,7 +448,7 @@ const MONDAY_PROC = {
       const entries=weekly.filter(t=>{const d=this.reviewDate(t.date);return d>=segment.start&&d<=segment.end;});
       return {...segment,paid:sum(entries),food:sum(entries.filter(t=>costCategoryOf(t.category,t.budgetLine)==='foodbag'))};
     });
-    return {weekly,monthly,lines,daily,monthSegments,budget,week:sum(weekly),month:sum(monthly),committed:sum(committed),missing:weekly.filter(t=>!t.receipt).length,excludedCurrency:rows.filter(t=>t.currency&&t.currency!=='KES'&&within(t,period.start,period.monthEnd)).length};
+    return {weekly,monthly,lines,daily,monthSegments,budget,week:sum(weekly),month:sum(monthly),committed:sum(committed),missing:weekly.filter(t=>t.receipt!==true).length,excludedCurrency:rows.filter(t=>t.currency&&t.currency!=='KES'&&within(t,period.start,period.monthEnd)).length};
   },
 
   render(user, params={}){
@@ -709,7 +709,7 @@ const MONDAY_PROC = {
           ${kpi('Previous week paid',money(finance.week),`${fmtDate(review.start)} – ${fmtDate(review.last)}`,'info','wallet')}
           ${kpi('Month-to-date paid',money(finance.month),`Through meeting Monday ${fmtDate(review.week)}`,'','calendar')}
           ${kpi('Monthly budget',finance.budget===null?'Not set':money(finance.budget),'Latest effective version per budget line','','layers')}
-          ${kpi('Weekly receipt gaps',num(finance.missing),'Paid entries without receipt evidence',finance.missing?'warn':'ok','file')}
+          ${kpi('Receipt attestations missing',num(finance.missing),'Paid entries without a recorded checkbox; evidence still needs review',finance.missing?'warn':'ok','file')}
         </div>
         <div class="grid g2 monday-review-charts">
           ${card('Daily paid expenditure · previous week',barChart(finance.daily,{fmt:v=>money(v)}))}

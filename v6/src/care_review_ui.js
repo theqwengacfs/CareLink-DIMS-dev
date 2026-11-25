@@ -279,7 +279,7 @@ const CARE_REVIEW = (()=>{
     const referrals=(DB.db.careReferrals||[]).filter(r=>ids.has(r.patientId)&&r.status==='pending_mcm');
     const find=id=>patients.find(p=>p.id===id);
     return pageHead('Official CareLink C-DIMS PDCA Register',
-      'Editable three-page reports, fixed day-30 through day-360 milestones and on-demand evaluations. Current and prior support cycles are never combined.',
+      'Editable two-spread reports, fixed day-30 through day-360 milestones and on-demand evaluations. Current and prior support cycles are never combined.',
       button('care-review-new','On-demand PDCA','',true))+
       card('County MCM · repeat / returning assessment decisions',referrals.map(r=>`<div class="care-referral-row">${flag({...find(r.patientId),status:'active',assessmentKind:r.kind})}<b>${esc(find(r.patientId)?.code)}</b><span>${esc(fmtDateTime(r.evaluatedAt))}</span>${button('care-referral-open','Open office decision report',`data-id="${esc(r.id)}"`)}</div>`).join('')||'<p class="muted">No repeat / returning report awaits an office decision in your scope.</p>')+
       card('Clinical reports & Beneficiary Archive',table([
