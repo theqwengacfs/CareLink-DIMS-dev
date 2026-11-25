@@ -58,7 +58,9 @@ export async function clinicalFixture(){
  r=await call('auth/change-password',{method:'POST',token:chief,body:{current:chiefPw,password:'Synthetic#ChiefPrivate2030!'}});assert.equal(r.status,200,JSON.stringify(r.body));
  const accounts=[['caregiver.nairobird','caregiver','kisumu',['nairobird'],'fx-caregiver'],['coord.nairobird','coordinator','kisumu',['nairobird'],'fx-coordinator'],
   ['mcm.kisumu','mcm','kisumu',[],'fx-mcm'],['synthetic-homa-mcm.localtest','mcm','homabay',[],'fx-homa-mcm'],['synthetic-intl.localtest','intl.medical','kisumu',[],'fx-intl'],
-  ['kisumu.admin','countyadmin','kisumu',[],'fx-admin'],['synthetic-finance.localtest','finance','kisumu',[],'fx-finance']].map(([username,roleId,countyId,areaIds,id])=>({id,username,roleId,countyId,areaIds,name:'Synthetic fixture '+roleId,status:'active',active:true,unconfirmed:false}));
+  ['kisumu.admin','countyadmin','kisumu',[],'fx-admin'],['synthetic-finance.localtest','finance','kisumu',[],'fx-finance'],
+  ['synthetic-assistant.localtest','assistant','kisumu',[],'fx-assistant'],['synthetic-homa-assistant.localtest','assistant','homabay',[],'fx-homa-assistant'],
+  ['synthetic-director.localtest','director','kisumu',[],'fx-director']].map(([username,roleId,countyId,areaIds,id])=>({id,username,roleId,countyId,areaIds,name:'Synthetic fixture '+roleId,status:'active',active:true,unconfirmed:false}));
  r=await call('setup/activate-global',{method:'POST',token:chief,body:{users:accounts,accounts:accounts.map(a=>({...a,password:'Synthetic#Temporary2029!'}))}});assert.equal(r.status,200,JSON.stringify(r.body));
  const issued=new Map(r.body.issued.map(a=>[a.username,a.password])),tokens={chief},passwords={chief:'Synthetic#ChiefPrivate2030!'};
  for(const a of accounts){

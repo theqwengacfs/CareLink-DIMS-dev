@@ -25,6 +25,7 @@ import {executiveMember,referralVisible,canSubmitMasterReport,BOARD_ROLES,boardS
 import { generateReferenceManifest } from './synthetic-reference.mjs';
 import careRules from '../v6/src/care_rules.js';
 import careWorkflow from '../v6/src/care_workflow.js';
+import devotionRules from '../v6/src/devotion_rules.js';
 
 /* The interactive evaluation deployment must be explicitly configured and
    backed by its own KV database. Its namespace must never address live keys. */
@@ -1733,6 +1734,7 @@ function authorizedDossier(record, db) {
 function clinicalPatchPolicy(patch, db, sess) {
   const current=(Array.isArray(db[patch.c])?db[patch.c]:[]).find(r=>r?.id===patch.id);
   const set=safeObject(patch.set), next={...(current||{}),...set};
+  if(devotionRules.OWNED.includes(patch.c)) return 'devotion_command_required';
   if(careWorkflow.OWNED.includes(patch.c)||patch.c==='pdcas') return 'clinical_command_required';
   if(patch.c==='calendarEvents' && (current?.careReviewId || next.careReviewId || /pdca/i.test(String(current?.kind||'')+String(next.kind||'')) || next.source==='care-review')) return 'clinical_command_required';
   if(patch.c!=='patients') return '';
@@ -2112,6 +2114,9 @@ function scopedDbForSession(db, state, sess) {
   if(BOARD_ROLES.has(sess.roleId))return boardSnapshot(db||{},sess);
   const copy = sanitizeDbForClient(db || {});
   const scope = principalScope(state, sess);
+  for(const name of ['devotionRosters','devotionMeetings','mondaySittingMinutes'])if(Array.isArray(copy[name]))
+    copy[name]=copy[name].filter(r=>devotionRules.visible({...scope,id:scope.userId},r,name));
+  if(Array.isArray(copy.devotionCommandReceipts))copy.devotionCommandReceipts=[];
   copy.execIssues=executiveMember(db,sess,officialStructure.exec)?(copy.execIssues||[]):[];
   copy.execMeetings=executiveMember(db,sess,officialStructure.exec)?(copy.execMeetings||[]):[];
   copy.cccReferrals=(copy.cccReferrals||[]).filter(r=>referralVisible(r,sess,db));
@@ -2263,7 +2268,13 @@ function scopedPatchesForSession(patches, state, sess) {
     }
     if(['execIssues','execMeetings'].includes(patch.c)&&!executiveMember(state.db,sess,officialStructure.exec))return [];
     if(patch.c==='cccReferrals'){const record=(state.db.cccReferrals||[]).find(r=>r.id===patch.id)||patch.set;return referralVisible(record,sess,state.db)?[patch]:[];}
-    if (patch.c==='careCommandReceipts') return [];
+    if (patch.c==='careCommandReceipts'||patch.c==='devotionCommandReceipts') return [];
+    if (['devotionRosters','devotionMeetings','mondaySittingMinutes'].includes(patch.c)) {
+      const record=(state.db[patch.c]||[]).find(r=>r.id===patch.id)||patch.set;
+      // Deltas may include earlier private drafts. Never replay historical draft
+      // payloads to someone who can see only the now-shared current record.
+      return devotionRules.visible({...scope,id:scope.userId},record,patch.c)?[{c:patch.c,id:patch.id,set:record}]:[];
+    }
     if (patch.c==='intlPdcaDossiers') {
       const dossier=(state.db.intlPdcaDossiers||[]).find(r=>r.id===patch.id);
       return authorizedDossier(dossier,state.db) && (scope.roleId==='intl.medical'||patchPatientInScope(dossier.patientId,state,scope)) ? [patch] : [];
@@ -2432,7 +2443,7 @@ const STATE_PAGE_THRESHOLD = 512 * 1024;
 const MASTER_PROTECTED_KEYS = new Set([
   'settings', 'meta', 'users', 'roles', 'audit', 'approvals', 'backups',
   'drafts', 'mergeJournal', 'presence', 'sessions', 'creds', 'deltas',
-  ...careWorkflow.OWNED,
+  ...careWorkflow.OWNED, ...devotionRules.OWNED,
 ]);
 
 function retainsClinicalHistory(db={}) {
@@ -2504,6 +2515,9 @@ function validateReferencePayload(payload) {
   const patients = db.patients;
   if(careWorkflow.OWNED.some(key=>db[key]!=null&&(!Array.isArray(db[key])||db[key].length))) {
     throw new MasterPackageError('A synthetic reference import cannot supply clinical decisions, evidence provenance, review authorizations or command receipts.', 'master_clinical_workflow_forbidden');
+  }
+  if(devotionRules.OWNED.some(key=>db[key]!=null&&(!Array.isArray(db[key])||db[key].length))) {
+    throw new MasterPackageError('A synthetic reference import cannot supply staff devotion decisions or command receipts.', 'master_devotion_workflow_forbidden');
   }
   if(!patients.every(p=>p?.demo===true||p?.synthetic===true))throw new MasterPackageError('The reference-master route accepts synthetic patients only.', 'master_synthetic_only');
   if (patients.length !== REFERENCE_PATIENT_COUNT) throw new MasterPackageError(`The full reference master must contain exactly ${REFERENCE_PATIENT_COUNT.toLocaleString('en-GB')} patients; it contains ${patients.length}.`);
@@ -3342,6 +3356,8 @@ async function handleRequest(req, res) {
         });
       }
     }
+    if(devotionRules.OWNED.some(key=>body.db?.[key]!=null&&(!Array.isArray(body.db[key])||body.db[key].length)))
+      return sendJson(res,400,{ok:false,code:'devotion_workflow_forbidden',error:'Setup cannot import staff workflow decisions or command receipts.'});
     const admin = body.admin || {};
     const username = String(admin.username || 'chief.admin').trim().toLowerCase();
     const pwErr = validatePrivacyPassword(admin.password, username);
@@ -4578,6 +4594,30 @@ async function handleRequest(req, res) {
     });
   }
 
+  if(route==='devotions/command'&&method==='POST'){
+    const sess=getSession(state,req);
+    if(!sess)return sendJson(res,401,{ok:false,code:'sign_in_required',error:'Sign in online to continue.'});
+    const body=await readJsonBody(req),command=clipString(body.command||'',80),payload=safeObject(body.payload);
+    const requestId=clipString(body.requestId||'',100),scope=principalScope(state,sess),user={...scope,id:scope.userId};
+    if(!/^[A-Za-z0-9_-]{12,100}$/.test(requestId))return sendJson(res,400,{ok:false,code:'request_id_required',error:'A unique request identifier is required.'});
+    const digest=sha256Hex(JSON.stringify(payload)),receipt=(state.db.devotionCommandReceipts||[]).find(r=>r.id===requestId);
+    if(receipt){
+      if(receipt.actor!==scope.userId||receipt.command!==command||receipt.digest!==digest)return sendJson(res,409,{ok:false,code:'request_id_conflict',error:'This command identifier has already been used.'});
+      if(!devotionRules.inCounty(user,receipt.countyId))return sendJson(res,403,{ok:false,code:'devotion_scope_denied',error:'This county is no longer in your scope.'});
+      return sendJson(res,200,{ok:true,duplicate:true,refreshRequired:true,rev:state.rev,saved:state.saved,patches:[]});
+    }
+    const result=devotionRules.run(state.db,user,command,payload,{now:nowISO(),id:prefix=>prefix+'-'+crypto.randomUUID(),randomInt:upper=>crypto.randomInt(upper)});
+    if(!result.ok)return sendJson(res,result.status||400,{ok:false,code:result.code,error:result.msg});
+    devotionRules.apply(state.db,result.patches);
+    (state.db.devotionCommandReceipts=state.db.devotionCommandReceipts||[]).push({id:requestId,actor:scope.userId,command,digest,countyId:result.rec.countyId,at:nowISO()});
+    state.rev=(state.rev||0)+1;state.deltas=state.deltas||[];
+    state.deltas.push({rev:state.rev,at:nowISO(),actor:scope.username,patches:result.patches});
+    if(state.deltas.length>60)state.deltas.splice(0,state.deltas.length-60);
+    appendServerAudit(state,scope.userId,result.event,'devotion',result.rec.id,'Staff devotion action; notes excluded from audit.');
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,rec:result.rec,rev:state.rev,saved:state.saved,patches:scopedPatchesForSession(result.patches,state,sess)});
+  }
+
   /* Every enrollment / cycle / PDCA decision is validated against the current
      primary record and atomically committed. Client role, `before`, author,
      workflow status, timestamps and claimed approval are NEVER trusted. */
@@ -4601,7 +4641,7 @@ async function handleRequest(req, res) {
       return sendJson(res,200,{ok:true,duplicate:true,refreshRequired:true,rev:state.rev,saved:state.saved,patches:[]});
     }
     const result=careWorkflow.run(state.db,{...scope,id:scope.userId},command,payload,{
-      visible:p=>patientInPrincipalScope(p,scope), now:nowISO(),id:prefix=>prefix+'-'+crypto.randomUUID()
+      visible:p=>patientInPrincipalScope(p,scope), now:nowISO(),id:prefix=>prefix+'-'+crypto.randomUUID(),randomInt:upper=>crypto.randomInt(upper)
     });
     if(!result.ok)return sendJson(res,result.status||400,{ok:false,code:result.code,error:result.msg});
     careWorkflow.apply(state.db,result.patches);

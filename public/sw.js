@@ -1,5 +1,5 @@
 /* CareLink application-shell offline support. Clinical/API responses are never cached. */
-const CACHE = 'carelink-shell-v11';
+const CACHE = 'carelink-shell-v12';
 const RETIRED_PAGES = self.location.hostname === 'theqwengacfs.github.io';
 const CANONICAL_ORIGIN = 'https://care-link-dims-dev-three.vercel.app/';
 /* A navigation that the network has not answered within this window falls back

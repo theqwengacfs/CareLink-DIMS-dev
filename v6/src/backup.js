@@ -19,7 +19,8 @@ const BACKUP = {
      deliberately excluded from a record restore: see the limitation note. */
   RECORD_KEYS: ['patients','visits','requests','encounters','transactions','budgets','documents',
     'support','supportIssues','clinicalRx','omahaPlans','formRecords','hardcopyBatches','homestays',
-    'careCycles','careReferrals','careEvidence','programAdmissions','careReviews','careReviewRevisions','intlPdcaDossiers',
+    'careCycles','careReferrals','careEvidence','programAdmissions','careReviews','careReviewRevisions','intlPdcaDossiers','mondayAssessmentReceipts',
+    'devotionRosters','devotionMeetings','mondaySittingMinutes',
     'concerns','pdcas','pdcaDiscussions','referralEntities','employees','leaveRequests','welfareContributions',
     'welfareActivities','vehicles','trips','targets','accountRequests','patientConditions',
     'careBeds','careResidents','careLogs','careIncidents','delegations','reports','notifications'],

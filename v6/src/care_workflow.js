@@ -3,7 +3,7 @@
    The API is the production authority. Generic sync cannot write these rows. */
 const CARE_WORKFLOW = (()=>{
   const R=typeof CARE_RULES!=='undefined'?CARE_RULES:require('./care_rules.js');
-  const OWNED=Object.freeze(['careCycles','careReferrals','careEvidence','programAdmissions','careReviews','careReviewRevisions','intlPdcaDossiers','careCommandReceipts']);
+  const OWNED=Object.freeze(['careCycles','careReferrals','careEvidence','programAdmissions','careReviews','careReviewRevisions','intlPdcaDossiers','mondayAssessmentReceipts','careCommandReceipts']);
   const READ_ROLES=['mcm','caregiver','coordinator','assistant','countyadmin','nurse','chw','liaison','homestay'];
   const copy=x=>JSON.parse(JSON.stringify(x));
   const text=(x,max=4000)=>String(x??'').trim().slice(0,max);
@@ -38,6 +38,56 @@ const CARE_WORKFLOW = (()=>{
     const intl=dossierCommand&&user.roleId==='intl.medical';
     if(!p||(!intl&&!(options.visible?options.visible(p):canSee(user,p)))) return fail('Patient record is outside your clinical scope.','clinical_scope_denied',403);
     const scoped={patientId:p.id,countyId:p.countyId,areaId:p.areaId};
+    if(['monday_receipt','monday_draw','monday_advance'].includes(command)){
+      if(user.roleId!=='assistant'||user.countyId!==p.countyId)
+        return fail('Only the county admin assistant may record paper receipt and guide this review.','monday_secretary_required',403);
+      const week=String(payload.week||'');
+      if(!R.date(week)||!/^\d{4}-\d{2}-\d{2}$/.test(week)||new Date(week+'T00:00:00Z').getUTCDay()!==1)
+        return fail('Choose the actual meeting Monday.');
+      const start=R.addDays(week,-7), rows=()=>list('mondayAssessmentReceipts').filter(r=>r.countyId===p.countyId&&r.week===week);
+      if(command==='monday_receipt'){
+        const sourceType=String(payload.sourceType||''), sourceId=String(payload.sourceId||'');
+        if(!['formRecords','hardcopyBatches'].includes(sourceType))return fail('Select a recorded assessment source.');
+        const source=get(sourceType,sourceId);
+        if(!source||source.patientId!==p.id||!['patient_assessment','minor_assessment'].includes(source.kind)||
+          (sourceType==='formRecords'?!['submitted','verified','approved','completed'].includes(source.status):['draft','returned','rejected','void'].includes(source.status)))
+          return fail('The selected submitted assessment is not available for this patient.');
+        const receivedDate=String(payload.receivedDate||'');
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(receivedDate)||!R.date(receivedDate)||receivedDate<start||receivedDate>=week||receivedDate>today)
+          return fail('Enter the actual physical submission date in the preceding Monday–Sunday, not a future date.');
+        if(payload.physicalConfirmed!==true)return fail('Confirm that the paper assessment was actually received.');
+        const linked=sourceType==='hardcopyBatches'&&source.formRecordId?get('formRecords',source.formRecordId):null;
+        if(source.formRecordId&&(!linked||linked.patientId!==p.id||linked.kind!==source.kind))return fail('The linked assessment form must belong to the same patient and type.');
+        const canonical=linked?'formRecords:'+linked.id:sourceType+':'+sourceId;
+        if(list('mondayAssessmentReceipts').some(r=>r.sourceKey===canonical))return fail('A paper receipt is already recorded for this assessment.','monday_duplicate_receipt',409);
+        if(rows().some(r=>r.drawnAt))return fail('The meeting order is already drawn; late receipts require a separate reviewed process.','monday_draw_locked',409);
+        const raw=[source.enteredAt,source.createdAt,source.submittedAt].find(v=>instant(v));
+        const receipt=put('mondayAssessmentReceipts',{id:id('monday-paper'),...scoped,week,receivedDate,receivedAt:now,receivedBy:user.id,
+          sourceType,sourceId,sourceKey:canonical,sourceKind:source.kind,enteredAt:raw?instant(raw):'',caregiverId:p.caregiverId||'',status:'received',version:1});
+        return success(receipt,'monday.paper_received');
+      }
+      const receipt=get('mondayAssessmentReceipts',payload.id);
+      if(!receipt||receipt.patientId!==p.id||receipt.week!==week||receipt.countyId!==p.countyId)return fail('The selected receipt is not in this county meeting.');
+      if(command==='monday_draw'){
+        if(today<week)return fail('The meeting order can be drawn on or after its Monday, once the previous week has ended.');
+        const pending=rows();
+        if(pending.some(r=>r.drawnAt))return fail('This meeting order has already been drawn.','monday_draw_locked',409);
+        if(!pending.length||pending.length>500)return fail('Draw requires between 1 and 500 confirmed paper receipts.');
+        const areas=[...new Set(pending.map(r=>r.areaId||''))].sort();
+        for(let i=areas.length-1;i>0;i--){const j=options.randomInt?options.randomInt(i+1):Math.floor(Math.random()*(i+1));[areas[i],areas[j]]=[areas[j],areas[i]];}
+        const ordered=areas.flatMap(area=>pending.filter(r=>(r.areaId||'')===area).sort((a,b)=>
+          (!a.enteredAt)-(!b.enteredAt)||String(a.enteredAt).localeCompare(String(b.enteredAt))||String(a.id).localeCompare(String(b.id))));
+        ordered.forEach((r,i)=>put('mondayAssessmentReceipts',{...r,areaOrder:areas.indexOf(r.areaId||'')+1,position:i+1,status:i===0?'current':'pending',drawnAt:now,drawnBy:user.id,version:r.version+1}));
+        return success(get('mondayAssessmentReceipts',receipt.id),'monday.order_drawn');
+      }
+      if(receipt.status!=='current'||receipt.version!==Number(payload.version))return fail('The current presentation changed. Refresh before advancing.','monday_progress_conflict',409);
+      const sequence=rows().filter(r=>r.drawnAt).sort((a,b)=>a.position-b.position);
+      if(sequence.filter(r=>r.status==='current').length!==1)return fail('Meeting progression requires review before continuing.','monday_progress_conflict',409);
+      const done=put('mondayAssessmentReceipts',{...receipt,status:'discussed',discussedAt:now,discussedBy:user.id,version:receipt.version+1});
+      const next=sequence.find(r=>r.status==='pending');
+      if(next)put('mondayAssessmentReceipts',{...next,status:'current',version:next.version+1});
+      return success(done,'monday.presentation_advanced');
+    }
     const mcm=()=>isMcm(user);
     const notify=(userId,title,body,link)=>{if(userId)put('notifications',{id:id('cn'),userId,title,body,kind:'info',link,read:false,at:now});};
     const notifyMcms=(title,link)=>list('users').filter(u=>u.roleId==='mcm'&&u.countyId===p.countyId&&u.active!==false&&!u.unconfirmed&&u.status==='active')

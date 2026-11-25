@@ -7,7 +7,8 @@
    fetched, nothing is installed, and the bytes are produced in the browser.
 
    Limits, stated plainly: the Word writer handles headings, paragraphs,
-   bullet lines and tables. It does not embed images, footnotes or comments.
+   bullet lines, tables and the embedded foundation logo. It does not embed
+   arbitrary report images, footnotes or comments.
    The Excel writer writes one table per sheet, with a bold header row, an
    autofilter and column widths. It does not write formulas or charts.
    ============================================================ */
@@ -141,6 +142,28 @@ function htmlBlocks(html){
 
 /* ---------------- DOCX ---------------- */
 const DOCX = {
+  logoBytes(){
+    const src=String(window.LOGO||''),match=/^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(src);
+    if(!match||match[1].length>2800000||match[1].length%4)return null;
+    const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',s=match[1],out=[];
+    for(let i=0;i<s.length;i+=4){
+      const a=chars.indexOf(s[i]),b=chars.indexOf(s[i+1]),c=s[i+2]==='='?0:chars.indexOf(s[i+2]),d=s[i+3]==='='?0:chars.indexOf(s[i+3]);
+      if(a<0||b<0||c<0||d<0)return null;
+      const n=(a<<18)|(b<<12)|(c<<6)|d;out.push((n>>16)&255);if(s[i+2]!=='=')out.push((n>>8)&255);if(s[i+3]!=='=')out.push(n&255);
+    }
+    if(out.length<8||![137,80,78,71,13,10,26,10].every((v,i)=>out[i]===v))return null;
+    return new Uint8Array(out);
+  },
+  logoDrawing(id=1){return `<w:p><w:r><w:drawing xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><wp:inline><wp:extent cx="520000" cy="596000"/><wp:docPr id="${id}" name="LOMAMO Foundation logo" descr="LOMAMO Foundation Kenya logo"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${id}" name="Foundation logo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="520000" cy="596000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;},
+  packageDocument(documentXml,logo){
+    const content=logo?this.contentTypes.replace('</Types>','<Default Extension="png" ContentType="image/png"/></Types>'):this.contentTypes;
+    const rels=logo?this.docRels.replace('</Relationships>','<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.png"/></Relationships>'):this.docRels;
+    const files=[{name:'[Content_Types].xml',data:UTF8.encode(content)},{name:'_rels/.rels',data:UTF8.encode(this.rels)},
+      {name:'word/document.xml',data:UTF8.encode(documentXml)},{name:'word/_rels/document.xml.rels',data:UTF8.encode(rels)},
+      {name:'word/styles.xml',data:UTF8.encode(this.styles)}];
+    if(logo)files.push({name:'word/media/logo.png',data:logo});
+    return zipStore(files);
+  },
   contentTypes:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -194,8 +217,8 @@ const DOCX = {
 
   fromHtml(title, html){
     if(!html.includes('data-report-provenance='))html=reportProvenanceHTML()+html;
-    const blocks=htmlBlocks(html);
-    const body=[this.para(title||'Document','Title')]
+    const blocks=htmlBlocks(html),logo=this.logoBytes();
+    const body=[logo?this.logoDrawing(): '',this.para('LOMAMO FOUNDATION KENYA','Heading1'),this.para('CareLink · Serving our neighbours in love'),this.para(title||'Document','Title')]
       .concat(blocks.map(b=>{
         if(b.type==='table') return this.table(b.rows);
         if(b.type==='li') return this.para('• '+b.text);
@@ -207,13 +230,7 @@ const DOCX = {
 <w:body>${body}
 <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr>
 </w:body></w:document>`;
-    return zipStore([
-      {name:'[Content_Types].xml', data:UTF8.encode(this.contentTypes)},
-      {name:'_rels/.rels', data:UTF8.encode(this.rels)},
-      {name:'word/document.xml', data:UTF8.encode(documentXml)},
-      {name:'word/_rels/document.xml.rels', data:UTF8.encode(this.docRels)},
-      {name:'word/styles.xml', data:UTF8.encode(this.styles)}
-    ]);
+    return this.packageDocument(documentXml,logo);
   }
 };
 
