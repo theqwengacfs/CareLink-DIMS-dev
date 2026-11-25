@@ -402,7 +402,7 @@ function renderArchitecture6(){
           <p class="ld-band-sub">One continuous pipeline connecting household visits, clinical decisions and verified county reporting across PCs and tablets.</p>
         </div>
         <div class="ld-flow">
-          ${step('clipboard','Capture','Online & Offline Field Records','Record assessments with instant National ID returning-beneficiary checks, physical hard-copy form digitisations, 30-day PDCA reviews, child Weight/BMI/MUAC curves and hospital dispatches on tablets or PCs.')}
+          ${step('clipboard','Capture','Online Field Records','Record assessments, returning-beneficiary checks, hard-copy digitisation and PDCA reviews online. Secure offline clinical access is not yet available.')}
           ${step('chart','Analyse','Live Pivot Tables, Budgets & Maps','Cross-tabulate active caseloads in interactive pivot matrices, track Expenditure Against Budget in real time, inspect Kisumu and Homa Bay ministry-area maps, and generate aligned Monday reports.')}
           ${step('flow','Interoperate','KHIS / DHIS2 Drafts & CareLink AI','Prepare verified Ministry of Health draft summaries, export DHIS2 dataValueSets and FHIR R4 bundles, and run the AI-assisted Intelligent Workflow Engine toward 100% data completion.')}
         </div>
@@ -783,7 +783,7 @@ function renderOnboarding6(){
             <span>Writes a request to the host. ${esc(hs.admins&&hs.admins.length? 'The senior offices who can approve it: '+hs.admins.join(', ')+'.':'The Chief Administrator approves it from Users & accounts.')}</span></button>
           <button class="ob-choice" type="button" data-act="ob-attach-device">
             <b>3 · Continue on this device only</b>
-            <span>Keeps working offline on this device with its own record. It does not touch the host installation, and it can be joined to it later from Settings.</span></button>
+            <span>Local synthetic demonstration only. This is not secure offline clinical access, and it does not save to the shared installation.</span></button>
           ${!isActivated ? `<button class="ob-choice" type="button" data-act="reset-first-run-fresh">
             <b>4 · Reset unfinished setup &amp; start a fresh 4-Step Commissioning</b>
             <span>Clears an unactivated or interrupted pre-activation setup in Cloud KV and restarts at Step 1 of 4. Permanently disabled once Global System Activation is locked.</span></button>` : ''}

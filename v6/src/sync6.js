@@ -1053,7 +1053,8 @@ const SYNC = {
       const server={...before,...patch.set,id:patch.id};
       for(const k of Object.keys(server))if(server[k]===null)delete server[k];
       const rebased={...server};
-      const owned=typeof CARE_WORKFLOW!=='undefined'&&CARE_WORKFLOW.OWNED.includes(patch.c);
+      const owned=(typeof CARE_WORKFLOW!=='undefined'&&CARE_WORKFLOW.OWNED.includes(patch.c))||
+        (typeof DEVOTION_RULES!=='undefined'&&DEVOTION_RULES.OWNED.includes(patch.c));
       // A local deletion of an ordinary row is still pending, even if that
       // same row was updated remotely. Clinical history is never deleted.
       if(!owned&&patch.c!=='patients'&&i<0&&Object.hasOwn(map,patch.id)){map[patch.id]=JSON.stringify(server);continue;}
@@ -1176,7 +1177,7 @@ const SYNC = {
      point of this flag is that nothing is claimed as shared until it is. */
   offline(){ try{ return typeof navigator!=='undefined' && navigator.onLine === false; }catch(e){ return false; } },
   detail(){
-    if(this.offline()) return 'No network. Shared saves are not confirmed; some actions require the online service.';
+    if(this.offline()) return 'No network. Secure offline clinical access is not available; do not rely on this device to retain or sync clinical work.';
     if(this.state==='connected') return `Revision ${this.rev} · live`;
     if(this.state==='merge') return `Revision ${this.rev} · ${this.lastMerged} field(s) reconciled`;
     if(this.state==='saving') return 'Writing to the online source';
@@ -1243,11 +1244,10 @@ function openSyncModal(){
     <div class="sync-row"><span>Last confirmed save</span><b>${esc((s.saved||'not yet').replace('T',' ').slice(0,19))}</b></div>
     <p class="small muted" style="margin:10px 0 0;text-align:left">Every PC, tablet and other client reads the same
     shared online source. Edits made on two clients are merged field by field by the online service; when both clients change the
-    <b>same</b> field the later edit is kept and both values are written to the merge journal. Nothing is overwritten
-    without a record of it, and no one is asked to choose between two copies.</p>`;
+    <b>same</b> field the later edit may be kept and recorded in the merge journal. Offline drafts and held work are not a secure or lossless clinical vault; reconnect and verify the server accepted each change.</p>`;
   if(s.state==='device'){
     body += `<div class="alert warn" style="margin-top:12px">${ic('wifi',16)}<div><b>Offline/static mode</b>
-      <span class="small">This explicitly offline copy keeps records on this device only. It is not a shared online save and is not a substitute for the Vercel/KV installation.</span></div></div>
+      <span class="small">This local mode is not an approved secure clinical vault and does not provide managed-device enforcement or a shared save. Use synthetic demonstration data only.</span></div></div>
       <button class="btn btn-primary btn-sm" style="margin-top:10px" data-act="sync-retry">Check again</button>`;
   }
   if(s.state==='error'){

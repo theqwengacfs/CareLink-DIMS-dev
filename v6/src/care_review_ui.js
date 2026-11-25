@@ -20,8 +20,14 @@ const CARE_REVIEW = (()=>{
     if(r.ok){W.apply(DB.db,r.patches);AUDIT.append({actor:user.id,action:r.event,entity:'patient',entityId:payload.patientId,detail:'Synthetic preview clinical decision; no live enrolment or transmission.'});DB.save();}
     return r;
   }
-  async function command(name,payload,requestId){
-    if(!SYNC.sessionToken)return localCommand(AUTH.user,name,payload);
+  async function command(name,payload,requestId,kind='clinical'){
+    if(!SYNC.sessionToken){
+      if(kind!=='devotion')return localCommand(AUTH.user,name,payload);
+      if(!synthetic())return {ok:false,msg:'This staff action requires a live authorized session.'};
+      const result=DEVOTION_RULES.run(DB.db,AUTH.user,name,payload);
+      if(result.ok){DEVOTION_RULES.apply(DB.db,result.patches);DB.save();}
+      return result;
+    }
     if(SYNC._clinicalBusy||SYNC._pulling||SYNC._ticking)return {ok:false,msg:'The shared source is updating. Keep this form open and retry in a moment.'};
     // Reserve before the first await: two clicks, a manual refresh, or a
     // polling tick must not slip into the preflight-save / command gap.
@@ -31,7 +37,7 @@ const CARE_REVIEW = (()=>{
       await SYNC.push({clinicalPreflight:true});
       if(SYNC._inflight||SYNC.kvBlocked()||SYNC.patches().length||SYNC.heldOutbox())return {ok:false,msg:'Pending work has not been confirmed by the shared source. Reconnect / resolve it before an office decision; this form is still open.'};
       const previousRev=SYNC.rev;
-      const r=await SYNC._json('api/care/command',{method:'POST',headers:{'Content-Type':'application/json'},
+      const r=await SYNC._json(kind==='devotion'?'api/devotions/command':'api/care/command',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({command:name,payload,requestId:requestId||token()})});
       if(!r?.ok)return {ok:false,msg:r?.body?.error||'The clinical save was not confirmed. Keep the form open and retry with the same values.',code:r?.body?.code};
       SYNC.applyCommandPatches(r.body.patches||[]);
@@ -42,9 +48,9 @@ const CARE_REVIEW = (()=>{
       if(!r.body.duplicate&&r.body.rev===previousRev+1){SYNC.rev=r.body.rev;DB.db.meta.serverRev=r.body.rev;}
       SYNC.saved=r.body.saved;APPX.dirty=SYNC.patches().length>0;
       if(typeof DB.persistState==='function')DB.persistState();
-      SYNC.state='connected';SYNC.message='Clinical decision confirmed by the shared source';SYNC.bump();
+      SYNC.state='connected';SYNC.message=kind==='devotion'?'Devotion action confirmed by the shared source':'Clinical decision confirmed by the shared source';SYNC.bump();
       if(r.body.duplicate)SYNC.pendingRemote=true;
-      return {ok:true,rec:r.body.rec,duplicate:r.body.duplicate,msg:r.body.duplicate?'This decision was already saved. Refresh the record.':'Clinical record and revision saved.'};
+      return {ok:true,rec:r.body.rec,duplicate:r.body.duplicate,msg:r.body.duplicate?'This action was already saved. Refresh the record.':kind==='devotion'?'Devotion record saved.':'Clinical record and revision saved.'};
     }catch(e){return {ok:false,msg:'The online save is unconfirmed. No local approval was created. Keep the form open, reconnect and retry; do not start a second assessment.'};}
     finally{SYNC._clinicalBusy=false;}
   }
@@ -213,8 +219,9 @@ const CARE_REVIEW = (()=>{
     const left=R.SECTIONS[0].fields.map(([k,label])=>p(label+': '+(d.fields[k]||'Not recorded'))).join('')+p('Actual evaluation: '+(d.evaluatedAt||'Not recorded'))+p('Programme day: '+(d.programmeDay??'Not recorded'))+p('Scheduled due: '+(d.dueDate||'On demand'));
     const cell=xml=>`<w:tc><w:tcPr><w:tcW w:w="4500" w:type="dxa"/></w:tcPr>${xml||p('')}</w:tc>`;
     const balanced=[{left,right:right[0]},{left:right[1],right:right.slice(2).join('')}];
-    const letterhead=DOCX.para('LOMAMO FOUNDATION KENYA','Heading1')+p('CareLink · Clinical quality & continuity of care')+p('CONFIDENTIAL CLINICAL DOCUMENT  |  PLAN · DO · CHECK · ACT');
-    const body=balanced.map((col,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+letterhead+DOCX.para(d.report_title,'Title')+p(`${d.fields.ministryArea||'Ministry area not recorded'} MINISTRY AREA · ${d.patient_code} · ${statusText(d.status)} · v${d.report?.version||0}`)+
+    const logo=DOCX.logoBytes();
+    const letterhead=i=>(logo?DOCX.logoDrawing(i+1):'')+DOCX.para('LOMAMO FOUNDATION KENYA','Heading1')+p('CareLink · Clinical quality & continuity of care')+p('CONFIDENTIAL CLINICAL DOCUMENT  |  PLAN · DO · CHECK · ACT');
+    const body=balanced.map((col,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+letterhead(i)+DOCX.para(d.report_title,'Title')+p(`${d.fields.ministryArea||'Ministry area not recorded'} MINISTRY AREA · ${d.patient_code} · ${statusText(d.status)} · v${d.report?.version||0}`)+
       `<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="4500"/><w:gridCol w:w="4500"/></w:tblGrid><w:tr>${cell(col.left)}${cell(col.right)}</w:tr></w:tbl>`+p(`Confidential clinical record · cycle ${d.cycleId} · ${i+1} | Page`)).join('');
     const r=d.report||{},attribution=p(reportProvenanceText(d.outputProvenance||reportProvenance()))+p(`Prepared by: ${r.preparedBy||'Not recorded'} · MCM reviewed: ${r.reviewedBy||'Not recorded'} at ${r.reviewedAt||'Not recorded'}`)+
       p(`Sharing authorization: ${r.authorizedBy||'Not authorized'} at ${r.authorizedAt||'Not authorized'} · revision ${r.authorizedRevisionId||'Not recorded'}`);
@@ -222,8 +229,7 @@ const CARE_REVIEW = (()=>{
       p('Obtain signatures on paper. Typed names and electronic approval do not prove physical signatures or consent.')+
       ['Patient / Guardian','Caregiver','MCM','Witness'].map(who=>p(who+' signature and date: _____________________________')).join('')+p('Confirmed discharge date: '+(d.dischargeDate||'Not recorded')):'';
     const documentXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}${attribution}${signatures}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:bottom="900" w:left="900" w:right="900"/></w:sectPr></w:body></w:document>`;
-    return zipStore([{name:'[Content_Types].xml',data:UTF8.encode(DOCX.contentTypes)},{name:'_rels/.rels',data:UTF8.encode(DOCX.rels)},
-      {name:'word/document.xml',data:UTF8.encode(documentXml)},{name:'word/styles.xml',data:UTF8.encode(DOCX.styles)},{name:'word/_rels/document.xml.rels',data:UTF8.encode(DOCX.docRels)}]);
+    return DOCX.packageDocument(documentXml,logo);
   }
   function output(d,format){
     if(!d)return toast('Not available','No scoped report selected.','err');

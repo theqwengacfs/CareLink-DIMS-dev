@@ -71,4 +71,11 @@ html=run(`MONDAY_PROC.render(AUTH.user,{tab:'assessments',week:'2026-11-23',coun
 assert(html.includes('Patient Assessments (21)'));assert(html.includes('hard-copy record(s) lack an actual assessment date'));
 run(`AUTH.user=DB.db.users.find(u=>u.roleId==='finance'&&u.countyId==='kisumu');globalThis.beforeProposals=DB.db.mondayProposals.length;ACTIONS['monday-escalate-concern']({id:'carry',county:'kisumu'});`);
 assert.equal(run('DB.db.mondayProposals.length'),run('beforeProposals'));
-console.log('Monday tab rendering passed: finance permission, clinical confidentiality, carryovers, resolved concerns, source count and preserved week navigation.');
+run(`AUTH.user=DB.db.users.find(u=>u.roleId==='assistant'&&u.countyId==='kisumu');
+ DB.db.mondayAssessmentReceipts=[{id:'receipt-test',patientId:'weekly-fixture',countyId:'kisumu',areaId:'nairobird',week:'2026-11-23',receivedDate:'2026-11-20',receivedAt:'2026-11-20T10:00:00Z',status:'current',position:1,drawnAt:'2026-11-23T07:00:00Z',version:2}];`);
+html=run(`MONDAY_PROC.render(AUTH.user,{tab:'assessments',week:'2026-11-23'})`);
+assert(html.includes('Confirmed physical submissions'));assert(html.includes('Fictional weekly patient'));assert(html.includes('monday-paper-advance'));assert(!html.includes('monday-paper-draw'));
+run(`AUTH.user=DB.db.users.find(u=>u.roleId==='finance'&&u.countyId==='kisumu');`);
+html=run(`MONDAY_PROC.render(AUTH.user,{tab:'assessments',week:'2026-11-23'})`);
+assert(!html.includes('Fictional weekly patient'));assert(!html.includes('monday-paper-advance'));
+console.log('Monday tab rendering passed: finance permission, clinical confidentiality, carryovers, resolved concerns, physical receipt and preserved week navigation.');

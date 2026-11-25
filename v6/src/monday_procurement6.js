@@ -362,6 +362,56 @@ const MONDAY_PROC = {
       return rank(a.id).localeCompare(rank(b.id)) || a.id.localeCompare(b.id);
     });
   },
+  physicalAssessmentPanel(user,patients,county,period){
+    const byId=new Map(patients.map(p=>[p.id,p]));
+    const receipts=(DB.db.mondayAssessmentReceipts||[]).filter(r=>r.countyId===county&&r.week===period.week&&byId.has(r.patientId))
+      .sort((a,b)=>(a.position||Infinity)-(b.position||Infinity)||String(a.receivedAt).localeCompare(String(b.receivedAt)));
+    const secretary=user.roleId==='assistant'&&user.countyId===county;
+    const drawn=receipts.some(r=>r.drawnAt), current=receipts.find(r=>r.status==='current');
+    const attrs=r=>`data-id="${esc(r.id)}" data-patient="${esc(r.patientId)}" data-week="${esc(period.week)}" data-version="${r.version}"`;
+    const controls=secretary?`<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      ${!drawn?`<button class="btn btn-sm btn-primary" data-act="monday-paper-open" data-county="${esc(county)}" data-week="${esc(period.week)}">Record paper received</button>`:''}
+      ${!drawn&&receipts.length?`<button class="btn btn-sm btn-soft" data-act="monday-paper-draw" ${attrs(receipts[0])}>Draw area order &amp; start</button>`:''}
+      ${current?`<button class="btn btn-sm btn-primary" data-act="monday-paper-advance" ${attrs(current)}>Mark current discussed &amp; advance</button>`:''}</div>`:'';
+    return card('Confirmed physical submissions · secretary-guided discussion',controls+
+      (receipts.length?table([
+        {label:'Order / area',render:r=>`${r.position?`<b>${r.position}.</b> `:''}${esc(areaName(r.areaId)||'Area not recorded')}`},
+        {label:'Beneficiary / caregiver',render:r=>{const p=byId.get(r.patientId);return `<button class="linkbtn cellname" data-act="go" data-v="patient" data-id="${esc(p.id)}">${esc(p.name)}</button><div class="xs muted">Caregiver: ${esc(userById(r.caregiverId)?.name||'Not recorded')}</div>`;}},
+        {label:'Paper received',render:r=>esc(fmtDate(r.receivedDate))},
+        {label:'System entry time',render:r=>r.enteredAt?esc(new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Nairobi',dateStyle:'medium',timeStyle:'short'}).format(new Date(r.enteredAt))):'Exact entry time not recorded'},
+        {label:'Progress',render:r=>badge(titleCase(r.status||'received'),r.status==='discussed'?'b-ok':r.status==='current'?'b-warn':'b-info')}
+      ],receipts):emptyState('No confirmed paper receipts','A submitted digital form is not proof of physical submission. The county assistant must record actual receipt.','clipboard')),
+      {sub:`Paper received ${fmtDate(period.start)} – ${fmtDate(period.last)} for the ${fmtDate(period.week)} meeting. Only an assistant can confirm receipt, draw once and advance. After the draw, late receipts cannot be added to this order. Recorded entry times determine order within each drawn area; missing times follow. Visibility remains limited to your patient scope.`});
+  },
+  devotionPanel(user,county,period,year=Number(period.week.slice(0,4))){
+    const roster=(DB.db.devotionRosters||[]).find(r=>r.countyId===county&&r.year===year);
+    const secretary=user.roleId==='assistant'&&user.countyId===county;
+    const intro=`<p class="small">Provisional roster and minutes template. The assistant generates a randomized, balanced weekday rotation from active county staff; the Country Director is reserved for provisional special days (Ash Wednesday, Good Friday, Easter Monday and Christmas Day when on a weekday). These observances and the official template await confirmation. Generated past assignments are planning entries, not proof that a devotion took place. Changes are recorded with a reason.</p><p class="small">Tuesday–Thursday: 08:30–09:00. Monday and Friday times are not specified. Leaders may prepare verse and prayer notes on Sunday or Monday and explicitly share them. External Bible links require internet, send the reference to the provider and are subject to its terms. Do not enter patient details in staff minutes.</p>`;
+    if(!roster)return card(`Weekday devotions · ${year}`,intro+(secretary?`<button class="btn btn-sm btn-primary" data-act="devotion-generate" data-county="${esc(county)}" data-year="${year}">Generate ${year} roster</button>`:'<p class="muted small">The county assistant has not generated this year’s roster.</p>'));
+    const meetings=DB.db.devotionMeetings||[],last=CARE_RULES.addDays(period.week,5);
+    const rows=roster.assignments.filter(a=>a.date>=period.week&&a.date<last);
+    const person=id=>id?(userById(id)?.name||'Account not available'):'Unassigned — director not uniquely available';
+    const links=ref=>[['NIV','NIV'],['KJV','KJV'],['NKJV','NKJV'],['ESV','ESV'],['NLT','NLT'],['NASB','NASB'],['CSB','CSB']].map(([label,version])=>`<a href="https://www.biblegateway.com/passage/?search=${encodeURIComponent(ref)}&amp;version=${version}" target="_blank" rel="noopener noreferrer">${label}</a>`).join(' · ');
+    const renderDay=a=>{
+      const m=meetings.find(r=>r.countyId===county&&r.date===a.date),isLeader=a.leaderId===user.id;
+      const attrs=`data-county="${esc(county)}" data-date="${esc(a.date)}"`;
+      return `<div class="monday-note-card"><div class="spread"><b>${esc(fmtDate(a.date))} · ${esc(a.time)}</b><span class="badge b-info nodot">${esc(a.special||'Weekday')}</span></div>
+      <p class="small">Leader: <b>${esc(person(a.leaderId))}</b>${a.changedAt?' · assignment adjusted with recorded reason':''}</p>
+      ${m?`<p class="small"><b>${m.status==='shared'?'Shared minutes':'Private preparation'}</b> · ${esc(m.reference||'Reference not recorded')}</p>
+        ${m.reference?`<p class="small">Bible translations: ${links(m.reference)}</p>`:''}
+        <p class="care-pre small">${esc(m.prayerNotes||'Prayer notes not recorded')}</p>
+        ${m.discussion?`<p class="care-pre small"><b>Discussion:</b> ${esc(m.discussion)}</p>`:''}${m.actions?`<p class="care-pre small"><b>Actions:</b> ${esc(m.actions)}</p>`:''}
+        <p class="small">Closing prayer: ${esc(m.closingId?person(m.closingId):'Not recorded')}</p>`:'<p class="small muted">No devotion minutes recorded.</p>'}
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        ${isLeader&&m?.status!=='shared'?`<button class="btn btn-xs btn-primary" data-act="devotion-prepare" ${attrs}>Prepare minutes</button>`:''}
+        ${isLeader&&m&&m.status!=='shared'?`<button class="btn btn-xs btn-soft" data-act="devotion-share" ${attrs} data-version="${m.version}">Share minutes</button>`:''}
+        ${(isLeader||secretary)?`<button class="btn btn-xs btn-ghost" data-act="devotion-closing" ${attrs}>Record closing prayer</button>`:''}
+        ${secretary&&!m?`<button class="btn btn-xs btn-ghost" data-act="devotion-assign" ${attrs} data-version="${roster.version}">Adjust leader</button>`:''}</div></div>`;
+    };
+    const yearRows=roster.assignments.map(a=>`<tr><td>${esc(a.date)}</td><td>${esc(person(a.leaderId))}</td><td>${esc(a.special||'Weekday')}</td><td>${esc(a.time)}</td></tr>`).join('');
+    return card(`Weekday devotions · ${year}`,intro+`<p class="small">Week of ${esc(fmtDate(period.week))} · roster v${roster.version}</p>`+
+      rows.map(renderDay).join('')+`<details><summary>View all ${roster.assignments.length} weekday assignments for ${year}</summary><div class="table-wrap"><table><thead><tr><th>Date</th><th>Leader</th><th>Observance</th><th>Time</th></tr></thead><tbody>${yearRows}</tbody></table></div></details>`);
+  },
   reviewFinance(user, county, period){
     if(!RBAC.has(user,'finance.view')&&!RBAC.has(user,'finance.reconcile')&&!RBAC.has(user,'audit.view')) return null;
     const rows=repo.transactions(user).filter(t=>t.countyId===county);
@@ -522,11 +572,11 @@ const MONDAY_PROC = {
     }
 
     if(tab==='secretary'){
-      const minRec = (DB.db.mondayMinutesLedger||{})[selectedCounty] || {};
-      const tpls = DB.db.mondayMinutesTemplates || [];
+      const minRec = (DB.db.mondaySittingMinutes||[]).find(m=>m.countyId===selectedCounty&&m.week===review.week) || {};
+      const canSaveMinutes=user.roleId==='assistant'&&user.countyId===selectedCounty;
       body = `<div class="alert info" style="margin-bottom:14px">${ic('clipboard',16)}
-        <div><b>Admin Assistant · Official Monday Management Meeting Secretary Desk (${esc(countyName(selectedCounty))})</b>
-          <div class="xs">Receives the processed master compilation of all standing agenda items, team proposals, action items and resolutions so the Admin Assistant can record, format and archive official Monday Minutes cleanly.</div>
+        <div><b>Admin Assistant · Monday Management Meeting Secretary Desk (${esc(countyName(selectedCounty))})</b>
+          <div class="xs">Minutes use a provisional template until the official format is supplied. The agenda below reflects the current sitting, not a historical snapshot. Earlier device-only ledger notes are not migrated or overwritten.</div>
         </div>
       </div>
       <div class="grid g2">
@@ -538,22 +588,17 @@ const MONDAY_PROC = {
             {label:'State', render:r=>badge(titleCase(r.status), r.status==='confirmed'||r.status==='included'||r.status==='processed'?'b-ok':'b-warn', false)}
           ], secPack.masterItems)}
         `, {sub:`Automatically structured across all ${countyName(selectedCounty)} departments & ministry areas.`})}
-        ${card('Official Minutes Recording Desk & Custom Template Slot', `
+        ${card('Provisional Minutes Recording Desk', `
           <form id="mondayMinutesForm">
             <input type="hidden" name="countyId" value="${esc(selectedCounty)}">
-            <div class="grid g2">
-              <div class="field"><label>Recording Secretary (Admin Assistant)</label>
-                <input class="input" name="secretaryName" value="${esc(minRec.secretaryName || user.name.replace(/^Demo - /,''))}">
-              </div>
-              <div class="field"><label>Minutes Format / Uploaded Template</label>
-                <select class="input" name="templateId">
-                  <option value="standard-cdims-minutes">CareLink Standard Management Minutes</option>
-                  ${tpls.map(t=>`<option value="${esc(t.id)}" ${minRec.templateId===t.id?'selected':''}>${esc(t.name)} (Uploaded)</option>`).join('')}
-                </select>
-              </div>
+            <input type="hidden" name="week" value="${esc(review.week)}">
+            <input type="hidden" name="version" value="${minRec.version||0}">
+            <input type="hidden" name="requestId" value="${esc(CARE_REVIEW.token())}">
+            <div class="field"><label>Recording Secretary (Admin Assistant)</label>
+              <input class="input" name="secretaryName" value="${esc(minRec.secretaryName || user.name.replace(/^Demo - /,''))}" required>
             </div>
             <div class="field"><label>Attendance &amp; Apologies Roll</label>
-              <input class="input" name="attendanceSummary" value="${esc(minRec.attendanceSummary || `All ${countyName(selectedCounty)} Department Leads, Area Coordinators & Caregivers present`)}">
+              <input class="input" name="attendanceSummary" value="${esc(minRec.attendanceSummary || '')}" placeholder="Record actual attendance; no default is assumed">
             </div>
             <div class="field"><label>Structured Resolutions &amp; Departmental Directives</label>
               <textarea class="input" name="keyResolutions" rows="4" placeholder="Record numbered sitting resolutions (or click 'Close Sitting & Run AI Engine' to auto-populate from deliberations)...">${esc(minRec.keyResolutions || '')}</textarea>
@@ -563,13 +608,13 @@ const MONDAY_PROC = {
             </div>
             <div class="spread" style="gap:8px;flex-wrap:wrap">
               <div class="row" style="gap:8px;flex-wrap:wrap">
-                <button type="button" class="btn btn-sm btn-primary" data-act="monday-minutes-save">${ic('save',14)} Save Official Minutes</button>
-                <button type="button" class="btn btn-sm btn-ghost" data-act="monday-minutes-word" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('download',14)} Export Minutes (.doc)</button>
+                ${canSaveMinutes?`<button type="button" class="btn btn-sm btn-primary" data-act="monday-minutes-save">${ic('save',14)} Save Provisional Minutes</button>`:''}
+                ${minRec.version?`<button type="button" class="btn btn-sm btn-ghost" data-act="monday-minutes-word" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('download',14)} Export Minutes (.docx)</button>`:''}
               </div>
-              <button type="button" class="btn btn-xs btn-soft" data-act="monday-upload-minutes-tpl">${ic('upload',12)} Upload Custom Minutes Template</button>
+              ${canSaveMinutes?`<button type="button" class="btn btn-xs btn-soft" data-act="monday-upload-minutes-tpl">${ic('upload',12)} Template notes (not imported)</button>`:''}
             </div>
           </form>
-        `, {sub: tpls.length ? `${tpls.length} custom minutes template(s) installed and ready.` : 'Ready to accept an uploaded custom Official Minutes Template (.docx / .md / .txt) at any time.'})}
+        `, {sub:`Meeting ${fmtDate(review.week)} · provisional format · revision ${minRec.version||0}. County assistant saves; scoped management may read. Template notes do not import or merge a file.`})}
       </div>`;
     }
 
@@ -600,10 +645,14 @@ const MONDAY_PROC = {
           canManageAgenda ? `<button class="btn btn-sm btn-primary" data-act="monday-close-and-process" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('sparkles',14)} Close Sitting &amp; Run AI Processing Engine Now</button>` : ''));
     }
 
+    if(tab==='devotions'){
+      const years=[...new Set([review.week.slice(0,4),CARE_RULES.addDays(review.week,4).slice(0,4)])];
+      body=DEVOTION_RULES.inCounty(user,selectedCounty)?years.map(y=>this.devotionPanel(user,selectedCounty,review,Number(y))).join(''):deniedPanel('monday.meeting');
+    }
     if(tab==='assessments'){
       const groups=this.assessmentGroups(recentAssessments,selectedCounty,review.week);
       body = hasPatientScope
-        ? card(`Previous Week's Assessments & New Intakes · ${countyName(selectedCounty)}`,
+        ? this.physicalAssessmentPanel(user,ps,selectedCounty,review)+card(`Clinical-date reference: Previous Week's Assessments & New Intakes · ${countyName(selectedCounty)}`,
             groups.map((group,index)=>`<details class="monday-assessment-group" ${index===0?'open':''}>
               <summary><b>${index+1}. ${esc(group.name)}</b> <span class="badge b-info nodot">${group.rows.length} assessment${group.rows.length===1?'':'s'}</span></summary>
               ${table([
@@ -699,8 +748,9 @@ const MONDAY_PROC = {
       </div>`
     + `<div class="tabs">
         <button class="tab ${tab==='agenda'?'active':''}" data-act="go" data-v="monday" data-tab="agenda" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('clipboard',14)} Agenda, Proposals &amp; Notes</button>
-        ${(canManageAgenda || isSecretaryRole) ? `<button class="tab ${tab==='secretary'?'active':''}" data-act="go" data-v="monday" data-tab="secretary" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('file',14)} Secretary &amp; Minutes Desk (${secPack.masterItems.length})</button>` : ''}
+        ${(canManageAgenda || isSecretaryRole || user.roleId==='mcm'&&user.countyId===selectedCounty) ? `<button class="tab ${tab==='secretary'?'active':''}" data-act="go" data-v="monday" data-tab="secretary" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('file',14)} Secretary &amp; Minutes Desk (${secPack.masterItems.length})</button>` : ''}
         <button class="tab ${tab==='engine'?'active':''}" data-act="go" data-v="monday" data-tab="engine" data-county="${esc(selectedCounty)}" data-week="${review.week}">${ic('sparkles',14)} AI Weekly Plan Engine ${isClosed?'✓':''}</button>
+        ${DEVOTION_RULES.inCounty(user,selectedCounty)?`<button class="tab ${tab==='devotions'?'active':''}" data-act="go" data-v="monday" data-tab="devotions" data-county="${esc(selectedCounty)}" data-week="${review.week}">Devotions &amp; roster</button>`:''}
         ${hasPatientScope?`<button class="tab ${tab==='concerns'?'active':''}" data-act="go" data-v="monday" data-tab="concerns" data-county="${esc(selectedCounty)}" data-week="${review.week}">Patient Concerns (${openConcerns.length})</button>
         <button class="tab ${tab==='assessments'?'active':''}" data-act="go" data-v="monday" data-tab="assessments" data-county="${esc(selectedCounty)}" data-week="${review.week}">Patient Assessments (${recentAssessments.length})</button>`:''}
         ${finance?`<button class="tab ${tab==='expenditures'?'active':''}" data-act="go" data-v="monday" data-tab="expenditures" data-county="${esc(selectedCounty)}" data-week="${review.week}">Weekly Expenditures</button>`:''}
@@ -841,6 +891,86 @@ const MONDAY_PROC = {
 };
 
 Object.assign(ACTIONS, {
+  'devotion-generate': async d=>{
+    const r=await CARE_REVIEW.command('generate',{countyId:d.county,year:Number(d.year)},CARE_REVIEW.token(),'devotion');
+    if(!r.ok)return toast('Roster not generated',r.msg,'err');
+    toast('Roster generated','The provisional rotation is saved.','ok');render();
+  },
+  'devotion-prepare':d=>{
+    const roster=(DB.db.devotionRosters||[]).find(r=>r.countyId===d.county&&r.year===Number(d.date.slice(0,4))),a=roster?.assignments.find(x=>x.date===d.date);
+    const m=(DB.db.devotionMeetings||[]).find(r=>r.countyId===d.county&&r.date===d.date);
+    if(!a||a.leaderId!==AUTH.user.id||m?.status==='shared')return;
+    openModal({title:'Provisional devotion minutes · '+d.date,sub:'Prepare verse and prayer notes; save privately before choosing Share.',
+      body:`<form id="devotionForm">${CARE_REVIEW.hidden('kind','save')}${CARE_REVIEW.hidden('countyId',d.county)}${CARE_REVIEW.hidden('date',d.date)}${CARE_REVIEW.hidden('version',m?.version||0)}${CARE_REVIEW.hidden('requestId',CARE_REVIEW.token())}
+      ${field('Bible reference','reference','text',{value:m?.reference||'',required:true})}${field('Prayer and verse notes','prayerNotes','textarea',{value:m?.prayerNotes||'',required:true})}
+      ${field('Discussion','discussion','textarea',{value:m?.discussion||''})}${field('Follow-up actions','actions','textarea',{value:m?.actions||''})}
+      <p class="small">Do not include patient details. The provisional template is not the organization’s final approved format.</p></form>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="devotion-save">Save private preparation</button>`});
+  },
+  'devotion-closing':d=>{
+    const roster=(DB.db.devotionRosters||[]).find(r=>r.countyId===d.county&&r.year===Number(d.date.slice(0,4))),a=roster?.assignments.find(x=>x.date===d.date);
+    const m=(DB.db.devotionMeetings||[]).find(r=>r.countyId===d.county&&r.date===d.date);
+    if(!a||!(a.leaderId===AUTH.user.id||AUTH.user.roleId==='assistant'&&AUTH.user.countyId===d.county))return;
+    const staff=(DB.db.users||[]).filter(u=>DEVOTION_RULES.active(u)&&(u.countyId===d.county||u.roleId==='director'));
+    openModal({title:'Record closing prayer · '+d.date,body:`<form id="devotionForm">${CARE_REVIEW.hidden('kind','closing')}${CARE_REVIEW.hidden('countyId',d.county)}${CARE_REVIEW.hidden('date',d.date)}${CARE_REVIEW.hidden('version',m?.version||0)}${CARE_REVIEW.hidden('requestId',CARE_REVIEW.token())}
+      <div class="field"><label>Person who led closing prayer *</label><select class="input" name="closingId" required><option value="">Select staff member</option>${staff.map(u=>`<option value="${esc(u.id)}" ${m?.closingId===u.id?'selected':''}>${esc(u.name)}</option>`).join('')}</select></div></form>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="devotion-save">Save closing prayer</button>`});
+  },
+  'devotion-assign':d=>{
+    const roster=(DB.db.devotionRosters||[]).find(r=>r.countyId===d.county&&r.year===Number(d.date.slice(0,4))),a=roster?.assignments.find(x=>x.date===d.date);
+    if(!a||AUTH.user.roleId!=='assistant'||AUTH.user.countyId!==d.county)return;
+    const staff=(DB.db.users||[]).filter(u=>DEVOTION_RULES.active(u)&&(u.countyId===d.county||u.roleId==='director')&&(!a.special||u.roleId==='director'));
+    openModal({title:'Adjust devotion leader · '+d.date,sub:'Adjustments can affect rotation fairness. A reason is retained.',body:`<form id="devotionForm">${CARE_REVIEW.hidden('kind','assign')}${CARE_REVIEW.hidden('countyId',d.county)}${CARE_REVIEW.hidden('date',d.date)}${CARE_REVIEW.hidden('version',roster.version)}${CARE_REVIEW.hidden('requestId',CARE_REVIEW.token())}
+      <div class="field"><label>Leader *</label><select class="input" name="leaderId" required><option value="">Select staff member</option>${staff.map(u=>`<option value="${esc(u.id)}" ${a.leaderId===u.id?'selected':''}>${esc(u.name)}</option>`).join('')}</select></div>${field('Reason','reason','text',{required:true})}</form>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="devotion-save">Save assignment</button>`});
+  },
+  'devotion-save':async()=>{
+    const form=document.querySelector('#devotionForm');if(!form||form.dataset?.saving||form.reportValidity&&!form.reportValidity())return;
+    const fd=new FormData(form),kind=String(fd.get('kind')||''),payload={countyId:String(fd.get('countyId')),date:String(fd.get('date')),version:Number(fd.get('version'))};
+    for(const key of kind==='save'?['reference','prayerNotes','discussion','actions']:kind==='assign'?['leaderId','reason']:['closingId'])payload[key]=String(fd.get(key)||'');
+    if(form.dataset)form.dataset.saving='true';const r=await CARE_REVIEW.command(kind,payload,String(fd.get('requestId')),'devotion');if(form.dataset)delete form.dataset.saving;
+    if(!r.ok)return toast('Not saved',r.msg,'err');closeModal(true);toast('Devotion saved',r.msg,'ok');render();
+  },
+  'devotion-share':async d=>{
+    const r=await CARE_REVIEW.command('share',{countyId:d.county,date:d.date,version:Number(d.version)},CARE_REVIEW.token(),'devotion');
+    if(!r.ok)return toast('Not shared',r.msg,'err');toast('Devotion shared','Minutes are available to the scoped staff team.','ok');render();
+  },
+  'monday-paper-open': d=>{
+    if(AUTH.user.roleId!=='assistant'||AUTH.user.countyId!==d.county)return toast('Not permitted','The county assistant records physical receipt.','err');
+    const patients=new Map(repo.patientList(AUTH.user).filter(p=>p.countyId===d.county).map(p=>[p.id,p]));
+    const candidates=['formRecords','hardcopyBatches'].flatMap(type=>(DB.db[type]||[]).filter(r=>patients.has(r.patientId)&&['patient_assessment','minor_assessment'].includes(r.kind)&&
+      (type==='formRecords'?['submitted','verified','approved','completed'].includes(r.status):!['draft','returned','rejected','void'].includes(r.status))).map(r=>({type,r,p:patients.get(r.patientId)})));
+    const options=candidates.map(({type,r,p})=>`<option value="${esc(type+'|'+r.id)}">${esc(p.name)} · ${esc(p.code||p.id)} · ${esc(r.code||r.formCode||r.id)} (${type==='formRecords'?'form':'hard copy'})</option>`).join('');
+    const period=MONDAY_PROC.reviewPeriod(d.week);
+    openModal({title:'Record physical assessment received',sub:'Only confirm an actual paper handover; digital submission alone is not evidence.',wide:true,
+      body:`<form id="mondayPaperForm">${CARE_REVIEW.hidden('week',period.week)}${CARE_REVIEW.hidden('requestId',CARE_REVIEW.token())}
+      <div class="field"><label>Recorded assessment source *</label><select class="input" name="source" required><option value="">Choose a submitted assessment</option>${options}</select></div>
+      <div class="field"><label>Actual date paper was received *</label><input class="input" type="date" name="receivedDate" min="${esc(period.start)}" max="${esc(period.last)}" required></div>
+      <label><input type="checkbox" name="confirmed" required> I confirm the physical assessment was received by the county assistant.</label>
+      <p class="small">Receipt is recorded by your account. A draw locks the list; an unsupported late receipt cannot be added to that drawn order.</p></form>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="monday-paper-save">Confirm physical receipt</button>`});
+  },
+  'monday-paper-save': async()=>{
+    const form=document.querySelector('#mondayPaperForm');if(!form||form.dataset?.saving||form.reportValidity&&!form.reportValidity())return;
+    const data=new FormData(form),[sourceType,sourceId]=String(data.get('source')||'').split('|');
+    const source=(DB.db[sourceType]||[]).find(r=>r.id===sourceId);
+    if(!source)return toast('Not saved','Assessment source is no longer available.','err');
+    if(form.dataset)form.dataset.saving='true';
+    const result=await CARE_REVIEW.command('monday_receipt',{patientId:source.patientId,sourceType,sourceId,week:String(data.get('week')),receivedDate:String(data.get('receivedDate')),physicalConfirmed:data.get('confirmed')==='on'},String(data.get('requestId')));
+    if(form.dataset)delete form.dataset.saving;
+    if(!result.ok)return toast('Not saved',result.msg,'err');
+    closeModal(true);toast('Physical receipt recorded',result.msg,'ok');render();
+  },
+  'monday-paper-draw': async d=>{
+    const result=await CARE_REVIEW.command('monday_draw',{patientId:d.patient,id:d.id,week:d.week},CARE_REVIEW.token());
+    if(!result.ok)return toast('Order not drawn',result.msg,'err');
+    toast('Area order drawn','The secretary can now guide each presentation.','ok');render();
+  },
+  'monday-paper-advance': async d=>{
+    const result=await CARE_REVIEW.command('monday_advance',{patientId:d.patient,id:d.id,week:d.week,version:Number(d.version)},CARE_REVIEW.token());
+    if(!result.ok)return toast('Not advanced',result.msg,'err');
+    toast('Presentation recorded','The next assessment is now current, if any.','ok');render();
+  },
   'monday-note-save': () => {
     const f = document.querySelector('#mondayNoteForm');
     if(!f) return;
@@ -1006,68 +1136,42 @@ Object.assign(ACTIONS, {
     render();
   },
 
-  'monday-minutes-save': () => {
-    const f = document.querySelector('#mondayMinutesForm');
-    if(!f) return;
-    const fd = new FormData(f);
-    const countyId = fd.get('countyId') || AUTH.user.countyId || 'kisumu';
-    MONDAY_PROC.ensureStore();
-    DB.db.mondayMinutesLedger[countyId] = {
-      weekOf: todayISO().slice(0,10),
-      countyId,
-      secretaryName: String(fd.get('secretaryName')||'').trim(),
-      templateId: String(fd.get('templateId')||'standard-cdims-minutes'),
-      attendanceSummary: String(fd.get('attendanceSummary')||'').trim(),
-      keyResolutions: String(fd.get('keyResolutions')||'').trim(),
-      customNotes: String(fd.get('customNotes')||'').trim(),
-      updatedAt: new Date().toISOString()
-    };
-    AUDIT.append({ actor:AUTH.user.id, action:'monday.minutes.saved', entity:'monday_minutes', entityId:countyId, detail:`Saved Official Monday Minutes (${countyName(countyId)})` });
-    DB.save();
-    toast('Official Monday Minutes Saved', `Archived on ${countyName(countyId)} Secretary Ledger.`, 'ok');
-    render();
+  'monday-minutes-save': async () => {
+    const f=document.querySelector('#mondayMinutesForm');
+    if(!f||f.dataset?.saving||f.reportValidity&&!f.reportValidity())return;
+    const fd=new FormData(f),payload={countyId:String(fd.get('countyId')),week:String(fd.get('week')),version:Number(fd.get('version'))};
+    for(const key of ['secretaryName','attendanceSummary','keyResolutions','customNotes'])payload[key]=String(fd.get(key)||'');
+    if(f.dataset)f.dataset.saving='true';
+    const r=await CARE_REVIEW.command('monday_minutes',payload,String(fd.get('requestId')),'devotion');
+    if(f.dataset)delete f.dataset.saving;
+    if(!r.ok)return toast('Minutes not saved',r.msg,'err');
+    toast('Provisional minutes saved',r.msg,'ok');render();
   },
 
   'monday-minutes-word': (d={}) => {
     const countyId = d.county || AUTH.user.countyId || 'kisumu';
-    const pack = MONDAY_PROC.buildSecretaryMasterPack(countyId);
-    const min = (DB.db.mondayMinutesLedger||{})[countyId] || {};
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(pack.countyLabel)} Monday Management Minutes</title>
-      <style>body{font-family:Calibri,Arial,sans-serif;margin:28px;color:#15171A}h1{color:#162F59;margin-bottom:2px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #CBD5E1;padding:6px 8px;text-align:left;font-size:10pt}th{background:#F1F5F9}</style>
-      </head><body>
-      ${reportProvenanceHTML()}
-      <div style="color:#C8102E;font-weight:700;font-size:9pt;letter-spacing:1.2px">LOMAMO CARELINK · C-DIMS OFFICIAL MINUTES</div>
-      <h1>${esc(pack.countyLabel)} Monday Management Meeting Minutes</h1>
-      <p><b>Week of:</b> ${esc(fmtDate(pack.weekOf))} &nbsp;|&nbsp; <b>Chair:</b> ${esc(pack.chair)} &nbsp;|&nbsp; <b>Secretary:</b> ${esc(min.secretaryName||pack.secretary)}</p>
-      <p><b>Attendance:</b> ${esc(min.attendanceSummary||'Department leads, coordinators & caregivers present.')}</p>
-      <h3>1. Master Processed Agenda (${pack.masterItems.length} Items)</h3>
-      <table><thead><tr><th>#</th><th>Time</th><th>Agenda Item</th><th>Source / Dept</th><th>Lead</th></tr></thead><tbody>
-        ${pack.masterItems.map(r=>`<tr><td>${r.seq}</td><td>${esc(r.time)}</td><td>${esc(r.topic)}</td><td>${esc(r.source)}</td><td>${esc(r.lead)}</td></tr>`).join('')}
-      </tbody></table>
-      <h3>2. Resolutions &amp; Departmental Directives</h3>
-      <pre style="white-space:pre-wrap;font-family:inherit;background:#F8FAFC;padding:10px;border-left:4px solid #162F59">${esc(min.keyResolutions||'Pending Secretary entry.')}</pre>
-      <h3>3. Additional Verbatim Minutes</h3>
-      <p>${esc(min.customNotes||'None recorded.')}</p>
-      </body></html>`;
-    const blob = new Blob([html], { type:'application/msword;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `CareLink-Monday-Minutes-${countyId}-${pack.weekOf}.doc`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-    toast('Official Minutes Downloaded', `Saved ${a.download}.`, 'ok');
+    const week=String(d.week||''),min=(DB.db.mondaySittingMinutes||[]).find(m=>m.countyId===countyId&&m.week===week);
+    if(!min||!DEVOTION_RULES.visible(AUTH.user,min,'mondaySittingMinutes'))return toast('Not available','No scoped saved minutes for this meeting.','err');
+    const html=`${reportProvenanceHTML()}<p>PROVISIONAL MINUTES TEMPLATE · pending the organization's official format.</p>
+      <p>Meeting Monday: ${esc(week)} · Recording secretary: ${esc(min.secretaryName)} · Revision ${min.version}</p>
+      <h3>Attendance and apologies</h3><p>${esc(min.attendanceSummary||'Not recorded')}</p>
+      <h3>Resolutions and directives</h3><p>${esc(min.keyResolutions||'Not recorded')}</p>
+      <h3>Discussion and follow-up</h3><p>${esc(min.customNotes||'Not recorded')}</p>`;
+    const name=`CareLink-Monday-Minutes-${countyId}-${week}.docx`;
+    downloadBytes(name,DOCX.fromHtml(`${countyName(countyId)} Monday Management Meeting Minutes`,html),'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    toast('Provisional minutes downloaded',`Saved ${name}.`,'ok');
   },
 
   'monday-upload-minutes-tpl': () => {
     openModal({
-      title:'Install Custom Monday Minutes Template',
-      sub:'Equip Admin Assistants (Meeting Secretaries) with your official custom minutes structure or merge placeholders.',
+      title:'Record template notes (not imported)',
+      sub:'This records metadata only on the current device. It does not store, read, install or merge a template file. The provisional format remains in use.',
       wide:false,
       body:`<form id="monTplForm">
         <div class="field"><label>Template name *</label>
-          <input class="input" name="name" value="LOMAMO Official Monday Minutes Template v1" required>
+          <input class="input" name="name" value="Provisional template notes" required>
         </div>
-        <div class="field"><label>Upload template file (.docx, .md, .txt, .json) or paste structure below</label>
+        <div class="field"><label>Optional filename reference only (file contents are not uploaded)</label>
           <input class="input" type="file" id="monTplFile" accept=".docx,.doc,.md,.txt,.json">
         </div>
         <div class="field"><label>Template section headings / merge structure</label>
@@ -1075,7 +1179,7 @@ Object.assign(ACTIONS, {
         </div>
       </form>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
-        <button class="btn btn-primary" data-act="monday-save-minutes-tpl">${ic('check',14)} Install Minutes Template</button>`
+        <button class="btn btn-primary" data-act="monday-save-minutes-tpl">${ic('check',14)} Save Template Notes</button>`
     });
   },
 
@@ -1096,7 +1200,7 @@ Object.assign(ACTIONS, {
     });
     DB.save();
     closeModal(true);
-    toast('Custom Minutes Template Installed', 'Available immediately in the Admin Assistant Secretary & Minutes Desk.', 'ok');
+    toast('Template notes recorded', 'Filename and notes only; no file was uploaded or applied. The minutes format remains provisional.', 'info');
     render();
   },
 
