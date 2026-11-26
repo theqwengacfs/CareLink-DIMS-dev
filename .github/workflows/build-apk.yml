@@ -1,0 +1,145 @@
+# CareLink Android APK builder.
+#
+# Builds a signed Android APK (for direct phone testing) and an AAB (for the
+# Google Play Store) from the live CareLink PWA on Vercel, using Google's
+# Bubblewrap (the same engine PWABuilder uses).
+#
+# How to use (no command line needed):
+#   1. Open this repository on GitHub.
+#   2. Click the "Actions" tab.
+#   3. Click "Build Android APK" in the left list.
+#   4. Click "Run workflow" -> "Run workflow" (green button).
+#   5. Wait about 10 minutes until the green tick appears.
+#   6. Click the finished run -> scroll to "Artifacts" -> download
+#      "CareLink-APK" (a .zip containing the .apk file).
+#   7. Send the .apk to your Android phone (WhatsApp, USB, email...) and tap
+#      it to install. Allow "Install unknown apps" if asked.
+#
+# The app loads the live website, so website updates appear in the app
+# automatically — no need to rebuild the APK for content changes.
+#
+# IMPORTANT: each run generates a fresh signing key. The key files are
+# uploaded as the "CareLink-signing-key-KEEP-SAFE" artifact. Keep them safe:
+# future app updates must use the same key, otherwise phones must uninstall
+# and reinstall. See APK-GUIDE.md for details.
+
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_version_name:
+        description: 'App version name (shown in Android settings)'
+        required: false
+        default: '6.9.6'
+      app_version_code:
+        description: 'App version code (must increase for each Play Store release)'
+        required: false
+        default: '696'
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build signed APK + AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Android SDK packages
+        run: |
+          set -x
+          # Locate sdkmanager: prefer the SDK's cmdline-tools, fall back to PATH.
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager || true)"
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          "$SDKMANAGER" --version
+          # Accept all SDK licenses first (required before installing packages).
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "build-tools;36.1.0" "platforms;android-36" "platform-tools"
+
+      - name: Install Bubblewrap
+        run: |
+          npm install -g @bubblewrap/cli
+          npm install --no-save @bubblewrap/core
+
+      - name: Generate Android project from live PWA
+        env:
+          CARELINK_APP_VERSION_NAME: ${{ inputs.app_version_name }}
+          CARELINK_APP_VERSION_CODE: ${{ inputs.app_version_code }}
+        run: node tools/build-android.mjs
+
+      - name: Point Bubblewrap at the pre-installed JDK and SDK
+        run: |
+          set -x
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME"
+          # Bubblewrap validates the SDK by checking for a bin/ or tools/ folder
+          # at the SDK root. GitHub's SDK keeps sdkmanager under
+          # cmdline-tools/latest/bin, so expose it at the root as well.
+          if [ ! -e "$ANDROID_HOME/bin" ]; then
+            ln -s "$ANDROID_HOME/cmdline-tools/latest/bin" "$ANDROID_HOME/bin"
+          fi
+          ls "$ANDROID_HOME/bin"
+          mkdir -p "$HOME/.bubblewrap"
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_HOME" "$ANDROID_HOME" > "$HOME/.bubblewrap/config.json"
+          cat "$HOME/.bubblewrap/config.json"
+
+      - name: Build and sign APK + AAB
+        working-directory: android
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: 'carelink123'
+          BUBBLEWRAP_KEY_PASSWORD: 'carelink123'
+        run: |
+          set -x
+          ls -la
+          cat twa-manifest.json
+          bubblewrap build --skipPwaValidation
+
+      - name: List build outputs
+        run: |
+          ls -lh android/*.apk android/*.aab android/android.keystore
+
+      - name: Upload APK (for phone testing)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CareLink-APK
+          path: android/app-release-signed.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload AAB (for Google Play Store)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CareLink-AAB
+          path: android/app-release-bundle.aab
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload signing key (KEEP SAFE)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CareLink-signing-key-KEEP-SAFE
+          path: |
+            android/android.keystore
+            android/signing-key-info.txt
+          if-no-files-found: error
+          retention-days: 365

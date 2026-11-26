@@ -1,0 +1,33 @@
+# Request traceability — subsequent 16-point request
+
+> **Superseded for source wording.** The verbatim prompt set was supplied on
+> 26 November 2026 and is recorded in [audit/PROMPT-SOURCE-OF-TRUTH.md](audit/PROMPT-SOURCE-OF-TRUTH.md),
+> with per-line verdicts in [audit/PROMPT-AUDIT-001.md](audit/PROMPT-AUDIT-001.md).
+> The audit covers roughly 68 requirements across four prompt batches; this table
+> remains only as the earlier 16-line reconstruction and must not be used as the
+> master index.
+
+This is a **reconstructed checklist**, not a verbatim copy of the original prompt. The original 16 numbered lines are not present in the available conversation context. Number ranges below reflect the retained summary; where that summary grouped lines, their individual wording and ordering cannot be verified. The user asked for line-by-line capture: obtain the original text and reconcile it before calling this list complete. Do not invent missing requirements or claim this file proves completion.
+
+| Retained reference | Requirement captured from the available context | Status and evidence |
+|---|---|---|
+| 1 | End sessions immediately on logout or tab closure, allowing sign-in on another device without waiting for idle expiry. | **Open/partial.** Explicit logout attempts durable revocation and owner-checked lease release; tab close is not reliable and is not implemented as a guaranteed logout. Safe handoff needs further design and tests. See [session release](DEVICE-PRINT-AND-SESSION-RELEASE.md) and [session handoff design gate](SESSION-HANDOFF-DESIGN-GATE.md). |
+| 2–3 | Securely upload or scan documents; edit and maintain personal libraries; share with selected users, departments or teams; support tags and notes, including a clinical TB-completion example. | **Open/partial.** [PR #80](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/80) adds warnings and receipt checks, not secure sharing. Private storage and malware-scanning services are not yet available and remain future build needs. The user chose to keep legacy routes running; they do not enforce document-level permissions. Preserve files and do not represent those routes as secure. |
+| 4–5, 15–16 | Refine transitions and user journeys; ensure clicking workspace tabs/features presents relevant content without requiring extra scrolling or navigation; address similar issues globally. | **Open/partial.** Patient-record tab focus and reveal were addressed in [PR #78](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/78); global navigation, transitions, roles and devices remain to be audited. The precise distribution among these numbered lines is unverified. |
+| 6 | Source public portal statistics from the central database and govern publication by applicable rules. | **Open.** Define approval, disclosure, aggregation, suppression, refresh and provenance rules before publishing central clinical aggregates. Existing figures are not certified as governed live statistics. |
+| 7 | Review the 4,000-patient and programme/user data against the new figure of 4,444; fully fill relevant real data and report completeness truthfully. | **Open.** The existing 4,000-patient reference is synthetic; the live 4,444 figure and real completeness have not been verified. Reconcile privately with authorized source records. Never invent patient records or claim missing information is complete. |
+| 8 | Make patient metadata visible and usable on mobile. | **Partial.** Responsive patient metadata changes and synthetic browser checks were released in [PR #78](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/78). Real-device and accessibility acceptance remain. |
+| 9 | Fix the Executive Action & Follow-Up Matrix layout and similar boxes globally. | **Partial.** The matrix has a container-aware layout and sampled browser checks in [PR #78](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/78). Similar boxes across other workspaces remain to be checked. |
+| 10 | Explain Foundation C-DIMS Coins in terms of accurate, timely, effective, efficient and disciplined use and revamp staff standings. | **Partial.** [PR #78](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/78) improves standings and truthfully describes the present weighted proxy. The current score does not independently measure all those performance qualities; fairness, governance and validation remain open. |
+| 11, 14 | Audit banner contrast globally; provide distinct account identity colors. The later screenshots identify the navigation identity block and workspace greeting banner and request a fully visible role dot. | **Partial.** [PR #79](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/79) adds account-derived default palettes, retains personal choices and adjusts the dot; sampled synthetic browser checks passed. Hash collisions and similar or intentionally selected colors are possible. Full role/device/accessibility contrast audit remains open. The split between the original numbered lines is unverified. |
+| 12 | Rename “Kisumu County Office Inpatient Update” to “Hospital Department Update” and cover hospital/clinical reporting. | **Partial.** The navigation label changed in [PR #78](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/78), but it still opens the existing Monday meeting; a dedicated complete hospital/clinical workflow is not yet built. |
+| 13 | Rename Media and Governance to Media & Information Governance. | **Partial.** The console title changed in [PR #78](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/78); review remaining labels and the requested scope before marking fully complete. |
+
+## Decisions and safeguards
+
+- Work in individually reviewed and deployable chunks, in the user's requested order. The document-storage/scanning integration is deferred because the services are not yet available, not cancelled.
+- Templates are deferred until provided; do not block unrelated safe work on templates.
+- Preserve existing files, held work and real records. Do not reset, delete, seed or fabricate live data to make an item appear complete.
+- Full privacy, clinical/security review and physical-device acceptance are separate from synthetic tests, previews and production deployment.
+- The user wants an elegant, robust system; do not assert perfection without evidence.
+- Keep [the delivery tracker](OUTSTANDING-DELIVERY-TRACKER.md) updated with progress, deployment evidence, unresolved decisions and limitations. The checklist cannot replace the original prompt or approved requirements.

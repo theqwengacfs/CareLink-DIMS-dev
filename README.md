@@ -1,7 +1,7 @@
 # LOMAMO LOMAMO C-DIMS — LOMAMO C-DIMS
 
 **Data & Information Management System for LOMAMO Foundation Kenya** (Love Matters Most)
-Kisumu & Homa Bay County Offices · version 6.9.6 · schema 6
+Kisumu & Homa Bay County Offices · version 6.9.7 · schema 6
 
 One operating system for the whole Foundation: patient registration and the
 assessment pipeline, home visits and PDCA follow-up, hospital coordination,
@@ -9,8 +9,23 @@ pharmacy and TB dispensing control, cost per patient, finance and procurement,
 fleet, people and leave, media governance, M&E and reporting — with every record
 scoped by county, ministry area and department, and every refusal audited.
 
-Live site (GitHub Pages): <https://theqwengacfs.github.io/CareLink-DIMS-dev/>
-That address opens `public/carelink-v6.html`, which is built from `v6/src/`.
+**Official host:** <https://care-link-dims-dev-three.vercel.app/>
+
+The former GitHub Pages address redirects to that host. It is **not** another
+commissioning/data-entry installation. The direct HTML/PWA entry points also
+stop boot on the retired Pages host, even if a redirect is blocked. Existing
+browser-local records are not silently deleted or uploaded.
+
+**Vercel project:** <https://vercel.com/dandante01-2639/care-link-dims-dev>
+
+**Outstanding work and release gates:** [Delivery tracker](docs/OUTSTANDING-DELIVERY-TRACKER.md) · [Reconstructed request traceability](docs/REQUEST-TRACEABILITY.md). A draft or preview is not evidence of production readiness.
+
+An address change alone does **not** migrate the database, browser-local records,
+held work or device-approval cookies. Preserve any unsynced work at its original
+address; do not clear site data, reset/recommission the installation or seed demo
+data as a URL-change workaround. Environment/KV bindings and retirement of the
+former Vercel deployment are separate operational decisions; updating the
+repository's canonical address does not change them.
 
 ---
 
@@ -20,8 +35,36 @@ That address opens `public/carelink-v6.html`, which is built from `v6/src/`.
 npm install
 npm run dev          # Vite dev server on 0.0.0.0:5173, rebuilds the bundle on every edit in v6/src
 npm run build        # type-check + production build (also rebuilds the bundle)
-npm run test:all     # lint, acceptance, API security, and actual-master PC/tablet workflow tests
+npm run test:all     # lint, acceptance, API/device security, runtime-synthetic and PC/tablet workflow tests
 ```
+
+`npm run test:phase1` runs the focused device/export, entry-theme/navigation,
+and deterministic 4,000-patient checks (also included in `test:all`). Optional
+real-browser coverage uses a local in-memory API/KV and separate cookie jars;
+it never calls the live service:
+
+```bash
+npm install --no-save --package-lock=false playwright-core@1.65.1
+CHROMIUM_PATH=/absolute/path/to/chrome npm run test:browser:phase1
+```
+
+An npm-only Linux binary is also supported by installing
+`@sparticuz/chromium@153.0.0` without saving it and omitting `CHROMIUM_PATH`;
+its platform shared libraries must be available. Browser binaries are test-only,
+not deployment dependencies. The browser check measures rendered text contrast
+on both entry themes and exercises preview/apply, responsive controls,
+first-click workspace navigation, automatic browser enrollment and revocation, mandatory private
+password replacement, confidential download and the retired-host redirect.
+
+Privacy is a **separate gate**. `npm run privacy:check` is the default full
+check: a missing authorised comparison source reports **BLOCKED / exit 2**, not
+a detected leak and never clearance. `npm run privacy:repository` explicitly
+runs only the independent repository checks and cannot grant full clearance.
+Use the authorised workbook only in ephemeral storage, never commit it, and
+purge the source afterwards. See [Privacy verification](docs/PRIVACY_VERIFICATION.md)
+for private reader setup, exact scopes/exit codes and the JSON contract.
+`test:all` includes Python 3 standard-library verifier regressions; passing
+functional tests or a limited scan is not patient-identity certification.
 
 Open the single file directly, with no server at all:
 
@@ -29,11 +72,12 @@ Open the single file directly, with no server at all:
 v6/LOMAMO-CareLink-DIMS-v6.0.html
 ```
 
-The offline file and the hosted service have separate installations. A fresh
-installation offers first-run commissioning, where the chief administrator
-chooses a setup password. Once an installation is commissioned, first-run setup
-is locked; use the issued account or the sign-in recovery flow. Do not use a
-shared demonstration password or reset an active database to regain access.
+The downloaded file is an isolated evaluation/offline tool, not an alternative
+production installation and does not connect to the hosted shared database. Use only
+the official host for the shared staff/patient register. A fresh hosted
+installation offers first-run commissioning once; an already commissioned
+installation must never be reset or populated with demo data to regain access.
+Use an issued account or the owner-only recovery runbook instead.
 
 ### Vercel online host (one shared source, mandatory KV)
 
@@ -60,66 +104,125 @@ before opening the console; a failed hosted login, setup, activation or password
 change never falls back to a device-local account or demo register. Browser
 storage is a cache for the online client, not a second installation.
 
-Live first-run commissioning starts with an **empty production register**. The
-full 4,000-patient synthetic reference package is deliberately separate because
-its related visits, PDCA cycles and departmental records total roughly 80 MB of
-JSON, exceeding Vercel's 4.5 MB Function request/response limit and Upstash's
-10 MB free-tier request limit. After the four steps and before global
-activation, the Chief opens **System → Master data import**, downloads
-`master/CareLink-Reference-Master-v6.6.json`, and selects that same file for a
-one-time, authenticated, chunked import. The server verifies SHA-256 digests,
-every required collection and relationship, unique identifiers and all defined
-completeness checks before committing. Live accounts, private passwords,
-organisation settings and activation flags are preserved.
+**Quota/bandwidth failures:** `kv_quota_exceeded` (HTTP `503`) is a provider
+usage-limit failure, not an invalid staff password or KV-token error. Unchanged
+root reads now return a digest verified on the writable primary, omitting the
+payload only when its exact bytes still match; no authorization check is
+skipped. Polls cannot overlap, activity-based session renewals are limited to
+once a minute, and quota errors stop retry cascades while retaining held work.
+This reduces future traffic; it does **not** clear counted usage, unsuspend the
+database, reduce stored data, or guarantee a free-tier workload will fit. See
+[the no-upgrade KV bandwidth runbook](tools/KV-BANDWIDTH.md). Run the isolated
+traffic/security/client regressions with `npm run test:kv-bandwidth`.
 
-Large online states are gzip-compressed in KV and downloaded through bounded
-collection pages, so a fresh PC or tablet can reconstruct the complete shared
-record without an oversized Vercel response. The hosted wizard refuses an
-oversized initial setup before it can claim success or leave a device-only
-commissioned document behind. Rebuild the public master with
-`npm run build:reference-master`; its source is the official synthetic seeder,
-never a real patient workbook.
+### Phase 1 entry identity and registered-device sign-in
 
-### PC setup → full master → tablets
+The Chief System Administrator selects one of **two official entry themes** in
+organisation settings: **LOMAMO Emblem Dark** and **LOMAMO Letterhead Light**.
+Preview either the landing or sign-in page without saving; **Apply to landing &
+sign-in** saves the shared `system.config.entryTheme` and a server audit event.
+Both palettes use the root letterhead's red/black/white/grey and pass the
+`safeFill` / `badgeOnFill` text contrast gates. **Letterhead Light is the default**
+when no Chief selection has been saved; explicit Chief choices are preserved.
+The default landing remains white-led, with the original eight-department
+workflow on a charcoal panel, an emblem-red hub and spokes, and restrained teal,
+gold and blue department/counter accents. Its inline SVG has an accessible name
+and description and works offline. The sign-in pairs natural-colour photography
+with a white form, coloured access tabs, a teal online-status strip and a gold
+device-registration notice. Both identities retain visible keyboard focus and
+measured text/placeholder contrast (36 token pairs per identity).
 
-1. On a PC, open the live Vercel URL and complete all four first-run steps once.
-   Wait for the shared-online confirmation; do not treat a cached screen as a
-   successful setup.
-2. Sign in as **Chief / System Administrator** and complete the mandatory
-   private-password change.
-3. Open **System → Master data import**. Under step 1, click **Full
-   4,000-patient reference master** to download the JSON file. Keep it unchanged.
-4. Click **Select file** and choose that downloaded JSON. Review the automated
-   quality evidence, then click **Validate & upload full master**. Leave the PC
-   online until every chunk and the final shared-KV commit have been confirmed.
-5. Confirm that the register shows **4,000 patients**, the quality view has no
-   findings, and the import is recorded in the online audit trail.
-6. Use **Global activation** to issue staff credentials. Give each tablet user
-   their own credentials; every tablet opens the same Vercel URL and downloads
-   the same paged online state. Demo and setup entry points remain locked after
-   activation.
+Landing and all four access panels fit one viewport without vertical scrolling
+at the browser-regression sizes **1366×900, 1366×768, 1366×640, 1280×720,
+1024×768, 1024×600, 768×1024 and 390×844**. Short laptop layouts pair the username
+and password fields; compact views omit repeated branding/technical assurances,
+not access controls. Tiny (320×640), keyboard-shortened landscape
+(844×390) and zoom-equivalent views may scroll naturally so every field, recovery
+action and privacy link stays reachable; no hidden overflow or internal form
+scrollbar is used to fake a fit. The public-entry stylesheet is scoped separately
+from workspace palettes, which are unchanged.
 
-The reference package is synthetic evaluation content, not real patient data.
-Its import is one-time and is refused after global activation. A real master
-workbook continues through the separate governed row-import/reconciliation
-workflow; it must never be published as a static file.
+Staff sign-in is enforced by the API, not a browser fingerprint or a local flag:
 
-`POST /api/public/demo-bootstrap` is limited to a fresh, uncommissioned
-evaluation installation. It is refused once live setup exists and permanently
-after `globallyActivated`; the Landing, Sign-In and first-run setup UI use the
-same server-provided activation/commissioning flags to remove demo controls.
+1. A correct password on an unknown browser creates a **pending** device entry
+   (generic browser label/type, first seen, verified requesting account), not a staff session.
+   The sign-in form does not ask for a device label or type.
+2. The Chief opens **System → Devices**, confirms the device code with its user
+   through a trusted channel, and approves or rejects it after reauthentication.
+3. An approved browser can sign in; every authenticated API operation rechecks
+   approval and the opaque HttpOnly cookie. Revoking a device blocks its existing
+   tokens too. Clearing cookies requires approval again.
 
-### Rebuilding or rebooting from the Chief System Administrator account
+The commissioning browser (or the first password-verified Chief browser on a
+legacy installation) is enrolled once. Removing every device never reopens that
+bootstrap. If the last Chief browser is lost, follow
+[`tools/OWNER-RECOVERY.md`](tools/OWNER-RECOVERY.md). The public portal remains
+open without device admission. **Phase 2 email/SMS one-time codes are deferred**;
+no provider is configured and provider secrets belong only in Vercel environment
+variables.
 
-Passwords are stored as one-way hashes, so re-issuing them is a deliberate,
-audited operation rather than a lookup. The full procedure — what a rebuild
-replaces, what it preserves, how to recover a pack you did not download, what
-counts as a "reboot" instead, and the three-minute health check afterwards — is in
+### Chief staff-account export
+
+Open **System → Staff credential export** on the official host. The CSV comes
+from the actual `OFFICIAL_ROSTER`, not generated people. Unconfirmed seats retain
+their seat labels and `unconfirmed:true` and receive no credential.
+
+- Work mail is blank unless the Chief has explicitly attested that an existing
+  `@lomamofoundation.org` mailbox is real. CareLink does not create mailboxes or
+  infer addresses from names. Sign in by username when no mailbox is confirmed.
+- After Chief reauthentication, the API generates temporary passwords, stores
+  salted hashes and a server-only encrypted receipt in KV, and returns the
+  confidential download. No plaintext password file is stored on the server or
+  in the repository/browser storage.
+- Temporary passwords are **single-use**, expire in **seven days** by default
+  (`system.config.temporaryPasswordDays`, Chief-configurable 1–30), and require a
+  private replacement **before any workspace data**. A same-attempt/device
+  network retry is idempotent; a new attempt cannot reuse a redeemed password.
+- Chief/private credentials are retained, not exported. Use **Revoke password**
+  for a compromised staff account; it invalidates existing sessions. A subsequent
+  issuance creates a fresh temporary password.
+- Every issuance/export is audited with actor, time, row count and acting device.
+  Give each recipient only their own row; never post a pack in a group chat.
+
+A full hierarchy rebuild remains a separate, deliberately destructive account
+operation. Its procedure and 24-hour encrypted-pack recovery are documented in
 [`docs/REBUILD_AND_REBOOT_FROM_CHIEF_ADMIN.md`](docs/REBUILD_AND_REBOOT_FROM_CHIEF_ADMIN.md).
-In short: **Development Console → Provisioning → Rebuild & reactivate** (Chief
-password + type `REBUILD`), then download the confidential pack immediately;
-**Recover recent pack** covers a lost download for 24 hours. Every issued account
-signs in and works straight away — a personal password is optional.
+Use the smallest per-account/device action rather than rebuilding everyone.
+
+### Separate shared team trial
+
+The opt-in isolated team trial provides shared editing with 4,000 synthetic
+patients and synthetic role accounts, without changing production sign-in. It
+requires a **separate Vercel project and separate KV database**, explicit setup
+and an owner-approved initialization. Never enter real or confidential data.
+See [the isolated trial runbook](tools/ISOLATED-TEAM-TRIAL.md) for deployment,
+limitations and credential handling. Device labels/types are not requested at
+sign-in on either site; browser admission and role-scoped access remain enforced.
+
+### Runtime synthetic evaluation register (never production data)
+
+Live commissioning starts with an **empty production register**. Use the
+4,000-patient synthetic reference only in an explicitly isolated evaluation
+installation **before global activation**, never in the existing live database.
+The reference and related programme/departmental records are generated at runtime
+by `api/synthetic-reference.mjs`; no dataset is committed, bundled, or published
+under `public/master/`.
+
+The Chief's authenticated **System → Master data import → Full 4,000-patient
+reference master** download calls the generator. The same JSON may be inspected
+and imported through the governed, digest-verified chunked upload, or explicitly
+auto-fed by the Chief for evaluation. The API preserves live accounts, private
+passwords and organisation settings and refuses a repeat/post-activation import.
+Every generated record carries `synthetic:true`; patient/staff/roster phones use
+only `07001xxxxx` / `07003xxxxx` / `07005xxxxx`, national IDs `9x,xxx,xxx`, CCC
+`CCC/9xxxxx`, and mail `@lomamo.example`. The seed and anchor are fixed; see
+[`docs/DEMO_REGISTER_SPECIFICATION.md`](docs/DEMO_REGISTER_SPECIFICATION.md).
+
+Large online states use verified immutable KV shards and bounded/compressed
+client responses. `npm run build:reference-master` is an **optional local
+export**, written under ignored `v6/data/`; it is not a deployment build input.
+Anonymous `POST /api/public/demo-bootstrap` is disabled. No verification step in
+this change writes demo content to the live deployment.
 
 ### What happens when a tablet loses the network
 
@@ -148,6 +251,45 @@ are offered on the installed icon: Home, Patients, Monday meeting and Report
 centre. When a new build reaches a device that has the app open, a strip says a
 newer version is ready and offers **Reload**; nothing reloads under a half-typed
 form without being asked.
+
+### What the planning year is, on every document
+
+The Foundation plans in a **52-week year of Monday–Friday working days**, so
+reports are labelled the way the Monday meeting reads them: *"Week 48 of 2026 ·
+Monday 16 Nov 2026 – Friday 20 Nov 2026 · Africa/Nairobi"*. Weekly reports
+(`Weekly Planning Indicators`, `Patient Figures`, `Patient-Days`, `Home Visits`)
+carry that label; expenditure, referral, quality, hospital-operations and
+condition reports are filed by month; the executive and donor summaries by
+quarter. Every printed report also names the person **and the department** that
+issued it. The label stays marked *(provisional)* until the Foundation confirms
+its official 52-week boundary rule. `v6/test/report-period-labels.js` covers it.
+
+### What the audit said was missing, and what was built
+
+The six requirements the verbatim prompt audit recorded as *not captured* are now
+built, each with its own suite; four carry a limitation that is stated in the same
+place as the claim, because an over-claim would be the same defect as a gap.
+
+| Requirement | What was built | Limitation stated plainly |
+|---|---|---|
+| **B5** public statistics from the central database, governed | `GET /api/public/statistics` with a basis, a named reviewer, a disclosure state and a **suppression floor of 5** per figure; the portal prints only released figures | none — a figure without a reviewer cannot reach the portal |
+| **D21** scoped announcements | audiences of everyone / county / department / area / role / people, resolved on read, with seen and acknowledged receipts | none |
+| **D19** stylus handwriting | pressure-aware `[x,y,pressure]` strokes, printed as SVG, always `verification:'unverified'` and captioned as a captured stroke | **recognition and grammar proofing are not built** |
+| **C1** offline sign-in | opt-in per account, PBKDF2-SHA256 ×210,000 over its own salt, expiring in 14 days, refused for locked/revoked accounts, `deviceOnlyOverride` so nothing is claimed as saved centrally | **no encrypted offline copy of the register** |
+| **D17** PDCA review engine | learns the fill pattern of the register's closed cycles, names the field, reason and basis for each finding, refuses below 40 cycles, never approves | **corpus is the demonstration register, not 120 real MCM-reviewed cycles** |
+| **A6** Bible verses in seven translations | `SCRIPTURE` reference parser and canonicaliser, seven translations with their licence state, translation stored with the devotion minutes | **copyrighted text is not reproduced**; references open at the publisher |
+
+New suites: `public-statistics-governance` (20), `scoped-announcements` (37),
+`stylus-handwriting` (38), `offline-signin` (30), `pdca-review-engine` (26),
+`scripture-registry` (36), `devotion-fairness` (12), `workspace-tab-reveal` (14) —
+all in `npm run test:all`.
+
+### Where the prompt audit lives
+
+The Foundation's verbatim prompt set, and the per-line verdicts against the code,
+are kept in [`docs/audit/`](docs/audit/): `PROMPT-SOURCE-OF-TRUTH.md` records what
+was actually asked, and `PROMPT-AUDIT-001.md` records what is captured, partial,
+not captured or blocked, with the evidence for each.
 
 ### The weekly planning page
 
@@ -203,9 +345,9 @@ Vite plugin hot-reloads the preview when anything in `v6/src/` changes.
 
 ## Personal data
 
-This repository is public. It contains **no real patient record**. The generated
-4,000-patient reference register is synthetic evaluation content with reserved
-contact details and no credential secrets. The Administration's master patient
+This repository is public: **never add a real patient record or sensitive
+internal document**. The generated 4,000-patient reference register is synthetic
+evaluation content with reserved contact details and no credential secrets. The Administration's master patient
 workbook was studied, mapped field by field into the system
 (`v6/docs/20_MASTER_WORKBOOK_MAPPING.md`) and then removed from the repository;
 what remains is its structure, vocabulary, formulas and mapping. Real records are
@@ -228,8 +370,17 @@ recorded consent under the LOMAMO Ethical Storytelling Policy.
 
 ## Privacy tooling
 
+The verifier distinguishes **failed checks (exit 1)** from **blocked checks
+(exit 2)**. The full default fails closed when the authorised identity source is
+unavailable. An explicitly limited structural/contact scan is **not** full
+patient-identity or deep-history certification. Private setup, source cleanup
+and automation requirements are in [Privacy verification](docs/PRIVACY_VERIFICATION.md).
+No workbook or extracted identity corpus belongs in Git.
+
 ```bash
-python3 v6/tools/verify_no_patient_data.py     # prove no patient identity is in the repository
+npm run privacy:check                         # full defined check; BLOCKED without the authorised source
+npm run privacy:repository                    # limited scope only; identity comparison NOT RUN
+npm run test:privacy-verifier                 # synthetic regression tests, not a real-patient sweep
 bash v6/tools/purge_patient_data.sh            # report what a history rewrite would erase
 bash v6/tools/purge_patient_data.sh --rewrite  # rewrite local history (backup bundle first)
 python3 v6/tools/pack_portal_media.py          # repack the public-portal photography

@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/index.js": {
-      "includeFiles": "public/master/CareLink-Reference-Master-v6.6.json",
+      "includeFiles": "v6/src/{data.js,data6.js,inventory_data.js,core.js,care_rules.js,care_workflow.js}",
       "maxDuration": 60
     }
   },
@@ -20,7 +20,7 @@
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(self), payment=()" }
+        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=(self), payment=()" }
       ]
     },
     {

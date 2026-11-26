@@ -48,39 +48,11 @@
     return b;
   }
 
-  /* ---- 2. offline / back-online notice -------------------------------- */
-  /* The sync chip already carries the authoritative state; this strip exists
-     because on a phone the chip may be scrolled off the top of a long form.
-     It is deliberately quiet: it never blocks, and it disappears the moment
-     the network returns. */
-  let offlineStrip = null;
-  function syncOnlineNotice() {
-    if (!doc.body) return;
-    if (!offlineStrip) offlineStrip = strip('carelink-offline');
-    const online = navigator.onLine !== false;
-    offlineStrip.textContent = '';
-    offlineStrip.style.display = online ? 'none' : 'flex';
-    offlineStrip.style.background = '#3F1D1D';
-    offlineStrip.style.color = '#FFE4E6';
-    if (!online) {
-      const text = doc.createElement('span');
-      text.textContent = isIOS
-        ? 'No network. CareLink is running from this device; changes are kept here until it reconnects.'
-        : 'No network. CareLink is running from this device; changes are kept here until it reconnects.';
-      offlineStrip.appendChild(text);
-      offlineStrip.appendChild(action('Details', () => tell('carelink:open-sync'), ['#7F1D1D', '#FFE4E6']));
-    }
-  }
-  /* The console listens for these two events: it owns the sync engine and the
-     modal, this file owns the shell. Nothing is called across that line. */
+  /* ---- 2. network restoration ----------------------------------------- */
+  /* Network indicators live inside the landing, sign-in and workspace headers,
+     not in a fixed overlay over navigation. The app owns their state. */
   const tell = (name) => { try { window.dispatchEvent(new CustomEvent(name)); } catch (_) { } };
-  window.addEventListener('online', () => {
-    syncOnlineNotice();
-    tell('carelink:network-online');
-  });
-  window.addEventListener('offline', syncOnlineNotice);
-  doc.addEventListener('visibilitychange', () => { if (!doc.hidden) syncOnlineNotice(); });
-  window.addEventListener('load', () => { syncOnlineNotice(); setTimeout(syncOnlineNotice, 1500); });
+  window.addEventListener('online', () => tell('carelink:network-online'));
 
   /* ---- 3. new build waiting ------------------------------------------- */
   let updateStrip = null;
@@ -182,7 +154,6 @@
     if (installEvent || (isIOS && !window.matchMedia('(display-mode: standalone)').matches)) {
       if (attachInstallButton()) installButton.style.display = 'block';
     }
-    syncOnlineNotice();
   });
 })();
 </script>

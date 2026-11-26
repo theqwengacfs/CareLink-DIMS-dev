@@ -1,0 +1,23 @@
+# Offline access: implementation gate
+
+Status: **not implemented or approved for clinical use**. This document records the requested policy and the engineering work needed; it does not change authorization or enable offline login.
+
+## Policy selected
+
+- Offline access is limited to organization-managed devices. Do not restore a workflow requiring an administrator to approve each browser before ordinary online sign-in.
+- The device-management system is not yet selected; the user will work this out later and requested periodic reminders. Do not treat this note as a scheduled reminder or assume any provider is configured.
+- Offline access must expire no later than 24 hours after the last successful online authorization and scope check. Revocations and scope changes cannot be received while a device is disconnected.
+- The server remains the authorization, clinical decision and audit authority. A local change is pending, not a confirmed shared save.
+
+## Blockers before enabling hosted offline sign-in
+
+1. **Managed-device proof and trustworthy time.** A browser's device label, cookie, local storage, or a user's statement is not evidence of management. Identify the actual device-management/identity system and integrate a server-verified, device-bound compliance assertion. A browser clock or mutable storage alone cannot enforce a hard 24-hour limit against rollback. Establish and test a suitable managed-device trusted-time/expiry mechanism, or keep offline access disabled. Do not issue an offline grant when compliance, account state, scope or expiry cannot be verified. No individual browser approval should be required.
+2. **Confidential local state.** Use an authenticated encrypted per-account, per-device vault with a reviewed strong password KDF, random salts/nonces, key lifecycle and inactivity lock. Persist only the server-scoped minimum needed for explicitly supported workflows, never credentials, bearer tokens, other accounts' data or an unscoped snapshot. Handle private-mode restrictions, quota, partial writes, migration and device loss without a false durability claim. Web encryption does not protect an unlocked or compromised device.
+3. **Offline authorization and clinical safety.** Define workflow-by-workflow what may be read, drafted and submitted with stale data. Server-owned clinical commands must remain blocked unless a separately designed safe offline command protocol revalidates current state, scope and clinical invariants upon reconnection. Clearly warn when records may be stale, and never present a pending draft as an approved decision.
+4. **Durable replay and conflict resolution.** Replace the legacy single local-storage patch outbox with encrypted, isolated queues. Use stable operation identifiers and server-side idempotent receipts, atomic acknowledgements, and retention of refused, partially refused, unknown-outcome and conflicting work for explicit review. Never replay another person's work or silently overwrite one account's queue with another. Reauthenticate and revalidate current permissions before replay; stop safely on logout, revocation, expiry, storage failure or changed scope. Network restoration alone is not a successful sync.
+5. **Audit.** Record offline unlocks, attempts and supported actions in an integrity-protected local journal without exposing sensitive clinical text. Send events with stable identifiers after reauthentication, distinguish device-supplied timestamps from server receipt time, and show rejected or pending audit submissions. Offline logging cannot be independently guaranteed against a compromised device.
+6. **Verification and rollout.** Exercise real managed devices across reloads, reboots, clock changes, wrong credentials, lost/revoked devices, permission changes, multi-account sharing, concurrent edits, quota failures, network interruptions, lost responses and partial server refusal. Include clinical safety, privacy and security review before a staged release. Confirm the intended production deployment and data separately; tests using synthetic data do not establish live patient counts or real-account access.
+
+## Existing behavior is not the target design
+
+The service worker caches an application shell, not authenticated API responses. Hosted login currently requires the online service. The existing browser outbox uses local storage, is not an encrypted vault, and has failure modes including permanent-refusal deletion and treating a successful HTTP response as an accepted batch without inspecting per-row rejections. Hosted state persistence also varies with register size. These behaviors must not be represented as secure, lossless offline operation. Do not delete existing local data or queued work as a migration shortcut.

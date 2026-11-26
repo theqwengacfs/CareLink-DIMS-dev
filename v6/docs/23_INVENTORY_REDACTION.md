@@ -144,11 +144,17 @@ import template at `v6/examples/LOMAMO-Master-Patient-Workbook-TEMPLATE.xlsx`.
 
 ## 6. How this is kept clean
 
-`v6/tools/verify_no_patient_data.py` runs six passes and exits non-zero on any
-match. The patient identity sweep also fails closed when its authorized master
-workbook is unavailable; missing source data is not reported as a clean sweep.
-The three added by this remediation are pattern-based, so they catch a source
-no identity list could anticipate:
+`v6/tools/verify_no_patient_data.py` runs six passes. Failed checks report
+`NOT CLEAN` / exit `1`; a missing authorised workbook/reader or incomplete Git
+history reports `BLOCKED` / exit `2`. Both refuse full clearance. Missing
+comparison evidence is neither a detected leak nor a clean identity sweep.
+The explicit `--repository-only` mode can pass the independent checks without
+reading patient data, but labels the identity comparison **NOT RUN** and never
+grants full clearance. See [the current verification guide](../../docs/PRIVACY_VERIFICATION.md)
+for private setup and the machine-readable contract.
+
+The three passes added by this remediation are pattern-based, so they catch a
+source no identity list could anticipate:
 
 - **Pass 3 — secrets.** Vehicle plates, chassis numbers, handset IMEIs, and
   telephone numbers outside the demo band, across every text file and inside
@@ -164,7 +170,8 @@ no identity list could anticipate:
 Run it before any release and after any import:
 
 ```bash
-python3 v6/tools/verify_no_patient_data.py     # want: CLEAN, exit 0
+python3 v6/tools/verify_no_patient_data.py --workbook /tmp/authorised-master.xlsx  # full check; authorised source and reader required
+python3 v6/tools/verify_no_patient_data.py --repository-only  # limited checks; NOT full clearance
 python3 v6/tools/redact_inventory.py --check   # want: OK, exit 0
 ```
 

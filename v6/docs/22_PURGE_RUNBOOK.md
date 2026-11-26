@@ -1,5 +1,18 @@
 # 22 · Purge runbook — erasing personal data and organisational secrets from Git history
 
+> **Current verification note (22 November 2026):** this is the historical
+> October remediation runbook, not a current privacy certificate or a reason to
+> rewrite history again. The repository is now **public**; historical status
+> statements below describe that earlier incident. Follow
+> [the current privacy-verification guide](../../docs/PRIVACY_VERIFICATION.md)
+> for private source setup and coverage limits. The default full verifier
+> returns `NOT CLEAN` / exit `1` for failed checks and `BLOCKED` / exit `2` when
+> required evidence is unavailable. Both must stop a release/history-purge gate.
+> A successful `--repository-only` scan never authorises those operations or
+> certifies the missing patient-identity comparison. No new history rewrite is
+> part of this verifier repair; destructive operations require separate owner
+> review and authorisation.
+
 **Audience:** the repository owner (or anyone with admin rights on
 `theqwengacfs/CareLink-DIMS-dev`).
 **Tools:** `v6/tools/purge_patient_data.sh` (report, rewrite, fresh history,
@@ -193,7 +206,9 @@ Treat it as a data incident, not only a cleanup:
 - `python3 v6/tools/verify_no_patient_data.py` is the standing check: six passes
   covering patient identities, organisational secrets, the published register,
   the seeded-contact conventions and the tracked files. Run it before any release
-  and after any import. It exits non-zero on any match.
+  and after any import. It exits `1` on failed checks and `2` on required
+  checks that could not run. Supply the authorised original outside Git (with
+  the private reader installed); a missing source must never count as CLEAN.
 - `.gitignore` refuses any spreadsheet at the repository root. The only
   spreadsheet this repository publishes is the blank demo-only import template
   under `v6/examples/`.

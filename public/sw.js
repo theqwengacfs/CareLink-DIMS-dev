@@ -1,5 +1,7 @@
 /* CareLink application-shell offline support. Clinical/API responses are never cached. */
-const CACHE = 'carelink-shell-v6';
+const CACHE = 'carelink-shell-v16';
+const RETIRED_PAGES = self.location.hostname === 'theqwengacfs.github.io';
+const CANONICAL_ORIGIN = 'https://care-link-dims-dev-three.vercel.app/';
 /* A navigation that the network has not answered within this window falls back
    to the cached shell. A captive portal or a stalled 3G link otherwise leaves a
    caregiver looking at a blank screen in front of a patient. */
@@ -16,6 +18,7 @@ const SHELL_URLS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
+    if (RETIRED_PAGES) { await self.skipWaiting(); return; }
     const cache = await caches.open(CACHE);
     for (const url of SHELL_URLS) {
       try {
@@ -35,13 +38,17 @@ self.addEventListener('message', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((key) => key.startsWith('carelink-shell-') && key !== CACHE).map((key) => caches.delete(key)));
+    await Promise.all(keys.filter((key) => key.startsWith('carelink-shell-') && (RETIRED_PAGES || key !== CACHE)).map((key) => caches.delete(key)));
     await self.clients.claim();
   })());
 });
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
+  if (RETIRED_PAGES) {
+    if (request.mode === 'navigate') event.respondWith(Response.redirect(CANONICAL_ORIGIN, 302));
+    return; // never serve a cached commissioning shell on the retired host
+  }
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
   /* Never cache API payloads, credentials, auth/session requests, or patient data. */

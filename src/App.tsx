@@ -3,7 +3,7 @@ import React from 'react';
 export default function App() {
   return (
     <iframe
-      src="/carelink-v6.html?v=6.9.4"
+      src="/carelink-v6.html?v=6.9.4&release=20261125-workspace-audit"
       title="CareLink C-DIMS — LOMAMO Foundation Operating System"
       style={{
         border: 'none',
@@ -13,7 +13,7 @@ export default function App() {
         margin: 0,
         padding: 0,
       }}
-      allow="geolocation; clipboard-write"
+      allow="camera; microphone; geolocation; clipboard-write"
     />
   );
 }
