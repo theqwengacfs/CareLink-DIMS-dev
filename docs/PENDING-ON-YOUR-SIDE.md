@@ -5,7 +5,8 @@
 > Re-read this at the start of every development round; items move off it only when
 > you say they are done.
 >
-> Last verified against the deployed system: **v6.9.8**, `main` = `5176a5f`.
+> Last verified against the deployed system: **v6.9.9**, preferred host
+> `care-link-dims-dev-three.vercel.app` (`/api/health` reports `version 6.9.9`).
 
 ---
 
@@ -35,6 +36,13 @@
 | 10 | **Private storage + malware scanning** supplier or budget | Document sharing stays **blocked**; the legacy file service keeps running without document-level authorisation (B2) |
 | 11 | **Clinical / privacy review** of the PDCA pattern review engine | The engine stays advisory-only and is never presented as a clinical model (D17) |
 | 12 | **120 real MCM-reviewed cycles**, approved for training, if you want a real engine rather than a pattern check | The engine keeps learning from the demonstration register, and says so on screen (D17) |
+
+## 3b. Things on the deployed host only you can confirm
+
+| # | To confirm | Why |
+|---|---|---|
+| 12a | Whether the **4,000-patient demonstration register** is meant to be loaded on the live host at `care-link-dims-dev-three` | It is a live, globally activated installation with **36 accounts** and no patient rows loaded (rev 359). The register is imported deliberately, never seeded automatically — so this waits on your instruction. |
+| 12b | Name a **reviewer** for the public statistics (`settings.publicStatistics.<figure>.reviewedBy`) | Until a figure carries a named official's review, the portal keeps showing the labelled cumulative totals and prints no live number. That is by design (B5). |
 
 ## 4. Verification that needs an approved private process
 

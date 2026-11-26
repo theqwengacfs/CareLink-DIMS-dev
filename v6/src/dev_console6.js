@@ -1190,6 +1190,15 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.9.9', date:'2026-11-26', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Corrected the public statistics endpoint on the deployed architecture: a commissioned installation that keeps the register as a verified reference master was reporting every programme total as zero.',
+      changes:['GET api/public/statistics no longer assumes the patient rows are in the process answering the request; a commissioned host holds the register as a verified reference master in KV, so reading the rows alone reported 0 patients discharged and 0 active caseload on a live installation',
+        'The endpoint now states which source answered (register rows or register metadata) and returns the register size it can see',
+        'Programme totals the register cannot support for a request are withheld with an explanation, never reported as a number, so a public page can no longer say "0 patients discharged" while the programme is running',
+        'Organisational structure (2 county offices, 10 ministry areas, 16 departments) is described once the installation is commissioned, and left at zero before that, because reporting the product defaults as the Foundation organisation would be an invented figure',
+        'departmentsOperating is now read from the generated official structure rather than from a database collection that does not hold departments',
+        'New checks in public-statistics-governance (29 total) cover the commissioned-with-no-rows shape as well as the rows-in-hand shape'],
+      highlights:['B5'] },
     { tag:'v6.9.8', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Closed the six unbuilt requirements from the verbatim prompt audit: governed public statistics, scoped announcements, stylus handwriting capture, offline sign-in, the PDCA pattern review and the Bible reference registry.',
       changes:['Public portal statistics now come from the central database through a governance gate (GET api/public/statistics): every figure carries its basis, reviewer and disclosure state, counts below five are suppressed, and the portal can print only figures a named reviewer has released',

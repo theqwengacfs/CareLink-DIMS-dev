@@ -142,7 +142,7 @@ export function generateReferenceManifest({seed=20261022, anchor='2026-11-22T00:
   const compressed=zlib.brotliCompressSync(Buffer.from(raw),{params:{[zlib.constants.BROTLI_PARAM_QUALITY]:4}});
   const base64=compressed.toString('base64'), chunks=[],chunkSize=524288;
   for(let start=0;start<base64.length;start+=chunkSize) chunks.push(base64.slice(start,start+chunkSize));
-  const manifest={format:'carelink-reference-master-v1',version:'6.9.8',createdAt:anchor,classification:payload.classification,
+  const manifest={format:'carelink-reference-master-v1',version:'6.9.9',createdAt:anchor,classification:payload.classification,
     encoding:'brotli-base64',digest:sha256(raw),compressedDigest:sha256(compressed),rawBytes:Buffer.byteLength(raw),
     compressedBytes:compressed.length,base64Length:base64.length,chunkSize,chunkCount:chunks.length,counts,quality,chunks};
   if(seed===20261022 && anchor==='2026-11-22T00:00:00.000Z') cachedManifest=manifest;
