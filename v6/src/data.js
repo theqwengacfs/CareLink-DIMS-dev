@@ -290,7 +290,7 @@ const ROLES = [
     scope:{ geo:'county', records:'county' },
     perms:['patient.list','patient.view.basic','patient.view.clinical','patient.assess.create','visit.create','visit.view','pdca.create','pdca.review','media.upload','report.departmental','ai.use', 'condition.view', 'condition.record', 'condition.confirm', 'condition.sensitive', 'care.view', 'care.log', 'care.incident'] },
 
-  { id:'mediahead', name:'Media & Information Governance Head', dept:'media', accent:'#7C3AED', consoleTitle:'Media & Governance',
+  { id:'mediahead', name:'Media & Information Governance Head', dept:'media', accent:'#7C3AED', consoleTitle:'Media & Information Governance',
     scope:{ geo:'global', records:'global', crossCounty:true },
     perms:['media.view','media.consent.manage','media.publish','media.library.manage','policy.manage','kb.manage',
       'patient.list','patient.view.basic','report.departmental','ai.use','system.backup','system.audit'] },

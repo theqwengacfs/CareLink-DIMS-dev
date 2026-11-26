@@ -1686,7 +1686,7 @@ export default {
       "name": "Media & Information Governance Head",
       "dept": "media",
       "accent": "#7C3AED",
-      "consoleTitle": "Media & Governance",
+      "consoleTitle": "Media & Information Governance",
       "scope": {
         "geo": "global",
         "records": "global",

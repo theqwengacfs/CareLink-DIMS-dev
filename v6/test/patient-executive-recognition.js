@@ -1,0 +1,23 @@
+/* Regressions use only the synthetic demo dataset. */
+const assert=require('node:assert/strict');
+const {makeCtx}=require('./dom');
+const {run}=makeCtx({setTimeout:()=>0});
+run(`DB.load();DB.seedDemo();AUTH.user=DB.db.users.find(u=>u.roleId==='director');
+ globalThis.__p=repo.patientList(AUTH.user)[0];__p.phone='';__p.gps={lat:null,lon:null};
+ globalThis.__overview=patientOverview(AUTH.user,__p);`);
+const overview=run('__overview');
+assert(overview.includes('patient-metadata'));
+assert(overview.includes('Household GPS coordinates</dt><dd class="mono">Not shared'));
+assert(!overview.includes('100% beneficiary metadata completeness'));
+assert(!overview.includes('Verified telephone'));
+run(`__p.gps={lat:0,lon:0};__overview=patientOverview(AUTH.user,__p);`);
+assert(run('__overview').includes('0.00000, 0.00000</dd>'),'zero coordinates are valid; accuracy must not be invented');
+run(`__p.gps={lat:1,lon:2,accuracyM:0};__overview=patientOverview(AUTH.user,__p);`);
+assert(run('__overview').includes('1.00000, 2.00000 (±0m)'));
+assert(run(`renderPatient(AUTH.user,{id:__p.id,tab:'visits'})`).includes('id="patient-section-content" aria-label="Visits section"'));
+const recognition=run('renderRecognition(AUTH.user)');
+assert(recognition.includes('does not independently verify accuracy, timeliness, effectiveness or efficiency'));
+assert(recognition.includes('coins-standings'));
+assert(!recognition.includes('100% Evidence-Driven Formula'));
+assert.equal(run("roleObj('mediahead').consoleTitle"),'Media & Information Governance');
+console.log('Synthetic patient metadata, recognition explanation and naming regressions passed.');

@@ -1676,7 +1676,7 @@ function usageScore(user, db){
   const openPdca = c.openPdcaByOwner[user.id] || 0;
   const parts = [
     { k:'Records registered', w:30, v: mineLen ? Math.min(1, mineLen/Math.max(20, mineLen*0.85)) : 0, note:mineLen+' patients in scope' },
-    { k:'Field documentation', w:25, v: mineLen ? documented/mineLen : 0, note:documented+' of '+mineLen+' verified' },
+    { k:'Field documentation', w:25, v: mineLen ? documented/mineLen : 0, note:documented+' of '+mineLen+' marked verified' },
     { k:'Activity recorded', w:20, v: Math.min(1, visitLen/Math.max(12, mineLen*0.35||1)), note:visitLen+' visits' },
     { k:'Identity completeness', w:15, v: mineLen ? withId/mineLen : 0, note:withId+' national IDs captured' },
     { k:'Follow-up discipline', w:10, v: mineLen ? Math.max(0, 1 - openPdca/Math.max(1,mineLen)) : 0, note:openPdca+' open PDCA' }

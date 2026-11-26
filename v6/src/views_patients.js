@@ -745,14 +745,14 @@ function renderPatient(user, params){
     ['discharge', p.status==='discharged' ? 'Discharge summary' : 'Care & discharge summary']
   ].filter(([k])=>k!=='clinical'||clinical);
 
-  const header = `<div class="card" style="margin-bottom:16px"><div class="card-b">
-    <div class="spread" style="align-items:flex-start;flex-wrap:wrap">
-      <div class="row" style="gap:14px;align-items:flex-start">
+  const header = `<div class="card patient-record-header" style="margin-bottom:16px"><div class="card-b">
+    <div class="spread" style="align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div class="row patient-identity" style="gap:14px;align-items:flex-start">
         <div class="avatar-img" style="width:52px;height:52px;font-size:16px">${initials(p.name)}</div>
-        <div>
-          <div class="row" style="gap:9px"><h2 style="font-size:20px">${esc(p.name)}</h2>${pBadge(p.status)}${CARE_REVIEW.flag(p)}</div>
+        <div class="patient-identity-copy">
+          <div class="row patient-identity-name" style="gap:9px"><h2 style="font-size:20px">${esc(p.name)}</h2>${pBadge(p.status)}${CARE_REVIEW.flag(p)}</div>
           <div class="small muted" style="margin-top:3px">${esc(p.code)} · ${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))} · ${p.sex==='F'?'Female':p.sex==='M'?'Male':'Sex not recorded'}, ${p.age!=null&&p.age!==''?esc(p.age)+'y':'Age not recorded'}</div>
-          <div class="row" style="margin-top:9px;gap:8px">
+          <div class="row patient-identity-chips" style="margin-top:9px;gap:8px">
             <span class="chip">${ic('clock',13)} ${days} days in programme</span>
             <span class="chip">${ic('activity',13)} ${lastVisit? 'Last visit '+fmtDate(lastVisit.date):'No visit recorded'}</span>
             <span class="chip">${ic('userplus',13)} ${esc(userName(p.caregiverId).replace(/^Demo - /,''))}</span>
@@ -781,12 +781,16 @@ function renderPatient(user, params){
     : '';
 
   const list = repo.patientList(user,{}).map(x=>({id:x.id,label:x.name}));
-  return `<div class="spread" style="margin-bottom:12px;flex-wrap:wrap;gap:8px"><button class="btn btn-xs btn-ghost" data-act="go" data-v="patients">${ic("back",12)} Patient register</button>${PAGER.record(list,p.id,'patient','id',`data-tab="${esc(tab)}"`,'Patient')}</div>`+header+body+PAGER.tabs(tabs,tab,'patient-tab',`data-id="${p.id}"`);
+  return `<div class="spread" style="margin-bottom:12px;flex-wrap:wrap;gap:8px"><button class="btn btn-xs btn-ghost" data-act="go" data-v="patients">${ic("back",12)} Patient register</button>${PAGER.record(list,p.id,'patient','id',`data-tab="${esc(tab)}"`,'Patient')}</div>`+header+`<section id="patient-section-content" aria-label="${esc((tabs.find(([k])=>k===tab)||['','Patient'])[1])} section">${body}</section>`+PAGER.tabs(tabs,tab,'patient-tab',`data-id="${p.id}"`);
 }
 function patientOverview(user,p){
   const days=PAT.days(p), lv=PAT.lastVisit(p), req=PAT.openRequest(p);
   const pVisits = DB.visitsFor ? DB.visitsFor(p.id) : DB.db.visits.filter(v=>v.patientId===p.id);
   const milestone = days>=180?'180+':days>=120?'120+':days>=100?'100+':days>=60?'60+':'Under 60';
+  const gps=p.gps;
+  const hasGps=gps && gps.lat!=null && gps.lat!=='' && gps.lon!=null && gps.lon!=='' && Number.isFinite(Number(gps.lat)) && Number.isFinite(Number(gps.lon));
+  const accuracy=gps && gps.accuracyM!=null && gps.accuracyM!=='' && Number.isFinite(Number(gps.accuracyM)) && Number(gps.accuracyM)>=0 ? ` (±${esc(gps.accuracyM)}m)` : '';
+  const gpsLabel=hasGps?`${Number(gps.lat).toFixed(5)}, ${Number(gps.lon).toFixed(5)}${accuracy}`:'Not shared';
   return `<div class="grid g4" style="margin-bottom:16px">
       ${kpi('Days in programme', days, `Milestone band ${milestone}`,'',"clock")}
       ${kpi('Visits recorded', pVisits.length, lv?`Last ${fmtDate(lv.date)}`:'-','info','activity')}
@@ -794,16 +798,16 @@ function patientOverview(user,p){
       ${kpi('Hospital request', req?titleCase(req.status):'None', req?req.no:'No open request', req?'warn':'','hospital')}
     </div>
     <div class="grid g2">
-      ${card('Beneficiary Enrolment, Anthropometry & Geolocation Metadata', `<dl class="dl">
+      ${card('Beneficiary Enrolment, Anthropometry & Geolocation Metadata', `<dl class="dl patient-metadata">
         <dt>Beneficiary code</dt><dd class="mono">${esc(p.code)}</dd>
         <dt>National ID / Birth Cert</dt><dd class="mono">${esc(p.nationalId||'-')}</dd>
-        <dt>Verified telephone</dt><dd class="mono"><b>${esc(p.phone||'-')}</b></dd>
+        <dt>Telephone</dt><dd class="mono"><b>${esc(p.phone||'-')}</b></dd>
         <dt>SHA / Health cover</dt><dd class="mono">${esc(p.sha||'-')}</dd>
-        <dt>Weight · Height · BMI · MUAC</dt><dd class="mono"><b>${p.clinical?.weightKg||'-'} kg</b> · <b>${p.clinical?.heightCm||'-'} cm</b> · BMI <b>${p.clinical?.bmi||'-'}</b>${p.clinical?.muacCm?` · MUAC <b>${p.clinical.muacCm} cm</b>`:''}</dd>
+        <dt>Weight · Height · BMI · MUAC</dt><dd class="mono"><b>${esc(p.clinical?.weightKg??'-')} kg</b> · <b>${esc(p.clinical?.heightCm??'-')} cm</b> · BMI <b>${esc(p.clinical?.bmi??'-')}</b>${p.clinical?.muacCm!=null?` · MUAC <b>${esc(p.clinical.muacCm)} cm</b>`:''}</dd>
         <dt>Ministry area &amp; county</dt><dd>${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))}</dd>
         <dt>Village &amp; ward</dt><dd>${esc(p.location?.village||p.village||'-')}${p.location?.ward?' · '+esc(p.location.ward):''}</dd>
-        <dt>Field landmark</dt><dd>${esc(p.location?.landmark||'Recorded on household intake sheet')}</dd>
-        <dt>Household GPS coordinates</dt><dd class="mono">${p.gps?`${(+p.gps.lat).toFixed(5)}, ${(+p.gps.lon).toFixed(5)} (±${p.gps.accuracyM||8}m)`:'Not shared'}</dd>
+        <dt>Field landmark</dt><dd>${esc(p.location?.landmark||'Not recorded')}</dd>
+        <dt>Household GPS coordinates</dt><dd class="mono">${gpsLabel}</dd>
         <dt>Intake date</dt><dd>${fmtDate(p.intake)}</dd>
         <dt>Referral facility</dt><dd>${esc(DB.db.referralEntities.find(e=>e.id===p.referralEntityId)?.name||'Not recorded')}</dd>
         <dt>Assigned caregiver</dt><dd>${esc(userName(p.caregiverId).replace(/^Demo - /,''))}</dd>
@@ -811,7 +815,7 @@ function patientOverview(user,p){
         <dt>Informed consent</dt><dd>${badge(titleCase(p.consent?.status||'not requested'), p.consent?.status==='granted'?'b-ok':'b-warn')}</dd>
         ${masterRegistryRows(p)}
       </dl>`,
-        {foot:'<span>100% beneficiary metadata completeness: verified identity, telephone, anthropometry, household GPS coordinates and Administration master workbook columns.</span>'})}
+        {cls:'patient-metadata-card', foot:'<span>Values reflect the current record. Missing fields are shown as not recorded; this display does not certify completeness or verification.</span>'})}
       ${card('Discharge readiness', `<div class="row" style="gap:10px;margin-bottom:12px">${badge(milestone+' day band', days>=180?'b-crit':days>=120?'b-warn':'b-neutral','nodot')}</div>
         <p class="small muted">${days>=180?'This patient has passed 180 days. An approved discharge evaluation with supporting evidence is required - duration alone does not discharge a patient.' : days>=120?'Extension review required. Record the documented reason for continued enrolment.' : 'Within the planned programme duration.'}</p>
         ${p.dischargeRecommendation?`<div class="alert info" style="margin-top:10px">${ic('info',17)}<div><b>Recommendation on file</b><span class="small">${esc(p.dischargeRecommendation.reason||'')} - ${esc(userName(p.dischargeRecommendation.by))}, ${fmtDate(p.dischargeRecommendation.at)}</span></div></div>`:''}

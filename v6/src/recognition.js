@@ -29,11 +29,11 @@ const PERKS = [
 ];
 
 const BADGE_DETAIL = {
-  Platinum:{ tone:'ok', blurb:'Above 90%: the console is complete and current. Coins at the highest rate; early access to new modules.' },
-  Gold:    { tone:'warn', blurb:'75-89%: strong use. Full library borrowing rights and priority on equipment.' },
-  Silver:  { tone:'neutral', blurb:'60-74%: working well, with gaps in documentation or follow-up.' },
-  Bronze:  { tone:'neutral', blurb:'40-59%: the console is in use but key records are missing.' },
-  Building:{ tone:'crit', blurb:'Below 40%: the score explains exactly what is missing. No penalty beyond the score itself.' }
+  Platinum:{ tone:'ok', blurb:'90% and above on the current usage indicators; review the evidence before interpreting the score.' },
+  Gold:    { tone:'warn', blurb:'75–89% on the current usage indicators; review the evidence before interpreting the score.' },
+  Silver:  { tone:'neutral', blurb:'60–74% on the current usage indicators.' },
+  Bronze:  { tone:'neutral', blurb:'40–59% on the current usage indicators.' },
+  Building:{ tone:'crit', blurb:'Below 40% on the current usage indicators.' }
 };
 
 const CREDITS = {
@@ -125,10 +125,10 @@ function renderRecognition(user){
       <div class="coins-hero-meta">
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:4px">
           <span class="badge ${band.tone}">${esc(band.name)} Standing</span>
-          <span class="badge b-info nodot">Rank #${myRank || 1} of ${board.length}</span>
+          <span class="badge b-info nodot">${myRank?`Rank #${myRank} of ${board.length}`:'Not in current standings'}</span>
         </div>
         <h3>${esc(user.name.replace(/^Demo - /,''))}</h3>
-        <p class="small muted" style="margin:2px 0 8px">${esc((BADGE_DETAIL[band.name]||{}).blurb||'Verified field & console excellence.')}</p>
+        <p class="small muted" style="margin:2px 0 8px">${esc((BADGE_DETAIL[band.name]||{}).blurb||'Review the available usage indicators and their evidence.')}</p>
         <div class="row" style="gap:10px;flex-wrap:wrap">
           <span class="coins-wallet-pill">${ic('sparkles',14)} <b>${num(bal.balance)}</b> C-DIMS Coins Available</span>
           <span class="xs muted">Earned <b>${num(bal.awarded)}</b> · Redeemed <b>${num(bal.spent)}</b> · <b>${affordableCount}/${PERKS.length}</b> perks unlocked</span>
@@ -156,16 +156,16 @@ function renderRecognition(user){
   const formulaCard = card('Transparent 5-Pillar Score Evidence & Monthly Coin Rate', `<div class="grid g2" style="gap:16px;align-items:center">
       <div class="sc-parts">${breakdown}</div>
       <div class="col" style="gap:10px">
-        <div class="note">${ic('shieldcheck',16)}<span><b>100% Evidence-Driven Formula:</b> Every point is computed directly from verified work in CareLink — patient registrations, hard-copy verification, longitudinal visits, national IDs, and 30-day PDCA timeliness.</span></div>
+        <div class="note">${ic('shieldcheck',16)}<span><b>How the current score is calculated:</b> It uses caregiver-assigned or county patient counts and documentation flags, visits attributed to the user, identity entries and open PDCAs owned by the user. It does not independently verify accuracy, timeliness, effectiveness or efficiency. Scores may reflect different workloads and the records available to this account; review the evidence before comparing people or making employment decisions.</span></div>
         ${bal.events.length ? table([
           {label:'Date', render:e=>`<span class="xs mono">${esc((e.at||'').replace('T',' ').slice(0,16))}</span>`},
           {label:'Recognition Event', render:e=>esc(e.reason)},
           {label:'Coins', cls:'num mono', render:e=>`<b style="color:${e.delta>0?'var(--ok)':'var(--crit)'}">${e.delta>0?'+':''}${e.delta}</b>`}
         ], bal.events.slice(0,6)) : `<div class="xs muted">Monthly coin closures &amp; reward redemptions appear here automatically.</div>`}
       </div>
-    </div>`, {sub:'Identical objective formula across every county office and role.'});
+    </div>`, {sub:'The same formula is used for different roles, but the available records and workloads may differ.'});
 
-  const leaderboardCard = card('Laureate Podium & Verified Staff Standings', (()=>{
+  const leaderboardCard = card('Laureate Podium & Staff Standings', (()=>{
       const top3 = board.slice(0,3);
       const podiumOrder = top3.length>=3 ? [top3[1], top3[0], top3[2]] : top3;
       const medalMeta = rank => rank===1
@@ -194,7 +194,7 @@ function renderRecognition(user){
           </div>`;
         }).join('')}
       </div>` : '';
-      return podiumHtml + `<div class="lb" style="margin-top:14px">
+      return podiumHtml + `<div class="coins-standings" aria-label="Staff standings" style="margin-top:14px">
         ${board.slice(0,12).map((b,i)=>{
           const uCoins = CREDITS.earned(b.u).balance;
           const uBand = scoreBand(b.s.score);
@@ -209,7 +209,7 @@ function renderRecognition(user){
           </div>`;
         }).join('')}
       </div>`;
-    })(), {sub:'Scored objectively from verified system records — refreshed automatically & sealed at monthly close.'});
+    })(), {sub:'Top 12 of the current standings from records available to this account; scores are not a verified measure of staff performance.'});
 
   const perksCard = card('Foundation Rewards & Equipment Perks Catalogue', `<div class="perks perks-grid">
       ${PERKS.map((p,idx)=>{
@@ -250,8 +250,8 @@ function renderRecognition(user){
       }).join('')}
     </div>`, {sub:'C-DIMS Coins unlock supervised Foundation equipment loans & staff recognition perks — never access to patient records.'});
 
-  return pageHead('C-DIMS coins & staff recognition',
-    'Transparent data-completeness recognition, objective 5-pillar scoring, symmetrical standings, and Foundation equipment rewards.',
+  return pageHead('Foundation C-DIMS Coins & staff recognition',
+    'Recognition encourages accurate, timely, effective, efficient and disciplined use of CareLink. The current score is a limited record-based indicator, not a complete performance assessment.',
     `<div class="row" style="gap:8px;flex-wrap:wrap">
       ${RBAC.has(user,'hr.view')||RBAC.has(user,'credit.manage')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="evaluation">${ic('users',14)} Staff Evaluation Matrix</button>`:''}
       ${RBAC.has(user,'credit.manage')?`<button class="btn btn-sm btn-primary" data-act="coins-run">${ic('sparkles',15)} Close Monthly Cycle</button>`:''}

@@ -964,3 +964,70 @@ html .shell .topbar.cbar .tb-os-identity{
 .monday-assessment-group>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;cursor:pointer;background:#f2f8f7;color:#114b47;list-style:none}
 .monday-assessment-group>summary::-webkit-details-marker{display:none}
 .monday-assessment-group>summary:focus-visible{outline:3px solid #bc2444;outline-offset:-3px}
+
+/* Patient identity and metadata remain legible in narrow workspace columns. */
+.patient-identity,.patient-identity-copy{min-width:0;max-width:100%;}
+.patient-identity-copy{flex:1 1 180px;overflow-wrap:anywhere;}
+.patient-identity-name,.patient-identity-chips{flex-wrap:wrap;}
+.patient-identity-name h2{min-width:0;overflow-wrap:anywhere;}
+.patient-identity-chips .chip{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+.patient-metadata-card{container-type:inline-size;min-width:0;}
+.patient-metadata{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+.patient-metadata dt,.patient-metadata dd{min-width:0;white-space:normal;overflow-wrap:anywhere;}
+@container (max-width:480px){
+ .patient-metadata{grid-template-columns:minmax(0,1fr);gap:4px;}
+ .patient-metadata dt{font-weight:700;margin-top:8px;}
+ .patient-metadata dd{text-align:left;margin-bottom:3px;}
+}
+#patient-section-content{min-width:0;scroll-margin-top:16px;}
+#patient-section-content:focus{outline:none;}
+
+/* Matrix rows adapt to their container, not only to the device viewport. */
+.exec-action-matrix{container-type:inline-size;min-width:0;}
+.exec-action-matrix .tbl-wrap{max-width:100%;}
+.exec-action-matrix table.tbl{min-width:0;table-layout:fixed;}
+.exec-action-matrix th,.exec-action-matrix td{white-space:normal;overflow-wrap:anywhere;}
+.exec-action-matrix th:first-child{width:36%;}
+.exec-action-matrix th:nth-child(2){width:20%;}
+.exec-action-matrix th:nth-child(3){width:15%;}
+.exec-action-matrix th:nth-child(4){width:14%;}
+.exec-action-matrix th:last-child{width:15%;}
+.exec-action-matrix .badge,.exec-action-matrix .btn{max-width:100%;white-space:normal;}
+@container (max-width:640px){
+ .exec-action-matrix table.tbl{display:block;}
+ .exec-action-matrix table.tbl thead{display:none;}
+ .exec-action-matrix table.tbl tbody{display:block;}
+ .exec-action-matrix table.tbl tbody tr{display:block;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;padding:4px 2px;background:var(--surface);}
+ .exec-action-matrix table.tbl td{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 12px;border:0;text-align:right;}
+ .exec-action-matrix table.tbl td::before{content:attr(data-label);flex:0 0 38%;text-align:left;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+ .exec-action-matrix table.tbl td:empty{display:none;}
+ .exec-action-matrix table.tbl td.act{justify-content:flex-end;}
+ .exec-action-matrix table.tbl td.act::before{content:"";}
+}
+
+/* Recognition is a readable list; score interpretation is explained in text. */
+.coins-hero-crest .muted{color:#DCE9F3 !important;}
+.coins-hero-crest h3,.coins-hero-crest .coins-wallet-pill{color:#F8FAFC;}
+.coins-standings{display:grid;gap:10px;container-type:inline-size;min-width:0;}
+.coins-standings .lb-row{display:grid;grid-template-columns:38px 36px minmax(110px,1fr) minmax(70px,180px) auto auto auto;align-items:center;gap:10px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);}
+.coins-standings .lb-row.lb-me{background:color-mix(in srgb,var(--accent) 9%,var(--surface));border-color:var(--accent);}
+.coins-standings .lb-id{display:flex;flex-direction:column;min-width:0;gap:3px;overflow-wrap:anywhere;}
+.coins-standings .lb-id span{font-size:11.5px;color:var(--muted);}
+.coins-standings .lb-rank{font-weight:800;color:var(--accent-fg,var(--ink));text-align:center;}
+.coins-standings .lb-bar{height:7px;overflow:hidden;border-radius:999px;background:var(--surface-2);}
+.coins-standings .lb-bar>span{display:block;height:100%;background:var(--accent);border-radius:inherit;}
+.coins-standings .lb-pct{white-space:nowrap;}
+@container (max-width:600px){
+ .coins-standings .lb-row{grid-template-columns:32px 36px minmax(0,1fr) auto;gap:8px;}
+ .coins-standings .lb-bar{grid-column:3/4;grid-row:2;}
+ .coins-standings .lb-pct{grid-column:4;grid-row:2;}
+ .coins-standings .lb-row>.badge{grid-column:3;grid-row:3;justify-self:start;}
+ .coins-standings .lb-coin-pill{grid-column:4;grid-row:3;justify-self:end;}
+}
+.patient-record-header .card-b>.spread>.row{min-width:0;max-width:100%;}
+.patient-record-header .card-b .btn{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+.patient-metadata .badge{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+#patient-section-content{container-type:inline-size;}
+@container (max-width:600px){
+ #patient-section-content>.grid.g2,#patient-section-content>.grid.g4{grid-template-columns:minmax(0,1fr);}
+}
