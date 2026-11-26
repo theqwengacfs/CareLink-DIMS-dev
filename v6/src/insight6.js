@@ -6,12 +6,11 @@
 
      1. The data-quality engine. Every finding is computed live from
         the record it refers to - nothing is a stored opinion. A
-        finding is either BLOCKING (the record may not leave the
-        system for a report until it is corrected) or a WARNING or
-        an ADVISORY note. Warnings and advisories may be waived, by
-        someone holding dq.manage, with a written reason, for ninety
-        days; blocking findings may not be waived - they are
-        corrected in the record itself.
+        finding is either BLOCKING, WARNING or ADVISORY. These are
+        review priorities, not an enforced export gate. Device-only
+        waivers are local; hosted waivers are suspended until scoped,
+        server-owned decisions are available. Existing records remain
+        retained on the server.
 
      2. The visit-order learner. It reads the field days the team has
         actually entered and learns the sequence in which each
@@ -30,7 +29,7 @@ const DQ6 = {
 
   LEVELS: {
     block:{ label:'Blocking', cls:'b-crit', rank:0,
-      meaning:'Must be corrected in the record. It is not waivable, and the affected record is not certified for reporting.' },
+      meaning:'Must be reviewed and corrected in the record. This scanner does not itself block exports or certify reports.' },
     warn:{ label:'Warning',  cls:'b-warn', rank:1,
       meaning:'Should be corrected. It may be waived for a stated period with a written reason.' },
     info:{ label:'Advisory', cls:'b-neutral', rank:2,
@@ -38,6 +37,9 @@ const DQ6 = {
   },
 
   ensure(){ DB.db.dqIssues = DB.db.dqIssues || []; return DB.db.dqIssues; },
+  // Hosted waivers are suspended until server-owned scoped decisions exist.
+  // Do not treat device-only override as authority to make clinical decisions.
+  hosted(){ return typeof location!=='undefined' && /^https?:$/.test(String(location.protocol||'')); },
 
   /* Every finding carries a key built from the rule and the record it
      concerns, so a waiver survives the next scan. */
@@ -46,7 +48,6 @@ const DQ6 = {
     const push = (level, rule, text, entity, entityId, extra={}) =>
       out.push({ key:rule+':'+entityId, level, rule, text, entity, entityId, ...extra });
     const ps = (typeof repo!=='undefined' && repo.patientList) ? repo.patientList(user) : [];
-    const allowed = (typeof PROGRAM_DURATION_DEFAULT!=='undefined') ? PROGRAM_DURATION_DEFAULT : [];
     const cccSeen = {}, natSeen = {};
 
     ps.forEach(p=>{
@@ -55,11 +56,10 @@ const DQ6 = {
         push('block','dates-inverted',`${p.code} is discharged before the intake date`,'patient',p.id);
       if(!p.caregiverId) push('warn','no-caregiver',`${p.code} has no caregiver assigned`,'patient',p.id);
       if(!p.phone) push('warn','no-contact',`${p.code} has no contact number`,'patient',p.id);
-      if(p.plannedDays && allowed.length && !allowed.includes(+p.plannedDays))
-        push('warn','duration-unlisted',`${p.code} is enrolled for ${p.plannedDays} days, which is not a configured programme duration`,'patient',p.id);
-      if(p.programDays && +p.programDays > 330)
-        push('warn','duration-outlier',`${p.code} has accumulated ${p.programDays} programme days, beyond the 330-day ceiling`,'patient',p.id);
-      if(!p.docsVerified) push('info','docs-unverified',`${p.code} source documents are not yet verified`,'patient',p.id);
+      // Configured milestones are not a patient-specific duration decision or
+      // a clinical ceiling. Do not flag a valid stay merely for exceeding a
+      // milestone; individual MCM-confirmed durations remain unimplemented.
+      if(p.docsVerified!==true) push('info','docs-unverified',`${p.code} has no recorded source-document verification attestation`,'patient',p.id);
       const ccc = String(p.ccc||'').trim();
       if(ccc){ if(cccSeen[ccc]) push('block','duplicate-ccc',`CCC number ${ccc} is held by ${cccSeen[ccc]} and ${p.code} - PMI review required`,'patient',p.id);
                else cccSeen[ccc] = p.code; }
@@ -87,7 +87,7 @@ const DQ6 = {
       const role = (typeof roleObj==='function' ? roleObj(user.roleId) : null) || { scope:{} };
       const global = (role.scope||{}).geo === 'global' || (role.scope||{}).crossCounty;
       (DB.db.transactions||[]).filter(t=>global || t.countyId===user.countyId)
-        .forEach(t=>{ if(!t.receipt) push('warn','receipt-missing',`${t.no||t.id} has no receipt on file`,'transaction',t.id); });
+        .forEach(t=>{ if(t.receipt!==true) push('warn','receipt-missing',`${t.no||t.id} has no recorded receipt attestation; supporting evidence requires independent review`,'transaction',t.id); });
     }
 
     out.push(...this.crossAccountFindings(user));
@@ -132,6 +132,7 @@ const DQ6 = {
   },
 
   waiverFor(key){
+    if(this.hosted()) return null;
     const w = this.ensure().find(x=>x.key===key && x.status==='waived');
     if(!w) return null;
     return (w.until && new Date(w.until) < new Date()) ? null : w;
@@ -149,6 +150,7 @@ const DQ6 = {
   },
 
   waive(user, key, reason, days){
+    if(this.hosted()) return {ok:false,error:'Shared-system waivers are unavailable until server-authorized, scoped decisions are implemented. Existing records remain retained.'};
     if(!RBAC.has(user,'dq.manage')) return { ok:false, error:'Your role may read data-quality findings but not waive them (dq.manage is required).' };
     const text = String(reason||'').trim();
     if(text.length < 12) return { ok:false, error:'Give a reason of at least twelve characters. A waiver without a reason is not a decision.' };
@@ -167,6 +169,7 @@ const DQ6 = {
   },
 
   reopen(user, id){
+    if(this.hosted()) return {ok:false,error:'Shared-system waivers are unavailable until server-authorized, scoped decisions are implemented. Existing records remain retained.'};
     if(!RBAC.has(user,'dq.manage')) return { ok:false, error:'Your role may not reopen a finding.' };
     const w = this.ensure().find(x=>x.id===id);
     if(!w) return { ok:false, error:'That waiver no longer exists.' };
@@ -180,7 +183,7 @@ const DQ6 = {
   csv(user){
     const rows = [['Level','Finding','Rule','Record','Waived until','Reason','Category','Accounts','Source record IDs']];
     this.open(user).forEach(i=>rows.push([this.LEVELS[i.level].label, i.text, i.rule, i.entityId, '', '',i.category||'',(i.accounts||[]).join(' / '),(i.sourceIds||[]).join(' / ')]));
-    this.ensure().filter(w=>w.status==='waived').forEach(w=>rows.push(['Waived', w.text, w.rule, w.entityId, w.until, w.reason,'','','']));
+    if(!this.hosted()) this.ensure().filter(w=>w.status==='waived').forEach(w=>rows.push(['Waived', w.text, w.rule, w.entityId, w.until, w.reason,'','','']));
     return rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');
   }
 };
@@ -195,7 +198,7 @@ function renderDataQuality(user){
   const all = DQ6.scan(user);
   const cross=all.filter(i=>i.accounts);
   const c = DQ6.counts(all);
-  const waived = DQ6.ensure().filter(w=>w.status==='waived');
+  const waived = DQ6.hosted()?[]:DQ6.ensure().filter(w=>w.status==='waived');
   const active = waived.filter(w=>!w.until || new Date(w.until) >= new Date());
   const waiverBy = new Map(waived.filter(w=>!w.until || new Date(w.until) >= new Date()).map(w=>[w.key, w]));
   const open = all.filter(i=>!waiverBy.has(i.key));
@@ -206,12 +209,12 @@ function renderDataQuality(user){
   const rows = rule ? byTab.filter(i=>i.rule===rule) : byTab;
   const pages = Math.max(1, Math.ceil(rows.length/per));
   const slice = rows.slice((page-1)*per, page*per);
-  const canWaive = RBAC.has(user,'dq.manage');
+  const canWaive = !DQ6.hosted() && RBAC.has(user,'dq.manage');
   const tabBtn = (id,label,count)=>`<button class="btn btn-sm ${tab===id?'btn-primary':'btn-ghost'}" data-act="dq-tab" data-tab="${id}">${label}${count!==undefined?` <b>${num(count)}</b>`:''}</button>`;
   const ruleBtn = r => `<button class="btn btn-xs ${rule===r?'btn-primary':'btn-ghost'}" data-act="dq-rule" data-rule="${esc(r)}">${esc(ruleLabel(r))}</button>`;
 
   return pageHead('Data quality',
-    'Findings are computed from the records each time this page opens, never stored as an opinion. Blocking findings are corrected in the record; warnings and advisories may be waived, with a written reason, for a stated period.',
+    'Findings are computed from the records currently available to this account. Review and correct the source; the scan does not certify completeness or prevent export.',
     `<button class="btn btn-sm btn-ghost" data-act="dq-export">${ic('download',15)} Export CSV</button>`)
   + ((RBAC.has(user,'dq.manage')||RBAC.has(user,'audit.view'))?'<div class="note">Cross-account checks compare available authorised evidence only. No finding does not establish agreement where source links, independent accounts or comparable observations are missing.</div>':'')
   + (cross.length?card('Cross-account reconciliation · review required',
@@ -222,12 +225,11 @@ function renderDataQuality(user){
         {label:'Discrepancy',render:i=>esc(i.text)}],cross)):'')
   + `<div class="grid g4" style="margin-bottom:16px">
       ${kpi('Blocking', num(c.block), 'Must be corrected in the record', c.block?'crit':'ok','alert')}
-      ${kpi('Warnings', num(c.warn), 'Waivable for a stated period', c.warn?'warn':'ok','alert')}
+      ${kpi('Warnings', num(c.warn), DQ6.hosted()?'Review source records':'Local waiver may be recorded', c.warn?'warn':'ok','alert')}
       ${kpi('Advisory', num(c.info), 'For review', '', 'info')}
-      ${kpi('Active waivers', num(active.length), 'Each carries a reason and an end date', '', 'file')}
+      ${kpi('Active waivers', DQ6.hosted()?'Unavailable':num(active.length), DQ6.hosted()?'Retained records are not shown or applied':'Device-only decisions', '', 'file')}
     </div>`
-  + `<div class="note">${ic('info',15)}<span><b>Blocking</b> means the affected record is not certified for a report until it is corrected; the register stays readable.
-      <b>Warning</b> and <b>advisory</b> findings never stop work. A waiver records who accepted the finding, why, and until when  -  after that it returns to this list by itself.</span></div>`
+  + `<div class="note">${ic('info',15)}<span><b>Blocking</b> indicates an important finding needing correction; this scan does not enforce a report or export block. Receipt checkboxes are attestations, not stored or verified evidence. ${DQ6.hosted()?'Shared-system waivers are temporarily unavailable while secure, scoped server decisions are developed. Existing waiver records are retained but not shown or applied.':'Device-only waivers are local and are not shared-system decisions.'}</span></div>`
   + `<div class="row" style="gap:8px;margin:16px 0;flex-wrap:wrap">
       ${tabBtn('all','All findings', open.length)}${tabBtn('block','Blocking', c.block)}${tabBtn('warn','Warnings', c.warn)}${tabBtn('info','Advisory', c.info)}
     </div>`
@@ -246,7 +248,7 @@ function renderDataQuality(user){
           : `<span class="xs muted">${esc(i.entity)}</span>` },
       { label:'Decision', render:i=>{
           if(i.level==='block') return `<span class="xs muted">Correct the record</span>`;
-          return canWaive ? `<button class="btn btn-xs btn-ghost" data-act="dq-waive-form" data-key="${esc(i.key)}">Waive…</button>` : `<span class="xs muted">dq.manage required</span>`;
+          return canWaive ? `<button class="btn btn-xs btn-ghost" data-act="dq-waive-form" data-key="${esc(i.key)}">Waive…</button>` : `<span class="xs muted">${DQ6.hosted()?'Waivers unavailable':'dq.manage required'}</span>`;
         } }
     ], slice, { empty:emptyState('Nothing outstanding','No finding matches this filter. That is a statement about the records, not a blank page.','check') })
     + (pages>1? `<div class="pager">${Array.from({length:Math.min(pages,10)},(_,i)=>`<button class="pg ${page===i+1?'on':''}" data-act="dq-page" data-p="${i+1}">${i+1}</button>`).join('')}<span class="xs muted">${num(rows.length)} findings</span></div>`:''))
@@ -266,14 +268,14 @@ function ruleLabel(rule){
     'dates-inverted':'Discharge before intake',
     'no-caregiver':'No caregiver assigned',
     'no-contact':'No contact number',
-    'duration-unlisted':'Unlisted programme duration',
-    'duration-outlier':'Programme days beyond the ceiling',
-    'docs-unverified':'Source documents unverified',
+    'duration-unlisted':'Legacy duration finding',
+    'duration-outlier':'Legacy duration finding',
+    'docs-unverified':'Source-document attestation not recorded',
     'duplicate-ccc':'Duplicate CCC number',
     'duplicate-national-id':'Duplicate national ID',
     'request-no-report':'Service closed without a report',
     'visit-after-discharge':'Visit after discharge',
-    'receipt-missing':'Receipt missing'
+    'receipt-missing':'Receipt attestation not recorded'
   })[rule] || rule;
 }
 
@@ -478,7 +480,7 @@ Object.assign(ACTIONS, {
   'dq-rule': (d) => go('quality', { tab:(APPX.params||{}).tab||'all', rule:d.rule, page:1 }),
   'dq-page': (d) => go('quality', { ...(APPX.params||{}), page:+d.p }),
   'dq-open': (d) => go('patient', { id:d.id }),
-  'dq-export': () => { download(`data-quality-${todayISO()}.csv`, DQ6.csv(AUTH.user)); toast('Exported','The findings and the waiver register are in the file.','ok'); },
+  'dq-export': () => { download(`data-quality-${todayISO()}.csv`, DQ6.csv(AUTH.user)); toast('Exported',DQ6.hosted()?'Scoped findings exported. Shared-system waivers are not included.':'Scoped findings and local waivers are in the file.','ok'); },
   'dq-waive-form': (d) => {
     const key = d.key;
     const issue = DQ6.open(AUTH.user).find(i=>i.key===key);

@@ -344,6 +344,7 @@ global.fetch = async (input, init = {}) => {
     applyTheme();
   `);
   await tabletA.run('SYNC.push()');
+  assert.equal(tabletA.run('SYNC.heldOutbox()'),0,'first-login placeholder must not create a refused held settings patch');
 
   /* Pulling full state on Tablet A must NOT wipe personalPrefs */
   await tabletA.run('SYNC.pullFull()');

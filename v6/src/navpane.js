@@ -165,7 +165,7 @@ const NAVP = {
     const user = (typeof AUTH!=='undefined' && AUTH.user) ? AUTH.user : null;
     if(!user || !NAVP.enabled(user)) return false;
     const pr = NAVP.prefs(user);
-    if(!pr.autoFold && pr.railExplicit && !pr.rail) return false;
+    if(!pr.autoFold && reason !== 'rail-btn') return false;
     NAVP._tempOpen = false;
     NAVP._workspaceEngaged = true;
     if(typeof APPX!=='undefined' && APPX.navOpen) APPX.navOpen = false;

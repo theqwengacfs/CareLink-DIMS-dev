@@ -130,7 +130,7 @@ function hosted() {
     assert.match(c.requests[1].url,/state\/collection/);assert.equal(c.run('SYNC._pulling'),false);
     assert.equal(c.run('DB.db.patients.length'),1,'a failed partial pull cannot replace the current document');
   });
-  await check('quota-refused saves and edits made during cooldown stay durable without recursive or queued uploads',async()=>{
+  await check('quota-refused saves are retained for review and newer work does not overwrite the queue',async()=>{
     const c=hosted();
     c.run(`DB.db.visits.push({id:'synthetic-visit-1',patientId:'synthetic-p1',notes:'Synthetic held visit'});APPX.dirty=true;`);
     c.ctx.fetch=async(url,init)=>{
@@ -141,20 +141,19 @@ function hosted() {
     await c.run('SYNC.push()');
     assert.equal(c.requests.length,1);assert.equal(c.run('SYNC.heldOutbox()'),1);
     assert.equal(c.run('SYNC.rev'),12);assert.equal(c.run('SYNC._inflight'),false);
-    assert.match(c.run('SYNC.message'),/1 change is held/);
+    assert.match(c.run('SYNC.message'),/1 change is retained for review/);
+    const original=c.ctx.localStorage.getItem('carelink.sync.outbox');
     c.run(`DB.db.visits.push({id:'synthetic-visit-2',patientId:'synthetic-p1',notes:'Synthetic second visit'});SYNC.queue();`);
+    assert.match(c.run('SYNC.message'),/newer changes are not safely stored/i);
     await c.run('SYNC.push()');assert.equal(await c.run('SYNC.attemptOutbox()'),false);
-    assert.equal(c.requests.length,1);assert.equal(c.run('SYNC.heldOutbox()'),2);
+    assert.equal(c.requests.length,1);assert.equal(c.run('SYNC.heldOutbox()'),1);
+    assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),original);
     assert.equal(c.run('SYNC.sessionToken'),'synthetic-session');
     const reloaded=hosted();
-    reloaded.ctx.localStorage.setItem('carelink.sync.outbox',c.ctx.localStorage.getItem('carelink.sync.outbox'));
-    reloaded.ctx.fetch=async(url,init)=>{
-      reloaded.requests.push({url,init});return answer({ok:true,rev:13});
-    };
-    assert.equal(await reloaded.run('SYNC.attemptOutbox()'),true);
-    const sent=JSON.parse(reloaded.requests[0].init.body);
-    assert.equal(sent.patches.length,2);assert.equal(sent.patches[0].set.notes,'Synthetic held visit');
-    assert.equal(reloaded.run('SYNC.heldOutbox()'),0);
+    reloaded.ctx.localStorage.setItem('carelink.sync.outbox',original);
+    reloaded.ctx.fetch=async(url,init)=>{reloaded.requests.push({url,init});return answer({ok:true,rev:13,appliedCount:1,rejected:[]});};
+    assert.equal(await reloaded.run('SYNC.attemptOutbox()'),false);
+    assert.equal(reloaded.requests.length,0);assert.equal(reloaded.run('SYNC.heldOutbox()'),1);
   });
   await check('an explicit KV retry can probe recovery; cooldown expiry alone never claims the provider quota reset',async()=>{
     const c=hosted();
@@ -169,6 +168,19 @@ function hosted() {
     assert.equal(c.requests.length,4,'one explicit diagnostic plus one verified health read');
     assert.equal(c.run('SYNC.kvBlocked()'),false);
     assert.match(c.run('LOGIN6.notice'),/online and healthy/);
+  });
+  await check('entry diagnostic excludes delayed background startup and duplicate clicks',async()=>{
+    const c=hosted();c.run(`AUTH.user=null;SYNC.storeToken(null);APPX.host=null;APPX.screen='login';`);
+    let resolve;c.ctx.fetch=(url,init)=>{c.requests.push({url,init});return new Promise(r=>{resolve=r;});};
+    const retry=c.run(`ACTIONS['login-retry-kv']()`);await c.run(`ACTIONS['login-retry-kv']()`);await c.run('SYNC.start()');
+    assert.equal(c.requests.length,1);assert.match(c.requests[0].url,/kv-diagnostics/);
+    resolve(answer(quota,503));await retry;assert.equal(c.run('SYNC._entryRetryInProgress'),false);assert.match(c.run('LOGIN6.error'),/bandwidth quota/);
+  });
+  await check('delayed startup cannot load a workspace during a first-password gate',async()=>{
+    const c=hosted();let resolve;c.ctx.fetch=(url,init)=>{c.requests.push({url,init});return new Promise(r=>{resolve=r;});};
+    const starting=c.run('SYNC.start()');c.run('SYNC._passwordBeforeWorkspace=true');resolve(answer({ok:true,setup:true,rev:12}));await starting;
+    assert.equal(c.requests.length,1);assert.equal(await c.run('SYNC.pullFull()'),false);await c.run('SYNC.start()');
+    assert.equal(c.requests.length,1);assert.equal(c.run('Boolean(SYNC._pulling)'),false);
   });
   await check('heartbeats keep local call reconciliation but send no idle/hidden renewals and at most one active renewal per minute',async()=>{
     const c=hosted();c.ctx.__beats=0;c.ctx.__calls=0;

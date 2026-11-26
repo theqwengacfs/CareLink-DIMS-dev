@@ -82,17 +82,20 @@ const CARE_RULES = (()=>{
   ]);
   const FIELDS=SECTIONS.flatMap(s=>s.fields);
   const cleanFields = input => Object.fromEntries(FIELDS.map(([k])=>[k,String(input?.[k]??'').trim()]));
-  const validateFields = (fields,{draft=false}={}) => {
+  const EXTENSION_FIELDS=Object.freeze(['clinicalReasons','labsStatus','recoveryNeeds','externalDelays']);
+  // Default to the stricter extended policy when the caller has not supplied
+  // an authoritative programme day. Stored older fields are never discarded.
+  const validateFields = (fields,{draft=false,policyDays=120}={}) => {
     for(const [key,label,type,required] of FIELDS){
       const v=fields[key];
       if(v?.length>4000)return `${label} exceeds 4,000 characters. Keep the original form open, shorten this field or record a separate evaluation; nothing has been saved or silently truncated.`;
       if(draft)continue;
-      if(required && !v) return `${label} is required; record not assessed / not applicable explicitly where appropriate.`;
+      if(required && !(Number(policyDays)<120 && EXTENSION_FIELDS.includes(key)) && !v) return `${label} is required; record not assessed / not applicable explicitly where appropriate.`;
       if(v && type==='date' && date(v)!==v) return `${label} needs a valid calendar date.`;
       if(v && type==='number' && (!Number.isFinite(Number(v)) || Number(v)<0)) return `${label} needs a non-negative number.`;
     }
     return '';
   };
-  return {REVIEW_DAYS,SECTIONS,FIELDS,date,programDate,addDays,anniversary,cycleId,cycleStart,days,lastDischarge,supported,classify,recordCycle,openReviewCount,supportedAdmission,reportDays,mcmPrepares,cleanFields,validateFields};
+  return {REVIEW_DAYS,SECTIONS,FIELDS,EXTENSION_FIELDS,date,programDate,addDays,anniversary,cycleId,cycleStart,days,lastDischarge,supported,classify,recordCycle,openReviewCount,supportedAdmission,reportDays,mcmPrepares,cleanFields,validateFields};
 })();
 if(typeof module!=='undefined' && module.exports) module.exports=CARE_RULES;

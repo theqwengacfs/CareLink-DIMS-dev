@@ -102,6 +102,20 @@ check('a blank stays blank, required clinical content cannot be auto-invented at
  denied(db,users.cg,'save_review',{id:r.id,version:r.version,fields:{plan:overlong}});
  assert.equal(db.careReviews[0].fields.plan,'');assert.equal(db.careReviewRevisions.length,1,'oversize save creates no partial / truncated revision');
 });
+check('normal reports do not require extended-stay reasons, but 120+ reports do',()=>{
+ const fields=complete();for(const key of R.EXTENSION_FIELDS)fields[key]='';
+ assert.equal(R.validateFields(fields,{policyDays:119}),'');
+ assert.match(R.validateFields(fields,{policyDays:120}),/Continued-care clinical reasons/);
+ assert.match(R.validateFields(fields,{policyDays:180}),/Continued-care clinical reasons/);
+ assert.match(R.validateFields({...fields,estimatedDischargeDate:''},{policyDays:119}),/Estimated discharge date/);
+ const db=fixture();let short=good(db,users.cg,'create_review',{patientId:'short',evaluatedAt:now,fields});
+ short=good(db,users.cg,'submit_review',{id:short.id,version:short.version});assert.equal(short.status,'submitted');
+ const long=good(db,users.cg,'create_review',{patientId:'long',evaluatedAt:now,fields});
+ denied(db,users.cg,'submit_review',{id:long.id,version:long.version});
+ const advancing=fixture();let draft=good(advancing,users.cg,'create_review',{patientId:'short',evaluatedAt:now,fields});
+ const before=JSON.stringify(advancing);const res=act(advancing,users.cg,'submit_review',{id:draft.id,version:draft.version},'2028-09-28T12:34:00.000Z');
+ assert.equal(res.ok,false);assert.match(res.msg,/Continued-care clinical reasons/);assert.equal(JSON.stringify(advancing),before);
+});
 check('under120 scheduling / Beneficiary Archive require MCM review first, retain all revisions',()=>{
  const db=fixture();let r=good(db,users.cg,'create_review',{patientId:'short',evaluatedAt:now,fields:complete()});
  denied(db,users.cg,'schedule_review',{id:r.id,version:r.version,nextReviewAt:'2028-07-30T10:00:00Z'},'pdca_mcm_review_required');

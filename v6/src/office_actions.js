@@ -390,7 +390,7 @@ const FORMS_ACTIONS = {
   'widget-reset':()=>{ DASH.reset(AUTH.user); closeModal(true); toast('Arrangement restored','The default order is back.','ok'); render(); },
 
   /* ---------------- exports ---------------- */
-  'export-report-docx':(d)=>reportExport(DOCEXPORT.report(AUTH.user,{type:d.type,countyId:d.countyId,date:d.date})),
+  'export-report-docx':(d)=>reportExport(DOCEXPORT.report(AUTH.user,{id:d.id,type:d.type,countyId:d.countyId,date:d.date})),
   'export-patients-xlsx':()=>reportExport(DOCEXPORT.patients(AUTH.user)),
   'export-registry-xlsx':()=>reportExport(DOCEXPORT.registry(AUTH.user)),
   'download-leave-week':()=>reportExport(DOCEXPORT.leaveWeek(AUTH.user)),
@@ -484,14 +484,14 @@ const PRINT_CONTROL = {
   open(source='workspace'){
     const active=typeof modalStack!=='undefined'&&modalStack[modalStack.length-1];
     const visible=source==='document'&&active&&(active.querySelector('.print-area')||active.querySelector('.modal-b'));
-    const documentReady=Boolean(visible&&visible.innerHTML);
-    if(documentReady){
-      let host=document.getElementById('printRoot');
-      if(!host){host=document.createElement('div');host.id='printRoot';host.className='print-root';document.body.appendChild(host);}
-      host.innerHTML=visible.innerHTML;
-    }
+    const report=source==='workspace'&&document.querySelector('#content .report-doc');
+    // A missing document must never silently print a different workspace.
+    if(source==='document'&&!(visible&&visible.innerHTML))return toast('Nothing to print','Open the document preview first.','warn');
+    if(source==='workspace'&&typeof APPX!=='undefined'&&APPX.view==='report'&&!report)return toast('Report not available','Open an authorized report before printing.','warn');
+    const documentReady=Boolean((visible&&visible.innerHTML)||report);
     this.source=documentReady?'document':'workspace';
-    openModal({title:'Print centre',sub:documentReady?'Selected document':'Current workspace',narrow:true,stack:true,
+    this.printDocument=visible||report||null;
+    openModal({title:'Print centre',sub:report?'Report only':documentReady?'Selected document':'Current workspace',narrow:true,stack:true,
       body:`<form data-form="print-settings" id="print-settings">
         <div class="field"><label for="print-orientation">Page orientation</label><select class="input" id="print-orientation" name="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape · wide tables</option></select></div>
         <div class="field"><label for="print-size">Paper size</label><select class="input" id="print-size" name="size"><option>A4</option><option>Letter</option></select></div>
@@ -505,19 +505,34 @@ const PRINT_CONTROL = {
     let style=document.getElementById('carelink-print-settings');
     if(!style){style=document.createElement('style');style.id='carelink-print-settings';document.head.appendChild(style);}
     style.textContent=`@page { size:${size} ${orientation}; margin:12mm; }`;
-    const printTarget=this.source==='document'?document.getElementById('printRoot'):document.getElementById('content');
+    let printTarget;
+    if(this.source==='document'){
+      if(!this.printDocument||!this.printDocument.isConnected)return toast('Document no longer available','Reopen the report or document before printing.','warn');
+      printTarget=document.getElementById('printRoot');
+      if(!printTarget){printTarget=document.createElement('div');printTarget.id='printRoot';printTarget.className='print-root';document.body.appendChild(printTarget);}
+      const copy=this.printDocument.cloneNode(true);
+      // Closed chart tables and other document details carry real source data;
+      // expand them only in the print copy, never change the on-screen preview.
+      copy.querySelectorAll('details').forEach(detail=>{detail.open=true;});
+      printTarget.replaceChildren(copy);
+    }else printTarget=document.getElementById('content');
     if(printTarget?.insertAdjacentHTML){
       const prior=printTarget.querySelector('[data-report-provenance="Print requested"]');if(prior)prior.remove();
       printTarget.insertAdjacentHTML('afterbegin',reportProvenanceHTML(reportProvenance(),'Print requested'));
     }
     const mode=this.source==='document'?'print-mode':'print-workspace';
     document.body.classList.add(mode);
-    const clean=()=>{document.body.classList.remove(mode);if(printTarget?.insertAdjacentHTML){const stamp=printTarget.querySelector('[data-report-provenance="Print requested"]');if(stamp)stamp.remove();}};
+    const clean=()=>{
+      window.removeEventListener('afterprint',clean);window.removeEventListener('focus',clean);
+      document.body.classList.remove(mode);
+      if(printTarget?.insertAdjacentHTML){const stamp=printTarget.querySelector('[data-report-provenance="Print requested"]');if(stamp)stamp.remove();}
+      if(mode==='print-mode'&&printTarget?.replaceChildren)printTarget.replaceChildren();
+    };
     window.addEventListener('afterprint',clean,{once:true});
-    try{window.print();}catch(error){clean();toast('Print dialog unavailable','Open CareLink directly in a browser tab and use its Print menu.','warn');}
     // Some mobile print services do not emit afterprint. Restore screen state
     // on return to the tab, not a timer that may fire while preview is open.
     window.addEventListener('focus',clean,{once:true});
+    try{window.print();}catch(error){clean();toast('Print dialog unavailable','Open CareLink directly in a browser tab and use its Print menu.','warn');}
   }
 };
 Object.assign(FORMS_ACTIONS,{

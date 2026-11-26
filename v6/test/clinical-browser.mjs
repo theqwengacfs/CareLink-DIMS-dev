@@ -1,11 +1,13 @@
 /* Optional real-Chromium end-to-end clinical UI + print regression.
-   npm install --no-save --package-lock=false playwright-core @sparticuz/chromium
+   Requires playwright-core, Chromium and Python pymupdf (set PDF_PYTHONPATH
+   when installed outside the Python environment).
    All API/KV data and identities are synthetic and isolated. No production IO. */
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {execFileSync} from 'node:child_process';
 import {chromium} from 'playwright-core';
 import {clinicalFixture} from './clinical-api-fixture.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),f=await clinicalFixture();
@@ -53,7 +55,11 @@ try{
  }
  async function newReview(patientId,dueDay){
   await cg.evaluate(({patientId,dueDay})=>{closeAllModals();ACTIONS['care-review-new']({patient:patientId,day:String(dueDay)});},{patientId,dueDay});await cg.locator('#careEditorForm').waitFor();
-  for(const [key,value] of Object.entries(f.fields))await cg.locator(`#careEditorForm [name="${key}"]`).fill(value);
+  for(const [key,value] of Object.entries(f.fields)){
+   const input=cg.locator(`#careEditorForm [name="${key}"]`);
+   if(await input.getAttribute('type')==='hidden')continue;
+   await input.fill(value);
+  }
   const response=cg.waitForResponse(r=>r.url().endsWith('/api/care/command')&&r.request().method()==='POST');await cg.locator('[data-act="care-review-save"]').click();let r;
   try{r=await response;}catch(error){console.error('Synthetic command preflight diagnostic',await cg.evaluate(()=>({text:document.body.innerText.slice(-1700),patches:JSON.stringify(SYNC.patches().map(p=>p.c==='settings'?{c:p.c,set:Object.fromEntries(Object.entries(p.set.value).filter(([k,v])=>JSON.stringify(v)!==JSON.stringify(JSON.parse(SYNC._shadow.__settings.settings)[k])))}:p)),dirty:APPX.dirty,busy:SYNC._clinicalBusy,pulling:SYNC._pulling,ticking:SYNC._ticking,message:SYNC.message})));throw error;}
   assert.equal(r.status(),200,await r.text());const body=await r.json();await cg.locator('#careEditorForm').waitFor({state:'detached'});return body.rec.id;
@@ -92,6 +98,21 @@ try{
  const returned=f.state().db.patients.find(p=>p.id==='return');assert.equal(returned.status,'active');assert.equal(f.state().db.patients.length,patientCount);assert.equal(f.state().db.careCycles.filter(c=>c.patientId==='return').length,2);
  assert.notEqual(f.state().db.visits.find(v=>v.id==='fx-old-visit').cycleId,returned.careCycleId);assert.equal(f.state().db.careEvidence.find(e=>e.referralId===referral.id).verifiedBy,'fx-mcm');
  await refresh(cg);
+ const fileReply=cg.waitForResponse(r=>r.url().endsWith('/api/care/cycle-file')&&r.request().method()==='POST');
+ await cg.evaluate(()=>ACTIONS['care-cycle-manifest']({patient:'return'}));
+ assert.equal((await fileReply).status(),200);await cg.locator('.modal').filter({hasText:'Scoped care-cycle source manifest'}).waitFor();
+ assert.match(await cg.locator('.modal').innerText(),/not a complete or immutable archive/i);
+ assert.ok(f.state().cycleFileAccess.some(e=>e.patientId==='return'&&e.actorId==='fx-caregiver'));
+ await cg.evaluate(()=>{
+  closeAllModals();SYNC.rebase();APPX.dirty=false;
+  localStorage.setItem('carelink.sync.outbox',JSON.stringify({username:AUTH.user.username,needsReview:true,patches:[{c:'patients',id:'return',set:{status:'active'}}]}));
+  openSyncModal();
+ });
+ await cg.locator('[data-act="sync-review-held"]').click();await cg.locator('[data-act="sync-check-held"]').click();
+ await cg.locator('.modal').filter({hasText:'Review held work'}).getByText('Matches shared record').waitFor();
+ assert.equal((await cg.locator('.modal').innerText()).includes('Synthetic clinical case return'),false);
+ await cg.locator('[data-act="sync-release-held"]').click();await cg.locator('[data-act="confirm-yes"]').click();
+ await cg.waitForFunction(()=>SYNC.heldOutbox()===0);await cg.evaluate(()=>closeAllModals());
  const short=await newReview('short',30);await step(cg,short,'submit_review');await open(mcm,short);await step(mcm,short,'review_report',{comment:'Synthetic county MCM comments for scheduled review'});
  await step(mcm,short,'schedule_review',{nextReviewAt:new Date(Date.now()+86400000).toISOString().slice(0,16)});
  assert.equal(f.state().db.careReviews.find(r=>r.id===short).status,'scheduled');assert.equal(f.state().db.calendarEvents.length,1);
@@ -106,12 +127,18 @@ try{
  const download=mcm.waitForEvent('download');await mcm.locator('[data-act="care-review-docx"]').click();const file=await download;assert.match(file.suggestedFilename(),/\.docx$/);await file.saveAs(path.join(dir,'synthetic-pdca.docx'));
  const popup=mcm.waitForEvent('popup');await mcm.locator('[data-act="care-review-print"]').click();const printed=await popup;await printed.waitForSelector('.care-template-page');
  const corePdf=await printed.pdf({path:path.join(dir,'synthetic-pdca.pdf'),preferCSSPageSize:true,printBackground:true});
- const corePages=(corePdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;assert.equal(corePages,3,'moderate actual-browser print must retain the supplied three-page core');
+ const corePages=(corePdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;
+ assert.equal(await printed.locator('.care-template-page').count(),2,'the current clinical template has two balanced spreads');
+ assert.equal(corePages,2,'moderate synthetic content should fit the two clinical spreads');
+ const pdfText=file=>execFileSync('python3',['-c',"import pymupdf,sys; d=pymupdf.open(sys.argv[1]); print(' '.join(p.get_text() for p in d))",file],{encoding:'utf8',env:{...process.env,PYTHONPATH:process.env.PDF_PYTHONPATH||'/tmp/carelink-pdf-check'}});
+ const coreText=pdfText(path.join(dir,'synthetic-pdca.pdf'));
+ for(const marker of ['PLAN','CHECK','ACT','Synthetic corrected next action'])assert.ok(coreText.includes(marker),'printed PDF retains '+marker);
  await printed.screenshot({path:path.join(dir,'report.png'),fullPage:true});
  // Long text must expand, never be hidden in a fixed-height report cell.
  await printed.evaluate(()=>{const ps=document.querySelectorAll('.care-template-block .care-pre');ps[1].append(document.createTextNode('\nSynthetic long evaluation narrative. '.repeat(90)+'SYNTHETIC-END-OF-LONG-NARRATIVE'));});
  const longPdf=await printed.pdf({path:path.join(dir,'synthetic-pdca-long.pdf'),preferCSSPageSize:true,printBackground:true});
  const overflowPages=(longPdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;assert.ok(overflowPages>corePages,'long narrative must flow rather than be clipped');
+ assert.ok(pdfText(path.join(dir,'synthetic-pdca-long.pdf')).replace(/\s+/g,'').includes('SYNTHETIC-END-OF-LONG-NARRATIVE'),'the end of the long narrative is present in the PDF even when wrapped');
  const specialist=await session('synthetic-intl.localtest');await specialist.evaluate(()=>go('intlmedical'));await specialist.waitForFunction(()=>document.body.textContent.includes('MCM-authorized PDCA reports'));
  const state=await specialist.evaluate(()=>({patients:DB.db.patients.length,reviews:DB.db.careReviews.length,dossiers:DB.db.intlPdcaDossiers.length}));assert.deepEqual(state,{patients:0,reviews:0,dossiers:1});
  await specialist.locator('[data-act="care-dossier-open"]').click();assert.ok((await specialist.locator('.care-template').innerText()).includes('Synthetic corrected next action for fourteen days'));

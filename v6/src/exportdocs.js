@@ -328,11 +328,16 @@ function downloadBytes(filename, bytes, mime){
    row count. A person who holds the capability can export; a person who
    does not is refused in the data layer, not merely by a hidden button. */
 const DOCEXPORT = {
-  report(user, {type, countyId, date}){
+  report(user, {id, type, countyId, date}){
+    const rec=id?REPORTS.archive(user,{}).find(r=>r.id===id):null;
+    if(id&&!rec) return {ok:false,msg:'This report is not available in your authorised archive.'};
+    if(rec){type=rec.type;countyId=rec.countyId;}
     if(!type) return {ok:false, msg:'Choose a report first.'};
+    const definition=REPORTS.types().find(t=>t.type===type);
+    if(!definition||!definition.caps.some(cap=>RBAC.has(user,cap))) return {ok:false,msg:'This report is not available to your account.'};
     const title=(typeof REPORT_TITLES!=='undefined'&&REPORT_TITLES[type])||'Report';
-    const cid=countyId||user.countyId;
-    const html=buildReportDoc(type,{countyId:cid,date},user);
+    const cid=reportCountyForUser(user,countyId);
+    const html=(rec?'<p><strong>Live reconstruction:</strong> current data, not a preserved historical report.</p>':'')+buildReportDoc(type,{...(rec?.params||{}),countyId:cid,date:rec?.params?.date||date},user);
     const bytes=DOCX.fromHtml(title, html);
     const name=`${type}-${cid}-${new Date().toISOString().slice(0,10)}.docx`;
     const r=downloadBytes(name, bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');

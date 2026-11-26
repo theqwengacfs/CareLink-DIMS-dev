@@ -803,6 +803,22 @@ html[data-wt="foundation"] .shell .msg-pane{border-radius:18px;box-shadow:0 6px 
  body.print-workspace #root,body.print-workspace .app.shell,body.print-workspace .content{display:block !important;height:auto !important;overflow:visible !important;max-height:none !important;background:#fff !important;color:#000 !important;padding:0 !important;margin:0 !important;}
  body.print-workspace .print-root{display:none !important;}
  body.print-workspace :is(button,input,select,textarea){box-shadow:none;}
+ /* Report/document print copies must paginate rather than inherit mobile
+    card tables, scroll containers or the workspace's viewport dimensions. */
+ body.print-mode #printRoot,body.print-mode #printRoot :is(.print-area,.report-doc,.rpt-body-flow,.tbl-wrap,.chart-tbl-wrap){
+   min-width:0!important;max-width:none!important;max-height:none!important;height:auto!important;overflow:visible!important;
+ }
+ body.print-mode #printRoot .report-doc{width:100%!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;}
+ body.print-mode #printRoot :is(.report-doc table,table.tbl){width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;break-inside:auto!important;page-break-inside:auto!important;}
+ body.print-mode #printRoot :is(thead,table.tbl thead){display:table-header-group!important;}
+ body.print-mode #printRoot :is(tbody,table.tbl tbody){display:table-row-group!important;}
+ body.print-mode #printRoot :is(tfoot,table.tbl tfoot){display:table-footer-group!important;}
+ body.print-mode #printRoot :is(tr,table.tbl tbody tr){display:table-row!important;break-inside:avoid;page-break-inside:avoid;}
+ body.print-mode #printRoot :is(th,td,table.tbl td){display:table-cell!important;min-width:0!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;padding:5px 4px!important;vertical-align:top;}
+ body.print-mode #printRoot table.tbl td::before{content:none!important;display:none!important;}
+ body.print-mode #printRoot :is(.chart-fig,.card,.rpt-gauges){break-inside:auto!important;page-break-inside:auto!important;}
+ body.print-mode #printRoot svg.chart{max-width:100%!important;height:auto!important;break-inside:avoid;}
+ body.print-mode #printRoot :is(.no-print,.chart-table-btn){display:none!important;}
 }
 
 /* Screenshot regression: opaque identity badges and flow-sized header rows.
@@ -964,3 +980,33 @@ html .shell .topbar.cbar .tb-os-identity{
 .monday-assessment-group>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;cursor:pointer;background:#f2f8f7;color:#114b47;list-style:none}
 .monday-assessment-group>summary::-webkit-details-marker{display:none}
 .monday-assessment-group>summary:focus-visible{outline:3px solid #bc2444;outline-offset:-3px}
+
+/* A quieter, consistent section-navigation system across workspaces. The
+   user's pill/boxed/underline preference and theme contrast tokens remain in
+   control; colour is decorative and never communicates clinical status. */
+.shell .tabs{
+ gap:6px; padding:6px; border-radius:12px; align-items:stretch;
+}
+.shell .tabs .tab{
+ min-width:0; max-width:100%; height:auto; min-height:40px; margin:0;
+ padding:8px 13px !important; line-height:1.3; white-space:normal;
+ overflow-wrap:anywhere; text-align:left; justify-content:center;
+}
+.shell .tabs .tab svg{flex:0 0 auto;}
+.shell .tabs .tab>span:not(.ct):not(.tcount){min-width:0;overflow-wrap:anywhere;}
+html[data-colorscheme]:not([data-colorscheme="public"]):not([data-tabstyle="underline"]) .shell .tabs .tab:not(.active):not(.on){
+ background:color-mix(in srgb,var(--nav-colour,var(--accent)) 5%,var(--surface)) !important;
+ color:var(--ink) !important;
+ border-color:color-mix(in srgb,var(--nav-colour,var(--accent)) 25%,var(--line)) !important;
+ box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--nav-colour,var(--accent)) 70%,var(--surface)) !important;
+}
+html[data-colorscheme]:not([data-colorscheme="public"]):not([data-tabstyle="underline"]) .shell .tabs .tab:not(.active):not(.on):hover{
+ background:color-mix(in srgb,var(--nav-colour,var(--accent)) 10%,var(--surface)) !important;
+ color:var(--ink) !important;
+}
+.shell .tabs .tab:focus-visible{outline:3px solid var(--focus);outline-offset:-3px;}
+.shell .patient-tabs{margin:0 12px 12px;gap:5px;}
+.shell .patient-tabs .tab{padding-inline:10px !important;gap:5px;}
+.shell .patient-tabs .tab svg{opacity:.9;}
+@media(max-width:860px){.shell .tabs .tab{min-height:44px;}}
+@media(forced-colors:active){.shell .tabs .tab{border:1px solid ButtonText !important;}.shell .tabs .tab:is(.active,.on){outline:2px solid Highlight;outline-offset:-3px;}}

@@ -314,6 +314,19 @@ const MONDAY_PROC = {
     }
     return {week:monday,start:shift(monday,-7),end:monday,last:shift(monday,-1),month:monday.slice(0,7),monthStart:monday.slice(0,7)+'-01',monthEnd:shift(monday,1),previous:shift(monday,-7),next:shift(monday,7)};
   },
+  /* Split inclusive civil-date ranges at calendar month boundaries. Do not
+     prorate an order: its actual purchase date determines its budget month. */
+  calendarMonthSegments(start, end){
+    start=this.reviewDate(start);end=this.reviewDate(end);
+    if(!start||!end||end<start)return [];
+    const segments=[];
+    for(let day=start;day<=end;day=CARE_RULES.addDays(day,1)){
+      const month=day.slice(0,7),last=segments[segments.length-1];
+      if(last&&last.month===month)last.end=day;
+      else segments.push({month,start:day,end:day});
+    }
+    return segments;
+  },
   reviewAssessments(user, patients, period){
     const byId=new Map(patients.map(p=>[p.id,p])), out=[], seen=new Set();
     const add=(r, source, kind, date, summary, ref)=>{
@@ -431,7 +444,11 @@ const MONDAY_PROC = {
       week:sum(weekly.filter(t=>(t.budgetLine||'unallocated')===key)),month:sum(monthly.filter(t=>(t.budgetLine||'unallocated')===key)),committed:sum(committed.filter(t=>(t.budgetLine||'unallocated')===key)),budget:versions.has(key)&&Number.isFinite(Number(versions.get(key).amount))?Number(versions.get(key).amount):null}));
     const budget=lines.some(l=>l.budget!==null)?lines.reduce((n,l)=>n+(l.budget||0),0):null;
     const daily=Array.from({length:7},(_,i)=>{const date=new Date(Date.parse(period.start)+i*86400000).toISOString().slice(0,10);return {label:date.slice(5),value:sum(weekly.filter(t=>this.reviewDate(t.date)===date))};});
-    return {weekly,monthly,lines,daily,budget,week:sum(weekly),month:sum(monthly),committed:sum(committed),missing:weekly.filter(t=>!t.receipt).length,excludedCurrency:rows.filter(t=>t.currency&&t.currency!=='KES'&&within(t,period.start,period.monthEnd)).length};
+    const monthSegments=this.calendarMonthSegments(period.start,period.last).map(segment=>{
+      const entries=weekly.filter(t=>{const d=this.reviewDate(t.date);return d>=segment.start&&d<=segment.end;});
+      return {...segment,paid:sum(entries),food:sum(entries.filter(t=>costCategoryOf(t.category,t.budgetLine)==='foodbag'))};
+    });
+    return {weekly,monthly,lines,daily,monthSegments,budget,week:sum(weekly),month:sum(monthly),committed:sum(committed),missing:weekly.filter(t=>t.receipt!==true).length,excludedCurrency:rows.filter(t=>t.currency&&t.currency!=='KES'&&within(t,period.start,period.monthEnd)).length};
   },
 
   render(user, params={}){
@@ -692,13 +709,19 @@ const MONDAY_PROC = {
           ${kpi('Previous week paid',money(finance.week),`${fmtDate(review.start)} – ${fmtDate(review.last)}`,'info','wallet')}
           ${kpi('Month-to-date paid',money(finance.month),`Through meeting Monday ${fmtDate(review.week)}`,'','calendar')}
           ${kpi('Monthly budget',finance.budget===null?'Not set':money(finance.budget),'Latest effective version per budget line','','layers')}
-          ${kpi('Weekly receipt gaps',num(finance.missing),'Paid entries without receipt evidence',finance.missing?'warn':'ok','file')}
+          ${kpi('Receipt attestations missing',num(finance.missing),'Paid entries without a recorded checkbox; evidence still needs review',finance.missing?'warn':'ok','file')}
         </div>
         <div class="grid g2 monday-review-charts">
           ${card('Daily paid expenditure · previous week',barChart(finance.daily,{fmt:v=>money(v)}))}
           ${card('Month-to-date paid by budget line',barChart(finance.lines.map(l=>({label:l.label,value:l.month})),{fmt:v=>money(v)}),{sub:'Paid actuals only; budgets and commitments are shown separately below.'})}
         </div>
         ${typeof budgetVsActualBoard==='function'&&finance.budget!==null?card('Monthly budget comparison',budgetVsActualBoard(finance.lines.filter(l=>l.budget!==null).map(l=>({label:l.label,budget:l.budget,spent:l.month,committed:l.committed})),{totalBudget:finance.budget,totalSpent:finance.month,showCommitted:true,periodLabel:review.month})):''}
+        ${card('Previous week by calendar month',table([
+          {label:'Budget month',render:r=>esc(r.month)},
+          {label:'Dates in this week',render:r=>`${esc(fmtDate(r.start))} – ${esc(fmtDate(r.end))}`},
+          {label:'Paid / reconciled',cls:'num',render:r=>money(r.paid)},
+          {label:'Food & foodbags included',cls:'num',render:r=>money(r.food)}
+        ],finance.monthSegments),{sub:'Each paid transaction is assigned to its actual Nairobi calendar date; food is included in the paid total. No weekly estimate is split or treated as a purchase automatically.'})}
         ${card('Budget and expenditure review · KES',table([
           {label:'Budget line',render:r=>esc(r.label)},
           {label:'Previous week paid',cls:'num',render:r=>money(r.week)},
@@ -779,6 +802,8 @@ const MONDAY_PROC = {
     const countyId = (isGlobal(user) && params.county) ? params.county : (user.countyId || 'kisumu');
     const st = DB.db.foodCalcState[countyId] || DB.db.foodCalcState.kisumu;
     const calc = this.computeFoodOrder(st);
+    const planningMonday=this.reviewPeriod().week;
+    const planningSegments=this.calendarMonthSegments(planningMonday,CARE_RULES.addDays(planningMonday,4));
     const canManage = RBAC.has(user,'procurement.manage') || RBAC.has(user,'finance.pay') || RBAC.has(user,'finance.budget.manage');
     const reqs = (DB.db.procRequisitions||[]).filter(r=>isGlobal(user)||!user.countyId||r.countyId===countyId);
 
@@ -817,6 +842,7 @@ const MONDAY_PROC = {
             <div class="cm"><span class="cm-l">Projected Budget Ceiling</span><b class="cm-v">${money(calc.projectedCost)}</b><span class="cm-s">Bag 1 @ KES 1,525 · Bag 2 @ KES 1,190</span></div>
             <div class="cm"><span class="cm-l">Market Benchmark Estimate</span><b class="cm-v">${money(calc.benchmarkCost)}</b><span class="cm-s">Avg Bag 1 @ 1,313 · Avg Bag 2 @ 1,078</span></div>
           </div>
+          <div class="note">${ic('calendar',14)}<span><b>Current Monday–Friday planning week:</b> ${planningSegments.map(s=>`${esc(s.month)}: ${esc(fmtDate(s.start))} – ${esc(fmtDate(s.end))}`).join(' · ')}. Foodbag purchases should be budgeted in the month of the planned purchase; this weekly projection is not automatically divided or recorded as an expense.</span></div>
           <div class="note">${ic('info',14)}<span><b>Inpatient Nutrition Rule:</b> Hospitalised patients (${calc.inpPacks}) are deducted from dry home foodbags and receive bedside <b>Milk (x4) + Oranges (x4)</b> during inpatient visits.</span></div>
         `)}
       </div>`

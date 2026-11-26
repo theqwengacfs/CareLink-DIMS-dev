@@ -238,7 +238,7 @@ function renderLandingWorkflow6(){
     ${nodes.map(([x,y,label,tone])=>`<g class="ld-workflow-node" data-workflow-node="${esc(label)}" data-tone="${tone}" style="--node-fill:var(--entry-relief-${tone}-fill);--node-accent:var(--entry-relief-${tone})">
       <rect x="${x-56}" y="${y-13}" width="112" height="26" rx="13"/>
       <circle cx="${x-44}" cy="${y}" r="2.6" aria-hidden="true"/>
-      <text x="${x-34}" y="${y}" dy=".35em" text-anchor="start">${esc(label)}</text>
+      <text x="${x-34}" y="${y}" dy=".35em" text-anchor="start"${label==='Administration'?' textLength="76" lengthAdjust="spacingAndGlyphs"':''}>${esc(label)}</text>
     </g>`).join('')}
     <g class="ld-workflow-core">
       <circle cx="230" cy="112" r="35"/>
@@ -980,7 +980,11 @@ Object.assign(ACTIONS, {
     if (typeof SYNC !== 'undefined') await SYNC.start();
   },
   'login-retry-kv': async () => {
-    if (typeof SYNC !== 'undefined') { SYNC.deviceOnlyOverride = false; SYNC.resetKvBackoff(); }
+    if (typeof SYNC !== 'undefined') {
+      if(SYNC._entryRetryInProgress) return;
+      SYNC._entryRetryInProgress = true;
+      SYNC.deviceOnlyOverride = false; SYNC.resetKvBackoff();
+    }
     LOGIN6.busy = true; LOGIN6.error = ''; LOGIN6.notice = ''; render();
     try {
       const diag = (typeof SYNC !== 'undefined' && SYNC._json)
@@ -1004,6 +1008,8 @@ Object.assign(ACTIONS, {
       LOGIN6.error = (e && e.message) || 'Could not reach Cloud KV diagnostics.';
       toast('Cloud KV Unavailable', LOGIN6.error, 'err');
       render();
+    } finally {
+      if(typeof SYNC !== 'undefined') SYNC._entryRetryInProgress = false;
     }
   },
   'login-offline-device-mode': async () => {
@@ -1302,7 +1308,7 @@ Object.assign(FORMS, {
            it only with a fresh authorised snapshot after the password commits. */
         if(SYNC._passwordBeforeWorkspace){
           clearTimeout(SYNC._timer); APPX.dirty = false;
-          const pulled = await SYNC.pullFull({minRev:r.rev || 0});
+          const pulled = await SYNC.pullFull({minRev:r.rev || 0,afterPasswordChange:true});
           if(!pulled){
             await SYNC.logout(); AUTH.logout(); LOGIN6.mustChangeBusy = false;
             APPX.screen='login'; LOGIN6.error='Your private password was saved, but the workspace could not load. Sign in again with your new password.';

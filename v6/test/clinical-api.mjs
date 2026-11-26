@@ -58,8 +58,10 @@ await check('under120 drafts need actual evaluation time, complete fields and MC
  await denied(coord,'submit_review',{id:r.id,version:r.version});
  await denied(coord,'schedule_review',{id:r.id,version:r.version,nextReviewAt:new Date(Date.now()+86400000).toISOString()},'pdca_mcm_review_required');
  await denied(coord,'archive_review',{id:r.id,version:r.version},'pdca_mcm_review_required');
- r=await good(coord,'save_review',{id:r.id,version:r.version,fields:f.fields});const originalDue=r.dueDate;
- r=await good(coord,'submit_review',{id:r.id,version:r.version});r=await good(mcm,'review_report',{id:r.id,version:r.version,comment:'Synthetic county MCM review'});
+ const normalFields={...f.fields};for(const key of R.EXTENSION_FIELDS)normalFields[key]='';
+ r=await good(coord,'save_review',{id:r.id,version:r.version,fields:normalFields});const originalDue=r.dueDate;
+ r=await good(coord,'submit_review',{id:r.id,version:r.version});assert.equal(r.fields.clinicalReasons,'');
+ r=await good(mcm,'review_report',{id:r.id,version:r.version,comment:'Synthetic county MCM review'});
  r=await good(coord,'schedule_review',{id:r.id,version:r.version,nextReviewAt:new Date(Date.now()+86400000).toISOString()});assert.equal(r.dueDate,originalDue);
  assert.equal(f.state().db.calendarEvents[0].careReviewId,r.id);r=await good(cg,'archive_review',{id:r.id,version:r.version});assert.equal(r.status,'archived');
 });
@@ -73,6 +75,10 @@ await check('MCM preparation is for120+ supported hospitalizations, not all long
 });
 await check('every120+ report enforces the complete multistep chain and rejects stale edits / premature sharing',async()=>{
  await denied(mcm,'share_review',{id:review.id,version:review.version},'pdca_authorization_required');
+ const missingExtension={...f.fields};for(const key of R.EXTENSION_FIELDS)missingExtension[key]='';
+ review=await good(mcm,'save_review',{id:review.id,version:review.version,fields:missingExtension});
+ await denied(mcm,'submit_review',{id:review.id,version:review.version});
+ review=await good(mcm,'save_review',{id:review.id,version:review.version,fields:f.fields});
  review=await good(mcm,'submit_review',{id:review.id,version:review.version});
  await denied(mcm,'authorize_review',{id:review.id,version:review.version,comment:'Synthetic early authorization'},'pdca_review_chain_required');
  review=await good(mcm,'review_report',{id:review.id,version:review.version,comment:'Synthetic MCM comments: correct duration',hospitalizationChecked:true});

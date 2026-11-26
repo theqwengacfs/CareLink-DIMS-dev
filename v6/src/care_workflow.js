@@ -312,7 +312,7 @@ const CARE_WORKFLOW = (()=>{
       report.policyDays=Math.max(report.policyDays,R.days(p,now));
       if(!writer(user,p,report,db,now))return fail('The preparation rule changed at day 120 or after an admission. The required preparer must save this draft before submission.','pdca_preparer_required',403);
       if(R.mcmPrepares(p,report,db,now)?report.preparedRole!=='mcm':!['caregiver','coordinator'].includes(report.preparedRole))return fail('The required preparer must save the report first.');
-      const error=R.validateFields(report.fields);if(error)return fail(error);
+      const error=R.validateFields(report.fields,{policyDays:report.policyDays});if(error)return fail(error);
       report.status='submitted';report.submittedBy=user.id;report.submittedAt=now;
       revision('submitted');notifyMcms('PDCA submitted for MCM review',`patient:${p.id}`);return success(report,'pdca.submitted');
     }
@@ -336,7 +336,7 @@ const CARE_WORKFLOW = (()=>{
     if(command==='resubmit_review'){
       if((long?user.roleId!=='caregiver':!['caregiver','coordinator'].includes(user.roleId))||report.status!=='correcting'||report.correctedBy!==user.id) return fail('The caregiver must save corrections before resubmitting.','caregiver_corrections_required',403);
       if(!text(payload.correctionNote||report.correctionNote))return fail('Explain the corrections made in response to the MCM comments.');
-      const error=R.validateFields(report.fields);if(error)return fail(error);
+      const error=R.validateFields(report.fields,{policyDays:report.policyDays});if(error)return fail(error);
       report.status='resubmitted';report.correctionNote=text(payload.correctionNote||report.correctionNote);report.resubmittedBy=user.id;report.resubmittedAt=now;
       revision('resubmitted',report.correctionNote);notifyMcms('Corrected PDCA resubmitted',`patient:${p.id}`);return success(report,'pdca.resubmitted');
     }
