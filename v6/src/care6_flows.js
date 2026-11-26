@@ -67,12 +67,14 @@ const PAT_DISCHARGE = {
       <div class="form-row">
         <div class="fg"><label>Discharge pathway</label>
           <select name="dischargePathway">
+            <option value="">Not recorded / select after assessment</option>
             ${PAT_DISCHARGE.PATHWAYS.map(x=>`<option value="${x.id}" ${r.pathway===x.id?'selected':''}>${esc(x.label)}</option>`).join('')}
           </select>
         </div>
         <div class="fg"><label>Include formal continuing-care referral?</label>
           <select name="referralRequired">
-            <option value="yes" ${r.required!==false?'selected':''}>Yes - Issue discharge referral handover</option>
+            <option value="">Not recorded / select after assessment</option>
+            <option value="yes" ${r.required===true?'selected':''}>Yes - Issue discharge referral handover</option>
             <option value="no" ${r.required===false?'selected':''}>No - Self-care graduation without external referral</option>
           </select>
         </div>
@@ -80,29 +82,31 @@ const PAT_DISCHARGE = {
       <div class="form-row">
         <div class="fg"><label>Referral destination category</label>
           <select name="referralDestType">
+            <option value="">Not recorded / select after assessment</option>
             ${PAT_DISCHARGE.DEST_TYPES.map(t=>`<option value="${esc(t)}" ${r.destType===t?'selected':''}>${esc(t)}</option>`).join('')}
           </select>
         </div>
         <div class="fg"><label>Target outpatient / review clinic</label>
           <select name="referralClinic">
+            <option value="">Not recorded / select after assessment</option>
             ${PAT_DISCHARGE.CLINICS.map(c=>`<option value="${esc(c)}" ${r.clinic===c?'selected':''}>${esc(c)}</option>`).join('')}
           </select>
         </div>
       </div>
       <div class="form-row">
         <div class="fg"><label>Receiving hospital, facility or partner organisation</label>
-          <input name="receivingFacility" value="${esc(r.facility||'JOOTRH Specialist Outpatient Department')}" placeholder="e.g. JOOTRH MOPC, Homa Bay County Referral Hospital">
+          <input name="receivingFacility" value="${esc(r.facility||'')}" placeholder="e.g. JOOTRH MOPC, Homa Bay County Referral Hospital">
         </div>
         <div class="fg"><label>Scheduled review / handover date</label>
-          <input type="date" name="referralDate" value="${esc(r.appointmentDate||_c6Iso(_c6AddDays(new Date(),14)))}">
+          <input type="date" name="referralDate" value="${esc(r.appointmentDate||'')}">
         </div>
       </div>
       <div class="form-row">
         <div class="fg"><label>Receiving clinician / focal contact</label>
-          <input name="receivingContact" value="${esc(r.receivingContact||'Outpatient Records & Liaison Desk')}" placeholder="Department focal person or phone">
+          <input name="receivingContact" value="${esc(r.receivingContact||'')}" placeholder="Department focal person or phone">
         </div>
         <div class="fg"><label>Continuing care & handover instructions</label>
-          <input name="referralInstructions" value="${esc(r.instructions||'Continue prescribed regimen, bring Discharge Summary to scheduled clinic review.')}" placeholder="Clinical summary & follow-up instructions">
+          <input name="referralInstructions" value="${esc(r.instructions||'')}" placeholder="Clinical summary & follow-up instructions">
         </div>
       </div>
 
@@ -110,30 +114,33 @@ const PAT_DISCHARGE = {
       <div class="alert a-ok" style="margin-bottom:10px">
         ${ic('clipboard',16)}
         <div><b>LOMAMO Discharge Protocol · SHA (formerly NHIF), Spiritual Growth & Household Impact</b>
-          <div class="xs">Captures all mandatory fields from the physical LOMAMO Patient Discharge Form prior to County Admin Assistant scan upload.</div>
+          <div class="xs">Transcribe recorded facts from the physical form. Signatures and source references do not assert that a scan has been stored.</div>
         </div>
       </div>
       <div class="form-row">
         <div class="fg"><label>SHA / SHIF (formerly NHIF) active?</label>
           <select name="shaActive">
-            <option value="Yes" ${(p&&p.dischargeProtocol?.shaActive)!=='No'?'selected':''}>Yes - Active SHA / NHIF cover</option>
+            <option value="">Not recorded / select after assessment</option>
+            <option value="Yes" ${(p&&p.dischargeProtocol?.shaActive)==='Yes'?'selected':''}>Yes - Active SHA / NHIF cover</option>
             <option value="No" ${(p&&p.dischargeProtocol?.shaActive)==='No'?'selected':''}>No - Not currently active</option>
           </select>
         </div>
         <div class="fg"><label>SHA / NHIF last payment date</label>
-          <input type="date" name="shaLastPaymentDate" value="${esc((p&&p.dischargeProtocol?.shaLastPaymentDate)||_c6Iso(new Date()))}">
+          <input type="date" name="shaLastPaymentDate" value="${esc((p&&p.dischargeProtocol?.shaLastPaymentDate)||'')}">
         </div>
       </div>
       <div class="form-row">
         <div class="fg"><label>Spiritual growth: Believer?</label>
           <select name="believer">
-            <option value="Yes" ${(p&&p.dischargeProtocol?.believer)!=='No'?'selected':''}>Yes</option>
+            <option value="">Not recorded / select after assessment</option>
+            <option value="Yes" ${(p&&p.dischargeProtocol?.believer)==='Yes'?'selected':''}>Yes</option>
             <option value="No" ${(p&&p.dischargeProtocol?.believer)==='No'?'selected':''}>No</option>
           </select>
         </div>
         <div class="fg"><label>Converted during LOMAMO care?</label>
           <select name="convertedDuringLomamo">
-            <option value="No" ${(p&&p.dischargeProtocol?.convertedDuringLomamo)!=='Yes'?'selected':''}>No (Already believer / unchanged)</option>
+            <option value="">Not recorded / select after assessment</option>
+            <option value="No" ${(p&&p.dischargeProtocol?.convertedDuringLomamo)==='No'?'selected':''}>No (Already believer / unchanged)</option>
             <option value="Yes" ${(p&&p.dischargeProtocol?.convertedDuringLomamo)==='Yes'?'selected':''}>Yes - Converted during LOMAMO</option>
           </select>
         </div>
@@ -141,20 +148,21 @@ const PAT_DISCHARGE = {
       <div class="form-row">
         <div class="fg"><label>Repeat patient? / Completed full cycle?</label>
           <select name="completedCycle">
-            <option value="Yes" ${(p&&p.dischargeProtocol?.completedCycle)!=='No'?'selected':''}>Completed full programme cycle</option>
+            <option value="">Not recorded / select after assessment</option>
+            <option value="Yes" ${(p&&p.dischargeProtocol?.completedCycle)==='Yes'?'selected':''}>Completed full programme cycle</option>
             <option value="No" ${(p&&p.dischargeProtocol?.completedCycle)==='No'?'selected':''}>Early / non-completion discharge</option>
           </select>
         </div>
         <div class="fg"><label>Number of orphans prevented (children in home)</label>
-          <input type="number" min="0" max="25" name="orphansPrevented" value="${esc(String(p&&(p.dischargeProtocol?.orphansPrevented??p.childrenCount??((p.household&&p.household.children)||0))))}">
+          <input type="number" min="0" max="25" name="orphansPrevented" value="${esc(String(p?.dischargeProtocol?.orphansPrevented??''))}">
         </div>
       </div>
       <div class="form-row">
         <div class="fg"><label>Other assistance programmes at discharge</label>
-          <input name="otherProgramsDetail" value="${esc((p&&p.dischargeProtocol?.otherProgramsDetail)||'None')}" placeholder="If yes, programme name & duration (or None)">
+          <input name="otherProgramsDetail" value="${esc((p&&p.dischargeProtocol?.otherProgramsDetail)||'')}" placeholder="If yes, programme name & duration (or None)">
         </div>
         <div class="fg"><label>Physical form signatures (Patient · Caregiver · Coordinator)</label>
-          <input name="physicalSignatures" value="${esc((p&&p.dischargeProtocol?.physicalSignatures)||'Signed on physical hard copy — awaiting full-page scan upload')}" placeholder="e.g. Patient + Caregiver + Coordinator signed">
+          <input name="physicalSignatures" value="${esc((p&&p.dischargeProtocol?.physicalSignatures)||'')}" placeholder="e.g. Patient + Caregiver + Coordinator signed">
         </div>
       </div>
 
@@ -172,7 +180,8 @@ const PAT_DISCHARGE = {
         <div class="form-row">
           <div class="fg"><label>Returning-patient watchlist status</label>
             <select name="advisoryFlagged">
-              <option value="no" ${!(p&&p.dischargeAdvisory&&p.dischargeAdvisory.flagged)?'selected':''}>Clear - Standard graduation (no watchlist alert)</option>
+            <option value="">Not recorded / select after assessment</option>
+              <option value="no" ${p&&p.dischargeAdvisory?.flagged===false?'selected':''}>Clear - Standard graduation (no watchlist alert)</option>
               <option value="watch" ${(p&&p.dischargeAdvisory&&p.dischargeAdvisory.flagged&&p.dischargeAdvisory.severity!=='high')?'selected':''}>Caregiver Advisory Watch - Review history before re-intake</option>
               <option value="high" ${(p&&p.dischargeAdvisory&&p.dischargeAdvisory.severity==='high')?'selected':''}>High Policy / Conduct Alert - Mandatory Coordinator & MCM clearance if returning</option>
             </select>
@@ -210,32 +219,32 @@ const PAT_DISCHARGE = {
     } else if(advFlag === 'no'){
       p.dischargeAdvisory = { flagged:false, clearedAt:new Date().toISOString() };
     }
-    if(get('shaActive') || get('believer') || get('orphansPrevented') !== undefined){
+    if(['shaActive','believer','orphansPrevented','physicalSignatures'].some(k=>get(k)!=null&&get(k)!=='')){
       p.dischargeProtocol = Object.assign({}, p.dischargeProtocol || {}, {
-        shaActive: get('shaActive') || 'Yes',
-        shaLastPaymentDate: get('shaLastPaymentDate') || _c6Iso(new Date()),
-        believer: get('believer') || 'Yes',
-        convertedDuringLomamo: get('convertedDuringLomamo') || 'No',
-        completedCycle: get('completedCycle') || 'Yes',
-        repeatPatient: p.repeatPatient ? 'Yes' : 'No',
+        shaActive: get('shaActive') || '',
+        shaLastPaymentDate: get('shaLastPaymentDate') || '',
+        believer: get('believer') || '',
+        convertedDuringLomamo: get('convertedDuringLomamo') || '',
+        completedCycle: get('completedCycle') || '',
+        repeatPatient: p.assessmentKind==='repeat'?'Yes':p.assessmentKind==='new'?'No':'',
         daysInProgram: PAT.days(p),
-        orphansPrevented: Number(get('orphansPrevented') ?? p.childrenCount ?? 0) || 0,
-        otherProgramsDetail: String(get('otherProgramsDetail') || 'None').trim(),
-        physicalSignatures: String(get('physicalSignatures') || 'Signed on physical hard copy').trim(),
+        orphansPrevented: get('orphansPrevented')!==''&&get('orphansPrevented')!=null?Number(get('orphansPrevented')):null,
+        otherProgramsDetail: String(get('otherProgramsDetail') || '').trim(),
+        physicalSignatures: String(get('physicalSignatures') || '').trim(),
         updatedBy: actor ? actor.id : 'u-sys',
         updatedAt: new Date().toISOString()
       });
     }
     if(!pathway && !reqVal) return p.dischargeReferral || null;
     const ref = {
-      pathway: pathway || 'graduated',
-      required: reqVal !== 'no',
-      destType: get('referralDestType') || PAT_DISCHARGE.DEST_TYPES[0],
-      clinic: get('referralClinic') || PAT_DISCHARGE.CLINICS[0],
-      facility: (get('receivingFacility') || '').trim() || 'County Referral Outpatient Clinic',
-      appointmentDate: get('referralDate') || _c6Iso(_c6AddDays(new Date(),14)),
-      receivingContact: (get('receivingContact') || '').trim() || 'Outpatient Liaison Desk',
-      instructions: (get('referralInstructions') || '').trim() || 'Continue care plan and attend scheduled review clinic.',
+      pathway: pathway || '',
+      required: reqVal==='yes'?true:reqVal==='no'?false:null,
+      destType: get('referralDestType') || '',
+      clinic: get('referralClinic') || '',
+      facility: (get('receivingFacility') || '').trim(),
+      appointmentDate: get('referralDate') || '',
+      receivingContact: (get('receivingContact') || '').trim(),
+      instructions: (get('referralInstructions') || '').trim(),
       recommendedBy: actor ? actor.id : 'u-sys',
       recommendedAt: new Date().toISOString()
     };
@@ -247,16 +256,17 @@ const PAT_DISCHARGE = {
     const store = dbOpt || DB.db;
     const p = (store.patients||[]).find(x=>x.id===patientId);
     if(!p) return null;
-    const visits = (store.visits||[]).filter(v=>v.patientId===p.id).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-    const pdcas = (store.pdcas||[]).filter(x=>x.patientId===p.id).sort((a,b)=>(a.dueDay||0)-(b.dueDay||0));
-    const reqs = (store.requests||[]).filter(r=>r.patientId===p.id).sort((a,b)=>String(a.createdAt||a.submittedAt||'').localeCompare(String(b.createdAt||b.submittedAt||'')));
-    const stays = (store.homestays||store.careResidents||[]).filter(h=>h.patientId===p.id);
-    const support = (store.support||store.supportIssues||[]).filter(s=>s.patientId===p.id);
-    const txSupport = (store.transactions||[]).filter(t=>t.patientId===p.id);
-    const rx = (store.clinicalRx||[]).filter(r=>r.patientId===p.id);
-    const omaha = (store.omahaPlans||[]).filter(o=>o.patientId===p.id);
-    const conds = (store.patientConditions||[]).filter(c=>c.patientId===p.id);
-    const forms = (store.formRecords||[]).filter(f=>f.patientId===p.id);
+    const currentCycle=r=>r.patientId===p.id&&CARE_RULES.recordCycle(r,p,store)===CARE_RULES.cycleId(p);
+    const visits = (store.visits||[]).filter(currentCycle).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const pdcas = (store.pdcas||[]).filter(currentCycle).sort((a,b)=>(a.dueDay||0)-(b.dueDay||0));
+    const reqs = (store.requests||[]).filter(currentCycle).sort((a,b)=>String(a.createdAt||a.submittedAt||'').localeCompare(String(b.createdAt||b.submittedAt||'')));
+    const stays = (store.homestays||store.careResidents||[]).filter(currentCycle);
+    const support = [...(store.support||[]),...(store.supportIssues||[])].filter(currentCycle);
+    const txSupport = (store.transactions||[]).filter(currentCycle);
+    const rx = (store.clinicalRx||[]).filter(currentCycle);
+    const omaha = (store.omahaPlans||[]).filter(currentCycle);
+    const conds = (store.patientConditions||[]).filter(currentCycle);
+    const forms = (store.formRecords||[]).filter(currentCycle);
     const supportTotal = support.reduce((acc,s)=>acc + (Number(s.amount)||0), 0);
     const hospTotal = reqs.reduce((acc,r)=>acc + (Number(r.finalCost != null ? r.finalCost : r.estimatedCost)||0), 0)
       || txSupport.reduce((acc,t)=>acc + (Number(t.amount)||0), 0);
@@ -268,15 +278,15 @@ const PAT_DISCHARGE = {
     reqs.forEach(r=>{
       (r.followUps||[]).forEach(f=>followUps.push(Object.assign({ reqCode:r.code||r.no||r.id, facility:r.facility||r.hospital }, f)));
     });
-    const baseWt = Number(p.baselineWeightKg || (p.clinical && p.clinical.baselineWeightKg) || ((p.clinical && p.clinical.weightKg ? p.clinical.weightKg - 2.4 : 54.0)));
-    const curWt = Number((p.clinical && p.clinical.weightKg) || (baseWt + 2.4));
-    const wtDelta = +(curWt - baseWt).toFixed(1);
+    const baseWt = p.baselineWeightKg ?? p.clinical?.baselineWeightKg ?? null;
+    const curWt = p.clinical?.weightKg ?? null;
+    const wtDelta = baseWt!=null&&curWt!=null?+(Number(curWt)-Number(baseWt)).toFixed(1):null;
     const cgUser = (store.users||[]).find(u=>u.id===p.caregiverId);
     return {
       patient: p,
       stayDaysInProg: PAT.days(p),
       enrolmentDate: p.enrolledAt || p.intake,
-      dischargeDate: p.dischargedAt || p.discharge || _c6Iso(new Date()),
+      dischargeDate: p.dischargedAt || p.discharge || '',
       caregiver: cgUser ? cgUser.name : userName(p.caregiverId),
       county: countyName(p.countyId),
       area: areaName(p.areaId),
@@ -286,16 +296,7 @@ const PAT_DISCHARGE = {
       visits, pdcas, reqs, stays, stayDays, support, supportTotal, hospTotal,
       grandServiceValue: supportTotal + hospTotal,
       rx, omaha, conds, forms, followUps,
-      referral: p.dischargeReferral || {
-        pathway: p.status==='discharged' ? 'graduated' : 'referred_facility',
-        required: true,
-        destType: 'County / National Referral Hospital',
-        clinic: 'MOPC (Medical Outpatient Clinic)',
-        facility: p.countyId==='homabay' ? 'Homa Bay County Teaching & Referral Hospital' : 'Jaramogi Oginga Odinga Teaching & Referral Hospital (JOOTRH)',
-        appointmentDate: _c6Iso(_c6AddDays(new Date(), 14)),
-        receivingContact: 'Outpatient Continuity & Community Liaison Desk',
-        instructions: 'Maintain prescribed regimen, nutrition plan and monthly household wellness check.'
-      }
+      referral: p.dischargeReferral || {required:null,pathway:'',facility:'',clinic:'',appointmentDate:'',receivingContact:'',instructions:''}
     };
   },
 
@@ -312,7 +313,7 @@ const PAT_DISCHARGE = {
       wide: true,
       body: PAT_DISCHARGE.renderSheet(patientId, user || AUTH.user, { mode, subview: normOpts.subview || 'official' }),
       footer: `<button class="btn btn-ghost" data-act="close-modal">Close</button>
-        <button class="btn btn-ghost" data-act="export-pdca-word" data-id="${esc(patientId)}" data-mode="${esc(mode)}">${ic('file',14)} Download Word (.doc)</button>
+        <button class="btn btn-ghost" data-act="export-pdca-word" data-id="${esc(patientId)}" data-mode="${esc(mode)}">${ic('file',14)} Download Word (.docx)</button>
         <button class="btn btn-ghost" data-act="export-pdca-json" data-id="${esc(patientId)}" data-mode="${esc(mode)}">${ic('download',14)} Merge Fields (.json)</button>
         <button class="btn btn-primary" data-act="print-discharge-summary" data-id="${esc(patientId)}" data-mode="${esc(mode)}">${ic('download',14)} Print / Save Official PDF</button>`
     });
@@ -320,6 +321,7 @@ const PAT_DISCHARGE = {
 
   stampOnDischarge(p, actor, dbOpt){
     if(!p) return null;
+    if(SYNC.sessionToken || !CARE_REVIEW.synthetic())return p.dischargeSummary||null;
     const s = PAT_DISCHARGE.summary(p.id, dbOpt);
     if(!s) return null;
     p.dischargeSummary = {
@@ -342,561 +344,18 @@ const PAT_DISCHARGE = {
     return p.dischargeSummary;
   },
 
-  /* Compile exact docxtemplater-compatible merge payload + structured fields
-     matching CareLink_C-DIMS_PDCA_Template_Fields.md for BOTH 120+d & Regular Discharge */
-  compileOfficialPdcaData(patientOrId, userOrOpts={}, modeArg){
-    const pid = (typeof patientOrId === 'object' && patientOrId !== null) ? patientOrId.id : patientOrId;
-    const opts = (typeof modeArg === 'string')
-      ? { mode: modeArg }
-      : (typeof userOrOpts === 'string' ? { mode: userOrOpts } : (userOrOpts && !userOrOpts.roleId ? userOrOpts : {}));
-    const s = PAT_DISCHARGE.summary(pid);
-    if(!s) return null;
-    const p = s.patient, cl = p.clinical || {}, ref = s.referral || {};
-    const dp = p.dischargeProtocol || {};
-    const adv = p.dischargeAdvisory || {};
-    const isDischarged = p.status==='discharged' || p.status==='discharge_recommended';
-    const reqMode = (opts.mode && opts.mode !== 'auto') ? opts.mode : null;
-    const mode = reqMode || (isDischarged ? 'discharge' : (s.stayDaysInProg>=120 ? '120day' : 'discharge'));
-    const ageNum = _c6Age(p.dob, p.age);
-    const heightCm = Number(cl.heightCm || (ageNum < 18 ? Math.min(162, 85 + Number(ageNum||8)*5) : 164));
-    const hM = Math.max(0.8, heightCm / 100);
-    const bmiStart = +(s.baselineWeightKg / (hM * hM)).toFixed(1);
-    const bmiNow = Number(cl.bmi) || +(s.currentWeightKg / (hM * hM)).toFixed(1);
-    const signDelta = (s.weightDeltaKg > 0 ? '+' : '') + s.weightDeltaKg.toFixed(1);
-
-    /* Children list ({#children}{name} - {age} years old. {note}{/children}) */
-    const rawKids = Array.isArray(p.children) && p.children.length
-      ? p.children
-      : (Array.isArray(p.household && p.household.dependents) ? p.household.dependents : []);
-    const kidCount = Number(p.childrenCount ?? (p.household && p.household.children) ?? rawKids.length ?? 0);
-    const children = rawKids.length ? rawKids.map((ch, idx)=>({
-      name: ch.name || `Child ${idx+1}`,
-      age: ch.age != null ? String(ch.age) : String(Math.max(2, 12 - idx*3)),
-      note: ch.note || ch.schoolStatus || 'Enrolled in school & supported under LOMAMO orphan-prevention care.'
-    })) : Array.from({ length: Math.min(kidCount, 4) }, (_, idx)=>({
-      name: `${(p.name||'Beneficiary').split(' ').slice(-1)[0]} Household Child ${idx+1}`,
-      age: String(Math.max(3, 13 - idx*3)),
-      note: idx===0 ? 'Attending primary school consistently; nutrition & household stability monitored.' : 'Protected within family household under LOMAMO orphan-prevention covenant.'
-    }));
-
-    /* Dates */
-    const assessDate = p.assessedAt || p.assessmentDate || s.enrolmentDate || todayISO().slice(0,10);
-    const intakeDate = s.enrolmentDate || todayISO().slice(0,10);
-    const evalDate = todayISO().slice(0,10);
-    const estDischargeDate = isDischarged
-      ? s.dischargeDate
-      : _c6Iso(_c6AddDays(new Date(), s.stayDaysInProg >= 120 ? 30 : Math.max(14, 120 - s.stayDaysInProg)));
-
-    /* International 120+d dossier if present */
-    const dossier = ((DB.db && DB.db.intlPdcaDossiers) || []).find(d=>d.patientId===p.id || d.patientCode===p.code);
-
-    /* Diagnoses */
-    const diagList = [];
-    if(cl.diagnosis) diagList.push(cl.diagnosis + (cl.conditionCategory ? ` (${cl.conditionCategory})` : ''));
-    s.conds.forEach(c=>{ if(c.label || c.condition) diagList.push(c.label || c.condition); });
-    if(bmiNow < 18.5) diagList.push(`Nutritional vulnerability (BMI ${bmiNow} kg/m2) under therapeutic foodbag supplementation`);
-    if(!diagList.length) diagList.push('Chronic household medical & nutritional vulnerability under active LOMAMO care plan');
-
-    /* PDCA 5-Stage Bullets (Plan, Do, Rx Treatment, Check, Act) */
-    const openConcerns = ((DB.db && DB.db.concerns) || []).filter(c=>c.patientId===p.id);
-    const planBullets = [
-      ...(dossier && dossier.planStage ? [dossier.planStage] : []),
-      ...(p.carePlan && p.carePlan.needs ? [String(p.carePlan.needs)] : []),
-      ...s.pdcas.filter(x=>x.stage==='Plan').map(x=>x.summary||x.note||x.title).filter(Boolean),
-      `Household resilience & nutritional stabilisation across ${s.area} (${kidCount} child(ren) safeguarded in home).`
-    ].slice(0, 4);
-
-    const chiefComplaints = cl.chiefComplaints
-      || (openConcerns[0] && openConcerns[0].detail)
-      || (cl.diagnosis ? `Presenting symptoms associated with ${cl.diagnosis}, household food insecurity, and clinic follow-up adherence needs.` : 'Fatigue, nutritional deficit at intake, and need for structured home-based clinical & nutritional follow-up.');
-
-    const doBullets = [
-      ...(dossier && dossier.doStage ? [dossier.doStage] : []),
-      `${s.visits.length} structured Caregiver home-based care & anthropometric monitoring visits completed.`,
-      ...(s.support.length ? [`Issued ${s.support.length} household nutrition / dignity support distribution(s) (${s.support.map(x=>titleCase(x.type)).slice(0,3).join(', ')}).`] : ['Regular LOMAMO therapeutic / household foodbag & hygiene support delivered.']),
-      ...(s.reqs.length ? [`Coordinated ${s.reqs.length} hospital / specialist outpatient episode(s) (${s.reqs[s.reqs.length-1].facility||'County Referral Hospital'}).`] : ['Continuous household health education, hygiene & caregiver psychosocial accompaniment.'])
-    ].slice(0, 4);
-
-    const rxBullets = s.rx.length
-      ? s.rx.slice(0,4).map(r=>`${r.medicine||r.item||'Prescribed medication'}${r.dosage?' - '+r.dosage:''} (${titleCase(r.status||'dispensed · adherence monitored')})`)
-      : [
-          `Prescribed clinical regimen for ${cl.diagnosis||'chronic condition'} — adherence verified as ${titleCase(cl.adherence||'Good')} during home visits.`,
-          `Therapeutic nutritional counselling & anthropometric monitoring (BP ${cl.bp||'120/78'}, current BMI ${bmiNow} kg/m2).`
-        ];
-
-    const checkBullets = [
-      ...(dossier && dossier.checkStage ? [dossier.checkStage] : []),
-      `Anthropometric response: weight moved from ${s.baselineWeightKg.toFixed(1)} kg (BMI ${bmiStart}) at intake to ${s.currentWeightKg.toFixed(1)} kg (BMI ${bmiNow}) — net change ${signDelta} kg.`,
-      `${s.pdcas.length} scheduled 30-day PDCA review cycle(s) documented; medication adherence rated ${titleCase(cl.adherence||'Good')}.`,
-      ...(s.followUps.length ? [`Post-hospital clinic review verified: ${s.followUps[s.followUps.length-1].clinicLabel||s.followUps[s.followUps.length-1].clinic}.`] : [`Household stability & child school continuity verified across ${s.visits.length} home visits.`])
-    ].slice(0, 4);
-
-    const actBullets = mode === '120day'
-      ? [
-          ...(dossier && dossier.actStage ? [dossier.actStage] : []),
-          `Continue targeted 30-day PDCA extension monitoring with fortnightly caregiver weight/BMI checks and MCM clinical review.`,
-          `Confirm active SHA/SHIF cover (${dp.shaActive||(p.sha?'Active':'Verification in progress')}) and transition household toward self-sustaining graduation by ${fmtDate(estDischargeDate)}.`,
-          ...(dossier && dossier.intlRecommendation ? [`International Medical Concurrence: ${dossier.intlRecommendation}`] : ['Submit 120+ day clinical review dossier to MCM & International Medical Oversight for concurrence.'])
-        ]
-      : [
-          `Confirm formal programme graduation / discharge handover (${(PAT_DISCHARGE.PATHWAYS.find(x=>x.id===ref.pathway)||PAT_DISCHARGE.PATHWAYS[0]).label}).`,
-          ref.required !== false
-            ? `Execute continuing-care referral to ${ref.facility} (${ref.clinic}) scheduled for ${fmtDate(ref.appointmentDate)}.`
-            : `Maintain household self-care wellness plan and community health volunteer linkage in ${s.area}.`,
-          `Verify full-page physical discharge form scan upload & SHA/SHIF continuity (${dp.shaActive||(p.sha?'Yes':'Active')}).`
-        ];
-
-    const smartAim = (p.carePlan && p.carePlan.objectives)
-      ? (Array.isArray(p.carePlan.objectives) ? p.carePlan.objectives.join(' ') : String(p.carePlan.objectives))
-      : (mode === '120day'
-          ? `Achieve sustained clinical stabilisation, target BMI >= 18.5 kg/m2 (currently ${bmiNow} kg/m2), >=95% regimen adherence, and independent household resilience within the approved 30-day PDCA extension window ending ${fmtDate(estDischargeDate)}.`
-          : `Consolidate clinical recovery (weight ${s.baselineWeightKg.toFixed(1)} kg -> ${s.currentWeightKg.toFixed(1)} kg, BMI ${bmiNow} kg/m2), seamless outpatient continuity, and stable family care protecting ${kidCount} child(ren) upon graduation from active LOMAMO care.`);
-
-    const justification = mode === '120day'
-      ? (dossier && dossier.justification)
-        || `Beneficiary has completed ${s.stayDaysInProg} days in the LOMAMO programme (${s.visits.length} home visits, weight change ${signDelta} kg). Documented clinical & nutritional follow-up remains essential to consolidate treatment response, complete specialist clinic review, and secure sustainable household self-reliance prior to estimated discharge on ${fmtDate(estDischargeDate)}.`
-      : `Beneficiary completed ${s.stayDaysInProg} days of comprehensive LOMAMO medical, nutritional and household care (${s.visits.length} home visits, ${s.pdcas.length} PDCA reviews, total documented support ${money(s.grandServiceValue)}). Clinical goals and household orphan-prevention safeguards (${kidCount} child(ren)) have been verified for structured discharge${ref.required!==false ? ' with continuing referral to '+ref.facility : ''}.`;
-
-    const reviewerName = (p.dischargeSummary && p.dischargeSummary.approvedByName)
-      || (dossier && dossier.intlReviewer)
-      || 'Medical Case Manager · LOMAMO CareLink';
-
-    return {
-      mode,
-      isDischarged,
-      summaryRef: s,
-      report_title: mode === '120day' ? 'Patient PDCA 120-Day Report' : 'Patient PDCA Discharge Summary Report',
-      discharge_banner_label: (isDischarged && mode === 'discharge') ? 'CONFIRMED DATE OF DISCHARGE' : 'ESTIMATED DATE OF DISCHARGE',
-      /* Exact merge fields from CareLink_C-DIMS_PDCA_Template_Fields.md */
-      patient_code: p.code || p.id,
-      patient_name: String(p.name || '').toUpperCase(),
-      age: String(ageNum),
-      sex: p.sex === 'F' ? 'Female' : 'Male',
-      marital_status: p.maritalStatus || (p.household && p.household.maritalStatus) || 'Head of Household',
-      caregiver: String(s.caregiver || '').replace(/^Demo - /, ''),
-      county_name: s.county,
-      ministry_area: s.area,
-      occupation: p.occupation || (p.household && p.household.occupation) || 'Small-scale household livelihood',
-      education: p.education || (p.household && p.household.education) || 'Primary / Community level',
-      children_count: String(kidCount),
-      children,
-      assessment_date: fmtDate(assessDate),
-      intake_date: fmtDate(intakeDate),
-      evaluation_date: fmtDate(evalDate),
-      days_in_program: `${s.stayDaysInProg} days`,
-      height: String(heightCm),
-      weight_start: s.baselineWeightKg.toFixed(1),
-      bmi_intake: bmiStart.toFixed(1),
-      weight_now: s.currentWeightKg.toFixed(1),
-      bmi_current: bmiNow.toFixed(1),
-      weight_change: signDelta,
-      muac_cm: cl.muacCm ? String(cl.muacCm) : null,
-      aim: smartAim,
-      diagnoses: diagList,
-      challenges: planBullets,
-      p: planBullets,
-      chief_complaints: chiefComplaints,
-      interventions: doBullets,
-      d: doBullets,
-      treatments: rxBullets,
-      rx: rxBullets,
-      check_findings: checkBullets,
-      c: checkBullets,
-      act_actions: actBullets,
-      a: actBullets,
-      justification,
-      discharge_date: fmtDate(estDischargeDate),
-      prepared_by: String(s.caregiver || '').replace(/^Demo - /, ''),
-      reviewed_by: String(reviewerName).replace(/^Demo - /, ''),
-      report_date: fmtDate(evalDate),
-      referral: ref,
-      protocol: dp,
-      advisory: adv,
-      scansCount: ((p.hardcopyScans||[]).filter(x=>x.kind==='discharge')).reduce((n,x)=>n+(x.pages||x.files?.length||1),0)
-    };
+  /* The supplied three-page template is filled only by an actual evaluation.
+     Compatibility entrypoints deliberately delegate to the revisioned model;
+     generating a document can never fabricate clinical or household findings. */
+  compileOfficialPdcaData(patientOrId,userOrOpts={},modeArg){return CARE_REVIEW.data(patientOrId,userOrOpts,modeArg);},
+  renderOfficialTemplateHTML(dataOrPatient,optsOrUser={},modeArg){
+    const d=dataOrPatient?.careTemplate?dataOrPatient:this.compileOfficialPdcaData(dataOrPatient,optsOrUser,modeArg);
+    return CARE_REVIEW.template(d);
   },
+  exportWord(patientId,userOrMode,modeArg){return CARE_REVIEW.output(this.compileOfficialPdcaData(patientId,userOrMode||{},modeArg),'docx');},
+  exportMergeJson(patientId,userOrMode,modeArg){return CARE_REVIEW.output(this.compileOfficialPdcaData(patientId,userOrMode||{},modeArg),'json');},
+  renderSheet(patientId,user,opts={}){return CARE_REVIEW.patientSheet(patientId,user,opts);}
 
-  /* Render exact visual replica of CareLink_C-DIMS_PDCA_Template.pdf */
-  renderOfficialTemplateHTML(dOrPatient, optsOrUser={}, modeArg){
-    const d = (dOrPatient && dOrPatient.patient_name && dOrPatient.summaryRef)
-      ? dOrPatient
-      : PAT_DISCHARGE.compileOfficialPdcaData(dOrPatient, optsOrUser, modeArg);
-    if(!d) return '';
-    const opts = (optsOrUser && typeof optsOrUser === 'object' && !optsOrUser.roleId) ? optsOrUser : {};
-    const standalone = Boolean(opts.standalone);
-    const bulletItems = arr => (arr||[]).map(x=>`<li>${esc(x)}</li>`).join('');
-    const kidsLine = d.children && d.children.length
-      ? d.children.map(c=>`<div class="pdca-kid-line"><b>${esc(c.name)}</b> - ${esc(c.age)} years old. <span class="muted">${esc(c.note)}</span></div>`).join('')
-      : `<span class="muted">${d.children_count==='0'?'No dependent minors recorded in household.':'Children safeguarded within household.'}</span>`;
-
-    const cycleRow = (badgeTxt, badgeBg, stageTitle, stageSub, bullets, extraHTML='') => `
-      <div class="cdims-pdca-row cdims-stage-${badgeTxt.toLowerCase()}">
-        <div class="cdims-pdca-badge" style="background:${badgeBg}"><span>${esc(badgeTxt)}</span></div>
-        <div class="cdims-pdca-cell">
-          <div class="cdims-pdca-rhead"><b style="color:${badgeBg}">${esc(stageTitle)}</b><span>${esc(stageSub)}</span></div>
-          <ul class="cdims-pdca-ul">${bulletItems(bullets)}</ul>
-          ${extraHTML}
-        </div>
-      </div>`;
-
-    const dischargeExtra = d.mode === 'discharge' ? `
-      <div class="cdims-pdca-sec-title" style="margin-top:16px"><span class="sq"></span>Patient Programme Discharge Summary &middot; Continuing Care &amp; Protocol</div>
-      <div class="cdims-pdca-grid2">
-        <div class="cdims-pdca-box">
-          <div class="cdims-lbl">CONTINUING CARE PATHWAY &amp; FACILITY HANDOVER</div>
-          <div class="small" style="margin-top:4px">
-            ${d.referral && d.referral.required !== false
-              ? `<b>${esc(d.referral.facility)}</b> · ${esc(d.referral.clinic)}<br><span class="muted">Appointment:</span> <b>${esc(fmtDate(d.referral.appointmentDate))}</b> · <span class="muted">Contact:</span> ${esc(d.referral.receivingContact||'-')}<br><span class="muted">Instructions:</span> ${esc(d.referral.instructions||'-')}`
-              : `<b>Graduated in Stable Clinical &amp; Household Standing</b> — Community wellness self-care plan active in ${esc(d.ministry_area)}.`}
-          </div>
-        </div>
-        <div class="cdims-pdca-box">
-          <div class="cdims-lbl">SHA / NHIF, SPIRITUAL GROWTH, ORPHANS PREVENTED &amp; SIGNATURES</div>
-          <div class="small" style="margin-top:4px">
-            <span class="muted">SHA / NHIF Cover:</span> <b>${esc(d.protocol.shaActive||'Yes')}</b> (Last payment: ${esc(d.protocol.shaLastPaymentDate||d.report_date)})<br>
-            <span class="muted">Orphans prevented:</span> <b>${esc(d.children_count)} child(ren)</b> · <span class="muted">Cycle Completed:</span> <b>${esc(d.protocol.completedCycle||'Yes')}</b><br>
-            <span class="muted">Spiritual Growth (Believer / Converted during LOMAMO):</span> <b>Believer: ${esc(d.protocol.believer||'Yes')} · Converted: ${esc(d.protocol.convertedDuringLomamo||'No')}</b><br>
-            <span class="muted">Physical Hard-Copy Signatures &amp; Scan:</span> <b>${d.scansCount ? d.scansCount+' scanned page(s) verified' : esc(d.protocol.physicalSignatures||'Signed on physical hard-copy form')}</b>
-          </div>
-        </div>
-      </div>
-      <section class="cdims-physical-signatures" style="break-inside:avoid;margin-top:14px;border:1px solid #64748B;padding:14px">
-        <h3 style="font-size:14px">PATIENT ACKNOWLEDGEMENT &amp; PHYSICAL SIGNATURES</h3>
-        <p><b>Print this page and obtain signatures in ink before discharge.</b> Explain the end-of-programme decision and continuing-care plan to the patient/guardian. Electronic approval and typed names do not replace physical signatures. Retain the signed original and an authorised scan.</p>
-        <div class="cdims-pdca-grid2">
-          <div>Patient / Parent / Legal Guardian name: ___________________________<br><br>Patient / Guardian signature · date: _________________________________</div>
-          <div>Caregiver name: _______________________________________________<br><br>Caregiver signature · date: _________________________________________</div>
-          <div>Medical Case Manager name: ___________________________________<br><br>MCM signature · date: ______________________________________________</div>
-          <div>Area Coordinator / County witness: _____________________________<br><br>Witness signature · date: ___________________________________________</div>
-        </div>
-        <small>Physical consent and assessment signatures remain in the hard-copy packet. CareLink does not capture a digital signature here.</small>
-      </section>
-      ${d.advisory && d.advisory.flagged ? `<div class="alert ${d.advisory.severity==='high'?'a-crit':'a-warn'}" style="margin-top:10px">
-        ${!standalone ? ic('alert',15) : ''}<div><b>Returning-Patient Watchlist Advisory (${d.advisory.severity==='high'?'High Policy Alert':'Caregiver Watch'}):</b> ${esc(d.advisory.category||'Advisory')} — ${esc(d.advisory.note||'')}</div>
-      </div>` : ''}` : '';
-
-    return `<article class="cdims-pdca-doc" id="dischargeSummaryPrint">
-      <header class="cdims-pdca-top">
-        <div class="cdims-pdca-brand">
-          ${window.LOGO ? `<img src="${window.LOGO}" alt="LOMAMO CareLink" class="cdims-pdca-logo">` : ''}
-          <div>
-            <div class="cdims-pdca-kicker">LOMAMO CARELINK &middot; C-DIMS</div>
-            <h1 class="cdims-pdca-h1">${esc(d.report_title)}</h1>
-            <div class="cdims-pdca-area">${esc(d.ministry_area)} Ministry Area &middot; ${esc(d.county_name)} County (${esc(d.patient_code)})</div>
-          </div>
-        </div>
-        <div class="cdims-pdca-modechip">${esc(d.mode==='120day' ? '120+ DAYS EXTENSION REVIEW' : 'PROGRAMME DISCHARGE SUMMARY')}</div>
-      </header>
-      <div class="cdims-trirule" aria-hidden="true"><i style="background:#162F59;flex:5"></i><i style="background:#1E6FA8;flex:2"></i><i style="background:#C8102E;flex:1.5"></i></div>
-
-      <div class="cdims-pdca-sec-title"><span class="sq"></span>PATIENT &amp; CAREGIVER DATA</div>
-      <table class="cdims-meta-tbl">
-        <tbody>
-          <tr>
-            <td colspan="2"><div class="cdims-lbl">PATIENT NAME</div><div class="cdims-pat-name">${esc(d.patient_name)}</div></td>
-            <td><div class="cdims-lbl">AGE &amp; SEX</div><div class="cdims-val">${esc(d.age)} years old &middot; ${esc(d.sex)}</div></td>
-            <td><div class="cdims-lbl">MARITAL STATUS</div><div class="cdims-val">${esc(d.marital_status)}</div></td>
-          </tr>
-          <tr>
-            <td colspan="2"><div class="cdims-lbl">SUPPORTING CAREGIVER</div><div class="cdims-val">${esc(d.caregiver)}</div></td>
-            <td><div class="cdims-lbl">MINISTRY AREA</div><div class="cdims-val">${esc(d.ministry_area)}</div></td>
-            <td><div class="cdims-lbl">OCCUPATION</div><div class="cdims-val">${esc(d.occupation)}</div></td>
-          </tr>
-          <tr>
-            <td><div class="cdims-lbl">EDUCATION</div><div class="cdims-val">${esc(d.education)}</div></td>
-            <td><div class="cdims-lbl">CHILDREN IN HOME</div><div class="cdims-val"><b>${esc(d.children_count)}</b> child(ren)</div></td>
-            <td colspan="2"><div class="cdims-lbl">HOUSEHOLD CHILDREN &amp; ORPHAN-PREVENTION STATUS</div><div class="cdims-val">${kidsLine}</div></td>
-          </tr>
-          <tr>
-            <td><div class="cdims-lbl">ASSESSMENT DATE</div><div class="cdims-val">${esc(d.assessment_date)}</div></td>
-            <td><div class="cdims-lbl">INTAKE DATE</div><div class="cdims-val">${esc(d.intake_date)}</div></td>
-            <td><div class="cdims-lbl">EVALUATION DATE</div><div class="cdims-val">${esc(d.evaluation_date)}</div></td>
-            <td><div class="cdims-lbl">DAYS IN PROGRAM</div><div class="cdims-val"><b style="color:#C8102E">${esc(d.days_in_program)}</b></div></td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="cdims-anthro-strip">
-        <div class="cdims-anthro-card" style="border-top-color:#162F59">
-          <div class="cdims-lbl">HEIGHT</div>
-          <div class="cdims-anthro-big">${esc(d.height)} <span>cm</span></div>
-          <div class="cdims-anthro-sub">Measured at intake${d.muac_cm ? ' · MUAC '+esc(d.muac_cm)+' cm' : ''}</div>
-        </div>
-        <div class="cdims-anthro-card" style="border-top-color:#1E6FA8">
-          <div class="cdims-lbl">WEIGHT AT INTAKE</div>
-          <div class="cdims-anthro-big">${esc(d.weight_start)} <span>kg</span></div>
-          <div class="cdims-anthro-sub">BMI <b>${esc(d.bmi_intake)}</b> kg/m&sup2;</div>
-        </div>
-        <div class="cdims-anthro-card" style="border-top-color:#1E7E5A">
-          <div class="cdims-lbl">CURRENT WEIGHT</div>
-          <div class="cdims-anthro-big">${esc(d.weight_now)} <span>kg</span></div>
-          <div class="cdims-anthro-sub">BMI <b>${esc(d.bmi_current)}</b> kg/m&sup2;</div>
-        </div>
-        <div class="cdims-anthro-card" style="border-top-color:#C8102E">
-          <div class="cdims-lbl">WEIGHT CHANGE</div>
-          <div class="cdims-anthro-big" style="color:${String(d.weight_change).startsWith('-')?'#C8102E':'#1E7E5A'}">${esc(d.weight_change)} <span>kg</span></div>
-          <div class="cdims-anthro-sub">Since enrollment</div>
-        </div>
-      </div>
-
-      <div class="cdims-pdca-sec-title"><span class="sq"></span>AIM (SMART)</div>
-      <div class="cdims-aim-box">${esc(d.aim)}</div>
-
-      <div class="cdims-pdca-sec-title"><span class="sq"></span>CLINICAL OVERVIEW</div>
-      ${cycleRow('Dx', '#162F59', 'DIAGNOSIS', 'Major symptoms & clinical conditions', d.diagnoses)}
-
-      <div class="cdims-pdca-sec-title"><span class="sq"></span>PDCA CYCLE</div>
-      <div class="cdims-pdca-stack">
-        ${cycleRow('P', '#1D6FA5', 'PLAN', 'Challenges & care objectives', d.challenges,
-          `<div class="cdims-cc-sub"><span class="cdims-lbl">CHIEF COMPLAINTS:</span> ${esc(d.chief_complaints)}</div>`)}
-        ${cycleRow('D', '#1E7E5A', 'DO', 'Interventions delivered', d.interventions)}
-        ${cycleRow('Rx', '#7A1C65', 'TREATMENT', 'Medication & therapy', d.treatments)}
-        ${cycleRow('C', '#A15C07', 'CHECK', 'Outcomes & progress', d.check_findings)}
-        ${cycleRow('A', '#C8102E', 'ACT', 'Next steps & clinical plan', d.act_actions)}
-      </div>
-
-      <div class="cdims-pdca-sec-title"><span class="sq"></span>JUSTIFICATION &amp; DISCHARGE</div>
-      <div class="cdims-just-box">${esc(d.justification)}</div>
-      <div class="cdims-disch-banner">
-        <span>${esc(d.discharge_banner_label)}</span>
-        <b>${esc(d.discharge_date)}</b>
-      </div>
-
-      ${dischargeExtra}
-
-      <div class="cdims-sig-grid">
-        <div class="cdims-sig-col">
-          <div class="cdims-sig-line"></div>
-          <div class="cdims-lbl">PREPARED BY (CAREGIVER)</div>
-          <b>${esc(d.prepared_by)}</b>
-        </div>
-        <div class="cdims-sig-col">
-          <div class="cdims-sig-line"></div>
-          <div class="cdims-lbl">REVIEWED &amp; CONCURRED BY</div>
-          <b>${esc(d.reviewed_by)}</b>
-        </div>
-        <div class="cdims-sig-col">
-          <div class="cdims-sig-line"></div>
-          <div class="cdims-lbl">DATE OF REPORT</div>
-          <b>${esc(d.report_date)}</b>
-        </div>
-      </div>
-
-      <footer class="cdims-pdca-foot">
-        <span>LOMAMO CareLink C-DIMS &vert; Confidential patient record</span>
-        <span>Total Documented Care Value: <b>${esc(money(d.summaryRef.grandServiceValue))}</b> &middot; ${esc(d.summaryRef.visits.length)} Home Visits</span>
-      </footer>
-    </article>`;
-  },
-
-  exportWord(patientId, userOrMode, modeArg){
-    const mode = (typeof modeArg === 'string') ? modeArg : (typeof userOrMode === 'string' ? userOrMode : undefined);
-    const d = PAT_DISCHARGE.compileOfficialPdcaData(patientId, { mode });
-    if(!d) return toast('Patient not found','Could not export PDCA document.','err');
-    const docBody = PAT_DISCHARGE.renderOfficialTemplateHTML(d, { standalone:true });
-    const fullHtml = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="utf-8"><title>${esc(d.report_title)} - ${esc(d.patient_name)}</title>
-      <style>
-        body{font-family:Calibri,'Segoe UI',Arial,sans-serif;color:#15171A;margin:24px;font-size:10.5pt;line-height:1.42}
-        .cdims-pdca-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
-        .cdims-pdca-kicker{color:#C8102E;font-weight:700;font-size:8.5pt;letter-spacing:1.4px;text-transform:uppercase}
-        .cdims-pdca-h1{font-family:Georgia,'Times New Roman',serif;color:#162F59;font-size:18pt;margin:2px 0}
-        .cdims-pdca-area{color:#475569;font-size:9.5pt}
-        .cdims-trirule{height:4px;background:#162F59;border-bottom:2px solid #C8102E;margin:8px 0 14px}
-        .cdims-pdca-sec-title{color:#162F59;font-weight:800;font-size:9pt;letter-spacing:1px;text-transform:uppercase;margin:14px 0 6px}
-        .cdims-meta-tbl{width:100%;border-collapse:collapse;margin-bottom:12px}
-        .cdims-meta-tbl td{border:1px solid #CBD5E1;padding:6px 8px;vertical-align:top;background:#F8FAFC}
-        .cdims-lbl{font-size:7.5pt;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.7px}
-        .cdims-pat-name{font-family:Georgia,serif;font-size:12pt;font-weight:700;color:#7A1C65}
-        .cdims-anthro-strip{display:table;width:100%;table-layout:fixed;margin-bottom:12px}
-        .cdims-anthro-card{display:table-cell;border:1px solid #CBD5E1;border-top:4px solid #162F59;padding:8px;text-align:center;background:#FFFFFF}
-        .cdims-anthro-big{font-size:14pt;font-weight:800;color:#162F59}
-        .cdims-aim-box{border-left:4px solid #C8102E;background:#FFF5F6;padding:8px 12px;margin-bottom:12px}
-        .cdims-pdca-row{display:table;width:100%;margin-bottom:8px;border:1px solid #CBD5E1}
-        .cdims-pdca-badge{display:table-cell;width:42px;color:#FFFFFF;font-weight:800;text-align:center;vertical-align:middle;font-size:11pt;padding:8px}
-        .cdims-pdca-cell{display:table-cell;padding:8px 10px;background:#FFFFFF}
-        .cdims-pdca-rhead b{margin-right:8px}
-        .cdims-pdca-ul{margin:4px 0 0 18px;padding:0}
-        .cdims-just-box{border-left:4px solid #162F59;background:#F1F5F9;padding:8px 12px;margin-bottom:8px}
-        .cdims-disch-banner{background:#162F59;color:#FFFFFF;padding:9px 14px;font-weight:700;display:flex;justify-content:space-between}
-        .cdims-sig-grid{display:table;width:100%;table-layout:fixed;margin-top:22px}
-        .cdims-sig-col{display:table-cell;padding:0 10px}
-        .cdims-sig-line{border-bottom:1px solid #475569;height:22px;margin-bottom:4px}
-        .cdims-pdca-foot{margin-top:16px;padding-top:6px;border-top:1px solid #CBD5E1;font-size:8pt;color:#64748B;display:flex;justify-content:space-between}
-      </style></head><body>${docBody}</body></html>`;
-    const blob = new Blob([fullHtml], { type:'application/msword;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `CareLink-PDCA-${d.mode==='120day'?'120Day':'Discharge'}-${d.patient_code}.doc`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-    toast('Official Word Report Downloaded', `Saved ${a.download} formatted per CareLink C-DIMS PDCA template.`, 'ok');
-  },
-
-  exportMergeJson(patientId, userOrMode, modeArg){
-    const mode = (typeof modeArg === 'string') ? modeArg : (typeof userOrMode === 'string' ? userOrMode : undefined);
-    const d = PAT_DISCHARGE.compileOfficialPdcaData(patientId, { mode });
-    if(!d) return toast('Patient not found','Could not export merge JSON.','err');
-    const clean = Object.assign({}, d);
-    delete clean.summaryRef;
-    const blob = new Blob([JSON.stringify(clean, null, 2)], { type:'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `CareLink-PDCA-MergeFields-${d.patient_code}.json`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-    toast('Merge Payload Exported', `Ready for docxtemplater merge with CareLink_C-DIMS_PDCA_Template.docx.`, 'ok');
-  },
-
-  renderSheet(patientId, user, opts={}){
-    const s = PAT_DISCHARGE.summary(patientId);
-    if(!s) return emptyState('Patient not found','Unable to compile PDCA / Discharge summary.');
-    const p = s.patient;
-    const normOpts = typeof opts === 'string' ? { mode: opts } : (opts || {});
-    const autoMode = (p.status==='discharged' || p.status==='discharge_recommended') ? 'discharge' : (s.stayDaysInProg>=120 ? '120day' : 'discharge');
-    const reqMode = (normOpts.mode && normOpts.mode !== 'auto') ? normOpts.mode : ((PAT_DISCHARGE._sheetMode && PAT_DISCHARGE._sheetMode !== 'auto') ? PAT_DISCHARGE._sheetMode : null);
-    const mode = reqMode || (APPX && APPX.params && APPX.params.pdcaMode) || autoMode;
-    const subview = normOpts.subview || PAT_DISCHARGE._sheetSubview || (APPX && APPX.params && APPX.params.pdcaSubview) || 'official';
-    const d = PAT_DISCHARGE.compileOfficialPdcaData(patientId, { mode });
-
-    const exportDrop = (typeof utilMenu==='function') ? utilMenu('Export & Print', [
-      { label:'Print / Save Official PDF', icon:'download', act:'print-discharge-summary', attrs:`data-id="${esc(p.id)}" data-mode="${esc(mode)}"` },
-      { label:'Download Formatted Word (.doc)', icon:'file', act:'export-pdca-word', attrs:`data-id="${esc(p.id)}" data-mode="${esc(mode)}"` },
-      { label:'Download docxtemplater Merge JSON', icon:'columns', act:'export-pdca-json', attrs:`data-id="${esc(p.id)}" data-mode="${esc(mode)}"` }
-    ], { icon:'download', primary:true, xs:true }) : `<button class="btn btn-xs btn-primary" data-act="print-discharge-summary" data-id="${esc(p.id)}">Print / PDF</button>`;
-
-    const toolbar = `<div class="spread no-print" style="margin-bottom:12px;padding:10px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line);flex-wrap:wrap;gap:10px">
-      <div class="row" style="gap:6px;flex-wrap:wrap">
-        <button type="button" class="btn btn-xs ${mode==='120day'&&subview==='official'?'btn-primary':'btn-ghost'}" data-act="pdca-sheet-mode" data-id="${esc(p.id)}" data-mode="120day" data-subview="official">${ic('repeat',12)} 120-Day PDCA Format</button>
-        <button type="button" class="btn btn-xs ${mode==='discharge'&&subview==='official'?'btn-primary':'btn-ghost'}" data-act="pdca-sheet-mode" data-id="${esc(p.id)}" data-mode="discharge" data-subview="official">${ic('check',12)} Regular Discharge PDCA Format</button>
-        <button type="button" class="btn btn-xs ${subview==='ledger'?'btn-primary':'btn-ghost'}" data-act="pdca-sheet-mode" data-id="${esc(p.id)}" data-mode="${esc(mode)}" data-subview="ledger">${ic('receipt',12)} Service Cost &amp; Protocol Ledger</button>
-      </div>
-      <div class="row" style="gap:8px;flex-wrap:wrap">${exportDrop}</div>
-    </div>`;
-
-    if(subview !== 'ledger'){
-      return toolbar + PAT_DISCHARGE.renderOfficialTemplateHTML(d);
-    }
-
-    const cl = p.clinical || {}, ref = s.referral || {};
-    const canClin = RBAC.has(user,'patient.view.clinical');
-    const pathwayObj = PAT_DISCHARGE.PATHWAYS.find(x=>x.id===ref.pathway) || PAT_DISCHARGE.PATHWAYS[0];
-    return toolbar + `<div class="ds-sheet" id="dischargeSummaryPrint">
-      <div class="ds-banner spread">
-        <div>
-          <div class="xs" style="text-transform:uppercase;letter-spacing:.1em;opacity:.88">LOMAMO Foundation · Service Cost &amp; Discharge Protocol Appendix</div>
-          <h3>Patient Programme Service &amp; Cost Summary</h3>
-          <div class="small" style="opacity:.92">${esc(p.name)} (${esc(p.code)}) · ${esc(s.county)} · ${esc(s.area)} · Status: <b>${esc((WORKFLOW.patient&&WORKFLOW.patient.labels&&WORKFLOW.patient.labels[p.status])||titleCase(p.status))}</b></div>
-        </div>
-      </div>
-
-      <div class="grid g4" style="margin-bottom:14px">
-        ${kpi('Programme duration', `${s.stayDaysInProg} days`, `Enrolled ${fmtDate(s.enrolmentDate)}`, 'info', 'calendar')}
-        ${kpi('Home visits & PDCAs', `${s.visits.length} / ${s.pdcas.length}`, `${s.visits.length} home visits · ${s.pdcas.length} PDCA cycles`, 'ok', 'home')}
-        ${kpi('Hospital & Rx care', `${s.reqs.length} / ${s.rx.length}`, `${s.reqs.length} hospital episodes · ${s.rx.length} prescriptions`, '', 'hospital')}
-        ${kpi('Total care support', money(s.grandServiceValue), `Direct ${money(s.supportTotal)} · Hospital ${money(s.hospTotal)}`, 'warn', 'wallet')}
-      </div>
-
-      <div class="ds-sec">
-        <h4>1. Beneficiary Enrolment, Household Context &amp; Discharge Outcome</h4>
-        <div class="grid g3 small" style="gap:10px">
-          <div><span class="muted">Beneficiary:</span> <b>${esc(p.name)}</b> (${esc(p.sex)}, ${_c6Age(p.dob, p.age)} yrs)</div>
-          <div><span class="muted">National ID / SHA:</span> <b>${esc(p.nationalId||'-')}</b> · SHA: <b>${esc(p.sha||'-')}</b></div>
-          <div><span class="muted">Household children protected:</span> <b>${num(p.childrenCount!=null?p.childrenCount:((p.household&&p.household.children)||0))} child(ren)</b></div>
-          <div><span class="muted">Location:</span> <b>${esc(s.county)} · ${esc(s.area)}</b> (${esc(p.village||(p.household&&p.household.village)||'Community unit')})</div>
-          <div><span class="muted">Supporting Caregiver:</span> <b>${esc(s.caregiver)}</b></div>
-          <div><span class="muted">Discharge pathway:</span> <b>${esc(pathwayObj.label)}</b></div>
-        </div>
-      </div>
-
-      ${canClin ? `<div class="ds-sec">
-        <h4>2. Clinical Progress &amp; Biometric Trajectory (Intake to Discharge)</h4>
-        <div class="grid g3 small" style="gap:10px">
-          <div><span class="muted">Primary condition:</span> <b>${esc(cl.diagnosis||'Managed chronic care')}</b> (${esc(cl.conditionCategory||'General clinical')})</div>
-          <div><span class="muted">Weight trajectory:</span> <b>${s.baselineWeightKg.toFixed(1)} kg -> ${s.currentWeightKg.toFixed(1)} kg</b> (${s.weightDeltaKg>=0?'+':''}${s.weightDeltaKg} kg)</div>
-          <div><span class="muted">BMI &amp; Blood pressure:</span> <b>BMI ${esc(String(cl.bmi||'-'))}</b> · BP <b>${esc(cl.bp||'120/78')}</b></div>
-          <div><span class="muted">Medication adherence:</span> <b>${esc(titleCase(cl.adherence||'Good'))}</b></div>
-          <div><span class="muted">Care plan target:</span> <b>${esc(Array.isArray(p.carePlan&&p.carePlan.objectives)?p.carePlan.objectives.join('; '):((p.carePlan&&p.carePlan.objectives)||'Clinical stabilisation and household resilience achieved'))}</b></div>
-          <div><span class="muted">Allergies / precautions:</span> <b>${esc(Array.isArray(cl.allergies)?(cl.allergies.join(', ')||'None known'):(cl.allergies||'None known'))}</b></div>
-        </div>
-      </div>` : ''}
-
-      <div class="ds-sec">
-        <h4>3. Complete Catalogue of Services Offered Until Discharge</h4>
-        ${table([
-          { label:'Service Pillar', render:r=>`<b>${esc(r.pillar)}</b>` },
-          { label:'Volume Delivered', cls:'mono', render:r=>esc(r.count) },
-          { label:'Key Dates & Clinical / Operational Detail', render:r=>`<span class="small">${esc(r.detail)}</span>` },
-          { label:'Documented Value', cls:'num', render:r=>esc(r.val) }
-        ], [
-          { pillar:'Home-Based Care Visits', count:`${s.visits.length} visit(s)`,
-            detail: s.visits.length ? `First: ${fmtDate(s.visits[0].date)} · Latest: ${fmtDate(s.visits[s.visits.length-1].date)} (${s.visits[s.visits.length-1].summary||'Household follow-up completed'})` : 'Scheduled home care visits',
-            val:'Field care team' },
-          { pillar:'30-Day PDCA & Omaha Care Reviews', count:`${s.pdcas.length} PDCA · ${s.omaha.length} Omaha`,
-            detail: s.pdcas.length ? s.pdcas.map(x=>`${x.kind==='review'?'Day '+x.dueDay:'Cycle'}: ${x.stage} (${x.status})`).slice(0,4).join(' · ') : 'All scheduled reviews completed',
-            val:'Case review' },
-          { pillar:'Pharmacy & Essential Medicines', count:`${s.rx.length} Rx regimen(s)`,
-            detail: s.rx.length ? s.rx.map(x=>`${x.medicine||x.item||'Essential medicine'} (${x.status||'dispensed'})`).slice(0,3).join(' · ') : 'Managed per clinical care plan',
-            val:'FEFO dispensed' },
-          { pillar:'Hospital Visits & Specialist Clinics', count:`${s.reqs.length} episode(s) · ${s.followUps.length} clinic follow-up(s)`,
-            detail: s.reqs.length ? s.reqs.map(r=>`${r.facility} [${titleCase(r.status)}]${r.postFollowUp?' -> '+r.postFollowUp.clinic:''}`).slice(0,3).join(' · ') : 'No emergency hospital escalation needed',
-            val: money(s.hospTotal) },
-          { pillar:'Homestay Short-Stay Respite', count:`${s.stays.length} stay(s) (${s.stayDays} day(s))`,
-            detail: s.stays.length ? s.stays.map(h=>`Room ${h.room||'A'} (${fmtDate(h.admittedAt)} · ${h.reason||'Post-hospital recovery'})`).join(' · ') : 'Managed safely at household level',
-            val: s.stays.length ? `${s.stayDays} respite day(s)` : 'Household care' },
-          { pillar:'Direct Household, Nutrition & School Support', count:`${s.support.length} grant item(s)`,
-            detail: s.support.length ? s.support.map(x=>`${titleCase(x.type)} (${fmtDate(x.date)})`).slice(0,4).join(' · ') : 'Household stabilisation package',
-            val: money(s.supportTotal) },
-          { pillar:'Verified Paper & Digital Forms', count:`${s.forms.length} record(s)`,
-            detail: s.forms.length ? s.forms.map(f=>`${f.formCode||'LMMK'} (${fmtDate(f.date||f.createdAt)})`).slice(0,4).join(' · ') : 'Intake & review records verified',
-            val:'Audit verified' }
-        ])}
-      </div>
-
-      <div class="ds-sec">
-        <h4>4. Continuing Care Referral &amp; Post-Discharge Handover Plan</h4>
-        ${ref.required !== false ? `<div class="grid g2 small" style="gap:10px">
-          <div><span class="muted">Destination category:</span> <b>${esc(ref.destType)}</b></div>
-          <div><span class="muted">Receiving facility / partner:</span> <b>${esc(ref.facility)}</b></div>
-          <div><span class="muted">Assigned outpatient / review clinic:</span> <b>${esc(ref.clinic)}</b></div>
-          <div><span class="muted">Appointment / handover date:</span> <b>${fmtDate(ref.appointmentDate)}</b></div>
-          <div><span class="muted">Receiving focal contact:</span> <b>${esc(ref.receivingContact)}</b></div>
-          <div><span class="muted">Handover instructions:</span> <b>${esc(ref.instructions)}</b></div>
-        </div>` : `<div class="small">Beneficiary graduated in stable household and clinical standing without external facility referral requirement.</div>`}
-      </div>
-
-      <div class="ds-sec">
-        <h4>5. LOMAMO Official Discharge Protocol · SHA, Spiritual Growth, Hard-Copy Signatures & Advisory</h4>
-        ${(()=>{
-          const dp = p.dischargeProtocol || {};
-          const adv = p.dischargeAdvisory || {};
-          const scans = (p.hardcopyScans||[]).filter(x=>x.kind==='discharge');
-          const orphans = dp.orphansPrevented != null ? dp.orphansPrevented : (p.childrenCount ?? ((p.household&&p.household.children)||0));
-          return `<div class="grid g3 small" style="gap:10px">
-            <div><span class="muted">SHA / SHIF (formerly NHIF):</span> <b>${esc(dp.shaActive||(p.sha?'Yes':'Active'))}</b> · No: <b>${esc(p.sha||'On file')}</b></div>
-            <div><span class="muted">SHA / NHIF last payment date:</span> <b>${esc(dp.shaLastPaymentDate?fmtDate(dp.shaLastPaymentDate):fmtDate(s.dischargeDate))}</b></div>
-            <div><span class="muted">Repeat patient / Cycle completed:</span> <b>${esc(dp.repeatPatient||(p.repeatPatient?'Yes':'No'))}</b> · Cycle: <b>${esc(dp.completedCycle||'Yes')}</b></div>
-            <div><span class="muted">Spiritual growth (Believer):</span> <b>${esc(dp.believer||'Yes')}</b> · Converted during LOMAMO: <b>${esc(dp.convertedDuringLomamo||'No')}</b></div>
-            <div><span class="muted">Orphans prevented at discharge:</span> <b>${num(orphans)} child(ren)</b></div>
-            <div><span class="muted">Other assistance programmes:</span> <b>${esc(dp.otherProgramsDetail||'None')}</b></div>
-            <div><span class="muted">Physical hard-copy signatures:</span> <b>${esc(dp.physicalSignatures||'Patient · Caregiver · Coordinator signed')}</b></div>
-            <div><span class="muted">Scanned hard-copy pages on file:</span> <b>${scans.length ? scans.reduce((n,x)=>n+(x.pages||x.files?.length||1),0)+' scanned page(s) verified' : 'Pending County Admin Assistant scan upload'}</b></div>
-            <div><span class="muted">Data entered by:</span> <b>${esc(dp.enteredByName || userName(dp.updatedBy) || 'County Admin Assistant')}</b></div>
-          </div>
-          ${adv.flagged ? `<div class="alert ${adv.severity==='high'?'a-crit':'a-warn'}" style="margin-top:10px">
-            ${ic('alert',16)}
-            <div><b>Returning-Patient Watchlist Alert Active (${adv.severity==='high'?'High Policy / Conduct Alert':'Caregiver Advisory Watch'})</b>
-              <div class="xs"><b>Category:</b> ${esc(adv.category||'Discharge advisory')} — <b>Note:</b> ${esc(adv.note||'')} (Recorded by ${esc(adv.recordedByName||'Care Team')}).</div>
-            </div>
-          </div>` : `<div class="xs muted" style="margin-top:8px">${ic('check',13)} Returning-Patient Watchlist: <b>Clear</b> — no policy violation or conduct alert recorded at discharge.</div>`}`;
-        })()}
-      </div>
-
-      <div class="spread xs muted" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
-        <span>Prepared by: <b>${esc(s.caregiver)}</b> · Reviewed by: <b>${esc((p.dischargeSummary&&p.dischargeSummary.approvedByName)||user.name)}</b></span>
-        <span>Generated: <b>${fmtDateTime(new Date().toISOString())}</b> · Total Documented Support: <b>${money(s.grandServiceValue)}</b></span>
-      </div>
-    </div>`;
-  }
 };
 
 /* ------------------------------------------------------------
@@ -1473,6 +932,8 @@ const ROLE_CTX = {
   groupLabel(user, groupLabel){
     if(!user) return groupLabel;
     const r = user.roleId;
+    if(BOARD_ROLE_IDS.includes(r))return ({Overview:'Oversight workspace',Leadership:'Board & international oversight'})[groupLabel]||'Oversight account';
+    if(groupLabel==='Partner & referral'&&['assistant','liaison','nurse'].includes(r))return 'Clinical referral reporting';
     const role = roleObj(r) || {};
     const cLabel = user.countyId ? countyName(user.countyId).replace(/\s+County Office$/i,'') : 'National';
     const byRole = {
@@ -1770,6 +1231,8 @@ const ROLE_CTX = {
 
   navLabel(user, id, fallback){
     if(!user) return fallback;
+    if(BOARD_ROLE_IDS.includes(user.roleId))return ({home:'Oversight home',boardworkspace:'Board & International Oversight',settings:'My oversight account'})[id]||fallback;
+    if(id==='masterreferrals')return 'Master Referral reports';
     const r = user.roleId;
     const role = roleObj(r) || {};
     const cShort = user.countyId ? countyName(user.countyId) : 'Global';
@@ -1820,7 +1283,7 @@ const ROLE_CTX = {
         requests:'Hospital Referral Oversight', drafts:'Department Clinical Drafts', settings:'Clinical Dept Settings'
       },
       liaison: {
-        home:'Hospital Focal Desk Home', smartflow:'Hospital Escort Smart Workflow', monday:`${cShort} Inpatient Monday Update`,
+        home:'Hospital Focal Desk Home', smartflow:'Hospital Escort Smart Workflow', monday:'Hospital Department Update',
         liaison:'JOOTRH & Facility Queue', requests:'Hospital Visits & Clinic Feedback', recon:'Hospital Receipt Reconciliation',
         patients:'Hospitalised Beneficiaries', drafts:'Hospital Liaison Drafts', calendar:'Outpatient Clinic Bookings',
         messages:'Caregiver & MCM Liaison Inbox', settings:'Hospital Desk Preferences'

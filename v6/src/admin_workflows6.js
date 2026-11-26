@@ -196,11 +196,12 @@ const ADMIN_OPS = {
   render(user, params = {}) {
     if (!this.canAccess(user)) return deniedPanel('admin.ops');
     this.ensureCollections();
-    if (params.tab) ADMIN_OPS_STATE.tab = params.tab;
+    if(applyRouteState(ADMIN_OPS_STATE,params)){
     if (params.county) ADMIN_OPS_STATE.countyFilter = params.county;
     if (params.viewMode) {
       APPX.chartViewMode = params.viewMode;
       if (typeof COST_STATE !== 'undefined') COST_STATE.viewMode = params.viewMode;
+    }
     }
 
     const tab = ADMIN_OPS_STATE.tab;
@@ -632,7 +633,7 @@ Object.assign(ACTIONS, {
     if (typeof COST_STATE !== 'undefined') COST_STATE.viewMode = next;
     render();
   },
-  'adminops-tab': (d) => { ADMIN_OPS_STATE.tab = d.tab || 'overview'; render(); },
+  'adminops-tab': (d) => { ADMIN_OPS_STATE.tab = d.tab || 'overview'; render(); revealLanding(landingTarget(APPX.view)); },
   'adminops-county': (d) => { ADMIN_OPS_STATE.countyFilter = d.county || 'all'; render(); },
   'adminops-palette': (d) => {
     const user = AUTH.user;

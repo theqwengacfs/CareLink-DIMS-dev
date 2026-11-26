@@ -261,7 +261,7 @@ const REFERENCE_MASTER = {
     if(typeof SYNC !== 'undefined') clearTimeout(SYNC._timer);
     if(!silent) render();
     try{
-      /* Fast path: server-side zero-upload feed directly from bundled CareLink-Reference-Master-v6.6.json into KV */
+      /* Fast path: server-side deterministic synthetic generation and verified commit into KV */
       const autoRes = await SYNC._json('api/master-import/auto-seed', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -283,16 +283,6 @@ const REFERENCE_MASTER = {
         }
         return {ok:true, counts:autoRes.body.counts, quality:autoRes.body.quality, importId:autoRes.body.importId};
       }
-      /* Fallback path: fetch pre-packaged Brotli bundle from deployed web origin & stream 5 verified 512 KB chunks (still zero local file!) */
-      if(autoRes.body && autoRes.body.code === 'master_bundle_unavailable' && typeof fetch === 'function'){
-        const pkgRes = await fetch('master/CareLink-Reference-Master-v6.6.json', {cache:'no-store'});
-        if(!pkgRes.ok) throw new Error('Could not fetch built-in CareLink-Reference-Master-v6.6.json from web host.');
-        const manifest = await pkgRes.json();
-        this.phase = 'idle';
-        this.inspect(manifest, {name:'CareLink-Reference-Master-v6.6.json (Cloud Stream)'});
-        await this.upload();
-        return {ok:this.phase==='done', counts:this.result&&this.result.counts, quality:this.result&&this.result.quality, error:this.error};
-      }
       throw new Error((autoRes.body && autoRes.body.error) || `Cloud auto-feed of the ${num(DEMO_REGISTER.patients)}-patient reference master failed.`);
     }catch(e){
       this.phase='idle';
@@ -312,7 +302,7 @@ function renderReferenceMasterImport(user){
     : r.phase==='done' ? 'Reference master committed in the shared online source'
     : 'Ready for server-side digest, structure, relationship and completeness validation';
   return pageHead('Full reference master import',
-    `One-time post-setup import of the complete synthetic ${num(DEMO_REGISTER.patients)}-patient reference package, with live accounts and settings preserved.`)
+    `Evaluation installations only: one-time post-setup import of ${num(DEMO_REGISTER.patients)} synthetic patients. Never load this into the existing live register; accounts and settings are preserved.`)
     + card(esc(r.file&&r.file.name||'CareLink reference master'), `
       <div class="grid g4" style="margin-bottom:16px">
         ${kpi('Patients',num(counts.patients||0),'Complete synthetic profiles','ok','users')}
@@ -366,7 +356,7 @@ function renderImport(user){
       <div class="row" style="justify-content:center;margin-top:14px">
         <span class="btn btn-sm btn-primary" data-act="trigger-file">${ic('file',14)} Select file</span>
         <span class="btn btn-sm btn-ghost" data-act="download-template">${ic('download',14)} CSV template</span>
-        <a class="btn btn-sm btn-soft" href="master/CareLink-Reference-Master-v6.6.json" download>${ic('download',14)} Full ${num(DEMO_REGISTER.patients)}-patient reference master</a>
+        <button class="btn btn-sm btn-soft" data-act="reference-master-download">${ic('download',14)} Generate full ${num(DEMO_REGISTER.patients)}-patient synthetic reference</button>
       </div>
       <div class="small muted" style="margin-top:10px">After the four-step setup and before global activation: download the full reference master, then select that same JSON file above. It includes all related system collections and is uploaded to the shared KV source in verified chunks.</div>
     </div>
@@ -459,7 +449,7 @@ function importActions(){ return {
   'trigger-file':()=>{ const i=$('#importFile'); if(i) i.click(); },
   'download-template':()=>{
     const headers=['Patient Name','File Number','Ministry Area','CCC Number','Phone','Sex','Age','Intake Date','Status','Referral Source','Caregiver','Weight (kg)','Diagnosis','Household Children','Discharge Date'];
-    download('LOMAMO-master-import-template.csv', '\uFEFF'+headers.join(',')+'\n"DEMO Patient 001","LOM-001","Nyalenda","CCC/12345","0700000000","F",34,"2026-03-14","Active","Demo County Referral Hospital","Demo - Caregiver, Nyalenda",58,"HIV - on ART",2,""');
+    download('LOMAMO-master-import-template.csv', '\uFEFF'+headers.join(',')+'\n"DEMO Patient 001","LOM-001","Nyalenda","CCC/900001","0700100000","F",34,"2026-03-14","Active","Demo County Referral Hospital","Demo - Caregiver, Nyalenda",58,"HIV - on ART",2,""');
   },
   'import-reset':()=>{ IMPORTER.reset(); render(); },
   'import-validate':()=>{ IMPORTER.validate(); render(); },

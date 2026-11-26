@@ -341,7 +341,7 @@ const BMI_CLINICAL = {
         assessment:'Severe / Moderate Acute Malnutrition risk requiring targeted therapeutic foodbag and close hydration review.',
         plan:'Escalate immediately to Special Therapeutic Food Bag, schedule 72-hour caregiver re-weigh, and coordinate facility lab review.' },
       { county:'kisumu', idx:5,  daysAgo:2,  author:'Paediatric Nutrition Lead', role:'Medical Case Manager', acuity:'moderate', bp:'102/64', pulse:88, temp:36.8, spo2:99,
-        subjective:'Guardian reports improved school attendance and 4 structured meals per day using fortified porridge flour.',
+        subjective:'Guardian reports improved appetite and 4 structured meals per day using fortified porridge flour.',
         objective:'Linear growth and mid-upper arm circumference (+0.6 cm vs intake baseline) trending steadily into WHO green zone.',
         assessment:'Sustained paediatric nutritional catch-up growth without intercurrent infection.',
         plan:'Continue monthly Weight, BMI-for-Age and MUAC tape plotting; reinforce household WASH & safe water practices.' },
@@ -367,7 +367,7 @@ const BMI_CLINICAL = {
         plan:'Provide Special Fortified Ration, review blood counts at Homa Bay Teaching & Referral Hospital next week.' },
       { county:'homabay', idx:6, daysAgo:5,  author:'Homa Bay Clinical Desk', role:'Medical Case Manager', acuity:'stable', bp:'120/76', pulse:75, temp:36.6, spo2:99,
         subjective:'Consistent ART adherence and thriving household vegetable kitchen garden supporting daily nutrition.',
-        objective:'BMI 21.4 kg/m² in WHO healthy band; all dependent children attending school with normal MUAC.',
+        objective:'BMI 21.4 kg/m² in WHO healthy band; dependent-child nutrition reviewed with normal MUAC.',
         assessment:'Clinically and nutritionally stable household meeting 90-day care plan milestones.',
         plan:'Continue routine 3-visit weigh-in schedule and prepare 120-day review summary.' }
     ];
@@ -1145,6 +1145,10 @@ Object.assign(ACTIONS, {
           <div class="field"><label>A — Assessment (clinical impression & nutritional grade) *</label><textarea class="input" name="assessment" rows="2" required></textarea></div>
           <div class="field"><label>P — Plan (medications, foodbag/diet, clinic referral, next PDCA) *</label><textarea class="input" name="plan" rows="2" required></textarea></div>
         </div>
+        ${typeof INK_PAD!=='undefined' ? INK_PAD.field('mcm-soap-sign', {
+          label:'Clinician signature',
+          purpose:'Attesting the SOAP encounter above',
+          hint:'Optional, and only ever as strong as it looks: a stylus line is recorded as a stylus line, a typed name as a typed name.' }) : ''}
       </form>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
         <button class="btn btn-primary" data-act="mcm-soap-save">${ic('check',14)} Sign & Save SOAP Encounter</button>`
@@ -1173,7 +1177,11 @@ Object.assign(ACTIONS, {
       date:todayISO().slice(0,10), authorId:AUTH.user.id, authorName:AUTH.user.name.replace(/^Demo - /,''),
       role:(roleObj(AUTH.user.roleId)||{}).name||'Clinician',
       acuity:fd.get('acuity')||'moderate', bp:p.clinical.bp, spo2:Number(fd.get('spo2'))||98, temp:36.7,
-      weightKg:w, heightCm:h, bmi, subjective:subj, objective:obj, assessment:ass, plan
+      weightKg:w, heightCm:h, bmi, subjective:subj, objective:obj, assessment:ass, plan,
+      /* The ink, if any, described for what it actually is. */
+      signature: (typeof INK_PAD!=='undefined' && AUTH.user)
+        ? INK_PAD.record('mcm-soap-sign', { by:AUTH.user.name, role:(roleObj(AUTH.user.roleId)||{}).name||'Clinician', purpose:'SOAP encounter' })
+        : undefined
     });
     AUDIT.append({ actor:AUTH.user.id, action:'clinical.soap.recorded', entity:'patient', entityId:p.id,
       detail:`SOAP encounter (${fd.get('acuity')}) · BMI ${bmi}` });

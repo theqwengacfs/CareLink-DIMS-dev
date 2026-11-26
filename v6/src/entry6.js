@@ -16,13 +16,18 @@
 const ONB = {
   step:1, host:null, org:{ name:'LOMAMO Foundation Kenya', county:'kisumu', shortName:'LOMAMO', emailDomain:'lomamofoundation.org' },
   admin:{ name:'', username:'', password:'', confirm:'' },
-  mode:'host', roster:[], issued:null, seed:'empty', autoFeedCloudMaster:true, _pendingCloudAutoFeed:false, busy:false, error:'',
+  mode:'host', roster:[], issued:null, seed:'empty', autoFeedCloudMaster:false, _pendingCloudAutoFeed:false, busy:false, error:'',
   hostSetup:null, advice:''
 };
 
 const LOGIN6 = {
   tab:'signin', error:'', notice:'', busy:false, mustChangeBusy:false, usernameDraft:'', results:null,
-  slide:0, demoFilter:'all'
+  slide:0, demoFilter:'all',
+  /* Set when the host reports the account is live on another browser; the form
+     turns it into one explicit takeover button instead of a wait. */
+  conflict:null, takeover:false,
+  /* Set when this session was opened from the device's own offline credential. */
+  offlineNotice:null
 };
 
 const LOGIN_TEAM_SLIDES = [
@@ -67,9 +72,13 @@ function hostedEntryPending(){
   return typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() &&
     !(typeof APPX !== 'undefined' && APPX.host) && !(SYNC.server);
 }
+function trialEntryActive(){
+  const h = (typeof APPX !== 'undefined' && APPX.host) || (typeof SYNC !== 'undefined' && SYNC.server) || null;
+  return !!(h && h.trialMode === true && h.mode === 'isolated-synthetic-trial');
+}
 function commissionedEntryActive(){
   const h = (typeof APPX !== 'undefined' && APPX.host) || (typeof SYNC !== 'undefined' && SYNC.server) || null;
-  return !!(h && (h.commissioned === true || (h.setup && !h.demoMode)));
+  return !!(h && (h.commissioned === true || (h.setup && (!h.demoMode || trialEntryActive()))));
 }
 function demoEntryBlocked(){
   /* No anonymous/shared-password demo identity is valid at any lifecycle
@@ -162,7 +171,7 @@ async function activateFullDemoDataset(){
   const previousRaw = JSON.stringify(DB.db);
   const previousDirty = typeof APPX !== 'undefined' ? APPX.dirty : false;
   try{
-    const count = DB.seedOfficial({ patients:DEMO_REGISTER.patients, mustChange:false });
+    const count = DB.seedSynthetic({ patients:DEMO_REGISTER.patients, mustChange:false });
     if(typeof SYNC !== 'undefined' && SYNC.available()){
       let r;
       try{
@@ -196,110 +205,70 @@ async function activateFullDemoDataset(){
   }
 }
 
-/* ------------------------------------------------------------ landing (strict 100dvh, zero scrollbar, zero duplicate tabs) */
+/* Foundation-confirmed organisation display; does not grant RBAC capabilities. */
+const MAJOR_DEPARTMENTS = [
+  {name:'Administration',detail:'Founder / President / CEO, Co-Founder, Country Director, County Administrators and County Admin Assistants.'},
+  {name:'Field Care',detail:'Ministry Area Coordinators, Caregivers, Community Health Promoters and Community Health Volunteers.'},
+  {name:'Hospital',detail:'Medical Case Managers, Nurses / Nurse Assistants, Clinical Officers, approved Community Health Promoters and Hospital Liaison.'},
+  {name:'Transport',detail:'Drivers who also serve as caregivers; transport staff may hold procurement head/deputy responsibilities. Each duty requires its own authorisation.'},
+  {name:'Media & IT',detail:'Media and information technology.'},
+  {name:'Homestay',detail:'Homestay care coordination.'},
+  {name:'Procurement',detail:'Sourcing materials across the organisation.'},
+  {name:'Finance',detail:'Financial records, expenditure and budgets.'},
+  {name:'HR & Staff',detail:'Staff administration.'},
+  {name:'Welfare Department',detail:'Staff welfare.'},
+  {name:'Internal Operations',detail:'Internal operational coordination.'}
+];
+/* Eight featured departments in a symmetric hub-and-spoke workflow. Red leads the shared
+   centre/connections; secondary colours distinguish departments, never status.
+   Keep it semantic, self-contained and available in the Chief's inert preview. */
+function renderLandingWorkflow6(){
+  const nodes=[
+    [230,22,'Administration','red'], [324,52,'Field Care','teal'],
+    [354,112,'Hospital','red'], [324,172,'Transport','gold'],
+    [230,202,'Media & IT','blue'], [136,172,'Homestay','red'],
+    [106,112,'Procurement','teal'], [136,52,'Finance','red']
+  ];
+  return `<svg viewBox="40 0 380 224" class="ld-scene-svg" role="img" aria-labelledby="ld-workflow-title" aria-describedby="ld-workflow-desc" focusable="false">
+    <title id="ld-workflow-title">CareLink system workflow</title>
+    <desc id="ld-workflow-desc">CareLink is the shared centre connecting Administration, Field Care, Hospital, Transport, Media &amp; IT, Homestay, Procurement and Finance: eight featured teams from 11 Major Departments. Every department coordinates through one shared system.</desc>
+    <g class="ld-workflow-orbits" fill="none" aria-hidden="true">
+      <circle cx="230" cy="112" r="82" stroke-dasharray="4 5"/>
+      <circle cx="230" cy="112" r="55"/>
+    </g>
+    <g class="ld-workflow-links" aria-hidden="true">
+      ${nodes.map(([x,y])=>`<line x1="230" y1="112" x2="${x}" y2="${y}"/>`).join('')}
+    </g>
+    <circle class="ld-workflow-halo" cx="230" cy="112" r="41" fill="none" aria-hidden="true"/>
+    ${nodes.map(([x,y,label,tone])=>`<g class="ld-workflow-node" data-workflow-node="${esc(label)}" data-tone="${tone}" style="--node-fill:var(--entry-relief-${tone}-fill);--node-accent:var(--entry-relief-${tone})">
+      <rect x="${x-56}" y="${y-13}" width="112" height="26" rx="13"/>
+      <circle cx="${x-44}" cy="${y}" r="2.6" aria-hidden="true"/>
+      <text x="${x-34}" y="${y}" dy=".35em" text-anchor="start">${esc(label)}</text>
+    </g>`).join('')}
+    <g class="ld-workflow-core">
+      <circle cx="230" cy="112" r="35"/>
+      <text x="230" y="109" text-anchor="middle" class="ld-workflow-core-name">CareLink</text>
+      <text x="230" y="122" text-anchor="middle" class="ld-workflow-core-sub">OS · C-DIMS</text>
+    </g>
+  </svg>`;
+}
+
+/* ------------------------------------------------------------ responsive landing */
 function renderLanding6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#ED0000' };
-  const isLight = (th.mode || 'dark') === 'light';
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#EE0000' };
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const isCommissioned = isActivated || commissionedEntryActive();
   const setupPending = hostedEntryPending();
+  const layout = typeof CLIENT_UI!=='undefined' ? CLIENT_UI.snapshot() : {width:1280};
+  const lakeSource = typeof location!=='undefined' && /^https?:$/.test(location.protocol) ? `./media/lake-workspace-${layout.width>=1600?3840:layout.width>=700?1920:960}.webp` : carelinkPhoto('lake_kisumu');
   const facts = [
-    { n: Object.keys(CAPS||{}).length, l:'Governed Capabilities' },
+    { n: Object.keys(CAPS||{}).length, l:'Capabilities' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.length:2), l:'County Offices' },
     { n: (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10), l:'Ministry Areas' },
-    { n: DEPARTMENTS.length, l:'Department Consoles' }
+    { n: 11, l:'Major Departments' }
   ];
 
-  // Keep alternative dark themes intact while branding the default illustration.
-  const sceneColor = color => th.id === 'heritage' ? ({
-    '#F5C451':'#FFB3B3', '#38BDF8':'#F44336', '#0B1933':'#3A0000',
-    '#34D399':'#FFEBEE', '#2DD4BF':'#FFB3B3', '#A78BFA':'#FFEBEE',
-    '#FBBF24':'#F44336', '#F472B6':'#FFB3B3', '#FB923C':'#FFEBEE',
-    '#60A5FA':'#F44336', '#0E2248':'#7A0000',
-    'rgba(56,189,248,0.16)':'rgba(244,67,54,0.16)',
-    'rgba(148,197,255,0.22)':'rgba(255,179,179,0.22)',
-    'rgba(245,196,81,0.34)':'rgba(255,179,179,0.34)'
-  }[color] || color) : color;
-
-  const sceneSvg = isLight ? `
-            <svg viewBox="0 0 460 224" class="ld-scene-svg">
-              <defs>
-                <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#1E3A8A" stop-opacity="0.08"/>
-                  <stop offset="65%" stop-color="#0EA5E9" stop-opacity="0.03"/>
-                  <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
-                </radialGradient>
-              </defs>
-              <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="112" r="82" fill="none" stroke="#E2E8F0" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="112" r="55" fill="none" stroke="#CBD5E1" stroke-width="1.2"/>
-              <g stroke="#CBD5E1" stroke-width="1.3">
-                <line x1="230" y1="112" x2="230" y2="24"/>
-                <line x1="230" y1="112" x2="324" y2="52"/>
-                <line x1="230" y1="112" x2="354" y2="112"/>
-                <line x1="230" y1="112" x2="322" y2="174"/>
-                <line x1="230" y1="112" x2="230" y2="200"/>
-                <line x1="230" y1="112" x2="138" y2="174"/>
-                <line x1="230" y1="112" x2="106" y2="112"/>
-                <line x1="230" y1="112" x2="136" y2="52"/>
-              </g>
-              ${[
-                [230,24,'Field Care','#1E3A8A'], [324,52,'Hospital','#0F766E'],
-                [354,112,'M&E / DHIS','#1D4ED8'], [322,174,'Finance','#047857'],
-                [230,200,'Homestay','#334155'], [138,174,'Media & IT','#475569'],
-                [106,112,'HR & Leave','#0369A1'], [136,52,'Transport','#0F766E']
-              ].map(([x,y,lbl,col])=>`<g>
-                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.1"/>
-                <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
-                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#0F172A">${lbl}</text>
-              </g>`).join('')}
-              <circle cx="230" cy="112" r="34" fill="#0F172A" stroke="#1E3A8A" stroke-width="1.8"/>
-              <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#93C5FD" letter-spacing="0.5">OS · C-DIMS</text>
-            </svg>` : `
-            <svg viewBox="0 0 460 224" class="ld-scene-svg">
-              <defs>
-                <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="${sceneColor('#F5C451')}" stop-opacity="0.34"/>
-                  <stop offset="60%" stop-color="${sceneColor('#38BDF8')}" stop-opacity="0.12"/>
-                  <stop offset="100%" stop-color="${sceneColor('#0B1933')}" stop-opacity="0"/>
-                </radialGradient>
-                <linearGradient id="beamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="${sceneColor('#38BDF8')}" stop-opacity="0.75"/>
-                  <stop offset="50%" stop-color="${sceneColor('#F5C451')}" stop-opacity="0.85"/>
-                  <stop offset="100%" stop-color="${sceneColor('#34D399')}" stop-opacity="0.75"/>
-                </linearGradient>
-              </defs>
-              <path d="M-10,184 C75,156 120,206 205,178 C290,150 355,188 470,152" fill="none" stroke="${sceneColor('rgba(56,189,248,0.16)')}" stroke-width="1.4"/>
-              <circle cx="230" cy="112" r="88" fill="url(#coreGlow)"/>
-              <circle cx="230" cy="112" r="82" fill="none" stroke="${sceneColor('rgba(148,197,255,0.22)')}" stroke-width="1.2" stroke-dasharray="5 5"/>
-              <circle cx="230" cy="112" r="55" fill="none" stroke="${sceneColor('rgba(245,196,81,0.34)')}" stroke-width="1.4"/>
-              <g stroke="url(#beamGrad)" stroke-width="1.4" opacity="0.76">
-                <line x1="230" y1="112" x2="230" y2="24"/>
-                <line x1="230" y1="112" x2="324" y2="52"/>
-                <line x1="230" y1="112" x2="354" y2="112"/>
-                <line x1="230" y1="112" x2="322" y2="174"/>
-                <line x1="230" y1="112" x2="230" y2="200"/>
-                <line x1="230" y1="112" x2="138" y2="174"/>
-                <line x1="230" y1="112" x2="106" y2="112"/>
-                <line x1="230" y1="112" x2="136" y2="52"/>
-              </g>
-              ${[
-                [230,24,'Field Care',sceneColor('#38BDF8')], [324,52,'Hospital',sceneColor('#2DD4BF')],
-                [354,112,'M&E / DHIS',sceneColor('#A78BFA')], [322,174,'Finance',sceneColor('#FBBF24')],
-                [230,200,'Homestay',sceneColor('#F472B6')], [138,174,'Media & IT',sceneColor('#FB923C')],
-                [106,112,'HR & Leave',sceneColor('#34D399')], [136,52,'Transport',sceneColor('#60A5FA')]
-              ].map(([x,y,lbl,col])=>`<g>
-                <rect x="${x-38}" y="${y-11}" width="76" height="22" rx="11" fill="${sceneColor('#0B1933')}" stroke="${col}" stroke-width="1.3"/>
-                <circle cx="${x-26}" cy="${y}" r="3.4" fill="${col}"/>
-                <text x="${x+4}" y="${y+3.5}" text-anchor="middle" font-size="9.2" font-weight="700" fill="#F1F5F9">${lbl}</text>
-              </g>`).join('')}
-              <circle cx="230" cy="112" r="34" fill="${sceneColor('#0E2248')}" stroke="${sceneColor('#F5C451')}" stroke-width="2"/>
-              <text x="230" y="109" text-anchor="middle" font-size="12.5" font-weight="800" fill="#FFFFFF" letter-spacing="0.6">CareLink</text>
-              <text x="230" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="${sceneColor('#F5C451')}" letter-spacing="0.5">OS · C-DIMS</text>
-            </svg>`;
-
-  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#ED0000')}">
+  return `<div class="ld" data-front="1" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="${ENTRY_THEME.style(th.id)}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -312,24 +281,26 @@ function renderLanding6(){
         </div>
       </div>
       <nav class="row ld-nav" aria-label="Public and institutional navigation" style="gap:8px;flex-wrap:wrap">
+        <span class="network-indicator" data-network-indicator role="status" ${typeof navigator==='undefined' || navigator.onLine!==false?'hidden':''}>No network</span>
         <button class="btn ld-btn-arch btn-sm" data-act="goto-architecture"><img src="${carelinkPhoto('united_hands')}" alt="" class="ld-arch-thumb"> How CareLink works</button>
         <button class="btn ld-btn-secondary btn-sm" data-act="goto-public">${ic('eye',14)} Public Impact Portal</button>
         ${!isActivated ? `<button class="btn ld-btn-secondary btn-sm" data-act="login-request">${ic('userplus',14)} Request Access</button>` : ''}
       </nav>
     </header>
 
-    <div class="ld-container ld-front-main">
+    <div class="ld-container ld-front-main" style="--landing-lake:url('${lakeSource}')">
+      ${trialEntryActive()?`<div class="alert warn" role="status"><b>TEAM TRIAL · SYNTHETIC DATA ONLY</b><span>Shared evaluation environment. Never enter real patient, staff or confidential information.</span></div>`:''}
       <section class="ld-hero ld-hero-tight">
         <div class="ld-hero-copy">
-          <div class="ld-eyebrow">${ic('heart',14)} LOMAMO Foundation Kenya · Loving Hands Management &amp; Medical Organization</div>
+          <div class="ld-eyebrow">${ic('heart',14)} CareLink · LOMAMO Foundation Kenya</div>
           <h1>CareLink.<br><em>Saving lives, preventing orphans.</em></h1>
           <div class="ld-subhead">One Foundation. One Operating System.</div>
-          <p class="ld-lede">One secure place for care teams and departments to coordinate their work, support families and serve communities across Kisumu and Homa Bay.</p>
+          <p class="ld-lede">Coordinate care, support families and connect every department across Kisumu and Homa Bay.</p>
           <div class="row ld-cta-row" style="align-items:center">
             <button class="btn btn-primary ld-cta ld-btn-primary" data-act="goto-login" aria-label="Proceed to My CareLink Console">${ic('lock',17)} Staff sign in ${ic('chevron',16)}</button>
-            ${!isCommissioned && !setupPending ? `<button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>` : ''}
+            ${!trialEntryActive() && !isCommissioned && !setupPending ? `<button class="btn ld-btn-secondary" data-act="goto-onboard" aria-label="Begin Chief System Administrator commissioning">${ic('settings',16)} First-run System Commissioning</button>` : ''}
           </div>
-          ${isCommissioned ? `<p class="ld-setup-status">This installation is already commissioned. Use your existing account to sign in, or select <button type="button" class="ld-recovery-link" data-act="login-recovery">password recovery</button> if you need help.</p>` : setupPending ? `<p class="ld-setup-status">Checking the shared installation before first-run setup can be offered.</p>` : ''}
+          ${isCommissioned ? `<p class="ld-setup-status">System already commissioned. Sign in with your account, or use <button type="button" class="ld-recovery-link" data-act="login-recovery">password recovery</button>.</p>` : setupPending ? `<p class="ld-setup-status">Checking the shared installation before first-run setup can be offered.</p>` : ''}
           <div class="ld-assure">
             <span>${ic('database',14)} Shared live online database</span>
             <span>${ic('wifi',14)} Available across devices</span>
@@ -338,10 +309,18 @@ function renderLanding6(){
           </div>
         </div>
 
-        <div class="ld-hero-art" aria-hidden="true">
+        <div class="ld-hero-art">
           <div class="ld-canvas-card ld-canvas-tight">
-            ${sceneSvg}
-
+            <figure class="ld-workflow" aria-labelledby="ld-workflow-heading">
+              <figcaption class="ld-workflow-head">
+                <span class="ld-workflow-kicker">11 Major Departments · 8 featured teams</span>
+                <h2 id="ld-workflow-heading">One system. Every team connected.</h2>
+              </figcaption>
+              ${renderLandingWorkflow6()}
+              <div class="ld-workflow-path" aria-label="Capture, coordinate and report through one shared record">
+                <span>Capture</span>${ic('chevron',12)}<span>Coordinate</span>${ic('chevron',12)}<span>Report</span>
+              </div>
+            </figure>
             <div class="ld-facts">
               ${facts.map(f=>`<div class="ld-fact"><b>${num(f.n)}</b><span>${esc(f.l)}</span></div>`).join('')}
             </div>
@@ -363,10 +342,10 @@ function renderLanding6(){
 
 /* ------------------------------------------------------------ dedicated architecture & departments page */
 function renderArchitecture6(){
-  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'heritage', mode:'dark', accent:'#ED0000' };
-  const departments = DEPARTMENTS.slice(0, 10);
+  const th = (typeof landingTheme==='function') ? landingTheme() : { id:'clinic', mode:'light', accent:'#EE0000' };
+  const departments = MAJOR_DEPARTMENTS.map((d,i)=>({id:'major-'+i,name:d.name,accent:['#b91c3c','#0f655d','#1e40af'][i%3],...d}));
   const dept = d => `<div class="ld-dept" style="--c:${d.accent}">
-      <span class="dot"></span><b>${esc(d.name)}</b><span>${esc(d.short)}</span></div>`;
+      <span class="dot" aria-hidden="true"></span><div class="ld-dept-copy"><b>${esc(d.name)}</b><span>${esc(d.detail||d.short||'')}</span></div></div>`;
   const areaCount = (typeof COUNTIES!=='undefined'?COUNTIES.reduce((a,c)=>a+c.areas.length,0):10);
   const step = (icn, badgeTxt, title, body) => `<article class="ld-step">
       <div class="ld-step-top">
@@ -399,7 +378,7 @@ function renderArchitecture6(){
     }
   ];
 
-  return `<div class="ld ld-arch-page" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="--accent:${esc(th.accent||'#ED0000')}">
+  return `<div class="ld ld-arch-page" data-theme="${esc(th.id)}" data-mode="${esc(th.mode||'dark')}" style="${ENTRY_THEME.style(th.id)}">
     <div class="ld-aurora" aria-hidden="true"><i></i><i></i></div>
     <div class="ld-weave" aria-hidden="true"></div>
 
@@ -428,7 +407,7 @@ function renderArchitecture6(){
           <p class="ld-band-sub">One continuous pipeline connecting household visits, clinical decisions and verified county reporting across PCs and tablets.</p>
         </div>
         <div class="ld-flow">
-          ${step('clipboard','Capture','Online & Offline Field Records','Record assessments with instant National ID returning-beneficiary checks, physical hard-copy form digitisations, 30-day PDCA reviews, child Weight/BMI/MUAC curves and hospital dispatches on tablets or PCs.')}
+          ${step('clipboard','Capture','Online Field Records','Record assessments, returning-beneficiary checks, hard-copy digitisation and PDCA reviews online. Secure offline clinical access is not yet available.')}
           ${step('chart','Analyse','Live Pivot Tables, Budgets & Maps','Cross-tabulate active caseloads in interactive pivot matrices, track Expenditure Against Budget in real time, inspect Kisumu and Homa Bay ministry-area maps, and generate aligned Monday reports.')}
           ${step('flow','Interoperate','KHIS / DHIS2 Drafts & CareLink AI','Prepare verified Ministry of Health draft summaries, export DHIS2 dataValueSets and FHIR R4 bundles, and run the AI-assisted Intelligent Workflow Engine toward 100% data completion.')}
         </div>
@@ -454,7 +433,8 @@ function renderArchitecture6(){
             </div>
           </article>`).join('')}
         </div>
-        <div class="ld-strip">${departments.map(dept).join('')}</div>
+        <div class="ld-band-head"><div><h3>11 Major Departments</h3></div><p class="ld-band-sub">The same structure applies in each county. Cross-department duties require their own authorisation.</p></div>
+        <div class="ld-strip" aria-label="All 11 major departments">${departments.map(dept).join('')}</div>
       </section>
 
       <section class="ld-band">
@@ -502,20 +482,23 @@ function renderArchitecture6(){
 }
 
 /* ------------------------------------------------------------ sign-in */
-/* Strict single-screen, zero-scrollbar split layout on desktop & landscape tablets,
-   and clean single-screen compact brand + card on portrait tablets & phones. */
+/* A viewport-fitted brand panel and white access card. Compact spacing keeps
+   desktop access on one screen; very small/zoomed views may flow, never clip. */
 function renderLogin6(){
+  const entryTheme=landingTheme();
   const isActivated = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const isAwaitingAct = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isAwaitingGlobalActivation && PROD_SETUP.isAwaitingGlobalActivation());
   const demoBlocked = demoEntryBlocked();
   if(demoBlocked && LOGIN6.tab === 'demo') LOGIN6.tab = 'signin';
   const t = LOGIN6.tab;
-  const tabBtn = (id, label) => `<button class="lg-tab ${t===id?'on':''}" data-act="login-tab" data-tab="${id}" type="button">${label}</button>`;
+  const tabBtn = (id, label) => `<button class="lg-tab ${t===id?'on':''}" aria-pressed="${t===id}" data-act="login-tab" data-tab="${id}" type="button">${label}</button>`;
   const host = APPX.host;
   const pCount = (DB.db && DB.db.patients) ? DB.db.patients.length : 0;
   const uCount = (DB.db && DB.db.users) ? DB.db.users.length : 0;
-  const hostLine = isActivated
-    ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Official production system active · Sign in with your issued account</span></div>`
+  const hostLine = trialEntryActive()
+    ? `<div class="lg-host warn">${ic('shield',13)}<span>TEAM TRIAL · SYNTHETIC DATA ONLY · Never enter real or confidential information.</span></div>`
+    : isActivated
+    ? `<div class="lg-host ok">${ic('shieldcheck',13)}<span>Production active · Issued staff accounts only</span></div>`
     : (isAwaitingAct
       ? `<div class="lg-host warn">${ic('key',13)}<span>4-Step Online Setup complete — sign in as Chief System Administrator to change password &amp; <b>Activate System Globally</b></span></div>`
       : (host
@@ -526,23 +509,43 @@ function renderLogin6(){
   const curSlide = LOGIN_TEAM_SLIDES[slideIdx];
 
   const signIn = `
-    <p class="lg-note">${isActivated
-      ? 'This installation has already been set up. Sign in with your assigned username and password, or choose Recover if you cannot access your account.'
-      : 'Sign in with your assigned LOMAMO Foundation username or official email and password to open your role-scoped workspace.'}</p>
+    <p class="lg-note lg-signin-intro">${isActivated
+      ? 'Use your issued username and private password. Choose Recover if you need help.'
+      : 'Use your assigned username or confirmed work email and password.'}</p>
     <form data-form="login6" autocomplete="on">
-      <div class="field"><label for="lg-u">Username or mock email alias</label>
-        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda or caregiver.nyalenda@lomamofoundation.org" required></div>
+      <div class="field"><label for="lg-u">Username or confirmed work email</label>
+        <input class="input" id="lg-u" name="username" value="${esc(LOGIN6.usernameDraft||'')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Assigned username or confirmed work email" required></div>
       <div class="field"><label for="lg-p">Password</label>
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+      <p class="lg-note lg-device-note" id="lg-device-note"><span class="entry-security-badge">Secure access</span> Sign in from your browser with your own account. Access and activity are managed by the shared service.</p>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
+      ${(() => {
+        const typedName = String(LOGIN6.usernameDraft || '').trim();
+        const held = typedName ? OFFLINE_SIGNIN.availability(typedName, DB.db) : { ok:false, reason:'' };
+        return held.ok ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin:2px 0 8px">
+          <button class="btn btn-xs btn-ghost" type="button" data-act="login-offline-now">${ic('laptop',12)} Sign in offline with this device's credential</button>
+          <span class="xs muted">Valid for ${held.daysLeft} more day${held.daysLeft===1?'':'s'} · no network needed</span></div>` : '';
+      })()}
+      ${(() => {
+        /* Offline sign-in is offered only when this browser already holds a
+           credential for the account named above, or when the person is being
+           invited to create one. It is never offered speculatively. */
+        const typed = String(LOGIN6.usernameDraft || '').trim();
+        const avail = typed ? OFFLINE_SIGNIN.availability(typed, DB.db) : { ok: false };
+        if (avail.ok) {
+          return `<label class="lg-check" style="align-items:flex-start"><input type="checkbox" name="rememberDevice" value="1">
+            <span class="small">Remember this device, so I can sign in here without a network. Stored as a separate credential on this device only, and it expires after ${OFFLINE_SIGNIN.policy(DB.db).maxDays} days without an online sign-in.</span></label>`;
+        }
+        return '';
+      })()}
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
     <div class="lg-links">
       <button class="linkbtn" data-act="login-tab" data-tab="request" type="button">Request county account</button>
       <button class="linkbtn" data-act="login-tab" data-tab="forgot" type="button">Forgotten password?</button>
       <button class="linkbtn" data-act="open-dpa-statement" type="button">Kenya DPA (2019) Notice</button>
-      ${!isActivated && !commissionedEntryActive() ? `<button class="linkbtn" data-act="goto-onboard" type="button">First-run online setup</button>` : ''}
-      ${!isActivated && commissionedEntryActive() ? `<button class="linkbtn" data-act="reset-first-run-fresh" type="button">Reset pre-activation setup</button>` : ''}
+      ${!trialEntryActive() && !isActivated && !commissionedEntryActive() ? `<button class="linkbtn" data-act="goto-onboard" type="button">First-run online setup</button>` : ''}
+      ${!trialEntryActive() && !isActivated && commissionedEntryActive() ? `<button class="linkbtn" data-act="reset-first-run-fresh" type="button">Reset pre-activation setup</button>` : ''}
     </div>`;
 
   const allUsers = (DB.db && DB.db.users && DB.db.users.length) ? DB.db.users : [];
@@ -571,10 +574,10 @@ function renderLogin6(){
     <p class="lg-note">Received a WhatsApp temporary password? Simply use the <b>Sign in</b> tab to activate immediately, or redeem a legacy ACT code below.</p>
     <form data-form="activate6">
       <div class="grid g2" style="gap:6px">
-        <div class="field"><label>Username</label><input class="input" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda"></div>
-        <div class="field"><label>Activation code</label><input class="input mono" name="code" placeholder="ACT-XXXXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
-        <div class="field"><label>New password (12+ chars)</label><div class="pw-wrap"><input class="input" name="password" type="password" minlength="12" required autocomplete="new-password" placeholder="A-Z, a-z, 0-9 &amp; symbol"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
-        <div class="field"><label>Confirm password</label><div class="pw-wrap"><input class="input" name="password2" type="password" minlength="12" required autocomplete="new-password" placeholder="Repeat password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+        <div class="field"><label for="lg-activate6-username">Username</label><input class="input" id="lg-activate6-username" name="username" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. caregiver.nyalenda"></div>
+        <div class="field"><label for="lg-activate6-code">Activation code</label><input class="input mono" id="lg-activate6-code" name="code" placeholder="ACT-XXXXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="field"><label for="lg-activate6-password">New password (12+ chars)</label><div class="pw-wrap"><input class="input" id="lg-activate6-password" name="password" type="password" minlength="12" required autocomplete="new-password" placeholder="A-Z, a-z, 0-9 &amp; symbol"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+        <div class="field"><label for="lg-activate6-password2">Confirm password</label><div class="pw-wrap"><input class="input" id="lg-activate6-password2" name="password2" type="password" minlength="12" required autocomplete="new-password" placeholder="Repeat password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       </div>
       <button class="btn btn-primary btn-block" type="submit">Activate My Account</button>
     </form>`;
@@ -583,12 +586,12 @@ function renderLogin6(){
     <p class="lg-note">Routed <b>urgently</b> to your selected <b>County Office Administrator</b> (Kisumu Head Office or Homa Bay County Office) for verification and credential issuance.</p>
     <form data-form="request6">
       <div class="grid g2" style="gap:6px">
-        <div class="field"><label>Full name *</label><input class="input" name="name" required placeholder="Full staff name"></div>
-        <div class="field"><label>Phone / WhatsApp *</label><input class="input" name="phone" required placeholder="07..."></div>
-        <div class="field"><label>Job title / Seat *</label><input class="input" name="jobTitle" required placeholder="e.g. Supporting Caregiver"></div>
-        <div class="field"><label>Department</label><select class="input" name="departmentId">${DEPARTMENTS.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
-        <div class="field"><label>County Office Admin *</label><select class="input" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)} Admin</option>`).join('')}</select></div>
-        <div class="field"><label>Ministry area / Reason *</label><input class="input" name="justification" required placeholder="Assigned role & area"></div>
+        <div class="field"><label for="lg-request6-name">Full name *</label><input class="input" id="lg-request6-name" name="name" required placeholder="Full staff name"></div>
+        <div class="field"><label for="lg-request6-phone">Phone / WhatsApp *</label><input class="input" id="lg-request6-phone" name="phone" required placeholder="07..."></div>
+        <div class="field"><label for="lg-request6-jobTitle">Job title / Seat *</label><input class="input" id="lg-request6-jobTitle" name="jobTitle" required placeholder="e.g. Supporting Caregiver"></div>
+        <div class="field"><label for="lg-request6-departmentId">Department</label><select class="input" id="lg-request6-departmentId" name="departmentId">${DEPARTMENTS.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
+        <div class="field"><label for="lg-request6-countyId">County Office Admin *</label><select class="input" id="lg-request6-countyId" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)} Admin</option>`).join('')}</select></div>
+        <div class="field"><label for="lg-request6-justification">Area / Reason *</label><input class="input" id="lg-request6-justification" name="justification" required placeholder="Assigned role & area"></div>
       </div>
       <button class="btn btn-primary btn-block" type="submit">${ic('send',14)} Send Urgent Request to County Admin</button>
     </form>`;
@@ -597,23 +600,23 @@ function renderLogin6(){
     <p class="lg-note">Submit an <b>urgent password recovery request</b> directly to your <b>County Office Administrator</b>, or redeem an issued 24-hour emergency code below.</p>
     <form data-form="forgot6" style="margin-bottom:7px">
       <div class="grid g3" style="gap:6px;align-items:flex-end">
-        <div class="field" style="margin:0"><label>Username / Email *</label><input class="input" name="username" required autocomplete="username" placeholder="Username"></div>
-        <div class="field" style="margin:0"><label>County Office *</label><select class="input" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field" style="margin:0"><label for="lg-forgot6-username">Username / Email *</label><input class="input" id="lg-forgot6-username" name="username" required autocomplete="username" placeholder="Username"></div>
+        <div class="field" style="margin:0"><label for="lg-forgot6-countyId">County Office *</label><select class="input" id="lg-forgot6-countyId" name="countyId">${COUNTIES.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
         <button class="btn btn-primary" type="submit" style="white-space:nowrap;padding:7px 10px">Alert County Admin</button>
       </div>
     </form>
     <form data-form="emergency6">
       <div class="grid g3" style="gap:6px">
-        <div class="field"><label>EMG code</label><input class="input mono" name="code" placeholder="EMG-XXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
-        <div class="field"><label>Username</label><input class="input" name="username" required autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username"></div>
-        <div class="field"><label>New password</label><div class="pw-wrap"><input class="input" name="password" type="password" minlength="12" required placeholder="12+ chars"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
+        <div class="field"><label for="lg-emergency6-code">EMG code</label><input class="input mono" id="lg-emergency6-code" name="code" placeholder="EMG-XXXX" required autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="field"><label for="lg-emergency6-username">Username</label><input class="input" id="lg-emergency6-username" name="username" required autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username"></div>
+        <div class="field"><label for="lg-emergency6-password">New password</label><div class="pw-wrap"><input class="input" id="lg-emergency6-password" name="password" type="password" minlength="12" required placeholder="12+ chars"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       </div>
       <button class="btn btn-ghost btn-block" type="submit">Redeem 24h Emergency Code</button>
     </form>`;
 
   const body = t==='activate' ? activate : t==='request' ? request : t==='forgot' ? forgot : signIn;
 
-  return `<div class="lg6">
+  return `<div class="lg6" data-theme="${esc(entryTheme.id)}" data-mode="${esc(entryTheme.mode)}" data-access="${esc(t)}" style="${ENTRY_THEME.style(entryTheme.id)}">
     <aside class="lg6-brand">
       <div class="lg6-brand-top">
         <div class="row" style="gap:11px;margin-bottom:8px">
@@ -636,15 +639,15 @@ function renderLogin6(){
               <span>${esc(curSlide.dept)}</span>
             </div>
           </div>
-          <div class="lg6-thumbs" role="tablist" aria-label="Department teamwork gallery">
-            ${LOGIN_TEAM_SLIDES.map((s, idx)=>`<button type="button" class="lg6-thumb ${idx===slideIdx?'on':''}" data-act="login-slide" data-idx="${idx}" title="${esc(s.tag)}">
+          <div class="lg6-thumbs" role="group" aria-label="Department teamwork gallery">
+            ${LOGIN_TEAM_SLIDES.map((s, idx)=>`<button type="button" class="lg6-thumb ${idx===slideIdx?'on':''}" data-act="login-slide" data-idx="${idx}" aria-pressed="${idx===slideIdx}" aria-label="${esc(s.tag)}" title="${esc(s.tag)}">
               <img src="${carelinkPhoto(s.key)}" alt="">
               <span>${esc(s.tag.split(' ')[0])}</span>
             </button>`).join('')}
           </div>
         </figure>
 
-        <p class="lg6-copy">Every department of LOMAMO Foundation collaborates on one governed online source across PCs, tablets and field clients, uniting clinical care, household support and stewardship so children never become orphans.</p>
+        <p class="lg6-copy">Care teams, family support and stewardship — connected on one governed source across computers, tablets and field clients.</p>
       </div>
       <div class="lg6-brand-foot">
         <div><b>${esc(APP.full)}</b> · v${esc(APP.version)}</div>
@@ -654,7 +657,7 @@ function renderLogin6(){
 
     <main class="lg6-panel">
       <div class="lg6-mobile-hero">
-        <img src="${carelinkPhoto(curSlide.key)}" alt="">
+        <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
         <div class="lg6-mobile-hero-txt">
           <div class="xs bold" style="color:#B7192B;text-transform:uppercase;letter-spacing:.08em">LOMAMO Foundation</div>
           <b>CareLink. <em>Saving lives, preventing orphans.</em></b>
@@ -665,19 +668,27 @@ function renderLogin6(){
           <img src="${window.LOGO||''}" alt="" class="lg6-mark">
           <div style="flex:1">
             <div class="lg6-kicker">${esc(orgName())}</div>
-            <h2>${(!demoBlocked && t==='demo')?'Active Demo Accounts':t==='activate'?'Activate Account':t==='request'?'Urgent County Account Request':t==='forgot'?'Urgent Password Recovery':'Official Staff Sign In'}</h2>
+            <h2>${(!demoBlocked && t==='demo')?'Active Demo Accounts':t==='activate'?'Activate Account':t==='request'?'Urgent County Account Request':t==='forgot'?'Urgent Password Recovery':trialEntryActive()?'Team Trial Sign In':'Official Staff Sign In'}</h2>
           </div>
           <button class="btn btn-xs btn-ghost" data-act="goto-landing" type="button">Front page</button>
         </div>
+        <span class="network-indicator network-indicator-login" data-network-indicator role="status" ${typeof navigator==='undefined' || navigator.onLine!==false?'hidden':''}>No network · Online sign-in requires a connection</span>
         ${hostLine}
         ${LOGIN6.error?(()=>{
           const isKvUnavailable = /refused the (read|write)|could not be read|not configured/i.test(LOGIN6.error) && !/WRONGTYPE/i.test(LOGIN6.error);
-          const showResetBtn = !isActivated && !isKvUnavailable && (commissionedEntryActive() || (host && host.setup) || /invalid online database|malformed JSON|WRONGTYPE|corrupted|KV/i.test(LOGIN6.error));
+          const showResetBtn = !trialEntryActive() && !isActivated && !isKvUnavailable && (commissionedEntryActive() || (host && host.setup) || /invalid online database|malformed JSON|WRONGTYPE|corrupted|KV/i.test(LOGIN6.error));
           const showOfflineBtn = isKvUnavailable && !isActivated && !demoBlocked;
           return `<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span><div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">${isKvUnavailable ? `<button class="btn btn-xs btn-primary" type="button" data-act="login-retry-kv">${ic('refresh',12)} Retry Cloud KV Connection</button>` : ''}${showOfflineBtn ? `<button class="btn btn-xs btn-ghost" type="button" data-act="login-offline-device-mode" style="background:#FFFFFF;color:#0F172A;border:1px solid #94A3B8;font-weight:700">${ic('laptop',12)} Open Offline Console on This Device</button>` : ''}${showResetBtn ? `<button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button>` : ''}</div></div></div>`;
         })():''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
-        <div class="lg-tabs" style="grid-template-columns:repeat(${demoBlocked?4:5},1fr)">
+        ${LOGIN6.conflict?`<div class="alert warn lg6-alert" data-login-conflict>${ic('alert',15)}<div style="flex:1">
+          <b>This account is open on another browser</b>
+          <div class="xs">Only one browser may hold an account at a time. If that window is yours, take the account over here now — the other window is signed out immediately and anything it had typed but not yet saved is held for it.</div>
+          <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-xs btn-primary" type="button" data-act="login-takeover">${ic('logout',12)} Sign out the other browser and continue</button>
+            <button class="btn btn-xs btn-ghost" type="button" data-act="login-conflict-dismiss">Not me — cancel</button>
+          </div></div></div>`:''}
+        <div class="lg-tabs" role="group" aria-label="Account access">
           ${tabBtn('signin','Sign in')}
           ${tabBtn('activate','Activate')}
           ${tabBtn('request','Request')}
@@ -716,8 +727,8 @@ function renderMustChange(){
             <div class="hint">Minimum 12 characters including uppercase (A–Z), lowercase (a–z), number (0–9) and symbol (@ # % &amp; * ! ?).</div></div>
           <div class="field"><label>Repeat your new private password</label><div class="pw-wrap"><input class="input" type="password" name="password2" minlength="12" required autocomplete="new-password"><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
           ${isChiefPreActivation ? `<label class="lg-check" style="margin:8px 0 12px;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:9px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06))">
-            <input type="checkbox" name="autoFeedCloudMaster" value="1" checked style="margin-top:2px">
-            <span><b>Auto-feed complete ${num(DEMO_REGISTER.patients)}-patient CareLink Cloud Dataset</b> into Cloud KV immediately upon saving my password (zero local file upload)</span>
+            <input type="checkbox" name="autoFeedCloudMaster" value="1" style="margin-top:2px">
+            <span><b>Evaluation only: load ${num(DEMO_REGISTER.patients)} synthetic patients</b> into this isolated evaluation database. Leave unchecked for production; never use on an existing live register.</span>
           </label>` : ''}
           <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.mustChangeBusy?'disabled':''}>${LOGIN6.mustChangeBusy?'Saving password &amp; loading Cloud Dataset...':'Save private password &amp; open my console'}</button>
         </form>
@@ -803,7 +814,7 @@ function renderOnboarding6(){
             <span>Writes a request to the host. ${esc(hs.admins&&hs.admins.length? 'The senior offices who can approve it: '+hs.admins.join(', ')+'.':'The Chief Administrator approves it from Users & accounts.')}</span></button>
           <button class="ob-choice" type="button" data-act="ob-attach-device">
             <b>3 · Continue on this device only</b>
-            <span>Keeps working offline on this device with its own record. It does not touch the host installation, and it can be joined to it later from Settings.</span></button>
+            <span>Local synthetic demonstration only. This is not secure offline clinical access, and it does not save to the shared installation.</span></button>
           ${!isActivated ? `<button class="ob-choice" type="button" data-act="reset-first-run-fresh">
             <b>4 · Reset unfinished setup &amp; start a fresh 4-Step Commissioning</b>
             <span>Clears an unactivated or interrupted pre-activation setup in Cloud KV and restarts at Step 1 of 4. Permanently disabled once Global System Activation is locked.</span></button>` : ''}
@@ -819,7 +830,7 @@ function renderOnboarding6(){
   if(step===4){
     body = `${hostedSetup
       ? `<p class="lg-note">Live Vercel commissioning starts with an <b>empty production register</b>. After these four steps, the Chief can open <b>Master data import</b> before global activation to download and upload the complete reference master in verified chunks. The large package is deliberately not part of this initial request because of Vercel's 4.5 MB Function request limit.</p>`
-      : `<p class="lg-note">Choose whether to start with the full ${num(DEMO_REGISTER.patients)}-patient synthetic reference register across all 10 ministry areas and 14 departments, or an empty production register ready for live intake.</p>`}
+      : `<p class="lg-note">Choose whether to start with the full ${num(DEMO_REGISTER.patients)}-patient synthetic reference register across all 10 ministry areas and 11 major departments, or an empty production register ready for live intake.</p>`}
       <div class="alert info" style="margin-bottom:12px">${ic('info',16)}<div>
         <b>Staff credential downloads follow global activation</b>
         <span class="small">Finish setup, sign in as Chief System Administrator and change your password. After you activate the system globally, download the confidential SMS CSV or text pack from the activation screen.</span>
@@ -832,9 +843,9 @@ function renderOnboarding6(){
         <b>Start with an empty patient register</b>
         <span>For live clinical intake or master workbook import.</span>
       </div>
-      ${hostedSetup ? `<div class="ob-choice ${ONB.autoFeedCloudMaster!==false?'on':''}" data-act="ob-toggle-autofeed" style="margin-top:8px">
-        <b>${ONB.autoFeedCloudMaster!==false?'✓ ':''}Auto-feed 100%-complete ${num(DEMO_REGISTER.patients)}-patient CareLink Cloud Dataset on Chief Sign-In (zero local file needed)</b>
-        <span>Automatically feeds the built-in ${num(DEMO_REGISTER.patients)}-patient reference dataset (visits, PDCAs, conditions and documents) directly from the server into Cloud KV right after Chief System Administrator password setup — without uploading any Excel or local file.</span>
+      ${hostedSetup ? `<div class="ob-choice ${ONB.autoFeedCloudMaster===true?'on':''}" data-act="ob-toggle-autofeed" style="margin-top:8px">
+        <b>${ONB.autoFeedCloudMaster===true?'✓ ':''}Evaluation only: explicitly load ${num(DEMO_REGISTER.patients)} synthetic patients after Chief Sign-In</b>
+        <span>Off by default. Enable only for an isolated evaluation installation, never a live register. The server generates the synthetic reference at runtime, including related visits, PDCAs, conditions and documents; no real workbook is used.</span>
       </div>` : ''}`;
   }
   const footer = `<div class="ob-actions">
@@ -954,7 +965,7 @@ Object.assign(ACTIONS, {
       ONB.advice = '';
       ONB.step = 1;
       ONB.seed = 'empty';
-      ONB.autoFeedCloudMaster = true;
+      ONB.autoFeedCloudMaster = false;
       ONB._pendingCloudAutoFeed = false;
       let freshHealth = null;
       for (const ms of [0, 200, 450, 900]) {
@@ -980,6 +991,7 @@ Object.assign(ACTIONS, {
   },
   'sync-retry': async () => {
     closeModal();
+    if (typeof SYNC !== 'undefined') SYNC.resetKvBackoff();
     if (typeof SYNC !== 'undefined' && SYNC.deviceOnlyOverride) {
       SYNC.deviceOnlyOverride = false;
       const diag = SYNC._json ? await SYNC._json('api/kv-diagnostics', { skipAuthHeader: true, timeoutMs: 10000 }) : null;
@@ -999,7 +1011,7 @@ Object.assign(ACTIONS, {
     if (typeof SYNC !== 'undefined') await SYNC.start();
   },
   'login-retry-kv': async () => {
-    if (typeof SYNC !== 'undefined') SYNC.deviceOnlyOverride = false;
+    if (typeof SYNC !== 'undefined') { SYNC.deviceOnlyOverride = false; SYNC.resetKvBackoff(); }
     LOGIN6.busy = true; LOGIN6.error = ''; LOGIN6.notice = ''; render();
     try {
       const diag = (typeof SYNC !== 'undefined' && SYNC._json)
@@ -1025,6 +1037,39 @@ Object.assign(ACTIONS, {
       render();
     }
   },
+  /* Takeover is a second, deliberate sign-in carrying the same credentials plus an
+     explicit flag. It never happens as a side effect of a retry. */
+  'login-takeover': async () => {
+    const c = LOGIN6.conflict;
+    if (!c) return;
+    LOGIN6.conflict = null;
+    LOGIN6.takeover = true;
+    LOGIN6.error = '';
+    const btn = $('[data-act="login-takeover"]');
+    if (btn) { btn.disabled = true; btn.setAttribute('aria-busy','true'); }
+    try {
+      /* Re-post exactly the credentials that were just accepted, adding only the
+         takeover flag. Nothing else about the sign-in changes. */
+      await FORMS.login6({ get: (k) => (k === 'username' ? c.username : k === 'password' ? c.password : '') });
+    } finally { LOGIN6.takeover = false; }
+  },
+  'login-conflict-dismiss': () => { LOGIN6.conflict = null; LOGIN6.error = ''; render(); },
+  /* Sign in from the device's own credential without waiting for a network call
+     to time out first. The password is still required. */
+  'login-offline-now': async () => {
+    const u = (($('#lg-u') || {}).value || LOGIN6.usernameDraft || '').trim();
+    const p = (($('#lg-p') || {}).value || '');
+    if(!u || !p) return toast('Enter your password','Type your password, then choose the offline sign-in button.','warn');
+    LOGIN6.forceOffline = true;
+    await FORMS.login6({ get: (k) => (k === 'username' ? u : k === 'password' ? p : '') });
+  },
+  'forget-offline-device': () => {
+    const u = String(LOGIN6.usernameDraft || '').trim();
+    if(!u) return toast('Nothing to forget','Type the account name first.','warn');
+    OFFLINE_SIGNIN.forget(u);
+    toast('Credential removed','This device will no longer offer an offline sign-in for that account.','ok');
+    render();
+  },
   'login-offline-device-mode': async () => {
     if (demoEntryBlocked()) {
       return toast('Offline Evaluation Locked', 'This installation is globally activated and requires the shared online KV store.', 'err');
@@ -1040,7 +1085,7 @@ Object.assign(ACTIONS, {
       SYNC.bump();
     }
     if (!(DB.db && Array.isArray(DB.db.patients) && DB.db.patients.length >= 100)) {
-      DB.seedOfficial({ patients: DEMO_REGISTER.patients, mustChange: false });
+      DB.seedSynthetic({ patients: DEMO_REGISTER.patients, mustChange: false });
     } else if (DB.db && Array.isArray(DB.db.users)) {
       DB.db.users.forEach(u => {
         if (u && !u.hash) {
@@ -1154,7 +1199,7 @@ Object.assign(ACTIONS, {
         });
         APPX.showMustChange = false;
         ONB.busy = false;
-        if (ONB.autoFeedCloudMaster !== false) {
+        if (ONB.autoFeedCloudMaster === true) {
           ONB._pendingCloudAutoFeed = true;
           try { sessionStorage.setItem('carelink.pendingCloudAutoFeed', '1'); } catch (_e) {}
         } else {
@@ -1164,7 +1209,7 @@ Object.assign(ACTIONS, {
         APPX.screen = 'login';
         LOGIN6.tab = 'signin';
         LOGIN6.error = '';
-        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername} (${res.chiefEmail}) and set your private personal password${ONB.autoFeedCloudMaster !== false ? ' — the 100%-complete ${num(DEMO_REGISTER.patients)}-patient Cloud Dataset will auto-feed into KV immediately' : ''}, then click "Activate System Globally".`;
+        LOGIN6.notice = `4-Step Online Setup complete and verified in the shared online source. Sign in below as ${res.chiefUsername}${res.chiefEmail?' ('+res.chiefEmail+')':''} and set your private personal password${ONB.autoFeedCloudMaster === true ? ' — the synthetic evaluation dataset will be generated and loaded because you explicitly selected it' : ''}, then click "Activate System Globally".`;
         toast('Online Setup Complete', 'Sign in as Chief System Administrator to set your private password and Activate System Globally.', 'ok');
         render();
       }catch(e){ ONB.busy=false; ONB.error='Could not finish host setup: '+e.message; render(); }
@@ -1220,6 +1265,10 @@ Object.assign(FORMS, {
     const rawPass = d && typeof d.get === 'function' ? d.get('password') : '';
     const domPass = f && typeof f.querySelector === 'function' ? (f.querySelector('[name="password"]')||{}).value : '';
     const password = String(rawPass || domPass || '');
+    /* "Remember this device" is read from the submitted form; the takeover path
+       re-posts the same credentials and must not create a credential as a side
+       effect, so it says nothing here and nothing is remembered. */
+    const passwordRemembered = Boolean(d && typeof d.get === 'function' && d.get('rememberDevice'));
     LOGIN6.usernameDraft = username;
     if(!username || !password){
       LOGIN6.error = 'Enter both your username (or official email) and password.';
@@ -1227,23 +1276,56 @@ Object.assign(FORMS, {
     }
     LOGIN6.error=''; LOGIN6.notice=''; LOGIN6.busy=true; render();
     try{
+      /* An explicit offline sign-in, decided before anything is sent: if the
+         device holds a live credential for this account the person should not have
+         to fail an online attempt first when they already know there is no network. */
+      if(LOGIN6.forceOffline){
+        LOGIN6.forceOffline = false;
+        const off = await OFFLINE_SIGNIN.attempt(username, password, { db: DB.db });
+        LOGIN6.busy = false;
+        if(!off.ok){ LOGIN6.error = off.msg; render(); return; }
+        LOGIN6.offlineNotice = OFFLINE_SIGNIN.banner(off.daysLeft);
+        if(typeof SYNC !== 'undefined'){ SYNC.deviceOnlyOverride = true; SYNC.state = 'device'; SYNC.message = 'Offline session — records are held on this device'; SYNC.bump(); }
+        const u = DB.db.users.find(x => x.id === off.user.id) || off.user;
+        AUTH.user = u; AUTH.mustChange = false;
+        AUTH.session = { started: todayISO(), last: Date.now(), token: 'offline-' + Date.now() };
+        APPX.screen = 'app'; APPX.view = 'home'; APPX.params = {};
+        try{ sessionStorage.setItem('carelink.lastUser', username); }catch(_e){}
+        SESSION.last = Date.now();
+        applyTheme(); NAVH.reset(); NAVH.push('home',{}); render();
+        toast(LOGIN6.offlineNotice.title, LOGIN6.offlineNotice.body, 'warn');
+        return;
+      }
       const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
       if(!AUTH.user && typeof SYNC !== 'undefined'){
         clearTimeout(SYNC._timer);
         if(SYNC.stopPolling) SYNC.stopPolling();
         if(SYNC.storeToken) SYNC.storeToken(null);
       }
-      let res = await AUTH.loginOnline(username, password, 'this device');
+      // Device admission is tied to the server-issued cookie and approval code,
+      // not a label typed at sign-in. Do not require staff to name their device.
+      let res = await AUTH.loginOnline(username, password, CLIENT_UI.snapshot(), { takeover: Boolean(LOGIN6.takeover) });
       if(!res.ok && !hosted){
         /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
            feature.  A Vercel client never turns a failed server login into a
            device-local account or an automatic demo installation. */
         const hostUnprovisioned = !APPX.host || !APPX.host.setup;
         const isGloballyActive = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+        /* Offline sign-in comes first, and only for a device that was explicitly
+           told to remember this account. It verifies against its own credential, so
+           a failed server call never becomes a local account and a local digest is
+           never consulted for an account nobody remembered. */
+        if (isGloballyActive || (res.code === 'offline') || res.status === 0) {
+          const off = await OFFLINE_SIGNIN.attempt(username, password, { db: DB.db });
+          if (off.ok) {
+            res = { ok: true, offline: true, user: off.user, mustChange: false, daysLeft: off.daysLeft };
+            LOGIN6.offlineNotice = OFFLINE_SIGNIN.banner(off.daysLeft);
+          }
+        }
         const localCandidate = (DB.db && Array.isArray(DB.db.users))
           ? DB.db.users.find(x => x.username.toLowerCase()===username || String(x.email||'').toLowerCase()===username || ((username==='system.admin'||username==='chief.admin') && x.roleId==='chief'))
           : null;
-        if((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned){
+        if(!(res.ok && res.offline) && ((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned)){
           const local = AUTH.login(username, password);
           res = local.ok
             ? { ok:true, user:local.user, mustChange:Boolean(local.user.mustChange || local.user.mustChangePassword) }
@@ -1253,6 +1335,8 @@ Object.assign(FORMS, {
       LOGIN6.busy = false;
       if(res.ok){
         LOGIN6.usernameDraft = '';
+        LOGIN6.conflict = null;
+        LOGIN6.takeover = false;
         if(typeof ACCOUNT_SWITCHER !== 'undefined' && ACCOUNT_SWITCHER.rememberUsername && AUTH.user){
           ACCOUNT_SWITCHER.rememberUsername(AUTH.user.username);
         }
@@ -1269,8 +1353,40 @@ Object.assign(FORMS, {
         NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
         render();
         if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
+        /* The offline credential is created here - after the server has verified
+           the password while online - and nowhere else. */
+        if(!res.offline && AUTH.user && (passwordRemembered || OFFLINE_SIGNIN.recordFor(AUTH.user.username))){
+          if(passwordRemembered){
+            OFFLINE_SIGNIN.remember(AUTH.user, password, { db: DB.db }).then(r=>{
+              if(r.ok && typeof toast==='function') toast('Device remembered','You can sign in on this device without a network for the next '+OFFLINE_SIGNIN.policy(DB.db).maxDays+' days.','ok');
+              else if(!r.ok && typeof toast==='function') toast('Not remembered', r.msg || 'This browser refused to keep the credential.','warn');
+            }).catch(()=>{});
+          } else {
+            OFFLINE_SIGNIN.touch(AUTH.user.username);
+          }
+        }
+        /* One live client per account: if this sign-in retired an earlier window,
+           the person who just signed in should know the other window is closed,
+           rather than discovering it there later. */
+        if(res.offline && LOGIN6.offlineNotice && typeof toast==='function'){
+          toast(LOGIN6.offlineNotice.title, LOGIN6.offlineNotice.body, 'warn');
+        }
+        if(!res.offline) LOGIN6.offlineNotice = null;
+        if(res.supersededClient && typeof toast==='function'){
+          toast('Earlier window signed out',
+            'This account is only open here now. The previous browser window was signed out.', 'info');
+        }
+      } else if(res.code === 'session_conflict' && res.canTakeover){
+        /* The account is open on another browser. Say so once, plainly, and offer
+           the takeover rather than a waiting room: the person typing the password
+           may be the one who left the other window open, and fifteen minutes is a
+           long time to be told to come back. */
+        LOGIN6.error = res.error || 'This account is signed in on another browser.';
+        LOGIN6.conflict = { username, password, heldForSeconds: res.heldForSeconds };
+        render();
       } else {
         LOGIN6.error = res.error || res.msg || 'That username and password were not accepted.';
+        LOGIN6.conflict = null;
         render();
       }
     }catch(e){

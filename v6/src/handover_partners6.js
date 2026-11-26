@@ -8,6 +8,15 @@
    4. International Medical Team 120+ Day PDCA Overstay Console
    ============================================================ */
 
+/* Names supplied by the Foundation in its referral-partner screenshot.
+   No phone numbers, contracts, locations or account memberships are inferred. */
+const REFERRAL_PARTNERS = [
+  'Jaramogi Oginga Odinga Teaching & Referral Hospital (JOOTRH)',
+  'Kisumu County Referral', 'Ahero County Hospital', 'Masogo Sub-County Hospital',
+  'Chiga Dispensary', 'Railways Health Centre', 'Nyalunya Health Center',
+  'Bunde Health Centre', 'St. Mark Lela Health Centre', 'Kowino Health Centre',
+  'Ongo Ogosa Health Centre', 'Ogra Foundation', 'Port Florence Community Hospital'
+];
 const CCC_NEED_OPTIONS = [
   'Nutritional stabilisation (Foodbag 1 / Bag 2)',
   'ARV / TB medication adherence home follow-up',
@@ -22,6 +31,10 @@ const HANDOVER_PARTNERS = {
   ensureStore(){
     if(!DB.db) return;
     const today = todayISO().slice(0,10);
+    if(DB.db.meta?.synthetic!==true || !(DB.db.patients||[]).every(p=>p.demo===true)){
+      for(const c of ['handoverPackets','cccReferrals','intlPdcaDossiers'])DB.db[c]=DB.db[c]||[];
+      return;
+    }
 
     /* 1. Delegation & Handover packets */
     DB.db.handoverPackets = DB.db.handoverPackets || [
@@ -137,48 +150,13 @@ const HANDOVER_PARTNERS = {
         clinicalNotes:'Single mother of 3 on second-line ART recovering from pulmonary TB; BMI 16.4 kg/m².',
         status:'enrolled_active',
         lomamoCode:'LOM-HB-412',
-        masterReportSummary:'Active in Homa Bay Town caseload: Bag 2 family nutrition + pyridoxine verified; all 3 children retained in school.',
+        masterReportSummary:'Active in Homa Bay Town caseload: Bag 2 family nutrition + pyridoxine verified; dependent-child nutrition and guardian care reviewed.',
         feedbackThread:[]
       }
     ];
 
-    /* 3. 120+ Day PDCA International Medical Dossiers */
-    DB.db.intlPdcaDossiers = DB.db.intlPdcaDossiers || (()=>{
-      const overPts = (DB.db.patients||[]).filter(p=>p.status==='active' && PAT.days(p)>=120).slice(0,4);
-      if(overPts.length){
-        return overPts.map((p,idx)=>({
-          id:'PDCA120-'+(101+idx),
-          patientId:p.id,
-          patientCode:p.code,
-          patientName:p.name,
-          countyId:p.countyId || 'kisumu',
-          areaId:p.areaId || 'nyalenda',
-          daysInProgram:PAT.days(p),
-          bmi: (typeof BMI_CLINICAL!=='undefined' && BMI_CLINICAL.patientBmiInfo(p)?.bmi) || 17.8,
-          diagnosis: p.clinical?.diagnosis || 'Complex multi-morbid chronic recovery',
-          planStage:'Target BMI >= 18.5 kg/m², complete specialist MOPC workup & stabilise household food security within 30-day extension.',
-          doStage:'Weekly home visits, Bag 1 + therapeutic protein, supervised pill count & escorted hospital clinic review.',
-          checkStage:'Weight improved +1.9 kg since day 90; residual neuropathy & wound epithelialisation at 80%.',
-          actStage:'Request 30-day clinical extension (Day 120 -> Day 150) prior to structured graduation.',
-          submittedBy:'Medical Case Manager',
-          submittedAt:today,
-          intlStatus: idx===0 ? 'reviewed_concurred' : 'awaiting_intl_review',
-          intlReviewer: idx===0 ? 'International Medical Team' : '',
-          intlRecommendation: idx===0 ? 'Concur with 30-day extension to Day 150; repeat Hb & renal panel at JOOTRH MOPC and maintain pyridoxine B6.' : ''
-        }));
-      }
-      return [{
-        id:'PDCA120-101', patientId:'p-overstay-demo', patientCode:'LOM-KS-774', patientName:'Demo Extended-Care Beneficiary',
-        countyId:'kisumu', areaId:'nyalenda', daysInProgram:138, bmi:17.6,
-        diagnosis:'Extrapulmonary TB + Severe Malnutrition Recovery',
-        planStage:'Achieve BMI >= 18.5 & complete continuation-phase TB milestones.',
-        doStage:'Weekly home nursing, Bag 1 + Pyridoxine 25mg, monthly chest clinic review.',
-        checkStage:'BMI rose from 15.2 -> 17.6 kg/m²; sputum conversion confirmed.',
-        actStage:'30-day clinical extension approved toward safe graduation at Day 165.',
-        submittedBy:'Kisumu Medical Case Manager', submittedAt:today,
-        intlStatus:'awaiting_intl_review', intlReviewer:'', intlRecommendation:''
-      }];
-    })();
+    /* Dossiers exist only after the MCM authorizes and shares a revision. */
+    DB.db.intlPdcaDossiers = DB.db.intlPdcaDossiers || [];
   },
 
   /* =====================================================================
@@ -300,13 +278,14 @@ const HANDOVER_PARTNERS = {
       ], myRefs, {emptyMsg:'No facility referrals submitted from this desk yet — click "+ Submit Patient Referral" above.'}))}`;
     }
 
+    if(tab==='partners') body=card('Referral Partners & Health Facilities',`<p class="small muted">Foundation-supplied directory. Each facility account is provisioned individually; listing a partner does not grant access.</p><div class="grid g3">${REFERRAL_PARTNERS.map(name=>`<div class="note"><b>${esc(name)}</b></div>`).join('')}</div>`);
     if(tab==='master'){
       body = card('Master Referral Reports Returned from LOMAMO Ministry Areas', table([
         {label:'Referral / LOMAMO Code', cls:'mono', render:r=>`<b>${esc(r.lomamoCode)}</b><div class="xs muted">${esc(r.id)} · ${esc(r.cccNumber)}</div>`},
         {label:'Referring Facility', render:r=>esc(r.facilityName)},
         {label:'Ministry Area', render:r=>esc(areaName(r.areaId))},
         {label:'Ministry Area & MCM Master Referral Progress Report', render:r=>`<span class="small">${esc(r.masterReportSummary)}</span>`},
-        {label:'Action', cls:'act', render:r=>`<button class="btn btn-xs btn-primary" data-act="ccc-feedback-modal" data-id="${esc(r.id)}">Send Clinical Reply</button>`}
+        {label:'Action', cls:'act', render:r=>`<div class="row" style="gap:8px;flex-wrap:wrap">${!isExtClinician?`<button class="btn btn-xs btn-primary" data-act="coordination-open" data-kind="referral.report" data-id="${esc(r.id)}">Submit progress report</button>`:''}<button class="btn btn-xs btn-ghost" data-act="referral-report-print" data-id="${esc(r.id)}">Report history / print</button><button class="btn btn-xs btn-ghost" data-act="ccc-feedback-modal" data-id="${esc(r.id)}">Reply</button></div>`}
       ], myRefs, {emptyMsg:'Master Referral progress summaries appear here once a referred patient is assessed.'}));
     }
 
@@ -321,6 +300,7 @@ const HANDOVER_PARTNERS = {
       </div>`
     + `<div class="tabs">
         <button class="tab ${tab==='referrals'?'active':''}" data-act="go" data-v="cccdesk" data-tab="referrals">Referred Patients & Needs (${myRefs.length})</button>
+        <button class="tab ${tab==='partners'?'active':''}" data-act="go" data-v="cccdesk" data-tab="partners">Partner directory</button>
         <button class="tab ${tab==='master'?'active':''}" data-act="go" data-v="cccdesk" data-tab="master">Master Referral Reports from Ministry Areas</button>
       </div>`
     + body;
@@ -420,7 +400,7 @@ const HANDOVER_PARTNERS = {
     } else if(lens === 'governor'){
       lensBody = `<div class="grid g2" style="margin-bottom:16px">
           ${card('Office of the Governor — Sub-County Health System Relief Brief', `
-            <p class="small" style="margin-top:0">LOMAMO Foundation partners directly with County Departments of Medical Services, Public Health &amp; Sanitation in <b>Kisumu</b> and <b>Homa Bay</b> to stabilise vulnerable post-discharge households — reducing avoidable inpatient readmissions while keeping children safely in school and family care.</p>
+            <p class="small" style="margin-top:0">LOMAMO Foundation partners directly with County Departments of Medical Services, Public Health &amp; Sanitation in <b>Kisumu</b> and <b>Homa Bay</b> to stabilise vulnerable post-discharge households — reducing avoidable inpatient readmissions while supporting recovery, household nutrition and family care.</p>
             <div class="grid g2" style="gap:10px;margin-top:10px">
               <div class="exec-pane"><b>Hospital Decongestion</b><p class="xs muted" style="margin:4px 0 0">Structured bi-weekly home nursing &amp; nutrition follow-up after JOOTRH, KCRH and Homa Bay Referral discharge prevents acute relapse.</p></div>
               <div class="exec-pane"><b>Orphan Prevention</b><p class="xs muted" style="margin:4px 0 0">${num(totalProtectedKids)} dependent children in the current register remain under parental care through household recovery.</p></div>
@@ -521,63 +501,8 @@ const HANDOVER_PARTNERS = {
   /* =====================================================================
      4. INTERNATIONAL MEDICAL TEAM & 120+ DAY PDCA OVERSTAY CONSOLE
      ===================================================================== */
-  renderIntlMedical(user, params={}){
-    if(!RBAC.can(user,'intl.medical',{}).ok) return deniedPanel('intl.medical');
-    this.ensureStore();
-    const dossiers = DB.db.intlPdcaDossiers || [];
-    const filter = params.status || 'all';
-    const shown = dossiers.filter(d=>filter==='all' || d.intlStatus===filter);
-    const pendingCount = dossiers.filter(d=>d.intlStatus==='awaiting_intl_review').length;
+  renderIntlMedical(user,params={}){return CARE_REVIEW.internationalPanel(user,params);}
 
-    /* Aggregate clinical oversight across counties */
-    const allPts = (DB.db.patients||[]).filter(p=>p.status==='active');
-    const over120Live = allPts.filter(p=>PAT.days(p)>=120).length;
-    const avgStay = allPts.length ? Math.round(allPts.reduce((n,p)=>n+PAT.days(p),0)/allPts.length) : 84;
-
-    return pageHead('International Medical Team · 120+ Day PDCA & Global Clinical Oversight',
-      'Dedicated clinical governance console receiving every 120+ day overstay Plan-Do-Check-Act (PDCA) report from Kisumu and Homa Bay Medical Case Managers for specialist review and extension sign-off.',
-      `${RBAC.has(user,'clinical.mcm')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="clinicalmcm">${ic('activity',15)} MCM Clinical Console</button>`:''}
-       <button class="btn btn-sm btn-ghost" data-act="portal-mode" data-mode="partner">${ic('building2',15)} Partner Impact Brief</button>`)
-    + `<div class="grid g4" style="margin-bottom:16px">
-        ${kpi('120+ Day PDCA dossiers', num(dossiers.length), `${num(pendingCount)} awaiting International Medical review`, pendingCount?'warn':'ok', 'pulse')}
-        ${kpi('Live 120+ day caseload', num(over120Live), 'Across Kisumu & Homa Bay counties', over120Live?'warn':'ok', 'clock')}
-        ${kpi('Mean active stay', `${avgStay} days`, 'Target graduation cycle: 90–120 days', 'info', 'activity')}
-        ${kpi('Historical recovery rate', '89%', '2,012 healthy discharges (2018–2026)', 'ok', 'shieldcheck')}
-      </div>`
-    + `<div class="tabs">
-        <button class="tab ${filter==='all'?'active':''}" data-act="go" data-v="intlmedical" data-status="all">All 120+ Day PDCA Dossiers (${dossiers.length})</button>
-        <button class="tab ${filter==='awaiting_intl_review'?'active':''}" data-act="go" data-v="intlmedical" data-status="awaiting_intl_review">Awaiting International Review (${pendingCount})</button>
-        <button class="tab ${filter==='reviewed_concurred'?'active':''}" data-act="go" data-v="intlmedical" data-status="reviewed_concurred">Reviewed & Concurred (${dossiers.length - pendingCount})</button>
-      </div>`
-    + shown.map(d=>`<div class="card" style="margin-bottom:14px">
-        <div class="card-h">
-          <div>
-            <h3>${esc(d.id)} · ${esc(d.patientName)} (${esc(d.patientCode)}) — <span style="color:var(--crit)">${d.daysInProgram} Days in Care</span></h3>
-            <div class="xs muted">${esc(countyName(d.countyId))} · ${esc(areaName(d.areaId))} · Primary Diagnosis: <b>${esc(d.diagnosis)}</b> · Submitted by ${esc(d.submittedBy)}</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:wrap">
-            ${typeof BMI_CLINICAL!=='undefined' ? BMI_CLINICAL.badgeHTML(d.bmi, true) : ''}
-            ${badge(d.intlStatus==='reviewed_concurred'?'Intl Medical Concurred':'Awaiting Intl Medical Review', d.intlStatus==='reviewed_concurred'?'b-ok':'b-warn')}
-            ${d.patientId ? `<button class="btn btn-xs btn-ghost" data-act="open-discharge-summary" data-id="${esc(d.patientId)}" data-mode="120day">${ic('file',12)} Official C-DIMS 120d Report</button>
-              <button class="btn btn-xs btn-ghost" data-act="export-pdca-word" data-id="${esc(d.patientId)}" data-mode="120day" title="Download Official C-DIMS 120-Day Report (.doc)">${ic('download',12)} .doc</button>` : ''}
-            <button class="btn btn-xs btn-primary" data-act="intl-review-modal" data-id="${esc(d.id)}">${ic('check',12)} ${d.intlStatus==='reviewed_concurred'?'Update Advisory':'Record Intl Medical Review'}</button>
-          </div>
-        </div>
-        <div class="card-b">
-          <div class="grid g4 small" style="gap:10px">
-            <div class="pdca-quad"><b>P — PLAN</b><div class="xs muted" style="margin-top:4px">${esc(d.planStage)}</div></div>
-            <div class="pdca-quad"><b>D — DO</b><div class="xs muted" style="margin-top:4px">${esc(d.doStage)}</div></div>
-            <div class="pdca-quad"><b>C — CHECK</b><div class="xs muted" style="margin-top:4px">${esc(d.checkStage)}</div></div>
-            <div class="pdca-quad"><b>A — ACT</b><div class="xs muted" style="margin-top:4px">${esc(d.actStage)}</div></div>
-          </div>
-          ${d.intlRecommendation ? `<div class="alert ok" style="margin-top:10px">${ic('shieldcheck',16)}
-            <div><b>International Medical Team Recommendation (${esc(d.intlReviewer||'International Medical')}):</b>
-              <div class="xs">${esc(d.intlRecommendation)}</div>
-            </div>
-          </div>` : ''}
-        </div>
-      </div>`).join('');
-  }
 };
 
 function _hpAddDays(isoDate, n){
@@ -687,13 +612,13 @@ Object.assign(ACTIONS, {
       body:`<form id="cccRefForm">
         <div class="grid g3">
           <div class="field"><label>Referring Hospital / CCC / PSC Desk *</label>
-            <input class="input" name="facilityName" value="${esc(AUTH.user.name.includes('KCRH')?'Kisumu County Referral Hospital PSC':AUTH.user.name.includes('Homa Bay')?'Homa Bay County Teaching & Referral Hospital CCC':'JOOTRH Comprehensive Care Centre (CCC)')}" required>
+            <input class="input" name="facilityName" list="referral-partners" value="${esc(AUTH.user.facilityName||'')}" required><datalist id="referral-partners">${REFERRAL_PARTNERS.map(n=>`<option value="${esc(n)}"></option>`).join('')}</datalist>
           </div>
           <div class="field"><label>Patient name / initials *</label>
             <input class="input" name="patientInitials" placeholder="e.g. Beneficiary K.O." required>
           </div>
-          <div class="field"><label>CCC / Clinic Number (format CCC/9xxxx) *</label>
-            <input class="input" name="cccNumber" value="CCC/90845" required>
+          <div class="field"><label>CCC / Clinic Number *</label>
+            <input class="input" name="cccNumber" value="" required>
           </div>
         </div>
         <div class="grid g3">
@@ -702,12 +627,12 @@ Object.assign(ACTIONS, {
               ${areas.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} (${esc(countyName(a.countyId))})</option>`).join('')}
             </select>
           </div>
-          <div class="field"><label>Current Weight (kg) *</label><input class="input" type="number" step="0.1" name="weightKg" value="44.5" required></div>
-          <div class="field"><label>Height (cm) *</label><input class="input" type="number" step="0.5" name="heightCm" value="165" required></div>
+          <div class="field"><label>Current Weight (kg) *</label><input class="input" type="number" step="0.1" name="weightKg" value="" required></div>
+          <div class="field"><label>Height (cm) *</label><input class="input" type="number" step="0.5" name="heightCm" value="" required></div>
         </div>
         <div class="field"><label>Select patient clinical & household support needs *</label>
           <div class="checkgrid">
-            ${CCC_NEED_OPTIONS.map((n,i)=>`<label class="check"><input type="checkbox" name="needs" value="${esc(n)}" ${i<2?'checked':''}> ${esc(n)}</label>`).join('')}
+            ${CCC_NEED_OPTIONS.map((n,i)=>`<label class="check"><input type="checkbox" name="needs" value="${esc(n)}" > ${esc(n)}</label>`).join('')}
           </div>
         </div>
         <div class="field"><label>Clinical summary, regimen & home follow-up notes *</label>
@@ -725,16 +650,16 @@ Object.assign(ACTIONS, {
     const fd = new FormData(f);
     const notes = String(fd.get('clinicalNotes')||'').trim();
     const patName = String(fd.get('patientInitials')||'').trim();
+    if(!f.reportValidity())return;
     if(!patName || !notes) return toast('Patient & clinical notes required','','err');
     const needs = fd.getAll ? fd.getAll('needs') : [CCC_NEED_OPTIONS[0]];
     const areaId = fd.get('areaId') || 'nyalenda';
     const countyObj = COUNTIES.find(c=>c.areas.some(a=>a.id===areaId)) || COUNTIES[0];
-    const bmi = (typeof BMI_CLINICAL!=='undefined' && BMI_CLINICAL.compute(fd.get('weightKg'), fd.get('heightCm'))) || 16.3;
-    let cccNo = String(fd.get('cccNumber')||'CCC/90845').trim();
-    if(!/^CCC\/9\d{4}$/.test(cccNo)) cccNo = 'CCC/90845';
+    const bmi = typeof BMI_CLINICAL!=='undefined'?BMI_CLINICAL.compute(fd.get('weightKg'),fd.get('heightCm')):null;
+    const cccNo=String(fd.get('cccNumber')||'').trim();
     HANDOVER_PARTNERS.ensureStore();
     const ref = {
-      id: 'CCC-REF-' + (910 + DB.db.cccReferrals.length),
+      id: uid('CCC-REF'),
       facilityName: String(fd.get('facilityName')||'Partner CCC Desk').trim(),
       referredByUsername: AUTH.user.username,
       referredByClinician: AUTH.user.name,
@@ -742,15 +667,13 @@ Object.assign(ACTIONS, {
       areaId,
       patientInitials: patName,
       cccNumber: cccNo,
-      nationalId: '98451209',
-      phone: '0700184512',
       referralDate: todayISO().slice(0,10),
       bmiAtReferral: bmi,
       needs: needs.length ? needs : [CCC_NEED_OPTIONS[0]],
       clinicalNotes: notes,
       status: 'awaiting_assessment',
       lomamoCode: 'Queued for Hard-Copy Assessment',
-      masterReportSummary: `Received by ${countyName(countyObj.id)} County Admin Assistant — scheduled for ${areaName(areaId)} physical home assessment.`,
+      masterReportSummary: '',
       feedbackThread: [{ by:AUTH.user.name, role:'Referring Clinician', at:todayISO().slice(0,10), msg:'Referral submitted via CareLink CCC Desk.' }]
     };
     DB.db.cccReferrals.unshift(ref);
@@ -759,7 +682,7 @@ Object.assign(ACTIONS, {
     AUDIT.append({ actor:AUTH.user.id, action:'ccc.referral.submitted', entity:'ccc_referral', entityId:ref.id, detail:`${ref.facilityName} -> ${areaName(areaId)}` });
     DB.save();
     closeModal(true);
-    toast('Facility referral transmitted', `${ref.id} routed to ${countyName(countyObj.id)} County Admin Assistant & ${areaName(areaId)} team.`, 'ok');
+    toast('Referral saved for synchronisation', `${ref.id} queued for ${countyName(countyObj.id)} County Admin Assistant & ${areaName(areaId)} team.`, 'ok');
     render();
   },
 
@@ -830,72 +753,79 @@ Object.assign(ACTIONS, {
   },
 
   'intl-file-pdca120': (d={}) => {
-    HANDOVER_PARTNERS.ensureStore();
-    const p = (DB.db.patients||[]).find(x=>x.id===d.id);
-    if(!p) return;
-    const exists = DB.db.intlPdcaDossiers.find(x=>x.patientId===p.id);
-    if(exists){ go('intlmedical'); return; }
-    const bi = typeof BMI_CLINICAL!=='undefined' ? BMI_CLINICAL.patientBmiInfo(p) : { bmi:18.1 };
-    const dos = {
-      id: 'PDCA120-' + (110 + DB.db.intlPdcaDossiers.length),
-      patientId: p.id, patientCode: p.code, patientName: p.name,
-      countyId: p.countyId, areaId: p.areaId, daysInProgram: PAT.days(p), bmi: bi.bmi,
-      diagnosis: p.clinical?.diagnosis || 'Extended chronic clinical recovery',
-      planStage: 'Stabilise nutritional BMI & complete specialist outpatient review within 30-day extension.',
-      doStage: 'Fortnightly home visits, Bag 1 support & supervised adherence check.',
-      checkStage: `${PAT.days(p)} days in programme; current BMI ${bi.bmi} kg/m².`,
-      actStage: 'Transmitted to International Medical Team for 120+ day clinical review.',
-      submittedBy: AUTH.user.name.replace(/^Demo - /,''),
-      submittedAt: todayISO().slice(0,10),
-      intlStatus: 'awaiting_intl_review', intlReviewer:'', intlRecommendation:''
-    };
-    DB.db.intlPdcaDossiers.unshift(dos);
-    AUDIT.append({ actor:AUTH.user.id, action:'pdca120.transmitted', entity:'patient', entityId:p.id, detail:`${dos.id} (${dos.daysInProgram}d) -> International Medical` });
-    DB.save();
-    toast('120+ Day PDCA dossier transmitted', `${dos.id} is now in the International Medical Team review queue.`, 'ok');
-    go('intlmedical');
+    const p=CARE_REVIEW.scoped(AUTH.user,d.id);
+    if(!p)return toast('Not available','Outside your clinical scope.','err');
+    toast('Review chain required','Open a 120+ report, record MCM comments, obtain caregiver corrections / resubmission, then authorize and share that exact revision. Nothing was transmitted.','info');
+    go('patient',{id:p.id,tab:'pdca'});
   },
+  'intl-review-modal':d=>CARE_REVIEW.internationalReview(d.id),
+  'intl-review-save':()=>CARE_REVIEW.submitForm('intlRevForm','international_review',d=>({id:d.get('id'),version:Number(d.get('version')),decision:d.get('decision'),recommendation:d.get('recommendation')}))
+});
 
-  'intl-review-modal': (d={}) => {
-    HANDOVER_PARTNERS.ensureStore();
-    const dos = (DB.db.intlPdcaDossiers||[]).find(x=>x.id===d.id);
-    if(!dos) return;
-    openModal({
-      title:`International Medical Review · ${dos.id} (${dos.daysInProgram} Days)`,
-      sub:`${dos.patientName} (${dos.patientCode}) · ${countyName(dos.countyId)} · ${areaName(dos.areaId)}`,
-      wide:false,
-      body:`<form id="intlRevForm">
-        <input type="hidden" name="id" value="${esc(dos.id)}">
-        <div class="field"><label>Clinical concurrence & extension decision *</label>
-          <select class="input" name="decision">
-            <option value="reviewed_concurred">Concur with 30-Day PDCA Extension & Specialist Plan</option>
-            <option value="awaiting_intl_review">Request Additional Diagnostics from County MCM</option>
-          </select>
-        </div>
-        <div class="field"><label>International Medical Team specialist recommendation *</label>
-          <textarea class="input" name="recommendation" rows="3" required placeholder="Clinical guidance on nutrition, specialist referral, diagnostics, and graduation milestone...">${esc(dos.intlRecommendation||'Concur with 30-day clinical extension; monitor 3-visit BMI trajectory and confirm specialist outpatient review before graduation.')}</textarea>
-        </div>
-      </form>`,
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
-        <button class="btn btn-primary" data-act="intl-review-save">${ic('check',14)} Sign & Return to County MCM</button>`
-    });
+/* Explicit server-confirmed committee contributions and facility reports. */
+function executiveCommitteePanel(user){
+  refreshCoordinationPresence();
+  const members=(DB.db.users||[]).filter(u=>u.status==='active'&&u.active!==false&&isExecutive(u));
+  const issues=DB.db.execIssues||[];
+  return card('Director’s Executive Committee Panel',`
+    <p class="small muted">Discuss operational issues, share contributions and record the Director’s resolutions. Oversight decisions remain separate from clinical and financial authorisation.</p>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin:14px 0">${members.map(u=>`<span class="chip">${esc(u.name)} · ${typeof presenceOf==='function'?esc(presenceOf(u.id).label):'Presence unavailable'}</span>`).join('')||'No active members are assigned.'}</div>
+    <button class="btn btn-primary btn-sm" data-act="coordination-open" data-kind="exec.issue">Raise committee issue</button>
+    <div class="col" style="gap:14px;margin-top:16px">${issues.slice().reverse().map(issue=>`<article class="card"><div class="card-b"><h4>${esc(issue.title)}</h4><p class="small muted">${esc(issue.status)} · ${esc(userName(issue.by))} · ${esc(issue.at)}</p>
+      ${(issue.discussion||[]).map(note=>`<div class="note"><span><b>${esc(userName(note.by))}</b> · ${esc(note.at)}<br>${esc(note.text)}</span></div>`).join('')}
+      ${issue.resolution?`<div class="alert ok"><div><b>Recorded resolution</b><p>${esc(issue.resolution.text)}</p><span>${esc(userName(issue.resolution.by))} · ${esc(issue.resolution.at)}</span></div></div>`:`<div class="row" style="gap:8px"><button class="btn btn-sm btn-ghost" data-act="coordination-open" data-kind="exec.reply" data-id="${esc(issue.id)}">Contribute</button>${['director','chief','program.admin'].includes(user.roleId)?`<button class="btn btn-sm btn-primary" data-act="coordination-open" data-kind="exec.resolve" data-id="${esc(issue.id)}">Record resolution</button>`:''}</div>`}
+    </div></article>`).join('')||'<p class="small muted">No committee issues have been raised.</p>'}</div>`);
+}
+const COORDINATION_UI={busy:false};
+Object.assign(ACTIONS,{
+  'coordination-open':d=>{
+    const titles={'exec.issue':'Raise executive committee issue','exec.reply':'Contribute to deliberation','exec.resolve':'Record committee resolution','referral.report':'Submit Master Referral progress report'};
+    if(!titles[d.kind])return;
+    openModal({title:titles[d.kind],sub:d.kind==='referral.report'?'Saved to the referring account’s CareLink desk. No email or external delivery is implied.':'Attributed to your own account; confirmed by the shared server.',wide:true,
+      body:`<form data-form="coordination-submit"><input type="hidden" name="kind" value="${esc(d.kind)}"><input type="hidden" name="id" value="${esc(d.id||'')}"><input type="hidden" name="commandId" value="${esc(uid('coord'))}">
+        ${d.kind==='exec.issue'?'<div class="field"><label>Issue title<input class="input" name="title" maxlength="160" required></label></div>':''}
+        <div class="field"><label>${d.kind==='referral.report'?'Progress, support provided, outstanding needs and next review':'Contribution / resolution'}<textarea class="input" name="text" rows="7" maxlength="5000" required></textarea></label></div>
+        <p class="small muted">Include only information needed by this audience. Do not enter passwords or unrelated beneficiary details.</p>
+        <button class="btn btn-primary" type="submit">Submit to shared workspace</button></form>`,footer:'<button class="btn btn-ghost" data-act="close-modal">Cancel</button>'});
   },
-
-  'intl-review-save': () => {
-    const f = document.querySelector('#intlRevForm');
-    if(!f) return;
-    const fd = new FormData(f);
-    const rec = String(fd.get('recommendation')||'').trim();
-    if(!rec) return toast('Recommendation required','','err');
-    const dos = (DB.db.intlPdcaDossiers||[]).find(x=>x.id===fd.get('id'));
-    if(!dos) return;
-    dos.intlStatus = fd.get('decision') || 'reviewed_concurred';
-    dos.intlReviewer = AUTH.user.name.replace(/^Demo - /,'');
-    dos.intlRecommendation = rec;
-    AUDIT.append({ actor:AUTH.user.id, action:'pdca120.intl_reviewed', entity:'pdca120', entityId:dos.id, detail:rec.slice(0,80) });
-    DB.save();
-    closeModal(true);
-    toast('International Medical review recorded', `Published back to ${countyName(dos.countyId)} Medical Case Management.`, 'ok');
-    render();
+  'referral-report-print':d=>{
+    const ref=(DB.db.cccReferrals||[]).find(r=>r.id===d.id);if(!ref)return;
+    printDoc('Master Referral Report',`<h1>Master Referral Report</h1><p>${esc(ref.facilityName)} · ${esc(ref.id)} · ${esc(ref.cccNumber)}</p>${(ref.masterReports||[]).map(r=>`<section><h3>${esc(r.at)}</h3><p>${esc(r.text)}</p><p>Submitted by ${esc(userName(r.by))} · CareLink recipient: ${esc(r.recipient||'Referring desk')}</p></section>`).join('')||'<p>No submitted progress reports are recorded.</p>'}`);
   }
 });
+Object.assign(FORMS,{'coordination-submit':async fd=>{
+  if(COORDINATION_UI.busy)return;
+  if(!SYNC.available()||!SYNC.sessionToken)return toast('Online sign-in required','No contribution was marked as submitted. Keep this form open and reconnect.','warn');
+  COORDINATION_UI.busy=true;
+  try{
+    const body={};for(const k of ['kind','id','commandId','title','text'])body[k]=String(fd.get(k)||'');
+    const result=await SYNC._json('api/coordination/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!result.ok)return toast('Not submitted',result.body?.error||'The shared server did not confirm this request. Retry the same form.','err');
+    await SYNC.pullFull();closeModal(true);render();toast('Submission confirmed','Recorded in the shared CareLink workspace.','ok');
+  }finally{COORDINATION_UI.busy=false;}
+}});
+
+function renderBoardWorkspace(user){
+  if(!BOARD_ROLE_IDS.includes(user.roleId))return deniedPanel('gov.oversight');
+  refreshCoordinationPresence();
+  const summary=DB.db.oversightSummary||{};
+  const peers=(DB.db.users||[]).filter(u=>BOARD_ROLE_IDS.includes(u.roleId)&&u.status==='active');
+  return pageHead('Foundation Board & International Oversight','Shared oversight workspace · individual accounts · information limited to your assigned scope.')+
+    card('Direction, oversight & accountability','<p>The Board provides organisational oversight and makes decisions about the Foundation’s direction. Founder / President / CEO and Co-Founder seats sit within Administration. International advisory, finance, legal and data functions receive individually assigned access; this workspace does not grant clinical editing or operational approval powers.</p>')+
+    `<div class="grid g3">${kpi('Assigned counties',(summary.counties||[]).length,(summary.counties||[]).map(countyName).join(' · ')||'Awaiting scope assignment','info','map')}${kpi('Registered beneficiaries',summary.registered??'—','Aggregate only','info','users')}${kpi('Active beneficiaries',summary.active??'—','Aggregate only','ok','activity')}</div>`+
+    card('Board & international colleagues',table([{label:'Member',render:u=>esc(u.name)},{label:'Office',render:u=>esc(roleObj(u.roleId)?.name||u.roleId)},{label:'Recent activity',render:u=>typeof presenceOf==='function'?esc(presenceOf(u.id).label):'Unavailable'}],peers))+
+    '<p class="small muted">Recent activity is based on the latest shared presence timestamp, not a guarantee that a browser remains open. Every member uses a separate account. No locations or individual beneficiary records are displayed here.</p>';
+}
+
+let coordinationPresenceAt=0,coordinationPresenceTimer;
+function refreshCoordinationPresence(){
+  if(!SYNC.available()||!SYNC.sessionToken||Date.now()-coordinationPresenceAt<30000)return;
+  coordinationPresenceAt=Date.now();
+  SYNC._json('api/coordination/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>{
+    if(!r.ok)return;
+    DB.db.presence=r.body.presence||{};
+    if((['execconsole','boardworkspace'].includes(APPX.view)||APPX.view==='home'&&BOARD_ROLE_IDS.includes(AUTH.user?.roleId)))render();
+  }).catch(()=>{});
+  clearTimeout(coordinationPresenceTimer);
+  coordinationPresenceTimer=setTimeout(()=>{if((['execconsole','boardworkspace'].includes(APPX.view)||APPX.view==='home'&&BOARD_ROLE_IDS.includes(AUTH.user?.roleId)))refreshCoordinationPresence();},45000);
+}

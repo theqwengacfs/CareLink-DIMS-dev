@@ -8,10 +8,36 @@
 
 const PERIOD = {
   day:d=>{ const s=new Date(d); s.setHours(0,0,0,0); return {start:s,end:new Date(s.getTime()+DAY-1)}; },
-  week:(d=new Date())=>{ /* ISO week ending Sunday, cut-off Monday 08:00 */
+  week:(d=new Date())=>{ /* Rolling period retained for existing non-planning reports. */
     const e=new Date(d); e.setHours(23,59,59,999);
     const s=new Date(e.getTime()-6*DAY); s.setHours(0,0,0,0);
     return {start:s,end:e,label:'7 days to '+fmtDate(e)};
+  },
+  workWeek:(d=new Date())=>{
+    const civil=CARE_RULES.programDate(d);
+    if(!civil) throw new Error('A valid planning date is required.');
+    const dow=new Date(civil+'T00:00:00Z').getUTCDay();
+    const monday=CARE_RULES.addDays(civil,-((dow+6)%7));
+    const friday=CARE_RULES.addDays(monday,4);
+    const fmt=s=>new Intl.DateTimeFormat('en-GB',{timeZone:'UTC',day:'numeric',month:'short',year:'numeric'}).format(new Date(s+'T00:00:00Z'));
+    // Provisional convention, chosen to match the supplied November 2026
+    // example: week 1 starts one Monday before the week containing January 1.
+    // All extra segments are labelled week 52 with their own dates. Archive
+    // keys remain the existing unique ISO keys, never rewritten retroactively.
+    const firstMonday=y=>{const jan=`${y}-01-01`;const dow=new Date(jan+'T00:00:00Z').getUTCDay();return CARE_RULES.addDays(jan,-7-((dow+6)%7));};
+    let year=Number(monday.slice(0,4));
+    if(monday>=firstMonday(year+1))year++;else if(monday<firstMonday(year))year--;
+    const ordinal=1+Math.round((Date.parse(monday+'T00:00:00Z')-Date.parse(firstMonday(year)+'T00:00:00Z'))/(7*86400000));
+    const week=Math.min(52,ordinal), extra=ordinal>52;
+    return {start:new Date(monday+'T00:00:00+03:00'),end:new Date(friday+'T23:59:59.999+03:00'),
+      civilStart:monday,civilEnd:friday,planningYear:year,planningWeek:week,extraSegment:extra,
+      label:`Week ${week} of ${year} (provisional)${extra?' · additional week 52 segment':''} · Monday ${fmt(monday)} – Friday ${fmt(friday)} · Africa/Nairobi`};
+  },
+  lastCompletedWorkWeek:(d=new Date())=>{
+    const civil=CARE_RULES.programDate(d);
+    if(!civil) throw new Error('A valid planning date is required.');
+    const day=new Date(civil+'T00:00:00Z').getUTCDay();
+    return PERIOD.workWeek(day>=1 && day<=5 ? CARE_RULES.addDays(civil,-7) : civil);
   },
   month:(d=new Date())=>{ const s=new Date(d.getFullYear(),d.getMonth(),1); const e=new Date(d.getFullYear(),d.getMonth()+1,0,23,59,59);
     return {start:s,end:e,label:s.toLocaleDateString('en-GB',{month:'long',year:'numeric'})}; },
@@ -36,10 +62,11 @@ const REPORTS = {
   patientDays(user, f={}){
     const ps = repo.patientList(user, f).filter(p=>['active','extension','discharge_recommended','discharged'].includes(p.status) || !p.status);
     const cutoff = f.cutoff? new Date(f.cutoff): new Date();
+    const cutoffDay=CARE_RULES.programDate(cutoff);
     const rows = ps.map(p=>{
-      const days = Math.max(0, daysBetween(p.intake||p.created||cutoff, p.status==='discharged'&&p.discharge? p.discharge: cutoff));
-      const lastVisit = DB.visitsFor(p.id)[0];
-      const openPdca = DB.db.pdcas.filter(x=>x.patientId===p.id && x.status==='open').length;
+      const days = CARE_RULES.days(p,cutoff.toISOString());
+      const lastVisit = DB.visitsFor(p.id).find(v=>CARE_RULES.programDate(v.date)&&CARE_RULES.programDate(v.date)<=cutoffDay&&CARE_RULES.recordCycle(v,p,DB.db)===CARE_RULES.cycleId(p));
+      const openPdca = CARE_RULES.openReviewCount(p,DB.db);
       const milestone = days>=180?180: days>=120?120: days>=100?100: days>=60?60:0;
       return { p, days, milestone, lastVisit, openPdca,
         readiness: days>=180?'Overdue review - discharge evaluation required'
@@ -61,36 +88,49 @@ const REPORTS = {
     const cutoff = period.end;
     const all = repo.patientList(user, {countyId: countyId||undefined});
     const idset = new Set(all.map(p=>p.id));
-    const activeAt = d => all.filter(p=>{
-      if(['rejected','returned','digital_entered','awaiting_verification','approved_enrolment','form_submitted','assessment_initiated','discharge_recommended'].includes(p.status) && !p.enrolDate) return false;
-      const intake = new Date(p.intake||p.enrolDate||p.created||0);
-      if(intake>d) return false;
-      if(p.status==='discharged' && p.discharge && new Date(p.discharge)<=d) return false;
-      return ['active','extension','discharge_recommended','discharged'].includes(p.status);
+    // Count support-cycle events, not the latest mutable patient status. A
+    // repeat enrollment must not erase last year's discharge / caseload or
+    // count a paper verification as a separate office enrollment.
+    const recordedCycles=new Map();
+    for(const c of DB.db.careCycles||[]){if(!recordedCycles.has(c.patientId))recordedCycles.set(c.patientId,[]);recordedCycles.get(c.patientId).push(c);}
+    const cycles=all.flatMap(p=>{
+      const rows=[...(recordedCycles.get(p.id)||[])];
+      if(CARE_RULES.supported(p)&&CARE_RULES.cycleStart(p)&&!rows.some(c=>c.id===CARE_RULES.cycleId(p)))rows.push({id:CARE_RULES.cycleId(p),startedAt:CARE_RULES.cycleStart(p),dischargedAt:p.dischargedAt||p.discharge||'',legacy:true});
+      return rows.filter(c=>CARE_RULES.programDate(c.startedAt)).map(c=>({...p,
+        household:c.snapshot?.household||p.household,master:c.snapshot?.master||p.master,
+        careCycleId:c.id,cycleStartedAt:CARE_RULES.programDate(c.startedAt),enrolDate:CARE_RULES.programDate(c.startedAt),
+        discharge:CARE_RULES.programDate(c.dischargedAt),cohortSource:c}));
     });
-
+    const dayIn=(value,range)=>{const d=CARE_RULES.programDate(value);return !!d&&d>=CARE_RULES.programDate(range.start)&&d<=CARE_RULES.programDate(range.end);};
+    const activeAt = d => {const day=CARE_RULES.programDate(d);return cycles.filter(p=>p.cycleStartedAt<=day&&(!p.discharge||p.discharge>day));};
     const active = activeAt(cutoff);
-    const opening = activeAt(period.start);
-    const enrolledPeriod = all.filter(p=>inRange(p.enrolDate||p.verifiedAt, period) || (inRange(p.intake,period)&&['active','extension','discharge_recommended','discharged'].includes(p.status)));
-    const dischargedPeriod = all.filter(p=>p.status==='discharged' && inRange(p.discharge, period));
-    const newAssessed = all.filter(p=>inRange(p.intake, period));
-    const approved = all.filter(p=>inRange(p.verifiedAt, period));
+    const opening = activeAt(CARE_RULES.addDays(CARE_RULES.programDate(period.start),-1));
+    const enrolledPeriod = cycles.filter(p=>dayIn(p.enrolDate,period));
+    const dischargedPeriod = cycles.filter(p=>dayIn(p.discharge,period));
+    const firstCycles=new Map(),patientsById=new Map(all.map(p=>[p.id,p]));
+    for(const c of cycles)if(!firstCycles.has(c.id)||c.cycleStartedAt<firstCycles.get(c.id).cycleStartedAt)firstCycles.set(c.id,c);
+    const newAssessed = all.filter(p=>{
+      const first=firstCycles.get(p.id);
+      return dayIn(first?.cohortSource.snapshot?.assessmentDate||first?.cycleStartedAt||p.assessmentDate||p.intake,period);
+    }).concat((DB.db.careReferrals||[]).filter(r=>idset.has(r.patientId)&&dayIn(r.evaluatedAt,period)).map(r=>({...patientsById.get(r.patientId),assessmentId:r.id,assessmentDate:r.evaluatedAt})));
+    const approved = all.filter(p=>dayIn(p.verifiedAt, period));
     const weekA = new Date(cutoff.getTime()-7*DAY);
-    const dischargedWeek = all.filter(p=>p.status==='discharged' && p.discharge && new Date(p.discharge)>=weekA && new Date(p.discharge)<=cutoff);
+    const dischargedWeek = cycles.filter(p=>dayIn(p.discharge,{start:weekA,end:cutoff}));
     const monthP = PERIOD.month(cutoff);
-    const dischargedMonth = all.filter(p=>p.status==='discharged' && inRange(p.discharge, monthP));
+    const dischargedMonth = cycles.filter(p=>dayIn(p.discharge,monthP));
     const notFound = DB.db.visits.filter(v=>idset.has(v.patientId) && v.outcome==='not_found' && inRange(v.date, period));
     const openConcerns = DB.db.concerns.filter(c=>idset.has(c.patientId)&&c.status==='open');
-    const overdue = all.filter(p=>{
-      const lv = DB.visitsFor(p.id)[0];
-      return ['active','extension'].includes(p.status) && (!lv || daysBetween(lv.date,cutoff)>21);
+    const cutoffDay=CARE_RULES.programDate(cutoff);
+    const overdue = active.filter(p=>{
+      const lv = DB.visitsFor(p.id).find(v=>CARE_RULES.programDate(v.date)&&CARE_RULES.programDate(v.date)<=cutoffDay&&CARE_RULES.recordCycle(v,p,DB.db)===CARE_RULES.cycleId(p));
+      return !lv || daysBetween(lv.date,cutoff)>21;
     });
     const followup = new Set([...openConcerns.map(c=>c.patientId), ...overdue.map(p=>p.id)]);
     const support = {};
     SUPPORT_ITEMS.forEach(i=>support[i]=0);
     DB.db.supportIssues.filter(s=>idset.has(s.patientId)&&inRange(s.date,period)).forEach(s=>{ support[s.item]=(support[s.item]||0)+1; });
     const hosp = DB.db.requests.filter(r=>idset.has(r.patientId)&&(!countyId||r.countyId===countyId));
-    const orphans = [...new Set(active.map(p=>p.id))].reduce((n,id)=>n+(DB.db.patients.find(p=>p.id===id).household?.orphansSupported||0),0);
+    const orphans = [...new Map(active.map(p=>[p.id,p])).values()].reduce((n,p)=>n+(Number(p.household?.orphansSupported)||0),0);
 
     const areas = countyId
       ? (COUNTIES.find(c=>c.id===countyId)?.areas)||[]
@@ -98,8 +138,8 @@ const REPORTS = {
     const byArea = areas.map(a=>{
       const ps = all.filter(p=>p.areaId===a.id);
       const act = active.filter(p=>p.areaId===a.id);
-      return { area:a, active:act.length, newEnrol:ps.filter(p=>inRange(p.intake,period)).length,
-        discharged:ps.filter(p=>p.status==='discharged'&&inRange(p.discharge,period)).length,
+      return { area:a, active:act.length, newEnrol:enrolledPeriod.filter(p=>p.areaId===a.id).length,
+        discharged:dischargedPeriod.filter(p=>p.areaId===a.id).length,
         followup:[...followup].filter(id=>ps.some(p=>p.id===id)).length,
         requests:DB.db.requests.filter(r=>r.areaId===a.id).length };
     });
@@ -185,7 +225,12 @@ const REPORTS = {
      and the couple bag is shown as unreadable because the workbook issues Bag 1
      to normal and couple households alike. */
   weeklyIndicators(user, f={}){
-    const period = f.period || PERIOD.week(new Date());
+    const period = f.period || (f.date ? PERIOD.workWeek(f.date) : PERIOD.lastCompletedWorkWeek());
+    const within = value => {
+      if(!period.civilStart || !period.civilEnd) return inRange(value,period);
+      const day=CARE_RULES.programDate(value);
+      return !!day && day>=period.civilStart && day<=period.civilEnd;
+    };
     const role = roleObj(user.roleId) || { scope:{} };
     const scope = role.scope || {};
     const global = scope.geo === 'global' || !!scope.crossCounty;
@@ -193,11 +238,11 @@ const REPORTS = {
                             : (f.countyId && f.countyId !== 'all' ? f.countyId : (user.countyId || null));
     const all = repo.patientList(user, { countyId: countyId || undefined });
     const idset = new Set(all.map(p=>p.id));
-    const visitIn = v => v && inRange(v.date, period);
+    const visitIn = v => v && within(v.date);
 
     const inProgrammeStatus = ['active','extension','discharge_recommended'];
     const inProgramme = all.filter(p=>inProgrammeStatus.includes(p.status));
-    const dischargedInPeriod = all.filter(p=>p.status==='discharged' && inRange(p.discharge||p.dischargedAt, period));
+    const dischargedInPeriod = all.filter(p=>p.status==='discharged' && within(p.discharge||p.dischargedAt));
     const deceased = all.filter(p=>p.status==='deceased' || (p.master && p.master.deceasedMonth));
 
     /* Children kept out of an orphanage while their parent stays in care, and
@@ -223,7 +268,7 @@ const REPORTS = {
     const byCode = { BG1:0, BG2:0, SPB:0 };
     visitsInPeriod.forEach(v=>{ if(v.foodBag && byCode[v.foodBag]!==undefined) byCode[v.foodBag]++; });
     const supportToday = { Foodbag:0, Bible:0, 'Mosquito net':0, Mattress:0, Blanket:0, 'Special bag':0, 'Hygiene kit':0 };
-    (DB.db.supportIssues||[]).filter(s=>idset.has(s.patientId) && inRange(s.date, period))
+    (DB.db.supportIssues||[]).filter(s=>idset.has(s.patientId) && within(s.date))
       .forEach(s=>{ if(supportToday[s.item]!==undefined) supportToday[s.item]++; });
     const assignedInRegister = all.reduce((n,p)=>{ const b=(p.master||{}).bags||{}; return n + Number(b.BG1||0)+Number(b.BG2||0)+Number(b.SPB||0); }, 0);
     const foodBags = {
@@ -247,7 +292,7 @@ const REPORTS = {
 
     /* ---- hospital activity in the period ---- */
     const hosp = (DB.db.requests||[]).filter(r=>idset.has(r.patientId) && (!countyId || r.countyId===countyId));
-    const hospInPeriod = hosp.filter(r=>inRange(r.submittedAt||r.createdAt, period) || inRange(r.serviceCompletedAt, period));
+    const hospInPeriod = hosp.filter(r=>within(r.submittedAt||r.createdAt) || within(r.serviceCompletedAt));
     const inpatient = hospInPeriod.filter(r=>r.status==='admitted' || /inpatient|admit/i.test(String(r.serviceType||r.admissionType||''))).length;
     const outpatient = hospInPeriod.filter(r=>r.status!=='admitted' && (r.serviceCompletedAt || r.clinicalReport)).length;
 
@@ -266,7 +311,7 @@ const REPORTS = {
       const vs = visitsInPeriod.filter(v=>v.areaId===a.id);
       return { area:a, countyId:a.countyId || countyId, kind: a.cls==='urban' ? 'slum' : 'village',
         patients: ps.length, inProgramme: act.length,
-        discharged: ps.filter(p=>p.status==='discharged' && inRange(p.discharge||p.dischargedAt, period)).length,
+        discharged: ps.filter(p=>p.status==='discharged' && within(p.discharge||p.dischargedAt)).length,
         visits: vs.length, notFound: vs.filter(v=>v.outcome==='not_found').length,
         weights: vs.filter(v=>Number(v.weight)>0).length };
     });
@@ -344,6 +389,10 @@ const REPORTS = {
     return { enabled:s.enabled, lastRun:last, nextRun:nextMonday0800(new Date()), label:'Monday 08:00 EAT' };
   },
   mondayTick(){
+    // A hosted browser is an admitted user's scoped client, not a global
+    // service account or scheduler. It may not fabricate a Chief/system run
+    // or dirty Chief-owned settings on an ordinary caregiver session.
+    if(typeof SYNC!=='undefined'&&(SYNC.sessionToken||SYNC.available()))return null;
     const s = DB.db.settings.mondayReport;
     if(!s.enabled) return null;
     const now = new Date();
@@ -385,12 +434,16 @@ const REPORTS = {
     ];
   },
   generate(type, params, user){
+    if(type==='weekly_indicators'){
+      const period=params.date ? PERIOD.workWeek(params.date) : PERIOD.lastCompletedWorkWeek();
+      params=Object.assign({},params,{date:period.civilStart});
+    }
     const existing = DB.db.reports.filter(r=>r.type===type && r.periodKey===periodKeyFor(type,params) && r.countyId===(params.countyId||'all'));
     const version = existing.length+1;
     const rec = {
       id:uid('r'), type, title:REPORT_TITLES[type]||titleCase(type),
       countyId: params.countyId||'all', periodKey: periodKeyFor(type,params),
-      params, generatedAt: todayISO(), generatedBy: user.id, generatedByName: user.name||'Scheduled automation',
+      params, generatedAt: todayISO(), generatedBy: user.id, generatedByName: user.name||'Scheduled automation', generatedProvenance:reportProvenance(user),
       version, scheduled: !!params.scheduled, classification:'Internal organisational', checksum:null
     };
     rec.checksum = fnv1a(rec.id+rec.type+rec.periodKey+rec.generatedAt+version);
@@ -445,7 +498,13 @@ function periodKeyFor(type, p){
     const week = Math.ceil((((iso - yearStart) / 86400000) + 1) / 7);
     return `${iso.getUTCFullYear()}-W${String(week).padStart(2,'0')}`;
   };
-  if(type==='weekly_indicators' || type==='patient_figures' || type==='patient_days' || type==='home_visits') return weekKey(when);
+  if(type==='weekly_indicators'){
+    // Archive keys remain ISO-based until the organisation defines its custom
+    // 52-week boundary rule. Preserve existing keys; never relabel history.
+    const period=p&&p.date ? PERIOD.workWeek(p.date) : PERIOD.lastCompletedWorkWeek(when);
+    return weekKey(new Date(period.civilStart+'T12:00:00Z'));
+  }
+  if(type==='patient_figures' || type==='patient_days' || type==='home_visits') return weekKey(when);
   if(type==='expenditure') return monthKey(when);
   if(type==='referral') return 'registry-'+monthKey(when);
   if(type==='executive' || type==='donor') return 'Q'+(Math.floor(new Date(when).getUTCMonth()/3)+1)+'-'+new Date(when).getUTCFullYear();
@@ -468,4 +527,17 @@ function toCSV(rows, cols){
   const body = rows.map(r=>cols.map(c=>{ const v=typeof c.get==='function'?c.get(r):r[c.key];
     return `"${String(v??'').replace(/"/g,'""')}"`; }).join(',')).join('\n');
   return '\uFEFF'+head+'\n'+body;
+}
+
+/* Output provenance is distinct from clinical authorship or approval. */
+function reportProvenance(user=AUTH.user){
+  const role=user&&roleObj(user.roleId);
+  const department=(typeof DEPARTMENTS!=='undefined'?DEPARTMENTS:[]).find(d=>d.id===(user?.departmentId||role?.dept));
+  return {userId:user?.id||'',username:user?.username||'',name:user?.displayName||user?.name||'Not recorded',department:department?.name||'Department not recorded',at:new Date().toISOString()};
+}
+function reportProvenanceText(p=reportProvenance(),action='Generated'){
+  return `${action} by: ${p.name}${p.username?' (@'+p.username+')':''} · Department: ${p.department} · ${p.at}`;
+}
+function reportProvenanceHTML(p=reportProvenance(),action='Generated'){
+  return `<div class="report-provenance" data-report-provenance="${esc(action)}"><strong>${esc(action)} by:</strong> ${esc(p.name)}${p.username?' (@'+esc(p.username)+')':''}<br><strong>Department:</strong> ${esc(p.department)} · <time>${esc(p.at)}</time></div>`;
 }

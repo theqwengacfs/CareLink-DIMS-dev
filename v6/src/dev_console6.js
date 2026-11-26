@@ -97,7 +97,7 @@ const PROD_SETUP = {
     }
     admin.name = chiefFull;
     admin.username = chiefUser;
-    admin.email = `${chiefUser}@${domain}`;
+    admin.email = hosted ? '' : `${chiefUser}@lomamo.example`; // no mailbox is inferred
     admin.salt = cSalt;
     admin.hash = cHash;
     admin.status = 'pending_activation';
@@ -219,9 +219,9 @@ const PROD_SETUP = {
   },
 
   /* Chief System Administrator clicks "Activate System Globally":
-     Generates ALL organogram user accounts, official emails, usernames, login URL &
-     one-time temporary passwords formatted for the Team WhatsApp Platform, and
-     permanently removes all Demo / Setup elements from Landing and Sign-In. */
+     Finalizes confirmed roster seats. The hosted API generates single-use,
+     expiring temporary passwords; only explicitly attested mailboxes are
+     returned. Unconfirmed seats and the Chief credential are never reissued. */
   async activateSystemGlobally(opts = {}) {
     const actor = (typeof SILENT_OVERRIDE !== 'undefined' && SILENT_OVERRIDE.realActor()) || AUTH.user;
     if (!actor || actor.roleId !== 'chief') {
@@ -249,25 +249,25 @@ const PROD_SETUP = {
     DB.db.users = DB.db.users || [];
     const packRows = [];
 
-    /* Ensure Chief Admin account is active, non-demo, and carries official email */
+    /* Activation never guesses or rewrites the Chief's mailbox. Mailbox
+       authority belongs to the separate, authenticated server attestation. */
     actor.demo = false;
     actor.status = 'active';
     actor.active = true;
-    actor.email = actor.email && actor.email.includes('@') ? actor.email.replace(/@.+$/, '@' + domain) : `${actor.username}@${domain}`;
 
     /* Provision / finalize every single organogram account (including applicable Secretaries, Deputies & Clerks) */
     for (let i = 0; i < roster.length; i++) {
       const r = roster[i];
       const uname = String(r.username || '').trim().toLowerCase();
-      if (!uname || uname === String(actor.username || '').toLowerCase()) continue;
+      if (!uname || r.roleId==='chief' || uname === String(actor.username || '').toLowerCase()) continue;
 
       let u = DB.db.users.find(x => String(x.username || '').toLowerCase() === uname);
       const cId = r.countyId !== undefined ? r.countyId : (r.county !== undefined ? r.county : 'kisumu');
       const deptId = r.dept || (roleObj(r.roleId) || {}).dept || 'admin';
       const jobTitle = r.job || r.title || (roleObj(r.roleId) || {}).name || r.roleId;
       const cleanName = String(r.name || (u && u.name) || uname).replace(/^Demo - /, '');
-      const officialEmail = `${r.emailLocal || uname}@${domain}`;
-      const tempPassword = this.generateStrongPassword(12);
+      const officialEmail = hosted ? ((u && u.mailboxConfirmed && u.email) || '') : uname+'@lomamo.example';
+      const tempPassword = hosted ? '' : this.generateStrongPassword(12);
       const salt = newSalt();
       const hash = strongHash(tempPassword, salt);
 
@@ -298,8 +298,8 @@ const PROD_SETUP = {
       u.dpaFirstLoginRequired = true;
       u.provisionedAt = todayISO();
       u.loginUrl = portalUrl;
-      u.salt = salt;
-      u.hash = hash;
+      if(hosted){delete u.salt;delete u.hash;}else{u.salt=salt;u.hash=hash;}
+      if(r.unconfirmed){u.status='unconfirmed';u.active=false;u.mustChange=false;u.mustChangePassword=false;continue;}
 
       const deptLabel = (typeof deptName === 'function' ? deptName(deptId) : deptId) || 'Foundation';
       const countyLabel = cId ? countyName(cId) : 'Head Office (All Counties)';
@@ -378,7 +378,7 @@ const PROD_SETUP = {
             accounts: packRows.map(row => {
               const u = (DB.db.users || []).find(x => String(x.username || '').toLowerCase() === row.username);
               return { id:u && u.id, username:row.username, name:row.name, email:row.email,
-                roleId:u && u.roleId, countyId:u && u.countyId, password:row.tempPassword };
+                roleId:u && u.roleId, countyId:u && u.countyId, areaIds:u && u.areaIds, departmentId:u && u.departmentId };
             })
           })
         });
@@ -426,6 +426,12 @@ const PROD_SETUP = {
         const uname = String(packRows[i].username || '').toLowerCase();
         if(!issuedNames.has(uname)) packRows.splice(i,1);
       }
+      for(const row of packRows){
+        const issued=response.body.issued.find(x=>String(x.username||'').toLowerCase()===row.username);
+        row.tempPassword=issued.password;row.email=issued.email||'';row.expiresAt=issued.expiresAt;
+        row.whatsappBlock=`${row.name}\nUsername: ${row.username}\nConfirmed work email: ${row.email||'not confirmed — use username'}\nLogin: ${portalUrl}\nSingle-use temporary password: ${row.tempPassword}\nExpires: ${row.expiresAt||'per system.config'} — replace privately before opening a workspace.`;
+        row.smsText=row.whatsappBlock;
+      }
       try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(_e){}
       APPX.dirty = false;
     }
@@ -446,7 +452,8 @@ const PROD_SETUP = {
       `Date: ${new Date().toISOString().slice(0, 10)}`,
       ``,
       `*HOW EACH STAFF MEMBER ACTIVATES THEIR ACCOUNT:*`,
-      `1. Open ${portalUrl} and sign in on the Official Sign-In screen using your *Username* (or *Mock Email Alias*) and *Temporary Password* below.`,
+      `1. Open ${portalUrl} and sign in with your *Username* (or a confirmed work email, if listed) and *Temporary Password* below.`,
+      `   New browsers must be approved by the Chief before sign-in can continue. This file is confidential: give each holder only their own row, never the whole pack.`,
       `2. CareLink immediately prompts you to set your own private 12+ character password known ONLY to you.`,
       `3. Once saved, your individual account status becomes *Activated* automatically.`,
       `4. Forgot password or new county staff? Use *Request / Recover* on Sign-In (routed urgently to your County Office Admin).`,
@@ -477,11 +484,25 @@ const PROD_SETUP = {
     return this.lastPack;
   },
 
+  deliverExport(format, rows, deliver) {
+    if (typeof SYNC === 'undefined' || !SYNC.available()) return deliver();
+    const actor=AUTH.user && AUTH.user.username,token=SYNC.sessionToken,epoch=ENTRY_ADMIN.epoch;
+    return SYNC._json('api/admin/staff-accounts/export-log',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({format,usernames:rows.map(row=>row.username)})
+    }).then(result=>{
+      if(!result.ok || !AUTH.user || AUTH.user.username!==actor || AUTH.user.roleId!=='chief' || SYNC.sessionToken!==token || ENTRY_ADMIN.epoch!==epoch){
+        toast('Export not released',result.body.error||'The Chief session changed. No confidential file was downloaded.','err');return false;
+      }
+      return deliver();
+    }).catch(()=>{toast('Export not released','The host could not record the export audit. Retry online; no file was downloaded.','err');return false;});
+  },
+
   downloadWhatsappTxt() {
     if (!this.requireCredentialPackAccess()) return;
     const p = this.lastPack;
     if (!p || !p.rows.length) return toast('Activate System Globally first', 'Generate the organogram WhatsApp credential sheet first.', 'warn');
-    download('CareLink-Official-WhatsApp-Activation-Sheet-' + todayISO().slice(0, 10) + '.txt', p.whatsappText || this.lastWhatsappSheet, 'text/plain;charset=utf-8');
+    return this.deliverExport('whatsapp-text',p.rows,()=>download('CareLink-Official-WhatsApp-Activation-Sheet-' + todayISO().slice(0, 10) + '.txt', p.whatsappText || this.lastWhatsappSheet, 'text/plain;charset=utf-8'));
   },
 
   async copyWhatsappSheet() {
@@ -490,8 +511,9 @@ const PROD_SETUP = {
     if (!txt) return toast('No WhatsApp sheet in memory', 'Click Activate System Globally first.', 'warn');
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(txt);
-        toast('Copied for Team WhatsApp Platform', `${this.lastPack.count} organogram accounts copied — paste directly into official LOMAMO WhatsApp dispatches.`, 'ok');
+        const copied=await this.deliverExport('clipboard',this.lastPack.rows,()=>navigator.clipboard.writeText(txt));
+        if(copied===false) return;
+        toast('Copied for Team WhatsApp Platform', `${this.lastPack.count} organogram accounts copied — give each person only their own row through a private channel. Never paste the pack in a group.`, 'ok');
         return;
       }
     } catch (_e) {}
@@ -522,7 +544,7 @@ const PROD_SETUP = {
         <div style="flex:1;min-width:260px">
           <div class="xs bold" style="text-transform:uppercase;letter-spacing:.09em;color:#B45309;margin-bottom:4px">${ic('sparkles',13)} Final Commissioning Step · Chief System Administrator Authority</div>
           <div style="font-size:16.5px;font-weight:800;margin-bottom:4px">Ready to Activate CareLink C-DIMS Globally Across All LOMAMO Departments</div>
-          <div class="small muted">Generates every organogram account name, official email, username, login URL &amp; one-time password formatted for your <b>Team WhatsApp Platform</b>, requires each user to self-activate by changing their password on first login, and <b>permanently removes all Demo &amp; Host Setup UI</b> from Landing and Sign-In.</div>
+          <div class="small muted">Issues server-generated, expiring single-use passwords to confirmed roster seats. Unconfirmed seats receive no credentials, and work mail is included only after Chief attestation of an existing mailbox. Every new holder must set a private password before opening a workspace. Demo and setup controls are then locked.</div>
           <div class="xs" style="margin-top:6px">${masterLoaded
             ? `<span style="color:var(--ok);font-weight:700">✓ Complete ${num(DEMO_REGISTER.patients)}-Patient Cloud Dataset Verified in KV (${num(patientCount)} patients · 100% completeness)</span>`
             : `<span class="muted">Patient register currently has <b>${num(patientCount)}</b> records — you can auto-feed the built-in 100%-complete ${num(DEMO_REGISTER.patients)}-patient dataset with zero local file upload before locking activation.</span>`}</div>
@@ -550,7 +572,7 @@ const PROD_SETUP = {
         <div class="grid g2" style="gap:12px;margin-bottom:12px">
           <div class="field"><label>Official Staff Email Domain</label>
             <input class="input mono" name="emailDomain" value="${esc(OFFICIAL_EMAIL_DOMAIN)}" readonly>
-            <div class="hint">Every Foundation account signs in with an alias on <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>. No mailbox is provisioned and CareLink does not send email; the domain is fixed for the organisation.</div>
+            <div class="hint">Sign in with the issued username. An existing <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code> mailbox appears only after Chief confirmation in Staff credential export. No mailbox is guessed or provisioned; email/SMS 2FA is deferred to Phase 2.</div>
           </div>
           <div class="field"><label>Official System Login URL *</label>
             <input class="input mono" name="loginUrl" value="${esc(this.defaultPortalUrl())}" required>
@@ -560,14 +582,14 @@ const PROD_SETUP = {
         ${!this.isGloballyActivated() ? (masterLoaded
           ? `<div class="alert ok" style="margin-bottom:12px">${ic('check',16)}<div><b>100%-Complete ${num(DEMO_REGISTER.patients)}-Patient Cloud Dataset Ready</b><div class="small">All ${num(patientCount)} complete patient profiles, visits, and PDCA cycles are already committed in Cloud KV and will be shared across all departmental consoles.</div></div></div>`
           : `<label class="row" style="gap:10px;align-items:flex-start;padding:12px 14px;margin-bottom:12px;border-radius:10px;border:1.5px solid var(--brand);background:var(--brand-soft,rgba(15,118,110,.06));cursor:pointer">
-              <input type="checkbox" name="autoFeedMaster" value="1" checked style="margin-top:3px">
-              <span class="small"><b>Auto-feed complete ${num(DEMO_REGISTER.patients)}-patient generated dataset from Cloud before locking Global Activation</b><br>
-              <span class="muted">Loads all ${num(DEMO_REGISTER.patients)} synthetic reference patients and their complete visits &amp; PDCAs (100% completeness, zero local file upload) directly into Cloud KV right before activating all departmental accounts. Uncheck only if you want an empty production register.</span></span>
+              <input type="checkbox" name="autoFeedMaster" value="1" style="margin-top:3px">
+              <span class="small"><b>Evaluation only: load ${num(DEMO_REGISTER.patients)} synthetic patients before activation</b><br>
+              <span class="muted">Off by default. Select only for an isolated evaluation database. Generates synthetic patients and related records at runtime; leave unchecked for production and never use on an existing live register.</span></span>
             </label>`) : ''}
         <div class="alert info" style="margin-bottom:12px">${ic('shield',16)}<div>
           <b>What happens when you click Activate System Globally:</b>
-          <div class="small" style="margin-top:4px">1. All <b>${num(rosterCount)} organogram accounts</b> (Leadership, County Admins, Area Coordinators, Caregivers, Clinicians, Hospital Desk, Finance, Procurement, Media, HR, Audit, ICT, plus applicable Secretaries, Deputies &amp; Clerks) receive official emails &amp; unique temporary passwords.<br>
-          2. Each staff member activates their own account upon logging in and setting their private password.<br>
+          <div class="small" style="margin-top:4px">1. The <b>${num(rosterCount)} official roster seats</b> retain their actual names or unconfirmed seat labels. Named staff receive unique, server-generated temporary passwords; the Chief and unconfirmed seats do not. No unconfirmed mailbox is exported.<br>
+          2. Each staff member needs an approved registered browser, redeems a temporary password once within its validity period (seven days by default), and sets a private password before accessing staff data.<br>
           3. All Demo tabs, "Explore demo accounts", and "First-run online setup" links are <b>permanently removed</b> from Landing &amp; Sign-In.</div>
         </div></div>
         <div class="alert warn" style="margin-bottom:12px"><div><b>Credential handling</b><div class="small">Temporary passwords are secrets. Download the single confidential account document only to an approved device, then distribute each user’s credentials privately and securely delete the file after dispatch.</div></div></div>
@@ -640,7 +662,7 @@ const PROD_SETUP = {
     /* Build fresh or reference DB */
     const db = DB.blank();
     if (seedMode === 'reference' && typeof seedOfficial === 'function') {
-      seedOfficial(db, new Date(), { patients: DEMO_REGISTER.patients, mustChange: true });
+      seedSyntheticDataset(db, new Date('2026-11-22T00:00:00.000Z'), { patients: DEMO_REGISTER.patients, mustChange: true });
     }
     db.meta = Object.assign({}, db.meta || {}, {
       setupComplete: true,
@@ -809,10 +831,8 @@ const PROD_SETUP = {
     }
     const packRows = [];
     for (const u of targets) {
-      const tempPassword = this.generateStrongPassword(14);
-      const salt = newSalt();
-      u.salt = salt;
-      u.hash = strongHash(tempPassword, salt);
+      const tempPassword = hosted ? '' : this.generateStrongPassword(14);
+      if(!hosted){const salt=newSalt();u.salt=salt;u.hash=strongHash(tempPassword,salt);}
       u.demo = false;
       u.mustChange = true;
       u.mustChangePassword = true;
@@ -857,16 +877,14 @@ const PROD_SETUP = {
       srvList.forEach(cp => {
         const pw = cp.tempPassword || cp.password;
         const match = targets.find(t => t.username === String(cp.username).toLowerCase());
-        if(match && pw){
-          match.salt = newSalt();
-          match.hash = strongHash(pw, match.salt);
-        }
+        if(match){delete match.hash;delete match.salt;match.email=cp.email||'';}
         packRows.push({
           name: cp.name,
           username: cp.username,
-          email: cp.email || (match && match.email) || `${cp.username}@${this.defaultEmailDomain()}`,
+          email: cp.email || '',
           department: cp.departmentId || (match && match.departmentId) || '',
           tempPassword: pw,
+          expiresAt: cp.expiresAt,
           role: cp.roleName || (roleObj(cp.roleId) || {}).name || cp.role || cp.roleId || '',
           county: cp.county || (cp.countyId ? countyName(cp.countyId) : 'Head Office'),
           smsText: cp.smsText || `CareLink C-DIMS: Hello ${cp.name}, sign in at ${location.origin} | Username: ${cp.username} | One-Time Password: ${pw} . Set your own private password on first login.`
@@ -893,8 +911,8 @@ const PROD_SETUP = {
       body:`<div class="alert warn"><div><b>${recover ? 'Recovery is available for 24 hours' : 'This resets non-Chief accounts'}</b>
         <p class="small">${recover
           ? 'Only temporary passwords that are still valid are included. Personalised passwords cannot be recovered. Changing the Chief password also makes the recovery copy unreadable.'
-          : 'All other existing accounts and sessions, including any other Chief accounts, are replaced or deactivated. Only your current Chief sign-in and non-account records are preserved. Named officers receive new passwords on the official domain and can sign in and work immediately — no password change is forced; a private password can be set whenever they choose. Unconfirmed seats remain disabled.'}</p>
-        <p class="small">Email addresses are login aliases on <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>, not mailboxes. Distribute credentials privately to individual officers.</p></div></div>
+          : 'All other existing accounts and sessions, including any other Chief accounts, are replaced or deactivated. Only your current Chief sign-in and non-account records are preserved. Named officers receive server-generated single-use passwords. They must replace them privately before accessing a workspace; temporary passwords expire under system.config. Unconfirmed seats remain disabled.'}</p>
+        <p class="small">Only explicitly confirmed existing <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code> mailboxes are exported. All other officers sign in by assigned username. Distribute each credential privately.</p></div></div>
         <div class="field"><label for="reactivationPassword">Current Chief password</label>
           <input class="input" id="reactivationPassword" type="password" autocomplete="current-password"></div>
         ${recover ? '' : '<div class="field"><label for="reactivationConfirm">Type REBUILD to confirm</label><input class="input" id="reactivationConfirm" autocomplete="off"></div>'}`,
@@ -923,7 +941,7 @@ const PROD_SETUP = {
         return;
       }
       const rows = r.body.issued.map(row=>({ ...row, county:countyName(row.county),
-        loginUrl:location.origin, smsText:`CareLink: Sign in at ${location.origin} with ${row.username} (or ${row.email}) and the password in your private handoff. You can start work immediately; you may set a private password whenever you choose.` }));
+        loginUrl:location.origin, smsText:`CareLink: Sign in at ${location.origin} with username ${row.username}${row.email?' or confirmed work email '+row.email:''}. Your private handoff contains a single-use temporary password, expiring ${row.expiresAt||'under system.config'}. Use an approved registered browser and set a private password before opening a workspace.` }));
       this.lastPack = { kind:recover ? 'recovered-rebuild' : 'official-rebuild', generatedAt:todayISO(), chiefUsername:actor.username, siteUrl:location.origin,
         count:rows.length, rows, expiresAt:r.body.expiresAt };
       this.lastWhatsappSheet = '';
@@ -938,7 +956,7 @@ const PROD_SETUP = {
           : 'Download the pack. Reload or sign in again before editing the shared workspace.', 'warn');
       } else {
         AUTH.user = (DB.db.users||[]).find(u=>u.username===actor.username) || actor;
-        toast(recover ? 'Credential pack recovered' : 'Hierarchy rebuilt', `${rows.length} accounts issued on @${OFFICIAL_EMAIL_DOMAIN}; every officer can sign in now without changing their password. Download the confidential document now.`, 'ok');
+        toast(recover ? 'Credential pack recovered' : 'Hierarchy rebuilt', `${rows.length} named staff received expiring, single-use temporary credentials. Approved browser and private-password replacement are required before workspace access. Download the confidential document now.`, 'ok');
       }
       render();
     } catch(_e) {
@@ -954,7 +972,7 @@ const PROD_SETUP = {
     const packDescription = p.kind === 'official-rebuild' ? 'Official hierarchy rebuild — newly issued named officers' : p.kind === 'recovered-rebuild' ? 'Recovered rebuild pack — only still-valid temporary passwords' : 'Pending-account pack — not the full official hierarchy';
     const rows = p.rows.map((r, i) => `<tr>
       <td>${i + 1}</td><td><strong>${html(r.name)}</strong></td><td>${html(r.username)}</td>
-      <td>${html(r.email || `${r.username}@${this.defaultEmailDomain()}`)}</td>
+      <td>${html(r.email || 'Not confirmed — use username')}</td>
       <td class="password">${html(r.tempPassword)}</td><td>${html(r.role)}</td>
       <td>${html(r.department || '')}</td><td>${html(r.county)}</td>
     </tr>`).join('');
@@ -968,48 +986,56 @@ const PROD_SETUP = {
       .meta{color:#475569}.footer{margin-top:20px;color:#475569;font-size:12px}@media print{body{margin:12mm;padding:0}.notice{break-inside:avoid}tr{break-inside:avoid}button{display:none}}
       </style></head><body><header><h1>CareLink C-DIMS · Initial Account Provisioning</h1>
       <div>${html((DB.db.settings.org && DB.db.settings.org.name) || 'LOMAMO Foundation Kenya')}</div>
-      <div class="meta">${html(packDescription)} · Accounts usable immediately · Generated ${html(p.generatedAt)} · Portal ${html(p.siteUrl)} · ${p.rows.length} accounts</div></header>
+      <div class="meta">${html(packDescription)} · Single-use temporary credentials · Generated ${html(p.generatedAt)} · Portal ${html(p.siteUrl)} · ${p.rows.length} accounts</div></header>
       <section class="notice"><strong>CONFIDENTIAL — ACCOUNT PASSWORDS</strong><br>
-      This document contains account credentials. The Chief System Administrator must distribute each account holder’s credentials privately through an approved channel. Never post this file to a shared group, public repository, or unapproved storage. Issued accounts sign in and work immediately; setting a personal password is optional and can be done at any time from the account menu. Securely delete this document after dispatch; retain no reusable password copy. This document is not a substitute for account authorization or access controls.</section>
-      <table><thead><tr><th>#</th><th>Account holder / seat</th><th>Username</th><th>Official email alias</th><th>Password (pack)</th><th>Role</th><th>Department</th><th>Office / county</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="footer">Credential handoff record only. Confirm the recipient’s identity before sharing. Every alias is on @${html(OFFICIAL_EMAIL_DOMAIN)}. Pending or unconfirmed roster seats should be verified before credential delivery.</p>
+      This document contains account credentials. The Chief System Administrator must distribute each account holder’s credentials privately through an approved channel. Never post this file to a shared group, public repository, or unapproved storage. Temporary passwords expire after seven days by default (or the configured system.config period) and can be redeemed once, on an approved registered browser. Every holder must choose a private password before opening a workspace. Securely delete this document after dispatch; retain no reusable password copy. This document is not a substitute for account authorization or access controls.</section>
+      <table><thead><tr><th>#</th><th>Account holder / seat</th><th>Username</th><th>Confirmed work mailbox</th><th>Single-use temporary password</th><th>Role</th><th>Department</th><th>Office / county</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="footer">Credential handoff record only. Confirm the recipient’s identity before sharing. Only explicitly confirmed existing work mailboxes may be listed. An empty address is not evidence of a mailbox; use the username. Unconfirmed seats receive no credential.</p>
       </body></html>`;
-    download('CareLink-Confidential-Account-Provisioning-' + todayISO().slice(0, 10) + '.html', document, 'text/html;charset=utf-8');
+    return this.deliverExport('html',p.rows,()=>download('CareLink-Confidential-Account-Provisioning-' + todayISO().slice(0, 10) + '.html', document, 'text/html;charset=utf-8'));
   },
 
-  downloadRoleDirectory() {
+  async downloadRoleDirectory() {
     const actor = AUTH && AUTH.user;
     if(!actor || actor.roleId !== 'chief') return toast('Restricted', 'Only the Chief System Administrator may export the account directory.', 'err');
     if(!this.isGloballyActivated()) return toast('Commissioning required', 'The role account directory is available only after global activation.', 'warn');
-    const users = ((DB.db && DB.db.users) || []).filter(u => u && u.status === 'active' && !u.demo);
-    const lines = [
-      'CARELINK C-DIMS — COMMISSIONED ROLE ACCOUNT DIRECTORY',
-      'Confidential staff directory. No passwords or patient information are included.',
-      'Generated: ' + todayISO(),
-      'Accounts: ' + users.length,
-      '='.repeat(64),
-      ...users.map((u,i) => {
-        const role = roleObj(u.roleId);
-        return `${String(i+1).padStart(3,'0')}. ${String(u.name || u.jobTitle || u.username).replace(/[\r\n]+/g,' ').trim()}\n` +
-          `     Role: ${String((role && role.name) || u.roleId || 'Staff').replace(/[\r\n]+/g,' ')}\n` +
-          `     Official email: ${String(u.email || '').replace(/[\r\n]+/g,' ')}\n` +
-          `     Username: ${String(u.username || '').replace(/[\r\n]+/g,' ')}\n`;
-      })
-    ].join('\n');
-    download('CareLink-Commissioned-Role-Account-Directory-' + todayISO() + '.txt', lines, 'text/plain;charset=utf-8');
-    toast('Directory downloaded', `${users.length} active role accounts listed. No passwords are included.`, 'ok');
+    try {
+      // Never export guessed/legacy DB.users emails or browser-invented people.
+      // Online: the same authoritative roster and mailbox attestations as CSV.
+      // Offline: roster labels only; no unverified work addresses are released.
+      const users = typeof SYNC !== 'undefined' && SYNC.available()
+        ? (await ENTRY_ADMIN.request('staff-accounts')).rows
+        : OFFICIAL_ROSTER.map(seat=>({...seat,username:seat.roleId==='chief'?actor.username:seat.username,email:'',mailboxConfirmed:false}));
+      const clean=value=>String(value||'').replace(/[\r\n]+/g,' ').trim();
+      const lines = [
+        'CARELINK C-DIMS — COMMISSIONED ROLE ACCOUNT DIRECTORY',
+        'Confidential official roster, including unconfirmed seat labels. No passwords or patient information.',
+        'Generated: ' + todayISO(),
+        'Roster seats: ' + users.length,
+        '='.repeat(64),
+        ...users.map((u,i) => {
+          const role = roleObj(u.roleId);
+          const email=u.mailboxConfirmed && /^[a-z0-9._-]+@lomamofoundation\.org$/i.test(u.email||'') ? u.email : 'not confirmed — use username';
+          return `${String(i+1).padStart(3,'0')}. ${clean(u.name || u.jobTitle || u.job || u.username)}${u.unconfirmed?' [unconfirmed seat]':''}\n` +
+            `     Role: ${clean((role && role.name) || u.roleId || 'Staff')}\n` +
+            `     Confirmed official email: ${email}\n` +
+            `     Username: ${clean(u.username)}\n`;
+        })
+      ].join('\n');
+      return await this.deliverExport('directory-text',users,()=>{download('CareLink-Commissioned-Role-Account-Directory-' + todayISO() + '.txt', lines, 'text/plain;charset=utf-8');toast('Directory downloaded', `${users.length} actual roster seats listed. No passwords are included.`, 'ok');});
+    } catch(error) { toast('Directory not released',error.message,'err'); }
   },
 
   downloadCSV() {
     if (!this.requireCredentialPackAccess()) return;
     const p = this.lastPack;
     if (!p || !p.rows.length) return toast('No active pack in memory', 'Generate a credential sheet first.', 'warn');
-    const escCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const escCsv = v => {let text=String(v??'');if(/^[=+\-@\t\r]/.test(text))text="'"+text;return `"${text.replace(/"/g,'""')}"`;};
     const lines = [
-      ['Full Name / Organogram Seat', 'Username', 'Official Email Alias', 'Portal Login URL', 'Issued Password', 'Assigned Role', 'Department', 'Office / County', 'WhatsApp / SMS Dispatch'].map(escCsv).join(','),
-      ...p.rows.map(r => [r.name, r.username, r.email || `${r.username}@${this.defaultEmailDomain()}`, r.loginUrl || p.siteUrl || this.defaultPortalUrl(), r.tempPassword, r.role, r.department || '', r.county, r.whatsappBlock || r.smsText].map(escCsv).join(','))
+      ['Full Name / Organogram Seat', 'Username', 'Confirmed Work Mailbox', 'Portal Login URL', 'Issued Password', 'Assigned Role', 'Department', 'Office / County', 'WhatsApp / SMS Dispatch'].map(escCsv).join(','),
+      ...p.rows.map(r => [r.name, r.username, r.email || '', r.loginUrl || p.siteUrl || this.defaultPortalUrl(), r.tempPassword, r.role, r.department || '', r.county, r.whatsappBlock || r.smsText].map(escCsv).join(','))
     ];
-    download('CareLink-Official-Organogram-Credentials-' + todayISO().slice(0, 10) + '.csv', lines.join('\r\n'), 'text/csv;charset=utf-8');
+    return this.deliverExport('csv',p.rows,()=>download('CareLink-Official-Organogram-Credentials-' + todayISO().slice(0, 10) + '.csv', lines.join('\r\n'), 'text/csv;charset=utf-8'));
   },
 
   downloadSMSText() {
@@ -1020,14 +1046,14 @@ const PROD_SETUP = {
       '====================================================================',
       'CARELINK C-DIMS — CONFIDENTIAL SMS CREDENTIAL DISPATCH PACK',
       'Generated: ' + p.generatedAt + ' | Portal: ' + p.siteUrl,
-      'PRIVACY NOTICE (DPA 2019): Issued accounts work immediately with the',
-      'password below; each user MAY replace it with a private password known',
-      'ONLY to themselves. Delete this file after sending individual SMS texts.',
+      'PRIVACY NOTICE (DPA 2019): Temporary passwords are single-use and expire',
+      'under system.config (seven days by default). Use an approved browser and',
+      'set a private password BEFORE workspace access. Delete after private dispatch.',
       '====================================================================',
       '',
       ...p.rows.map((r, i) => `[${i + 1}] ${r.name} (${r.role} · ${r.county})\nSMS -> ${r.smsText}\n`)
     ].join('\r\n');
-    download('CareLink-SMS-Dispatch-' + todayISO().slice(0, 10) + '.txt', body, 'text/plain;charset=utf-8');
+    return this.deliverExport('sms-text',p.rows,()=>download('CareLink-SMS-Dispatch-' + todayISO().slice(0, 10) + '.txt', body, 'text/plain;charset=utf-8'));
   }
 };
 
@@ -1164,7 +1190,24 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
-    { tag:'v6.9.6', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+    { tag:'v6.9.8', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Closed the six unbuilt requirements from the verbatim prompt audit: governed public statistics, scoped announcements, stylus handwriting capture, offline sign-in, the PDCA pattern review and the Bible reference registry.',
+      changes:['Public portal statistics now come from the central database through a governance gate (GET api/public/statistics): every figure carries its basis, reviewer and disclosure state, counts below five are suppressed, and the portal can print only figures a named reviewer has released',
+        'Announcements can be addressed to everyone, a county, a department, an area, a role or named people, with read and acknowledgement receipts; an audience a role cannot reach is refused rather than silently widened',
+        'Handwriting capture records pressure-aware strokes from a stylus, finger or mouse, and is always labelled a captured stroke, never a verified signature; typed names are captioned as typed',
+        'Offline sign-in is opt-in per account, created only after a successful online sign-in, stored as a PBKDF2-SHA256 record with its own salt and 210,000 iterations, and expires after the configured number of days without an online sign-in; an offline session never claims work is saved centrally',
+        'The PDCA review engine learns the fill pattern of the closed cycles in the register and reads a new cycle against it, naming the field, the reason and the basis; it is advisory only and never approves',
+        'A Bible reference registry reads references as people write them, offers seven translations with their permission state recorded, and shows the reference rather than copying text the licence does not allow',
+        'New suites: public-statistics-governance (20), scoped-announcements (37), stylus-handwriting (38), offline-signin (30), pdca-review-engine (26), scripture-registry (36), devotion-fairness (12) and workspace-tab-reveal (14)'],
+      highlights:['B5','D21','D19','C1','D17','A6','A5','B4'] },
+    { tag:'v6.9.7', date:'2026-11-26', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Reconciled the verbatim Foundation prompt set against the code, corrected the report period labelling across every document family and added the issuing department to every report.',
+      changes:['Every report family now states the period it actually covers: weekly reports by 52-week number and Monday-Friday span, monthly reports by month, leadership summaries by quarter',
+        'No printed document still carries the rolling "7 days to" window',
+        'Every report names the department that issued it, read from the org chart',
+        'New tests/report-period-labels.js (26 checks) pins the mapping, the 52-week clamp and the Mon/Fri bounds',
+        'docs/audit/PROMPT-SOURCE-OF-TRUTH.md records the verbatim prompt set; docs/audit/PROMPT-AUDIT-001.md records per-line verdicts and evidence against ~68 requirements'] },
+    { tag:'v6.9.7', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Hardened the installed application (install button, offline and new-version notices, a bounded navigation fallback), measured every department palette against the contrast rule it is drawn with, and added the weekly planning page and the report gaps the usage trial report names.',
       changes:['Install button is now actually attached on every host; an offline strip, a new-version reload notice and an "Offline on this device" status chip were added',
         'Held work is replayed the moment the network returns, not at the next poll',
@@ -1372,7 +1415,7 @@ const DEV_CONSOLE = {
 
   render(user, params = {}) {
     if (!this.canAccess(user)) return deniedPanel('dev.console');
-    if (params.tab) DEV_CONSOLE_STATE.tab = params.tab;
+    applyRouteState(DEV_CONSOLE_STATE,params);
     const tab = DEV_CONSOLE_STATE.tab;
     const real = SILENT_OVERRIDE.realActor() || user;
     const isChief = real.roleId === 'chief';
@@ -1495,9 +1538,9 @@ const DEV_CONSOLE = {
       const pack = PROD_SETUP.ownsCredentialPack(real) ? PROD_SETUP.lastPack : null;
       body = `<div class="alert info" style="margin-bottom:16px">${ic('shield', 18)}<div>
         <b>Production First-Run &amp; Strict Privacy Password Architecture (Kenya Data Protection Act, 2019)</b>
-        <span class="small">The official rebuild issues a new confidential document for the named roster; the separate pending-account generator is only a subset. Every issued account signs in and works immediately — a private password can be set whenever the officer chooses.</span>
+        <span class="small">The official rebuild issues a new confidential document for the named roster; the separate pending-account generator is only a subset. Every issued temporary password is single-use and expires under system.config. Approved browser and private-password replacement are mandatory before workspace access.</span>
       </div></div>`
-      + (isChief && PROD_SETUP.isGloballyActivated() ? card('Rebuild the official hierarchy', `<p class="small">Reconcile the Kisumu and Homa Bay roster and issue ${num(namedRosterCount)} named officers new passwords on <code>@${esc(OFFICIAL_EMAIL_DOMAIN)}</code>; they can sign in and work immediately, with no forced change. Unconfirmed seats stay disabled. Your current Chief sign-in and non-account records are retained; all other legacy accounts, including any other Chief accounts, are replaced or deactivated.</p>
+      + (isChief && PROD_SETUP.isGloballyActivated() ? card('Rebuild the official hierarchy', `<p class="small">Reconcile the Kisumu and Homa Bay roster and issue ${num(namedRosterCount)} named officers single-use temporary passwords; they expire under system.config and must be replaced privately on an approved browser before work. Only confirmed existing work mailboxes are included. Unconfirmed seats stay disabled. Your current Chief sign-in and non-account records are retained; all other legacy accounts, including any other Chief accounts, are replaced or deactivated.</p>
           <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-danger" data-act="dev-open-reactivation">Rebuild &amp; reactivate</button>
           <button class="btn btn-ghost" data-act="dev-open-recover-reactivation">Recover recent pack</button></div>
           <p class="hint">The Chief password is required. If the response is interrupted, recover the encrypted pack within 24 hours before retrying.</p>`) : '')
@@ -1585,7 +1628,7 @@ const DEV_CONSOLE = {
 };
 
 Object.assign(ACTIONS, {
-  'dev-tab': d => { DEV_CONSOLE_STATE.tab = d.tab || 'telemetry'; render(); },
+  'dev-tab': d => { DEV_CONSOLE_STATE.tab = d.tab || 'telemetry'; render(); revealLanding(landingTarget(APPX.view)); },
   'dev-probe-cloud': () => DEV_CONSOLE.probeCloud(),
   'dev-open-reactivation': () => PROD_SETUP.openReactivationModal(false),
   'dev-open-recover-reactivation': () => PROD_SETUP.openReactivationModal(true),

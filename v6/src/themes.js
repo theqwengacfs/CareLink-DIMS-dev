@@ -146,6 +146,13 @@ const DEPT_PALETTES = {
 /* Each account type has an independent, coherent identity; personal scheme
    selections still take precedence. Colors are corrected for contrast in apply(). */
 const ROLE_PALETTES = {
+  founder: ['#312E81','#5B56AC','#9A7531'],
+  cofounder: ['#164E63','#367F91','#986A4B'],
+  'board.member': ['#334155','#64748B','#997A4E'],
+  'intl.advisory': ['#3730A3','#7165B8','#987C39'],
+  'intl.finance': ['#065F46','#3C8A68','#A17D40'],
+  'intl.legal': ['#581C87','#8B56AA','#A77554'],
+  'intl.data': ['#075985','#388BA5','#6D799F'],
   chief:             ['#143454','#236795','#0F766E'],
   president:         ['#39245F','#7452A3','#B8860B'],
   director:          ['#193B70','#3268A8','#BD7C19'],
@@ -194,7 +201,7 @@ function deptPaletteFor(user){
 /* Personal multi-colour schemes tint navigation, workspace metrics and card edges,
    while leaving Foundation White surfaces and status colours untouched. */
 const CONSOLE_COLOR_SCHEMES = [
-  { id:'department', name:'Role signature', description:'A distinct palette for this role.', colors:null },
+  { id:'department', name:'Account signature', description:'A stable account-specific default palette; personal selections override it.', colors:null },
   { id:'sapphire', name:'Heritage Sapphire', description:'Classic blue with teal, amber and violet accents.', colors:['#1E3A8A','#2563EB','#0F766E','#A16207','#6D28D9','#166534'] },
   { id:'lake', name:'Lake & sky', description:'Lake teal, sky blue and clear indigo.', colors:['#0F766E','#0369A1','#1D4ED8','#0E7490','#854D0E','#6D28D9'] },
   { id:'forest', name:'Forest & fern', description:'Evergreen with green-teal, clay and blue highlights.', colors:['#14532D','#047857','#0F766E','#92400E','#1E40AF','#6D28D9'] },
@@ -207,6 +214,28 @@ function consoleSchemeColors(id, deptPalette=DEPT_PALETTES.exec){
   const scheme = CONSOLE_COLOR_SCHEMES.find(s=>s.id===id) || CONSOLE_COLOR_SCHEMES[0];
   if(scheme.colors) return scheme.colors;
   return [deptPalette.c1, deptPalette.c2, deptPalette.c3, '#1D4ED8', '#A16207', '#6D28D9'];
+}
+
+/* Stable visual signature for the account, not an authentication factor.
+   Explicit colour schemes remain personal choices; a hash cannot guarantee
+   visually unique colours for an unlimited number of accounts. */
+function accountSignaturePalette(user, fallback){
+  if(!user || user.id==null || String(user.id)==='') return fallback;
+  const key=String(user.id);
+  let hash=2166136261;
+  for(let i=0;i<key.length;i++) hash=Math.imul(hash ^ key.charCodeAt(i),16777619)>>>0;
+  const hue=(hash%36000)/100;
+  const saturation=0.48+((hash>>>16)%17)/100;
+  function color(h, light){
+    h=((h%360)+360)%360;
+    const chroma=(1-Math.abs(2*light-1))*saturation;
+    const x=chroma*(1-Math.abs((h/60)%2-1));
+    const sector=Math.floor(h/60);
+    const rgb=[[chroma,x,0],[x,chroma,0],[0,chroma,x],[0,x,chroma],[x,0,chroma],[chroma,0,x]][sector];
+    const m=light-chroma/2;
+    return '#'+rgb.map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('').toUpperCase();
+  }
+  return {...fallback,c1:color(hue,0.25),c2:color(hue+30+(hash>>>24)%25,0.31),c3:color(hue+95+(hash>>>20)%30,0.29)};
 }
 
 /* ---------------- Creative studio ----------------
@@ -570,6 +599,9 @@ const WTHEME = {
     if(WTC.contrast(c, fill) >= 4.5) return c;
     c = badge; n = 0;
     while(WTC.contrast(c, fill) < 4.5 && n++ < 20) c = WTC.mix(c,'#000000',0.08);
+    // A fill just at the white-text threshold may need the exact endpoint:
+    // twenty easing steps cannot reach white/black. Never return a failed gate.
+    if(WTC.contrast(c,fill)<4.5) c=WTC.contrast('#FFFFFF',fill)>=4.5?'#FFFFFF':'#000000';
     return c;
   },
 
@@ -586,6 +618,7 @@ const WTHEME = {
     const id = user? WTHEME.resolveId(user) : 'foundation';
     const theme = WTHEME.byId(id) || WTHEME.byId('foundation');
     WTHEME._active = theme;
+    if(typeof CLIENT_UI!=='undefined') CLIENT_UI.apply(user);
     let dept = '#1E3A8A';
     if(user){
       const role = roleObj(user.roleId);
@@ -595,7 +628,8 @@ const WTHEME = {
     const st = user? WTHEME.studio(user) : null;
     const dp = deptPaletteFor(user);
     const schemeId = (st && st.colorScheme) || STUDIO.colorScheme.def;
-    const schemeColors = consoleSchemeColors(schemeId, dp);
+    const signature = accountSignaturePalette(user, dp);
+    const schemeColors = consoleSchemeColors(schemeId, signature);
     const schemeAccent = (st && st.accentPick) || (schemeId !== 'department' ? schemeColors[0] : '');
     const vars = WTHEME.vars(theme, dept, schemeAccent);
     Object.keys(vars).forEach(k=>set(k, vars[k]));
@@ -794,3 +828,113 @@ const WTHEME = {
   importCustomPack(user, rawJson){ return WTHEME.installCustomPack(user, rawJson); },
   exportCurrentPack(user){ return WTHEME.exportActivePack(user); }
 };
+
+
+/* Official public entry identities. Palette source: the root LOMAMO letterhead
+   PNG (dominant emblem red #EE0000; white #FFFFFF; black #000000; grey #F2F2F2) and existing --action / --ink CSS tokens.
+   The saturated emblem red is corrected by the PR #35 safeFill gate; text and
+   badge pairs are measured at runtime rather than chosen by appearance. */
+const ENTRY_THEMES = [
+  {id:'clinic',name:'LOMAMO Letterhead Light',mode:'light',accent:'#EE0000',
+    blurb:'The default: a white-led letterhead, red-centred workflow and restrained teal, gold and blue accents.',
+    bg:'#FFFFFF',surface:'#FFFFFF',ink:'#202020',muted:'#595959',line:'#E1E1E1',soft:'#F5F3F0',emphasis:'#B81935',teal:'#17645D',gold:'#85570B',blue:'#335D91'},
+  {id:'heritage',name:'LOMAMO Emblem Dark',mode:'dark',accent:'#EE0000',
+    blurb:'A charcoal front door with a red-centred workflow, coloured highlights and the same white sign-in form.',
+    bg:'#1C1C1C',surface:'#252525',ink:'#FFFFFF',muted:'#CCCCCC',line:'#454545',soft:'#303030',emphasis:'#FFB8B8',teal:'#8ED8CE',gold:'#F2C56F',blue:'#A9CFF5'}
+];
+const ENTRY_THEME = {
+  // Shared relief/accent surfaces enrich both identities, not a third theme.
+  relief:Object.freeze({surface:'#232323',backdrop:'#1A1A1A',raised:'#333333',ink:'#FFFFFF',muted:'#CECECE',line:'#8B8B8B',accent:'#FFB8B8',footer:'#171717',red:'#FF8996','red-fill':'#902238',teal:'#8ED8CE','teal-fill':'#194643',gold:'#F2C56F','gold-fill':'#4A3921',blue:'#A9CFF5','blue-fill':'#293F58'}),
+  previewId:null, previewed:new Set(),
+  tokens(id){
+    const t=ENTRY_THEMES.find(x=>x.id===id)||ENTRY_THEMES[0];
+    const fill=WTHEME.safeFill('#C51F3B'), badge=WTHEME.badgeOnFill('#D9D9D9',fill);
+    return {...t,fill,badge,fillInk:'#FFFFFF'};
+  },
+  measurements(id){
+    const t=this.tokens(id), r=this.relief;
+    return [
+      {label:'Primary action / white text',ratio:WTC.contrast(t.fill,'#FFFFFF')},
+      {label:'Badge / action fill',ratio:WTC.contrast(t.badge,t.fill)},
+      {label:'Main text / background',ratio:WTC.contrast(t.ink,t.bg)},
+      {label:'Supporting text / background',ratio:WTC.contrast(t.muted,t.bg)},
+      {label:'Main text / card',ratio:WTC.contrast(t.ink,t.surface)},
+      {label:'Supporting text / card',ratio:WTC.contrast(t.muted,t.surface)},
+      {label:'Entry accent / background',ratio:WTC.contrast(t.emphasis,t.bg)},
+      {label:'Sign-in text / white form',ratio:WTC.contrast('#202020','#FFFFFF')},
+      {label:'Sign-in supporting text / white form',ratio:WTC.contrast('#595959','#FFFFFF')},
+      {label:'Input placeholder / white field',ratio:WTC.contrast('#6B6B6B','#FFFFFF')},
+      {label:'Brand text / charcoal panel',ratio:WTC.contrast('#CCCCCC','#202020')},
+      {label:'Workflow heading / charcoal panel',ratio:WTC.contrast(r.ink,r.surface)},
+      {label:'Workflow supporting text / charcoal panel',ratio:WTC.contrast(r.muted,r.surface)},
+      {label:'Workflow department / graphite node',ratio:WTC.contrast(r.ink,r.raised)},
+      {label:'Workflow connectors / dark backdrop',ratio:WTC.contrast(r.line,r.backdrop)},
+      {label:'Footer text / soft black',ratio:WTC.contrast(r.muted,r.footer)},
+      ...['teal','gold','blue'].map(key=>({label:key+' accent / entry canvas',ratio:WTC.contrast(t[key],t.bg)})),
+      ...['red','teal','gold','blue'].flatMap(key=>[
+        {label:key+' workflow label / coloured node',ratio:WTC.contrast(r.ink,r[key+'-fill'])},
+        {label:key+' counter / graphite',ratio:WTC.contrast(r[key],r.raised)}
+      ]),
+      {label:'Workflow core / emblem red',ratio:WTC.contrast('#FFFFFF','#C51F3B')},
+      {label:'Workflow core subtitle / emblem red',ratio:WTC.contrast('#FFE0E5','#C51F3B')},
+      {label:'Red workflow connector / backdrop',ratio:WTC.contrast(r.red,r.backdrop)},
+      {label:'Online status / pale teal',ratio:WTC.contrast('#205A50','#EAF5F1')},
+      {label:'Device notice / pale gold',ratio:WTC.contrast('#725016','#FFF6E5')},
+      {label:'Sign-in tab / pale red',ratio:WTC.contrast('#A11D32','#FCECEF')},
+      {label:'Activate tab / pale teal',ratio:WTC.contrast('#17645D','#EAF5F1')},
+      {label:'Request tab / pale blue',ratio:WTC.contrast('#335D91','#EBF2FB')},
+      {label:'Recover tab / pale gold',ratio:WTC.contrast('#85570B','#FFF6E5')}
+    ];
+  },
+  style(id){
+    const t=this.tokens(id);
+    return `--entry-bg:${t.bg};--entry-surface:${t.surface};--entry-ink:${t.ink};--entry-muted:${t.muted};--entry-line:${t.line};--entry-soft:${t.soft};--entry-emphasis:${t.emphasis};--entry-teal:${t.teal};--entry-gold:${t.gold};--entry-blue:${t.blue};--entry-fill:${t.fill};--entry-badge:${t.badge};--accent:${t.fill};--accent-ink:#FFFFFF;${Object.entries(this.relief).map(([key,value])=>`--entry-relief-${key}:${value}`).join(';')}`;
+  },
+  async apply(id){
+    if(!AUTH.user || AUTH.user.roleId!=='chief' || !RBAC.has(AUTH.user,'system.config')) throw new Error('Only the Chief System Administrator may change the public entry theme.');
+    if(!ENTRY_THEMES.some(t=>t.id===id) || !this.previewed.has(id)) throw new Error('Preview an official theme before applying it.');
+    if(this.measurements(id).some(m=>m.ratio<4.5)) throw new Error('This theme failed its measured contrast gates.');
+    if(typeof SYNC!=='undefined' && SYNC.available()){
+      const result=await ENTRY_ADMIN.request('system-config',{entryTheme:id});
+      DB.db.settings.system={...(DB.db.settings.system||{}),config:result.config};
+      if(APPX.host) APPX.host.landingTheme=id;
+      if(SYNC.server) SYNC.server.landingTheme=id;
+      // A config acknowledgement is not a complete database snapshot. Never
+      // advance the sync revision over held edits or skip unrelated deltas.
+      await ENTRY_ADMIN.refreshAfterWrite(result);
+    }else{
+      DB.db.settings.system=DB.db.settings.system||{};
+      DB.db.settings.system.config={...(DB.db.settings.system.config||{}),entryTheme:id};
+      AUDIT.append({actor:AUTH.user.id,action:'system.config_changed',entity:'system.config',entityId:'entryTheme',detail:'Offline entry theme -> '+id});
+    }
+    DB.db.settings.landingTheme=id; DB.db.settings.landingThemeExplicit=true;
+    DB.saveLocalPrefs();
+    if(typeof SYNC==='undefined' || !SYNC.available()) DB.save();
+  }
+};
+
+/* Device hints customise layout only; they are never authentication evidence. */
+const CLIENT_UI = {
+  snapshot(env={}){
+    const nav=env.navigator||(typeof navigator!=='undefined'?navigator:{});
+    const width=env.width||(typeof window!=='undefined'?window.innerWidth:1280)||1280;
+    const height=env.height||(typeof window!=='undefined'?window.innerHeight:800)||800;
+    const ua=String(nav.userAgent||'');
+    const ipad=/iPad/.test(ua)||(/Mac/.test(nav.platform||'')&&Number(nav.maxTouchPoints)>1);
+    const phone=/iPhone|Android.*Mobile|Windows Phone/i.test(ua)||nav.userAgentData?.mobile===true;
+    const tablet=ipad||(/Android/.test(ua)&&!phone);
+    const type=phone?'phone':tablet?'tablet':'computer';
+    const platform=/Windows/.test(ua)?'Windows':/Android/.test(ua)?'Android':ipad?'iPadOS':/iPhone/.test(ua)?'iOS':/Mac/.test(ua)?'macOS':/Linux/.test(ua)?'Linux':'Browser';
+    const browser=/Edg\//.test(ua)?'Edge':/Firefox\//.test(ua)?'Firefox':/Chrome\//.test(ua)?'Chromium':/Safari\//.test(ua)?'Safari':'Browser';
+    return {type,platform,browser,width,height,layout:width<700?'compact':width<1180?'medium':'wide',orientation:width>height?'landscape':'portrait',label:`${platform} ${type} · ${browser}`};
+  },
+  apply(user){
+    const info=this.snapshot(),root=document.documentElement;
+    if(root&&root.setAttribute){root.setAttribute('data-client-kind',info.type);root.setAttribute('data-client-layout',info.layout);root.setAttribute('data-client-orientation',info.orientation);root.setAttribute('data-client-role',user?.roleId||'public');}
+    return info;
+  }
+};
+if(typeof window!=='undefined'&&window.addEventListener){
+  let resizeTimer;
+  window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>CLIENT_UI.apply(typeof AUTH!=='undefined'?AUTH.user:null),120);});
+}

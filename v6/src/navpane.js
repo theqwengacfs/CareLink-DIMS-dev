@@ -87,10 +87,10 @@ const NAVP = {
   narrow(){ try{ return (window.innerWidth||1280) < NAV_PANE_MIN; }catch(e){ return false; } },
 
   /* Runtime auto-fold tracking:
-     - _tempOpen: true when the user manually clicked Expand to browse the pane;
-       clears automatically the instant the user scrolls or interacts on #content.
-     - _workspaceEngaged: true once the user scrolls #content / window or uses
-       any feature/control on the #content workspace ("white space"). */
+     - _tempOpen: a rail tap holds the pane expanded through redraws and scroll
+       restoration, until actual navigation or deliberate workspace engagement.
+     - _workspaceEngaged: true after actual navigation, or using a feature on
+       #content; an unheld pane may also auto-fold on workspace scrolling. */
   _tempOpen: false,
   _workspaceEngaged: false,
   _listenersBound: false,
@@ -101,10 +101,10 @@ const NAVP = {
   effectiveRail(user, view){
     if(!user) return false;
     const pr = NAVP.prefs(user);
+    if(NAVP._tempOpen) return false;
     if(pr.rail) return true;
     if(pr.railExplicit && !pr.rail && !pr.autoFold) return false;
     if(!pr.autoFold) return false;
-    if(NAVP._tempOpen) return false;
     if(NAVP._workspaceEngaged) return true;
     const curView = view || (typeof APPX!=='undefined' && APPX.view) || 'home';
     const isTab = (typeof DEVICE!=='undefined' && DEVICE.isTablet && DEVICE.isTablet());
@@ -160,6 +160,7 @@ const NAVP = {
   /* Automatically fold the left navigation panel whenever the user starts
      scrolling or using features on the main workspace (#content). */
   foldForWorkspace(reason){
+    if(NAVP._tempOpen && reason === 'scroll') return false;
     if(NAVP._hoveringPane && reason !== 'rail-btn') return false;
     const user = (typeof AUTH!=='undefined' && AUTH.user) ? AUTH.user : null;
     if(!user || !NAVP.enabled(user)) return false;
@@ -228,6 +229,7 @@ const NAVP = {
     ['pointerdown', 'mousedown', 'focusin', 'input', 'change'].forEach(ev => {
       document.addEventListener(ev, (e)=>{
         const t = e && e.target;
+        if(ev==='focusin' && e.isTrusted!==true) return;
         if(!t || isInsideNavOrModal(t)) return;
         if(t.closest && t.closest('#content')){
           NAVP.foldForWorkspace('workspace-' + ev);
@@ -302,7 +304,8 @@ const NAVP = {
       <div class="np-brand">
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
         <div class="np-id"><div class="np-os">CareLink OS</div><b>${esc(role.consoleTitle||role.name||'Console')}</b>
-          <span><i class="np-dot" style="background:${esc(dept.accent)}"></i>${esc(role.name||'')}</span></div>
+          <span class="np-role-name"><i class="np-dot" aria-hidden="true" style="background:${esc(dept.accent)}"></i><span>${esc(role.name||'')}</span></span>
+          <span class="np-account-name">${ic('user',13)}<span><small>Signed in as</small><strong>${esc(user.name.replace(/^Demo - /,''))}</strong></span></span></div>
         <button class="np-x" data-act="nav-close" aria-label="Close navigation">${ic('x',18)}</button>
       </div>
       <div class="np-scroll">${body}</div>

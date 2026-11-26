@@ -208,7 +208,7 @@ const MASTERX2 = {
   integrity(){ return MASTER_SOURCE_INTEGRITY; },
   pyear(){ return PYEAR; },
 
-  daysOf(p){ return Number(p.programDays) || (typeof PAT!=='undefined'? PAT.days(p) : 0) || 0; },
+  daysOf(p){ return CARE_RULES.supported(p)&&CARE_RULES.cycleStart(p)?CARE_RULES.days(p):0; },
 
   /* --- rows 152-160: the per-area summary block, live --- */
   areaSummary(user, areaId){
@@ -611,7 +611,7 @@ const MASTERX2 = {
 };
 
 Object.assign(ACTIONS, {
-  'master-tab': d => { MASTERX2._tab = d.tab||'summary'; render(); },
+  'master-tab': d => { MASTERX2._tab = d.tab||'summary'; render(); revealLanding(landingTarget(APPX.view)); },
   'set-programme-year': d => {
     const r = PYEAR.set(AUTH.user, d.month);
     if(!r.ok) return toast('Not changed', r.msg, 'err');

@@ -564,7 +564,7 @@ const COSTX = {
   /* ---------------- console ---------------- */
   render(user, params={}){
     if(!RBAC.has(user,'cost.view') && !RBAC.has(user,'finance.view')) return deniedPanel('cost.view');
-    Object.keys(params||{}).forEach(k=>{ if(params[k]!==undefined && k in COST_STATE) COST_STATE[k]=params[k]; });
+    if(applyRouteState(COST_STATE,params)&&['table','charts'].includes(params.viewMode))APPX.chartViewMode=params.viewMode;
     const st = COST_STATE;
     const filter = { from:st.from, to:st.to, countyId:st.countyId, areaId:st.areaId, cat:st.cat, dept:st.dept, q:st.q };
     const s = this.summary(user, filter);
@@ -603,7 +603,7 @@ const COSTX = {
        ${RBAC.has(user,'cost.export')?`<button class="btn btn-sm btn-ghost" data-act="cost-export">${ic('download',15)} Export CSV</button>`:''}
        <button class="btn btn-sm btn-ghost" data-act="do-print">${ic('file',15)} Print</button>
        <button class="btn btn-sm btn-primary" data-act="cost-report">${ic('receipt',15)} Full cost report</button>`)
-    + `<div class="tabs cost-tabs" role="tablist">${shown.map(([id,label])=>`<button class="tab ${st.tab===id?'active':''}" role="tab" data-act="cost-tab" data-tab="${id}">${esc(label)}</button>`).join('')}</div>`
+    + `<div class="tabs cost-tabs" role="tablist">${shown.map(([id,label])=>`<button class="tab ${st.tab===id?'active':''}" role="tab" aria-selected="${st.tab===id}" data-act="cost-tab" data-tab="${id}">${esc(label)}</button>`).join('')}</div>`
     + filterBar;
 
     const kpis = `<div class="grid g4" style="margin:16px 0">
@@ -982,9 +982,9 @@ function stdCostOf(std, id){ const s=(std||[]).find(x=>x.id===id); return s? Num
 
 /* ---------------- actions & forms ---------------- */
 Object.assign(ACTIONS, {
-  'cost-tab': d => { COST_STATE.tab = d.tab||'overview'; COST_STATE.page=1; render(); },
+  'cost-tab': d => { COST_STATE.tab = d.tab||'overview'; COST_STATE.page=1; render(); revealLanding(landingTarget(APPX.view)); },
   'cost-reset': () => { Object.assign(COST_STATE, {from:'',to:'',countyId:'',areaId:'',cat:'',dept:'',q:'',page:1}); render(); },
-  'cost-page': d => { COST_STATE.page = Math.max(1, Number(d.p)||1); render(); window.scrollTo({top:0,behavior:'smooth'}); },
+  'cost-page': d => { COST_STATE.page = Math.max(1, Number(d.p)||1); render(); revealWorkspace('costing'); },
   'cost-export': () => {
     if(!RBAC.assert(AUTH.user,'cost.export',{},false)) return toast('Not permitted','Your role may not export a cost analysis.','err');
     COSTX.csv(AUTH.user, {from:COST_STATE.from,to:COST_STATE.to,countyId:COST_STATE.countyId,areaId:COST_STATE.areaId,cat:COST_STATE.cat,q:COST_STATE.q});

@@ -259,11 +259,13 @@ const AI = {
 
   cfg(){
     if(!DB.db) DB.load();
-    DB.db.settings.ai = Object.assign(
+    // Rendering / probing is a read, not a settings migration. Adding a
+    // missing default to the shared row in a caregiver session creates a
+    // rightly refused Chief-only patch and can block unrelated clinical work.
+    return Object.assign(
       { enabled:true, mode:'auto', provider:'online', ollama:'/api/ai', model:'carelink-online-v6.4' },
-      DB.db.settings.ai || {}
+      DB.db.settings?.ai || {}
     );
-    return DB.db.settings.ai;
   },
 
   /* Probe CareLink Shared Online Site Intelligence (/api/ai/probe) */

@@ -104,7 +104,14 @@ const SYNC = {
   },
   heldOutbox(){ const box = this.loadOutbox(); return box ? box.patches.length : 0; },
 
+  /* A provider quota cannot recover through a fast-pack/page/write retry.
+     Keep failures (never data or authorization) during a short retry window.
+     An explicit KV retry clears it; its expiry is NOT a quota-reset promise. */
+  kvBlocked(){ return Boolean(this._kvFailure && Date.now() < (this._kvRetryAt || 0)); },
+  resetKvBackoff(){ this._kvFailure = null; this._kvRetryAt = 0; },
+
   async _json(url, opts={}){
+    if(this.kvBlocked()) return this._kvFailure;
     const nowMs = () => (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') ? performance.now() : Date.now();
     const t0 = nowMs();
     const { preserveTokenOn401, skipAuthHeader, timeoutMs = 20000, ...fetchOpts } = opts || {};
@@ -127,7 +134,7 @@ const SYNC = {
     inSetup = false;
     let r;
     try{
-      const reqInit = Object.assign({cache:'no-store'}, fetchOpts, {headers});
+      const reqInit = Object.assign({cache:'no-store',credentials:'same-origin'}, fetchOpts, {headers});
       if(controller && !reqInit.signal) reqInit.signal = controller.signal;
       r = await fetch(this.resolveApiUrl(url), reqInit);
     }catch(err){
@@ -152,18 +159,29 @@ const SYNC = {
           : `The shared online service refused the request (HTTP ${r.status}). No success is being claimed.`
       });
     }
+    if(!r.ok && body && body.code === 'kv_quota_exceeded'){
+      const retrySeconds = Math.max(300, Math.min(3600, Number(body.retryAfterSeconds) || 300));
+      this._kvRetryAt = Date.now() + retrySeconds * 1000;
+      this._kvFailure = { status:r.status, ok:false, body };
+      this.state = 'error'; this.message = body.error || 'The online database has reached a provider usage limit.';
+      if(this._poll) this.startPolling();
+      this.bump();
+    }
     if(r.status === 401 && this.sessionToken && !preserveTokenOn401 && !skipAuthHeader){
-      /* The host ended the session (idle window, revocation or restart). Anything
-         typed but not yet accepted is held against this account before the
-         session goes, so signing back in finishes the save. */
+      /* The host ended the session (idle window, revocation, a sign-in from
+         another browser, or restart). Anything typed but not yet accepted is held
+         against this account before the session goes, so signing back in finishes
+         the save. A superseded window says so, because "signed out" with no reason
+         looks like a fault to the person sitting in front of it. */
+      const superseded = Boolean(body && body.code === 'session_superseded');
       try{ if(url !== 'api/auth/logout') this.holdWork(); }catch(_e){}
       this.storeToken(null);
-      if(typeof SESSION !== 'undefined' && AUTH.user) SESSION.serverExpired();
+      if(typeof SESSION !== 'undefined' && AUTH.user) SESSION.serverExpired(superseded ? 'superseded' : 'server');
     }
     return {status:r.status, ok:r.ok, body};
   },
 
-  async login(username, password, device){
+  async login(username, password, device, opts={}){
     clearTimeout(this._timer);
     this.stopPolling();
     const cryptoApi = typeof globalThis !== 'undefined' && globalThis.crypto;
@@ -172,7 +190,11 @@ const SYNC = {
     if(!loginAttemptId){
       try{ const bytes = new Uint8Array(24); cryptoApi.getRandomValues(bytes); loginAttemptId = Array.from(bytes, b=>b.toString(16).padStart(2,'0')).join(''); }catch(_e){ loginAttemptId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`; }
     }
-    const loginPayload = JSON.stringify({username, password, device: device || String(navigator.userAgent||'').slice(0,120), loginAttemptId});
+    const descriptor=device && typeof device==='object' ? device : (typeof CLIENT_UI!=='undefined'?CLIENT_UI.snapshot():{label:device||'Staff browser',type:'other'});
+    const loginPayload = JSON.stringify({username, password, deviceLabel:String(descriptor.label||'Staff browser').slice(0,100), deviceType:descriptor.type||'other', loginAttemptId,
+      /* A takeover is a deliberate second request after the person has been told
+         the account is open elsewhere; it is never implied by a retry. */
+      ...(opts && opts.takeover ? { takeover: true } : {})});
     let r = null;
     let netErr = null;
     for(let attempt=0; attempt<2; attempt++){
@@ -226,17 +248,39 @@ const SYNC = {
         this.bump();
         return {ok:false, code:'state_unavailable', error:this.message, status:503};
       }
-      return {ok:true, user:r.body.user, mustChange:!!r.body.mustChange, idleSeconds:r.body.idleSeconds, username:r.body.username};
+      return {ok:true, user:r.body.user, mustChange:!!r.body.mustChange, idleSeconds:r.body.idleSeconds, username:r.body.username, supersededClient:Boolean(r.body.supersededClient)};
     }
     this.authError = r.body.error || 'The shared online source did not accept that sign-in.';
-    return {ok:false, code:r.body.code||'failed', error:this.authError, status:r.status};
+    return {ok:false, code:r.body.code||'failed', error:this.authError, status:r.status,
+      /* Carried through so the sign-in form can offer the takeover rather than
+         asking the person to wait for an idle window to run down. */
+      canTakeover:Boolean(r.body.canTakeover), heldForSeconds:r.body.heldForSeconds};
+  },
+
+  /* A closed or hidden tab must not keep the account lease alive. The browser
+     gives no promise that anything runs as the page is torn down, so this is a
+     best-effort release sent with `keepalive` (which survives the document being
+     unloaded); the server also retires the lease when the same account signs in
+     again, and the idle window is the final backstop. Nothing here touches data:
+     it only gives up the session. */
+  releaseOnExit(){
+    try{
+      if(!this.sessionToken) return;
+      const token = this.sessionToken;
+      this.storeToken(null);
+      const target = this.resolveApiUrl('api/auth/logout');
+      try{
+        fetch(target, {method:'POST', keepalive:true, credentials:'same-origin',
+          headers:{'Content-Type':'application/json','X-CareLink-Session':token}, body:'{}'});
+      }catch(_e){}
+    }catch(_e){}
   },
 
   async logout(){
     clearTimeout(this._timer);
     if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.clearCredentialPack) PROD_SETUP.clearCredentialPack();
     if(this.sessionToken){
-      try{ await this._json('api/auth/logout', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}', timeoutMs:6000}); }catch(e){}
+      try{ const result=await this._json('api/auth/logout', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}', timeoutMs:6000}); if(!result.ok) return false; }catch(e){ return false; }
     }
     this.deviceOnlyOverride = false;
     this.storeToken(null);
@@ -244,6 +288,7 @@ const SYNC = {
     this.stopPolling();
     this.state = 'idle';
     this.bump();
+    return true;
   },
 
   async beat(){
@@ -283,7 +328,7 @@ const SYNC = {
     if(!health || !health.ok){
       this.state = this.available() ? 'error' : 'device';
       this.message = this.available()
-        ? 'The shared online source is unavailable — no local copy is being presented as a live save'
+        ? ((health && health.body && health.body.error) || 'The shared online source is unavailable — no local copy is being presented as a live save')
         : 'This copy runs from the device in offline/static mode';
       this.bump(); return;
     }
@@ -313,56 +358,6 @@ const SYNC = {
 
   async _sleep(ms){
     await new Promise(resolve => setTimeout(resolve, ms));
-  },
-
-  _idbCacheKey(){
-    try{
-      const loc = typeof location !== 'undefined' ? `${location.origin || ''}${location.pathname || ''}` : 'default';
-      return `carelink_cloud_snap_v6:${loc}`;
-    }catch(e){ return 'carelink_cloud_snap_v6:default'; }
-  },
-
-  async _idbOpen(){
-    if(typeof indexedDB === 'undefined' || !indexedDB || typeof indexedDB.open !== 'function') return null;
-    return await new Promise((resolve) => {
-      try{
-        const req = indexedDB.open('carelink_sync_idb_v6', 1);
-        req.onupgradeneeded = () => {
-          try{
-            const db = req.result;
-            if(!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots');
-          }catch(e){}
-        };
-        req.onsuccess = () => resolve(req.result || null);
-        req.onerror = () => resolve(null);
-      }catch(e){ resolve(null); }
-    });
-  },
-
-  async _idbReadSnapshot(){
-    const idb = await this._idbOpen();
-    if(!idb) return null;
-    return await new Promise((resolve) => {
-      try{
-        const tx = idb.transaction('snapshots', 'readonly');
-        const st = tx.objectStore('snapshots');
-        const req = st.get(this._idbCacheKey());
-        req.onsuccess = () => { try{ idb.close(); }catch(e){} resolve(req.result || null); };
-        req.onerror = () => { try{ idb.close(); }catch(e){} resolve(null); };
-      }catch(e){ try{ idb.close(); }catch(_){} resolve(null); }
-    });
-  },
-
-  _idbWriteSnapshot(dbObj, rev, saved){
-    this._idbOpen().then((idb) => {
-      if(!idb) return;
-      try{
-        const tx = idb.transaction('snapshots', 'readwrite');
-        tx.objectStore('snapshots').put({ rev: Number(rev)||0, saved: saved||null, at: Date.now(), db: dbObj }, this._idbCacheKey());
-        tx.oncomplete = () => { try{ idb.close(); }catch(e){} };
-        tx.onerror = () => { try{ idb.close(); }catch(e){} };
-      }catch(e){ try{ idb.close(); }catch(_){} }
-    }).catch(() => {});
   },
 
   _canDecompressGzip(){
@@ -403,41 +398,6 @@ const SYNC = {
     }catch(e){}
   },
 
-  async _tryCachedDeltaPull(minRev, requireReferenceMaster){
-    const snap = await this._idbReadSnapshot();
-    if(!snap || !snap.db || !snap.rev) return false;
-    if(requireReferenceMaster && !(snap.db.meta && snap.db.meta.referenceMaster)) return false;
-    try{
-      const d = await this._json(`api/state?since=${snap.rev}&deltaOnly=1`, { timeoutMs: 10000, preserveTokenOn401: true });
-      if(!d || !d.ok || !d.body || d.body.deltaMiss) return false;
-      const gotRev = Number(d.body.rev) || 0;
-      if(minRev > 0 && gotRev < minRev) return false;
-      if(d.body.unchanged){
-        if(gotRev !== Number(snap.rev)) return false;
-        if(d.body.saved && snap.saved && d.body.saved !== snap.saved) return false;
-        this.adoptRemote(Object.assign({}, snap.db), gotRev || snap.rev, d.body.saved || snap.saved);
-        this.state = 'connected';
-        this.message = 'Reading the shared online source';
-        this.bump();
-        return true;
-      }
-      if(Array.isArray(d.body.patches)){
-        this.adoptRemote(Object.assign({}, snap.db), snap.rev, snap.saved);
-        if(d.body.patches.length) this.applyPatchList(d.body.patches);
-        this.rev = gotRev || snap.rev;
-        this.saved = d.body.saved || snap.saved;
-        DB.db.meta = Object.assign({}, DB.db.meta, { serverRev: this.rev, serverSaved: this.saved });
-        this.rebase();
-        this._idbWriteSnapshot(DB.db, this.rev, this.saved);
-        this.state = 'connected';
-        this.message = 'Reading the shared online source';
-        this.bump();
-        return true;
-      }
-    }catch(e){}
-    return false;
-  },
-
   async _tryFastPackPull(minRev, requireReferenceMaster){
     const isCloudHost = Boolean(
       (this.server && this.server.cloud) ||
@@ -454,12 +414,14 @@ const SYNC = {
           timeoutMs: 35000
         });
       }catch(e){ first = null; }
+      if(this.kvBlocked()) return null;
       const gotRev = first && first.body ? (Number(first.body.rev) || 0) : 0;
       if(first && first.ok && first.body && first.body.fastPack && typeof first.body.part0 === 'string' && (minRev <= 0 || gotRev >= minRev)){
         break;
       }
     }
-    if(!first || !first.ok || !first.body || !first.body.fastPack || typeof first.body.part0 !== 'string'){
+    if(!first || !first.ok || !first.body || !first.body.fastPack || typeof first.body.part0 !== 'string' ||
+       (minRev > 0 && (Number(first.body.rev) || 0) < minRev)){
       return null;
     }
     const totalParts = Number(first.body.totalParts) || 1;
@@ -475,7 +437,9 @@ const SYNC = {
             preserveTokenOn401: pTry < 3,
             timeoutMs: 35000
           });
-          if(pr && pr.ok && pr.body && typeof pr.body.data === 'string'){
+          if(this.kvBlocked()) return false;
+          if(pr && pr.ok && pr.body && typeof pr.body.data === 'string' &&
+             Number(pr.body.rev) === packRev && Number(pr.body.part) === partIdx && Number(pr.body.totalParts) === totalParts){
             chunks[partIdx] = pr.body.data;
             return true;
           }
@@ -494,11 +458,11 @@ const SYNC = {
 
     try{
       const unpacked = await this._gunzipBase64Json(chunks.join(''));
-      if(!unpacked || !unpacked.db || typeof unpacked.db !== 'object') return null;
+      if(!unpacked || !unpacked.db || typeof unpacked.db !== 'object' || Number(unpacked.rev) !== packRev) return null;
       if(requireReferenceMaster && !(unpacked.db.meta && unpacked.db.meta.referenceMaster)) return null;
       this.adoptRemote(unpacked.db, unpacked.rev || packRev, unpacked.saved || first.body.saved);
       await this._catchUpDeltasSince(unpacked.rev || packRev);
-      this._idbWriteSnapshot(DB.db, this.rev, this.saved);
+      if(this.kvBlocked()) return false;
       this.state = 'connected';
       this.message = 'Reading the shared online source';
       this.bump();
@@ -509,6 +473,12 @@ const SYNC = {
   },
 
   async pullFull(opts={}){
+    if(this.kvBlocked() || this._clinicalBusy || this._pulling) return false;
+    // An already-started ordinary save (e.g. first-login audit) must settle
+    // before adopting a snapshot. Do not turn that short overlap into a
+    // permanently failed post-login / verified reference-master refresh.
+    if(this._inflight && this._pushPromise)await this._pushPromise;
+    if(this._inflight || this._clinicalBusy || this._pulling || this.kvBlocked())return false;
     const minRev = Number(opts && opts.minRev) || 0;
     const requireReferenceMaster = Boolean(opts && opts.requireReferenceMaster);
     const inlineState = opts && opts.inlineState && typeof opts.inlineState === 'object' ? opts.inlineState : null;
@@ -516,7 +486,6 @@ const SYNC = {
        state snapshot, adopt it directly with zero extra round-trip or replica lag. */
     if(!requireReferenceMaster && inlineState && inlineState.db && (!Array.isArray(inlineState.pagedCollections) || inlineState.pagedCollections.length === 0)){
       this.adoptRemote(Object.assign({}, inlineState.db), inlineState.rev || minRev, inlineState.saved);
-      this._idbWriteSnapshot(DB.db, this.rev, this.saved);
       this.state='connected'; this.message='Reading the shared online source'; this.bump();
       return true;
     }
@@ -524,16 +493,16 @@ const SYNC = {
     clearTimeout(this._timer);
     this._pulling = true;
     try{
-      /* 1. Instant IndexedDB snapshot + delta check (<150 ms on repeat sign-ins) */
-      if(await this._tryCachedDeltaPull(minRev, requireReferenceMaster)){
-        return true;
-      }
-
-      /* 2. Fast compressed 2-part stream (~4 MB gzip instead of ~73 MB raw JSON) */
+      /* Always obtain a server-scoped snapshot. Older IndexedDB snapshots were
+         keyed only by host, so another account's (or an outdated scope's) data
+         could otherwise be reused when the revision had not changed. A delta is
+         not a substitute for reapplying the current account's access scope. */
+      /* Fast compressed stream, then paged state when compression is unavailable. */
       const fastOk = await this._tryFastPackPull(minRev, requireReferenceMaster);
       if(fastOk === true) return true;
+      if(this.kvBlocked()) return false;
 
-      /* 3. Controlled-concurrency, revision-tolerant paged collection loader */
+      /* Controlled-concurrency, revision-tolerant paged collection loader. */
       const delays = [0, 250, 600, 1200];
       const pageDelays = [0, 300, 750, 1500];
       let lastPullErr = null;
@@ -546,6 +515,7 @@ const SYNC = {
           }catch(e){
             r = null;
           }
+          if(this.kvBlocked()) return false;
           const gotRev = r && r.body ? (Number(r.body.rev) || 0) : 0;
           const hasMaster = !requireReferenceMaster || Boolean(r && r.body && r.body.db && r.body.db.meta && r.body.db.meta.referenceMaster);
           if(r && r.ok && r.body && r.body.db && (minRev <= 0 || gotRev >= minRev) && hasMaster) break;
@@ -558,6 +528,10 @@ const SYNC = {
           this.state='error'; this.message = r.body.error || `The shared online state could not be read (HTTP ${r.status})`; this.bump(); return false;
         }
         const baseRev = Number(r.body.rev) || 0;
+        if((minRev > 0 && baseRev < minRev) ||
+           (requireReferenceMaster && !(r.body.db.meta && r.body.db.meta.referenceMaster))){
+          this.state='error'; this.message='The shared online state is not yet up to date; retry the refresh.'; this.bump(); return false;
+        }
         let maxSeenRev = baseRev;
         const remoteDb = Object.assign({}, r.body.db);
         const paged = Array.isArray(r.body.pagedCollections) ? r.body.pagedCollections : [];
@@ -576,6 +550,7 @@ const SYNC = {
             }catch(e){
               page = null;
             }
+            if(this.kvBlocked()) return page;
             if(page && page.ok && page.body && page.body.name === name && Array.isArray(page.body.records)){
               const pgRev = Number(page.body.rev) || 0;
               const pgTotal = Number(page.body.total);
@@ -666,10 +641,11 @@ const SYNC = {
           if(maxSeenRev > baseRev){
             await this._catchUpDeltasSince(baseRev);
           }
-          this._idbWriteSnapshot(DB.db, this.rev, this.saved);
+          if(this.kvBlocked()) return false;
           this.state='connected'; this.message='Reading the shared online source'; this.bump();
           return true;
         }catch(err){
+          if(this.kvBlocked()) return false;
           lastPullErr = err;
           if((revMovedIncompatible || fullAttempt < 2) && fullAttempt < 3){
             await this._sleep(350 * (fullAttempt + 1));
@@ -821,15 +797,17 @@ const SYNC = {
   queue(){
     /* Nothing to send yet (offline copy, or signed out): the register itself is
        the record, exactly as before. */
-    if(!this.available() || !this.sessionToken) return;
+    if(!this.available() || !this.sessionToken || this._clinicalBusy) return;
+    if(this.kvBlocked()){ this.holdWork(); return; }
     if(this._pulling || (typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading'))) return;
     if(this._inflight){ this._queuedWhileInflight = true; return; }
     clearTimeout(this._timer);
     this._timer = setTimeout(()=>this.push(), 320);
   },
 
-  async push(){
-    if(this._pulling || !this.sessionToken) return;
+  async push(opts={}){
+    if(this._pulling || !this.sessionToken || (this._clinicalBusy && !opts.clinicalPreflight)) return;
+    if(this.kvBlocked()){ this.holdWork(); return; }
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
     if(this._inflight){
       this._queuedWhileInflight = true;
@@ -862,6 +840,7 @@ const SYNC = {
      the host will never accept (a scope refusal) are reported and dropped;
      transport failures keep the work here for the next attempt. */
   async attemptOutbox(){
+    if(this.kvBlocked() || this._clinicalBusy) return false;
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return false;
     const box = this.loadOutbox();
     if(!box) return false;
@@ -915,7 +894,9 @@ const SYNC = {
   async _runPush(){
     if(this._inflight || this._pulling || !this.sessionToken) return;
     if(typeof REFERENCE_MASTER !== 'undefined' && (REFERENCE_MASTER.phase === 'uploading' || REFERENCE_MASTER.phase === 'loading')) return;
+    const previousShadow = this._shadow;
     const sentShadow = this.captureShadow();
+    const rejected = [];
     const patches = this.patches();
     if(!patches.length){ APPX.dirty = false; return; }
     this._inflight = true;
@@ -933,11 +914,29 @@ const SYNC = {
                                 ts: new Date().toISOString()})
         });
         if(!r.ok){
+          /* Provider/network failures are retryable work, not a successful save
+             or a permanent scope rejection. Persist it before returning. */
+          const held = r.status >= 500 || r.status === 429 ? this.holdWork() : 0;
           this.state = 'error';
-          this.message = r.body.error || 'The shared online source refused the save';
+          this.message = (r.body.error || 'The shared online source refused the save') +
+            (held ? ` ${held} change${held===1?' is':'s are'} held on this device.` : '');
           this.bump(); this._inflight=false; return;
         }
-        rev = r.body.rev; merged += (r.body.merged||0);
+        // A PUT acknowledges our edits, not intervening remote revisions.
+        if(r.body.rev === rev+1) rev = r.body.rev;
+        else if(r.body.rev > rev) this.pendingRemote = true;
+        merged += (r.body.merged||0);
+        rejected.push(...(r.body.rejected||[]));
+      }
+      // HTTP 200 may include per-row refusals. They remain visibly unsaved;
+      // never bless them into the confirmed shadow or preflight a decision.
+      for(const p of rejected){
+        if(p.c==='settings'){sentShadow.__settings=previousShadow.__settings;continue;}
+        if(p.c==='audit'){sentShadow.__auditLen=previousShadow.__auditLen;continue;}
+        const collection=p.c==='personalPrefs'?'__personalPrefs':p.c;
+        const map=sentShadow[collection]=sentShadow[collection]||{};
+        if(Object.hasOwn(previousShadow[collection]||{},p.id))map[p.id]=previousShadow[collection][p.id];
+        else delete map[p.id];
       }
       this.rev = rev;
       this.saved = new Date().toISOString();
@@ -953,9 +952,10 @@ const SYNC = {
       this._retry = 0;
       this.lastMerged = merged;
       this.clearOutbox();
-      this.state = merged ? 'merge' : 'connected';
-      this.message = merged
-        ? `Saved · ${merged} overlapping field${merged===1?'':'s'} reconciled automatically`
+      this.state = rejected.length ? 'error' : merged ? 'merge' : 'connected';
+      this.message = rejected.length
+        ? `${rejected.length} change${rejected.length===1?' was':'s were'} refused by the shared source and remain unsaved (${[...new Set(rejected.map(p=>p.reason))].join(', ')}).`
+        : merged ? `Saved · ${merged} overlapping field${merged===1?'':'s'} reconciled automatically`
         : 'Saved to the shared online source';
       this.bump();
       if(merged){
@@ -976,8 +976,11 @@ const SYNC = {
     }finally{
       this._inflight = false;
       if(before==='merge' && this.state==='saving') this.state='connected';
-      if(this._queuedWhileInflight && this.sessionToken && !this._pulling){
+      if(this._queuedWhileInflight && this.sessionToken && !this._pulling && !this.kvBlocked()){
         this._queuedWhileInflight = false;
+        // A refused row must not strand unrelated edits queued during the
+        // request (for example, a clinician's personal accessibility settings).
+        // The queued flag is consumed once; refusals alone never loop here.
         if(this.patches().length > 0) await this._runPush();
       }
     }
@@ -988,20 +991,25 @@ const SYNC = {
     this.stopPolling();
     const base = this.pendingRemote ? 2000 : 10000;
     const backoff = Math.min(60000, base * Math.pow(2, Math.min(3, this._pollErrStreak || 0)));
-    this._poll = setInterval(()=>this.tick(), backoff);
+    const quotaWait = this.kvBlocked() ? this._kvRetryAt - Date.now() : 0;
+    this._poll = setInterval(()=>this.tick(), Math.max(backoff, quotaWait));
   },
   stopPolling(){ if(this._poll) clearInterval(this._poll); this._poll=null; },
+  pollFailed(){
+    const prevStreak = this._pollErrStreak || 0;
+    this._pollErrStreak = Math.min(4, prevStreak + 1);
+    if(this._poll && this._pollErrStreak !== prevStreak) this.startPolling();
+  },
 
   async tick(){
-    if(!this.sessionToken || this._inflight || this._pulling || document.hidden) return;
-    if(APPX.dirty){ await this.push(); }
-    if(this._inflight || this._pulling || !this.sessionToken) return;
+    if(!this.sessionToken || this._inflight || this._pulling || this._clinicalBusy || this._ticking || document.hidden || this.kvBlocked()) return;
+    this._ticking = true;
     try{
+      if(APPX.dirty){ await this.push(); }
+      if(this._inflight || this._pulling || !this.sessionToken || this.kvBlocked()) return;
       const r = await this._json(`api/state?since=${this.rev}`);
       if(!r || !r.ok || !r.body){
-        const prevStreak = this._pollErrStreak || 0;
-        this._pollErrStreak = Math.min(4, prevStreak + 1);
-        if(this._poll && this._pollErrStreak !== prevStreak) this.startPolling();
+        this.pollFailed();
         return;
       }
       if(this._pollErrStreak){
@@ -1045,12 +1053,53 @@ const SYNC = {
         this.softRefresh();
         return;
       }
-    }catch(e){ /* a dropped poll is not an error worth showing */ }
+    }catch(e){
+      /* Dropped connections back off just like HTTP failures. A slow poll must
+         also finish before another tick can start. */
+      this.pollFailed();
+    }finally{
+      this._ticking = false;
+    }
+  },
+
+  /* A command acknowledgement is NOT a full snapshot. Rebase only those
+     exact rows against their confirmed shadow, preserving unrelated dirty
+     rows and edits made while the command was in flight. The command never
+     clears an outbox or advances past unseen remote revisions. */
+  applyCommandPatches(patches){
+    const protectedPatient=new Set(['status','careCycleId','cycleStartedAt','enrolledAt','enrolDate','enrolledBy','enrolledDecisionAt',
+      'enrolmentOfficeConfirmed','discharge','dischargedAt','dischargedBy','dischargeEvidence','assessmentKind','intake','carePlan',
+      'countyId','areaId','nationalId','dischargeSummary','dischargeProtocol','dischargeRecommendation','dischargeReferral']);
+    for(const patch of patches||[]){
+      if(!patch||typeof patch.c!=='string')continue;
+      if(['settings','personalPrefs','audit'].includes(patch.c)){this.applyPatchList([patch]);continue;}
+      const col=DB.db[patch.c]=Array.isArray(DB.db[patch.c])?DB.db[patch.c]:[];
+      const i=col.findIndex(r=>r?.id===patch.id),local=i<0?{}:col[i];
+      let before={};try{before=JSON.parse(this._shadow[patch.c]?.[patch.id]||'{}');}catch(e){}
+      const map=this._shadow[patch.c]=this._shadow[patch.c]||{};
+      if(patch.del){if(i>=0)col.splice(i,1);delete map[patch.id];continue;}
+      const server={...before,...patch.set,id:patch.id};
+      for(const k of Object.keys(server))if(server[k]===null)delete server[k];
+      const rebased={...server};
+      const owned=(typeof CARE_WORKFLOW!=='undefined'&&CARE_WORKFLOW.OWNED.includes(patch.c))||
+        (typeof DEVOTION_RULES!=='undefined'&&DEVOTION_RULES.OWNED.includes(patch.c));
+      // A local deletion of an ordinary row is still pending, even if that
+      // same row was updated remotely. Clinical history is never deleted.
+      if(!owned&&patch.c!=='patients'&&i<0&&Object.hasOwn(map,patch.id)){map[patch.id]=JSON.stringify(server);continue;}
+      const newCycle=patch.c==='patients'&&server.careCycleId&&server.careCycleId!==before.careCycleId;
+      for(const k of owned?[]:new Set([...Object.keys(before),...Object.keys(local)])){
+        if(k==='id'||patch.c==='patients'&&protectedPatient.has(k)||newCycle&&['clinical','baselineWeightKg','master','programDays','plannedDays'].includes(k))continue;
+        if(JSON.stringify(local[k])!==JSON.stringify(before[k])){
+          if(local[k]===undefined)delete rebased[k];else rebased[k]=local[k];
+        }
+      }
+      if(i<0)col.push(rebased);else col[i]=rebased;
+      map[patch.id]=JSON.stringify(server);
+    }
   },
 
   applyPatchList(patches){
     if(!DB.db || !Array.isArray(patches)) return;
-    const touchedArrays = new Set();
     for(const p of patches){
       if(!p || typeof p.c !== 'string') continue;
       if(p.c === 'settings'){
@@ -1078,29 +1127,10 @@ const SYNC = {
         this._shadow.__auditLen = DB.db.audit.length;
         continue;
       }
-      if(!Array.isArray(DB.db[p.c])) DB.db[p.c] = [];
-      const col = DB.db[p.c];
-      const idx = col.findIndex(x => x && x.id === p.id);
-      if(p.del){
-        if(idx >= 0) col.splice(idx, 1);
-        touchedArrays.add(p.c);
-        continue;
-      }
-      if(idx < 0){
-        col.push(Object.assign({}, p.set || {}, { id: p.id }));
-      } else {
-        const cur = col[idx];
-        for(const [k, v] of Object.entries(p.set || {})){
-          if(v === null) delete cur[k];
-          else cur[k] = v;
-        }
-      }
-      touchedArrays.add(p.c);
-    }
-    for(const c of touchedArrays){
-      const m = {};
-      for(const rec of (DB.db[c]||[])) if(rec && rec.id!==undefined) m[rec.id] = JSON.stringify(rec);
-      this._shadow[c] = m;
+      // Delta reads and response-loss replays use the same exact-row rebase
+      // as command acknowledgements. Rebasing an entire touched collection
+      // would silently acknowledge unrelated home visits typed meanwhile.
+      this.applyCommandPatches([p]);
     }
     if(typeof AUTH !== 'undefined' && AUTH.user && Array.isArray(DB.db.users)){
       const updatedSelf = DB.db.users.find(u => u && (u.id === AUTH.user.id || String(u.username||'').toLowerCase() === String(AUTH.user.username||'').toLowerCase()));
@@ -1111,27 +1141,15 @@ const SYNC = {
   applyDelta(body){
     const touched = new Set();
     for(const [c, records] of Object.entries(body.collections||{})){
-      const list = DB.db[c] = Array.isArray(DB.db[c]) ? DB.db[c] : [];
-      for(const rec of records){
-        const i = list.findIndex(x=>x && x.id===rec.id);
-        if(i>=0){
-          list[i] = Object.assign({}, list[i], rec);
-        } else list.push(rec);
-        touched.add(c);
-      }
+      for(const rec of records)this.applyCommandPatches([{c,id:rec.id,set:rec}]);
+      touched.add(c);
     }
     for(const [c, ids] of Object.entries(body.removed||{})){
-      if(!Array.isArray(DB.db[c])) continue;
-      DB.db[c] = DB.db[c].filter(r=>!ids.includes(r.id));
+      this.applyCommandPatches(ids.map(id=>({c,id,del:true})));
       touched.add(c);
     }
     if(typeof DB.persistState === 'function') DB.persistState();
     else { try{ Store.set(DB.KEY, JSON.stringify(DB.db)); }catch(e){} }
-    for(const c of touched){
-      const m = {};
-      for(const rec of (DB.db[c]||[])) if(rec && rec.id!==undefined) m[rec.id] = JSON.stringify(rec);
-      this._shadow[c] = m;
-    }
     return touched;
   },
 
@@ -1176,6 +1194,7 @@ const SYNC = {
       saving:'Saving', merge:'Reconciled', error:'Online save unconfirmed' })[this.state] || 'Unknown';
   },
   tone(){
+    if(this.offline()) return 'warn';
     if(this.state==='connected'||this.state==='merge') return 'ok';
     if(this.state==='saving'||this.state==='probing'||this.state==='idle') return 'neutral';
     if(this.state==='device') return 'warn';
@@ -1186,6 +1205,7 @@ const SYNC = {
      point of this flag is that nothing is claimed as shared until it is. */
   offline(){ try{ return typeof navigator!=='undefined' && navigator.onLine === false; }catch(e){ return false; } },
   detail(){
+    if(this.offline()) return 'No network. Secure offline clinical access is not available; do not rely on this device to retain or sync clinical work.';
     if(this.state==='connected') return `Revision ${this.rev} · live`;
     if(this.state==='merge') return `Revision ${this.rev} · ${this.lastMerged} field(s) reconciled`;
     if(this.state==='saving') return 'Writing to the online source';
@@ -1252,11 +1272,10 @@ function openSyncModal(){
     <div class="sync-row"><span>Last confirmed save</span><b>${esc((s.saved||'not yet').replace('T',' ').slice(0,19))}</b></div>
     <p class="small muted" style="margin:10px 0 0;text-align:left">Every PC, tablet and other client reads the same
     shared online source. Edits made on two clients are merged field by field by the online service; when both clients change the
-    <b>same</b> field the later edit is kept and both values are written to the merge journal. Nothing is overwritten
-    without a record of it, and no one is asked to choose between two copies.</p>`;
+    <b>same</b> field the later edit may be kept and recorded in the merge journal. Offline drafts and held work are not a secure or lossless clinical vault; reconnect and verify the server accepted each change.</p>`;
   if(s.state==='device'){
     body += `<div class="alert warn" style="margin-top:12px">${ic('wifi',16)}<div><b>Offline/static mode</b>
-      <span class="small">This explicitly offline copy keeps records on this device only. It is not a shared online save and is not a substitute for the Vercel/KV installation.</span></div></div>
+      <span class="small">This local mode is not an approved secure clinical vault and does not provide managed-device enforcement or a shared save. Use synthetic demonstration data only.</span></div></div>
       <button class="btn btn-primary btn-sm" style="margin-top:10px" data-act="sync-retry">Check again</button>`;
   }
   if(s.state==='error'){

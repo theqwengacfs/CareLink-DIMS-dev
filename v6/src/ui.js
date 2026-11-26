@@ -110,6 +110,7 @@ function navModel(user){
       { id:'programdays', label:'Programme days', icon:'clock', show:isFieldOrClinical }
     ]},
     { label:'Partner & referral', show:has('ccc.desk')||has('gov.oversight')||(isExternal&&has('pmi.check')), items:[
+      { id:'masterreferrals', label:'Master Referral reports', icon:'file', show:has('ccc.desk')&&['mcm','assistant','countyadmin','liaison','nurse','ccc.clinician'].includes(user.roleId) },
       { id:'cccdesk', label:'CCC / PSC referral desk', icon:'hospital', show:has('ccc.desk') },
       { id:'repeat', label:'Returning patient check', icon:'search', show:user.roleId==='ccc.clinician' && has('pmi.check') },
       { id:'govdashboard', label:'Government partnership', icon:'building2', show:has('gov.oversight') }
@@ -186,6 +187,8 @@ function navModel(user){
     ]},
     { label:'System', show:isSystemAdmin||has('dev.console'), items:[
       { id:'devconsole', label:'Development console', icon:'flow', show:has('dev.console') },
+      { id:'devices', label:'Devices', icon:'shield', show:user.roleId==='chief' },
+      { id:'staffaccounts', label:'Staff credential export', icon:'key', show:user.roleId==='chief' },
       { id:'users', label:'Users & accounts', icon:'userplus', show:has('user.view') },
       { id:'roles', label:'Roles & permissions', icon:'key', show:has('role.manage')||has('user.approve') },
       { id:'governance', label:'Credentials & recovery', icon:'lock', show:has('user.approve')||has('system.config') },
@@ -203,6 +206,7 @@ function navModel(user){
     { label:'Leadership', show:has('report.executive')||has('exec.agenda'), items:[
       { id:'executive', label:'Executive summary', icon:'chart', show:has('report.executive') },
       { id:'compare', label:'County comparison', icon:'columns', show:has('report.executive') },
+      { id:'boardworkspace', label:'Board & International Oversight', icon:'users', show:typeof BOARD_ROLE_IDS!=='undefined'&&BOARD_ROLE_IDS.includes(user.roleId) },
       { id:'execconsole', label:'Executive console', icon:'archive', show:has('exec.agenda') }
     ]},
     { label:'Department life', show:has('library.read')||has('credit.view')||has('inventory.view')||has('intern.view')||has('ohs.view')||has('presence.view')||has('weather.view'), items:[
@@ -255,7 +259,10 @@ function navModel(user){
     president:  new Set(['attention','hardcopy','waiting','visits','schedule','visitplan','forms','households','repeat','cccdesk','teams','clinicalmcm','pharmacy','tbcare','careplans','care','security','mergejournal','masteranalysis']),
     'program.admin': new Set(['hardcopy','waiting','schedule','visitplan','forms','households','repeat','cccdesk','pharmacy','tbcare','careplans','security','mergejournal']),
     'program.assistant': new Set(['pharmacy','tbcare','clinicalmcm','cccdesk','security','mergejournal']),
-    chief:      new Set(['hardcopy','waiting','forms','households','repeat','programdays','cccdesk','govdashboard','teams','intlmedical','pharmacy','tbcare','careplans','costing','donor','targets','executive','compare','evaluation']),
+    /* The Chief administers the platform, not the clinical, programme,
+       finance or HR desks. Keep system configuration, import, assurance and
+       personal collaboration visible; exceptional explicit grants still work. */
+    chief:      new Set(['patients','pipeline','attention','hardcopy','waiting','visits','bmiboard','schedule','visitplan','forms','pdca','households','repeat','programdays','cccdesk','govdashboard','teams','clinicalmcm','intlmedical','pharmacy','tbcare','careplans','requests','liaison','recon','urgent','care','care-incidents','reports','referral','archive','targets','conditions','donor','analytics','adminops','finance','costing','budget','procurement','foodbudget','staff','welfare','delegation','vehicles','trips','executive','compare','execconsole','evaluation','inventory','interns','ohs']),
     caregiver:  new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting']),
     chw:        new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting','pharmacy']),
     coordinator:new Set(['cccdesk','tbcare','costing','pharmacy']),
@@ -281,9 +288,10 @@ function navModel(user){
   };
   const roleExcl = user && ROLE_NAV_EXCLUDE[user.roleId] ? ROLE_NAV_EXCLUDE[user.roleId] : null;
   const isAllowedForRoleScope = (itemId) => {
+    if(BOARD_ROLE_IDS.includes(user.roleId))return ['home','boardworkspace','settings'].includes(itemId);
     if(!roleExcl || !roleExcl.has(itemId)) return true;
     const unlockCaps = VIEW_EXPLICIT_CAPS[itemId] || [];
-    return unlockCaps.some(c => explicitCaps.has(c));
+    return unlockCaps.some(c => explicitCaps.has(c) && has(c));
   };
   return groups
     .map(g=>({

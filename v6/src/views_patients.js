@@ -5,9 +5,9 @@
    ============================================================ */
 
 const PAT = {
-  days:p => Math.max(0, daysBetween(p.intake||p.created||new Date(), p.status==='discharged'&&p.discharge? p.discharge: new Date())),
-  lastVisit:p => DB.visitsFor(p.id)[0]||null,
-  openPdca:p => DB.db.pdcas.filter(x=>x.patientId===p.id&&x.status==='open').length,
+  days:p => CARE_RULES.supported(p)?CARE_RULES.days(p):0,
+  lastVisit:p => DB.visitsFor(p.id).find(v=>CARE_RULES.recordCycle(v,p,DB.db)===CARE_RULES.cycleId(p))||null,
+  openPdca:p => CARE_RULES.openReviewCount(p,DB.db),
   concerns:p => DB.db.concerns.filter(c=>c.patientId===p.id&&c.status==='open'),
   openRequest:p => DB.db.requests.filter(r=>r.patientId===p.id&&!['closed','rejected'].includes(r.status))[0]||null
 };
@@ -145,7 +145,9 @@ function scopeSentence(user){
   const s = (roleObj(user.roleId)||{}).scope||{};
   if(s.geo==='global') return 'Your authority covers both county offices.';
   if(s.records==='assigned') return 'You see only assignments made to you.';
-  if(s.geo==='areas') return 'Your authority covers '+(user.areaIds||[]).map(areaName).join(', ')+'.';
+  if(s.geo==='areas') return (user.areaIds||[]).length
+    ? 'Your authority covers '+(user.areaIds||[]).map(areaName).join(', ')+'.'
+    : 'No ministry area is assigned to your account. Ask your administrator to check your assignment.';
   return 'Your authority covers '+countyName(user.countyId)+'.';
 }
 function homeHeroActions(user){
@@ -222,10 +224,10 @@ function departmentCostCard(user){
       <div class="cm"><span class="cm-l">Average per patient</span><b class="cm-v">${money(Math.round(s.avgPerPatient))}</b><span class="cm-s">${num(s.patientCount)} patients</span></div>
       <div class="cm"><span class="cm-l">Cost per patient-day</span><b class="cm-v">${money(Math.round(s.costPerPatientDay*100)/100)}</b><span class="cm-s">${num(s.patientDays)} patient-days</span></div>
     </div>
-    <div class="grid g2">
-      <div>${chartDonut(s.byCat.slice(0,6).map((c,i)=>({label:costCatName(c.key), value:Math.round(c.total), color:(COST_CAT[c.key]||{}).colour||colours[i%colours.length]})),
+    <div class="cost-chart-grid">
+      <div class="cost-chart-panel"><h3>Cost mix in your lens</h3>${chartDonut(s.byCat.slice(0,6).map((c,i)=>({label:costCatName(c.key), value:Math.round(c.total), color:(COST_CAT[c.key]||{}).colour||colours[i%colours.length]})),
         {title:'Cost mix in your lens', size:158, fmt:v=>money(v), centerValue:money(Math.round(s.total)), centerLabel:'LENS TOTAL'})}</div>
-      <div>${months.length>1? chartLine({labels:months.map(m=>m.key.slice(5)+'/'+m.key.slice(2,4)),
+      <div class="cost-chart-panel"><h3>${months.length>1?'Monthly cost in your lens':'Expenditure by ministry area'}</h3>${months.length>1? chartLine({labels:months.map(m=>m.key.slice(5)+'/'+m.key.slice(2,4)),
         series:[{label:'Expenditure', values:months.map(m=>Math.round(m.total)), color:colours[0]},
                 {label:'Average per patient', values:months.map(m=>Math.round(m.avg)), color:colours[2]}],
         fmt:v=>money(v), height:190, title:'Monthly cost in your lens', values:false, markers:false})
@@ -677,6 +679,8 @@ function renderPatients(user, params){
   return pageHead('Patient register', `${num(total)} records visible within your authority · ${scopeSentence(user)}`,
     `${RBAC.has(user,'system.export')?`<button class="btn btn-sm btn-ghost" data-act="request-export">${ic('download',14)} Full export (dual approval)</button>`:''}
      ${RBAC.has(user,'patient.assess.create')?`<button class="btn btn-sm btn-primary" data-act="new-assessment">${ic('plus',15)} New assessment</button>`:''}`)
+  + (!total && !(params.q||params.area||params.status)
+    ? `<div class="alert info" style="margin-bottom:16px">${ic('info',18)}<div><b>No patients are currently visible to this account</b><span class="small">Check the shared online status and your ministry-area assignment. If the connection is healthy and the list remains empty, ask your administrator to verify that the shared register contains records for your area. An empty scoped list does not establish that the shared register is empty.</span></div></div>` : '')
   + card('', `
     <div class="reg-toolbar">
       <div class="reg-toolbar-main">
@@ -737,18 +741,18 @@ function renderPatient(user, params){
   const lastVisit = PAT.lastVisit(p);
   const tabs = [
     ['overview','Overview'],['clinical','Clinical'],['visits','Visits'],['pdca','PDCA'],
-    ['hospital','Hospital'],['documents','Documents'],['timeline','History'],
+    ['hospital','Hospital'],['documents','Documents'],['timeline','History'],['cycles','Support cycles / reassessment'],
     ['discharge', p.status==='discharged' ? 'Discharge summary' : 'Care & discharge summary']
   ].filter(([k])=>k!=='clinical'||clinical);
 
-  const header = `<div class="card" style="margin-bottom:16px"><div class="card-b">
-    <div class="spread" style="align-items:flex-start;flex-wrap:wrap">
-      <div class="row" style="gap:14px;align-items:flex-start">
+  const header = `<div class="card patient-record-header" style="margin-bottom:16px"><div class="card-b">
+    <div class="spread" style="align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div class="row patient-identity" style="gap:14px;align-items:flex-start">
         <div class="avatar-img" style="width:52px;height:52px;font-size:16px">${initials(p.name)}</div>
-        <div>
-          <div class="row" style="gap:9px"><h2 style="font-size:20px">${esc(p.name)}</h2>${pBadge(p.status)}</div>
-          <div class="small muted" style="margin-top:3px">${esc(p.code)} · ${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))} · ${p.sex==='F'?'Female':'Male'}, ${p.age}y</div>
-          <div class="row" style="margin-top:9px;gap:8px">
+        <div class="patient-identity-copy">
+          <div class="row patient-identity-name" style="gap:9px"><h2 style="font-size:20px">${esc(p.name)}</h2>${pBadge(p.status)}${CARE_REVIEW.flag(p)}</div>
+          <div class="small muted" style="margin-top:3px">${esc(p.code)} · ${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))} · ${p.sex==='F'?'Female':p.sex==='M'?'Male':'Sex not recorded'}, ${p.age!=null&&p.age!==''?esc(p.age)+'y':'Age not recorded'}</div>
+          <div class="row patient-identity-chips" style="margin-top:9px;gap:8px">
             <span class="chip">${ic('clock',13)} ${days} days in programme</span>
             <span class="chip">${ic('activity',13)} ${lastVisit? 'Last visit '+fmtDate(lastVisit.date):'No visit recorded'}</span>
             <span class="chip">${ic('userplus',13)} ${esc(userName(p.caregiverId).replace(/^Demo - /,''))}</span>
@@ -758,6 +762,7 @@ function renderPatient(user, params){
       </div>
       <div class="row" style="flex-wrap:wrap;gap:8px">
         ${typeof PAT_DISCHARGE!=='undefined' ? `<button class="btn btn-sm ${p.status==='discharged'||days>=120?'btn-primary':'btn-ghost'}" data-act="open-discharge-summary" data-id="${p.id}" data-mode="${p.status==='discharged'||p.status==='discharge_recommended'?'discharge':(days>=120?'120day':'discharge')}">${ic('file',14)} ${p.status==='discharged'||p.status==='discharge_recommended'?'Official PDCA Discharge Summary':(days>=120?'Official 120-Day PDCA Report':'Official PDCA & Discharge Sheet')}</button>` : ''}
+        ${p.status==='discharged'&&CARE_WORKFLOW.canSee(user,p)?`<button class="btn btn-sm btn-primary" data-act="care-assess-return" data-id="${esc(p.id)}">Repeat / returning assessment</button>`:''}
         ${workflowActions('patient',p,user)}
       </div>
     </div></div>
@@ -770,17 +775,22 @@ function renderPatient(user, params){
     : tab==='pdca' ? patientPdca(user,p)
     : tab==='hospital' ? patientHospital(user,p)
     : tab==='documents' ? patientDocuments(user,p)
+    : tab==='cycles' ? CARE_REVIEW.history(user,p)
     : tab==='timeline' ? patientTimeline(user,p)
     : tab==='discharge' ? (typeof PAT_DISCHARGE!=='undefined' ? PAT_DISCHARGE.renderSheet(p.id, user) : '')
     : '';
 
   const list = repo.patientList(user,{}).map(x=>({id:x.id,label:x.name}));
-  return `<div class="spread" style="margin-bottom:12px;flex-wrap:wrap;gap:8px"><button class="btn btn-xs btn-ghost" data-act="go" data-v="patients">${ic("back",12)} Patient register</button>${PAGER.record(list,p.id,'patient','id',`data-tab="${esc(tab)}"`,'Patient')}</div>`+header+body+PAGER.tabs(tabs,tab,'patient-tab',`data-id="${p.id}"`);
+  return `<div class="spread" style="margin-bottom:12px;flex-wrap:wrap;gap:8px"><button class="btn btn-xs btn-ghost" data-act="go" data-v="patients">${ic("back",12)} Patient register</button>${PAGER.record(list,p.id,'patient','id',`data-tab="${esc(tab)}"`,'Patient')}</div>`+header+`<section id="patient-section-content" aria-label="${esc((tabs.find(([k])=>k===tab)||['','Patient'])[1])} section">${body}</section>`+PAGER.tabs(tabs,tab,'patient-tab',`data-id="${p.id}"`);
 }
 function patientOverview(user,p){
   const days=PAT.days(p), lv=PAT.lastVisit(p), req=PAT.openRequest(p);
   const pVisits = DB.visitsFor ? DB.visitsFor(p.id) : DB.db.visits.filter(v=>v.patientId===p.id);
   const milestone = days>=180?'180+':days>=120?'120+':days>=100?'100+':days>=60?'60+':'Under 60';
+  const gps=p.gps;
+  const hasGps=gps && gps.lat!=null && gps.lat!=='' && gps.lon!=null && gps.lon!=='' && Number.isFinite(Number(gps.lat)) && Number.isFinite(Number(gps.lon));
+  const accuracy=gps && gps.accuracyM!=null && gps.accuracyM!=='' && Number.isFinite(Number(gps.accuracyM)) && Number(gps.accuracyM)>=0 ? ` (±${esc(gps.accuracyM)}m)` : '';
+  const gpsLabel=hasGps?`${Number(gps.lat).toFixed(5)}, ${Number(gps.lon).toFixed(5)}${accuracy}`:'Not shared';
   return `<div class="grid g4" style="margin-bottom:16px">
       ${kpi('Days in programme', days, `Milestone band ${milestone}`,'',"clock")}
       ${kpi('Visits recorded', pVisits.length, lv?`Last ${fmtDate(lv.date)}`:'-','info','activity')}
@@ -788,16 +798,16 @@ function patientOverview(user,p){
       ${kpi('Hospital request', req?titleCase(req.status):'None', req?req.no:'No open request', req?'warn':'','hospital')}
     </div>
     <div class="grid g2">
-      ${card('Beneficiary Enrolment, Anthropometry & Geolocation Metadata', `<dl class="dl">
+      ${card('Beneficiary Enrolment, Anthropometry & Geolocation Metadata', `<dl class="dl patient-metadata">
         <dt>Beneficiary code</dt><dd class="mono">${esc(p.code)}</dd>
         <dt>National ID / Birth Cert</dt><dd class="mono">${esc(p.nationalId||'-')}</dd>
-        <dt>Verified telephone</dt><dd class="mono"><b>${esc(p.phone||'-')}</b></dd>
+        <dt>Telephone</dt><dd class="mono"><b>${esc(p.phone||'-')}</b></dd>
         <dt>SHA / Health cover</dt><dd class="mono">${esc(p.sha||'-')}</dd>
-        <dt>Weight · Height · BMI · MUAC</dt><dd class="mono"><b>${p.clinical?.weightKg||'-'} kg</b> · <b>${p.clinical?.heightCm||'-'} cm</b> · BMI <b>${p.clinical?.bmi||'-'}</b>${p.clinical?.muacCm?` · MUAC <b>${p.clinical.muacCm} cm</b>`:''}</dd>
+        <dt>Weight · Height · BMI · MUAC</dt><dd class="mono"><b>${esc(p.clinical?.weightKg??'-')} kg</b> · <b>${esc(p.clinical?.heightCm??'-')} cm</b> · BMI <b>${esc(p.clinical?.bmi??'-')}</b>${p.clinical?.muacCm!=null?` · MUAC <b>${esc(p.clinical.muacCm)} cm</b>`:''}</dd>
         <dt>Ministry area &amp; county</dt><dd>${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))}</dd>
         <dt>Village &amp; ward</dt><dd>${esc(p.location?.village||p.village||'-')}${p.location?.ward?' · '+esc(p.location.ward):''}</dd>
-        <dt>Field landmark</dt><dd>${esc(p.location?.landmark||'Recorded on household intake sheet')}</dd>
-        <dt>Household GPS coordinates</dt><dd class="mono">${p.gps?`${(+p.gps.lat).toFixed(5)}, ${(+p.gps.lon).toFixed(5)} (±${p.gps.accuracyM||8}m)`:'Not shared'}</dd>
+        <dt>Field landmark</dt><dd>${esc(p.location?.landmark||'Not recorded')}</dd>
+        <dt>Household GPS coordinates</dt><dd class="mono">${gpsLabel}</dd>
         <dt>Intake date</dt><dd>${fmtDate(p.intake)}</dd>
         <dt>Referral facility</dt><dd>${esc(DB.db.referralEntities.find(e=>e.id===p.referralEntityId)?.name||'Not recorded')}</dd>
         <dt>Assigned caregiver</dt><dd>${esc(userName(p.caregiverId).replace(/^Demo - /,''))}</dd>
@@ -805,7 +815,7 @@ function patientOverview(user,p){
         <dt>Informed consent</dt><dd>${badge(titleCase(p.consent?.status||'not requested'), p.consent?.status==='granted'?'b-ok':'b-warn')}</dd>
         ${masterRegistryRows(p)}
       </dl>`,
-        {foot:'<span>100% beneficiary metadata completeness: verified identity, telephone, anthropometry, household GPS coordinates and Administration master workbook columns.</span>'})}
+        {cls:'patient-metadata-card', foot:'<span>Values reflect the current record. Missing fields are shown as not recorded; this display does not certify completeness or verification.</span>'})}
       ${card('Discharge readiness', `<div class="row" style="gap:10px;margin-bottom:12px">${badge(milestone+' day band', days>=180?'b-crit':days>=120?'b-warn':'b-neutral','nodot')}</div>
         <p class="small muted">${days>=180?'This patient has passed 180 days. An approved discharge evaluation with supporting evidence is required - duration alone does not discharge a patient.' : days>=120?'Extension review required. Record the documented reason for continued enrolment.' : 'Within the planned programme duration.'}</p>
         ${p.dischargeRecommendation?`<div class="alert info" style="margin-top:10px">${ic('info',17)}<div><b>Recommendation on file</b><span class="small">${esc(p.dischargeRecommendation.reason||'')} - ${esc(userName(p.dischargeRecommendation.by))}, ${fmtDate(p.dischargeRecommendation.at)}</span></div></div>`:''}
@@ -972,81 +982,8 @@ function patientVisits(user,p,params={}){
       RBAC.has(user,'visit.create')?`<button class="btn btn-sm btn-primary" data-act="record-visit" data-patient="${p.id}">Record visit</button>`:'')),
     {actions:RBAC.has(user,'visit.create')?`<button class="btn btn-xs btn-primary" data-act="record-visit" data-patient="${p.id}">${ic('plus',12)} Record visit</button>`:''});
 }
-function patientPdca(user,p){
-  const plan = PDCAX.plan(p);
-  const sched = PDCAX.schedule(p);
-  const sum = PDCAX.summary(p);
-  const cycles = DB.db.pdcas.filter(x=>x.patientId===p.id && x.kind!=='review');
-  const ext = PDCAX.extensionRequired(p);
+function patientPdca(user,p){ return CARE_REVIEW.panel(user,p); }
 
-  const planCard = card('Care plan', plan? `
-    <dl class="dl">
-      <dt>Identified need</dt><dd>${esc(plan.needs)}</dd>
-      <dt>Agreed objective</dt><dd>${esc(plan.objectives)}</dd>
-      <dt>Planned intervention</dt><dd>${esc(plan.interventions)}</dd>
-      <dt>Responsible</dt><dd>${esc(userName(plan.responsible))}</dd>
-      <dt>Expected duration</dt><dd>${plan.expectedDays} days <span class="xs muted">(an estimate, not a discharge date)</span></dd>
-      <dt>Rationale</dt><dd>${esc(plan.rationale)}</dd>
-      <dt>Approved</dt><dd>${esc(userName(plan.approvedBy)||'-')} · ${fmtDate(plan.approvedAt)}</dd>
-      <dt>Version</dt><dd>v${plan.version}</dd>
-    </dl>`
-    : emptyState('No care plan on file','A care plan is required at enrolment. This record appears in the data-quality report until one is recorded.','alert'),
-    {sub:'The plan belongs to the patient, not to a reporting period.'});
-
-  const schedCard = card('30-day review schedule', `
-    <div class="grid g4" style="margin-bottom:14px">
-      ${kpi('Completed', sum.completed, 'Of '+sum.total+' scheduled','','check')}
-      ${kpi('Overdue', sum.overdue, sum.overdue?'Requires action':'None overdue', sum.overdue?'crit':'ok','alert')}
-      ${kpi('Next due', sum.nextDue?fmtDate(sum.nextDue):'-', sum.nextDue?Math.round((new Date(sum.nextDue)-Date.now())/86400000)+' days':'','','calendar')}
-      ${kpi('Adherence', sum.adherence===null?'-':sum.adherence+'%', 'Completed against due','','repeat')}
-    </div>
-    ${table([
-      {label:'Review', render:r=>`Day ${r.day}`},
-      {label:'Due', render:r=>fmtDate(r.due)},
-      {label:'Status', render:r=>badge(titleCase(r.status), r.status==='completed'?'b-ok':r.status==='overdue'?'b-crit':'b-neutral')},
-      {label:'Completed', render:r=>r.completed? `${fmtDate(r.completed)}${r.slipDays>0?` <span class="xs" style="color:var(--warn)">+${r.slipDays}d</span>`:''}`:'-'},
-      {label:'', cls:'right', render:r=>r.status!=='completed' && (RBAC.has(user,'pdca.create')||RBAC.has(user,'pdca.review'))
-        ? `<button class="btn btn-xs btn-ghost" data-act="pdca-complete" data-id="${p.id}" data-day="${r.day}">Record</button>`:''}
-    ], sched.slice(0,Math.max(4, Math.min(12, Math.ceil((PDCAX.daysInProgramme(p)+30)/30)))))}
-    <div class="xs muted" style="margin-top:10px">A review keeps the date it was due. Late completion is shown as late, never reset.</div>`,
-    {sub:'Every 30 days from the programme start date.'});
-
-  const extBanner = ext? `<div class="alert warn" style="margin-bottom:16px">${ic('alert',16)}<div>
-    <b>Extended case, review required</b>
-    <span class="small">This patient has been in the programme for ${PDCAX.daysInProgramme(p)} days, beyond the approved threshold of ${DB.db.settings.programme.maxDays}. A documented extension review is required before the case can be closed.</span>
-    <div class="row" style="margin-top:8px">${(RBAC.has(user,'pdca.review')||RBAC.has(user,'pdca.create'))?`<button class="btn btn-sm btn-primary" data-act="pdca-extension" data-id="${p.id}">Record extension review</button>`:''}</div>
-  </div></div>`:'';
-
-  const officialPdcaBar = `<div class="card" style="margin-bottom:16px;border-left:4px solid #162F59">
-    <div class="card-b spread" style="padding:12px 16px;flex-wrap:wrap;gap:12px">
-      <div>
-        <div class="xs bold" style="color:#C8102E;letter-spacing:.1em;text-transform:uppercase">Official CareLink C-DIMS PDCA Format</div>
-        <b style="font-size:14.5px">${p.status==='discharged'||p.status==='discharge_recommended'?'Patient PDCA Discharge Summary Report':'Patient PDCA 120-Day & Continuum Report'}</b>
-        <div class="xs muted">Standardised LOMAMO CareLink format (Anthropometry, SMART Aim, Dx, P-D-Rx-C-A Cycle, Justification &amp; Signatures) for both 120+ days and regular discharges.</div>
-      </div>
-      <div class="row" style="gap:8px;flex-wrap:wrap">
-        <button class="btn btn-xs btn-primary" data-act="open-discharge-summary" data-id="${esc(p.id)}" data-mode="120day">${ic('repeat',12)} Open 120-Day PDCA Report</button>
-        <button class="btn btn-xs btn-ghost" data-act="open-discharge-summary" data-id="${esc(p.id)}" data-mode="discharge">${ic('check',12)} Open Discharge PDCA Report</button>
-        <button class="btn btn-xs btn-ghost" data-act="export-pdca-word" data-id="${esc(p.id)}" data-mode="${p.status==='discharged'?'discharge':'120day'}">${ic('download',12)} Word (.doc)</button>
-      </div>
-    </div>
-  </div>`;
-
-  return `${officialPdcaBar}${extBanner}
-    <div class="grid g2" style="margin-bottom:16px">${planCard}${schedCard}</div>
-    ${card('PDCA cycles', table([
-      {label:'Plan',render:x=>`<div class="cellname">${esc(x.plan)}<span class="sm">Owner ${esc(userName(x.owner).replace(/^Demo - /,''))}</span></div>`},
-      {label:'Stage',render:x=>badge(x.stage, x.stage==='Act'?'b-ok':'b-info')},
-      {label:'Due',render:x=>`${fmtDate(x.due)} ${new Date(x.due)<new Date()&&x.status==='open'?badge('overdue','b-crit'):''}`},
-      {label:'Status',render:x=>badge(titleCase(x.status), x.status==='open'?'b-warn':'b-ok')},
-      {label:'Discussion',render:x=>x.reviewedAt && PDCAX.discussion(user,x.id).allowed
-        ? `<button class="btn btn-xs btn-ghost" data-act="pdca-thread-open" data-id="${esc(x.id)}">Open secure thread</button>`
-        : (PDCAX.canReviewDiscussion(user,x)?`<button class="btn btn-xs btn-primary" data-act="pdca-review-comment" data-id="${esc(x.id)}">Review &amp; comment</button>`
-        : (x.owner===user.id?`<span class="xs muted">Awaiting MCM review</span>`:''))},
-      {label:'',cls:'act',render:x=>RBAC.has(user,'pdca.review')||x.owner===user.id?`<button class="btn btn-xs btn-ghost" data-act="open-pdca" data-id="${x.id}">Open</button>`:''}
-    ], cycles, {empty:emptyState('No PDCA cycle','Create a Plan-Do-Check-Act cycle to structure follow-up.','repeat')}),
-      {actions:RBAC.has(user,'pdca.create')?`<button class="btn btn-xs btn-primary" data-act="new-pdca" data-patient="${p.id}">${ic('plus',12)} New cycle</button>`:''})}`;
-}
 function patientHospital(user,p){
   const rows = DB.db.requests.filter(r=>r.patientId===p.id);
   return card('Hospital requests & encounters', table([
@@ -1065,7 +1002,7 @@ function patientDocuments(user,p){
     {label:'Uploaded',render:d=>`${fmtDate(d.uploadedAt)}<span class="xs muted"> ${esc(userName(d.uploadedBy).replace(/^Demo - /,''))}</span>`},
     {label:'Consent',render:d=>badge(titleCase(d.consent||p.consent.status), (d.consent||p.consent.status)==='granted'?'b-ok':'b-warn')},
     {label:'Publication',render:d=>badge(titleCase(d.publication), d.publication==='approved'?'b-ok':d.publication==='rejected'?'b-crit':'b-neutral')},
-    {label:'File',render:d=>d.fileStored?badge('Stored','b-ok'):badge('No file','b-warn')},
+    {label:'File',render:d=>d.fileStored?badge('Legacy reference','b-warn'):badge('No file recorded','b-warn')},
     {label:'',cls:'act',render:d=>d.restricted?badge('Restricted','b-dark'):`<button class="btn btn-xs btn-ghost" data-act="view-doc" data-id="${d.id}">View</button>`}
   ], docs, {empty:emptyState('No documents','Upload the signed form, CCC card or supporting evidence.','upload')}),
     {foot:`<span>${ic('shield',13)} Document access is classified. A clinical record is not automatically a media asset.</span>`,
@@ -1200,67 +1137,4 @@ function renderVisits(user, params){
       {label:'',cls:'act',render:v=>`<button class="btn btn-xs btn-ghost" data-act="open-patient" data-id="${v.patientId}">Open</button>`}
     ], vs.slice(0,40)), {foot:`<span>${ic('info',13)} A failed visit is documented with an outcome - never silently omitted.</span>`});
 }
-function renderPdca(user, params){
-  const ids = new Set(repo.patientList(user).map(p=>p.id));
-  const rows = DB.db.pdcas.filter(x=>ids.has(x.patientId) && x.kind!=='review');
-  const byStage = ['Plan','Do','Check','Act'].map(s=>({label:s,value:rows.filter(r=>r.stage===s&&r.status==='open').length}));
-  const dueList = PDCAX.due(user,{days:30});
-  const ext = repo.patientList(user,{status:'active'}).filter(p=>PDCAX.extensionRequired(p));
-  const allScopedPts = repo.patientList(user);
-  const over120Pts = allScopedPts.filter(p=>p.status==='active' && PAT.days(p)>=120);
-  const dischargedPts = allScopedPts.filter(p=>p.status==='discharged' || p.status==='discharge_recommended');
-  const pdcaModeFilter = (params && params.pmode) || '120day';
-  const officialRegisterRows = (pdcaModeFilter === 'discharge' ? dischargedPts : over120Pts).slice(0, 20);
-  return pageHead('PDCA Follow-Up & Official C-DIMS Reports','Standardised CareLink C-DIMS Plan-Do-Treatment-Check-Act (P-D-Rx-C-A) reports for both 120+ days in programme and regularly discharged beneficiaries.',
-    RBAC.has(user,'pdca.create')?`<button class="btn btn-sm btn-primary" data-act="new-pdca">${ic('plus',15)} New PDCA Cycle</button>`:'')
-  + `<div class="grid g4" style="margin-bottom:16px">
-      ${kpi('Reviews due or overdue', dueList.length, dueList.filter(x=>x.review.status==='overdue').length+' overdue', dueList.some(x=>x.review.status==='overdue')?'crit':'', 'repeat')}
-      ${kpi('120+ day extended cases', over120Pts.length, over120Pts.length?'Official 120-Day PDCA ready':'Within 120d window', over120Pts.length?'warn':'ok', 'clock')}
-      ${kpi('Regular discharges', dischargedPts.length, 'Official Discharge PDCA ready', 'ok', 'check')}
-      ${kpi('Open PDCA cycles', rows.filter(r=>r.status==='open'&&r.kind!=='review').length, 'Active P-D-Rx-C-A actions', 'info', 'layers')}
-    </div>
-    ${card('Official CareLink C-DIMS PDCA Register (120+ Days & Regular Discharges)', `
-      <div class="spread" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <div class="row" style="gap:6px;flex-wrap:wrap">
-          <button class="btn btn-xs ${pdcaModeFilter==='120day'?'btn-primary':'btn-ghost'}" data-act="go" data-v="pdca" data-pmode="120day">${ic('clock',12)} 120+ Days in Programme (${over120Pts.length})</button>
-          <button class="btn btn-xs ${pdcaModeFilter==='discharge'?'btn-primary':'btn-ghost'}" data-act="go" data-v="pdca" data-pmode="discharge">${ic('check',12)} Regular Discharges &amp; Graduations (${dischargedPts.length})</button>
-        </div>
-        <span class="xs muted">Format: Official CareLink C-DIMS 2-Page PDCA (Print PDF · Word .doc · docxtemplater JSON)</span>
-      </div>
-      ${table([
-        {label:'Beneficiary', render:p=>`<div class="cellname">${esc(p.name)}<span class="sm">${esc(p.code)} · ${esc(areaName(p.areaId))}</span></div>`},
-        {label:'Days in Care', cls:'mono', render:p=>`<b>${PAT.days(p)}d</b>`},
-        {label:'Anthropometry', render:p=>{ const cl=p.clinical||{}; return `<span class="xs mono">${cl.weightKg||'-'} kg · BMI ${cl.bmi||'-'}</span>`; }},
-        {label:'Status', render:p=>pBadge(p.status)},
-        {label:'Official C-DIMS PDCA', cls:'right', render:p=>`<div class="row" style="justify-content:flex-end;gap:6px">
-          <button class="btn btn-xs btn-primary" data-act="open-discharge-summary" data-id="${esc(p.id)}" data-mode="${pdcaModeFilter}">${ic('file',12)} Open Report</button>
-          <button class="btn btn-xs btn-ghost" data-act="export-pdca-word" data-id="${esc(p.id)}" data-mode="${pdcaModeFilter}" title="Download Official Word Document">${ic('download',12)} Word</button>
-        </div>`}
-      ], officialRegisterRows, {emptyMsg: pdcaModeFilter==='discharge'?'No discharged beneficiaries in your current scope yet.':'No active beneficiaries at 120+ days in your scope.'})}
-    `, {sub:'Unified official format across Caregivers, Medical Case Managers, 120+d International Medical Review and County Discharge Records.'})}
-    <div style="height:16px"></div>`
-    + `${dueList.length? card('Reviews requiring action', table([
-      {label:'Patient', render:x=>`<div class="cellname">${esc(x.patient.name)}<span class="sm">${esc(x.patient.code)}</span></div>`},
-      {label:'Review', render:x=>`Day ${x.review.day}`},
-      {label:'Due', render:x=>fmtDate(x.review.due)},
-      {label:'Status', render:x=>x.review.status==='overdue'?badge('Overdue','b-crit'):badge('Due in '+x.days+'d','b-warn')},
-      {label:'', cls:'right', render:x=>`<button class="btn btn-xs btn-ghost" data-act="pdca-complete" data-id="${x.patient.id}" data-day="${x.review.day}">Record</button>`}
-    ], dueList.slice(0,10))) : ''}
-    <div class="grid g2" style="margin-bottom:16px">
-      ${card('Open cycles by stage', barChart(byStage,{fmt:v=>num(v)}))}
-      ${card('Cycle health', `<div class="dl">
-        <dt>Open cycles</dt><dd>${rows.filter(r=>r.status==='open').length}</dd>
-        <dt>Overdue check</dt><dd>${rows.filter(r=>r.status==='open'&&new Date(r.due)<new Date()).length}</dd>
-        <dt>Closed</dt><dd>${rows.filter(r=>r.status==='closed').length}</dd>
-        <dt>Completion</dt><dd>${pct(rows.filter(r=>r.status==='closed').length,rows.length||1)}%</dd>
-      </div>`, {sub:'PDCA structures follow the Omaha System problem-classification approach used by LOMAMO.'})}
-    </div>`
-  + card('All cycles', table([
-      {label:'Patient',render:x=>esc(DB.db.patients.find(p=>p.id===x.patientId)?.name||'-')},
-      {label:'Plan',render:x=>`<span class="small">${esc(x.plan)}</span>`},
-      {label:'Stage',render:x=>badge(x.stage,'b-info')},
-      {label:'Due',render:x=>`${fmtDate(x.due)} ${new Date(x.due)<new Date()&&x.status==='open'?badge('overdue','b-crit'):''}`},
-      {label:'Owner',render:x=>esc(userName(x.owner).replace(/^Demo - /,''))},
-      {label:'',cls:'act',render:x=>`<button class="btn btn-xs btn-ghost" data-act="open-pdca" data-id="${x.id}">Open</button>`}
-    ], rows.slice(0,40)));
-}
+function renderPdca(user,params={}){return CARE_REVIEW.register(user,params);}

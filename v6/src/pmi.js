@@ -36,19 +36,22 @@ const PMI = {
     const qq = String(q||'').trim();
     const out = { query:qq, matches:[], byId:[], byName:[], byPhone:[], level:'none' };
     if(!qq) return out;
+    // Search only records this account is entitled to read, even in an
+    // offline synthetic fixture containing other counties.
+    const rows=(db.patients||[]).filter(p=>!['merged'].includes(p.status)&&AUTH.user&&CARE_WORKFLOW.canSee(AUTH.user,p));
     const digits = nationalIdClean(qq);
     const lower = qq.toLowerCase();
     if(digits.length >= 5){
-      out.byId = (db.patients||[]).filter(p=>nationalIdClean(p.nationalId) === digits || nationalIdClean(p.code) === digits);
+      out.byId = rows.filter(p=>nationalIdClean(p.nationalId) === digits || nationalIdClean(p.code) === digits);
       if(out.byId.length) out.level = 'national-id';
     }
     if(!out.byId.length && lower.length >= 4){
-      out.byName = (db.patients||[]).filter(p=>String(p.name||'').toLowerCase().includes(lower)).slice(0,25);
+      out.byName = rows.filter(p=>String(p.name||'').toLowerCase().includes(lower)).slice(0,25);
       if(out.byName.length) out.level = 'name';
     }
     const phone = qq.replace(/[^0-9]/g,'');
     if(phone.length >= 9 && !out.byId.length){
-      out.byPhone = (db.patients||[]).filter(p=>String(p.phone||'').replace(/[^0-9]/g,'') === phone).slice(0,25);
+      out.byPhone = rows.filter(p=>String(p.phone||'').replace(/[^0-9]/g,'') === phone).slice(0,25);
       if(out.byPhone.length) out.level = 'phone';
     }
     out.matches = out.byId.length ? out.byId : (out.byName.length ? out.byName : out.byPhone);
@@ -62,8 +65,9 @@ const PMI = {
     const p = res.matches[0];
     const days = (()=>{ try{ return daysBetween(p.intake); }catch(e){ return 0; } })();
     const many = res.matches.length > 1;
-    if(res.level==='national-id') return { tone:'crit', title: many ? `${res.matches.length} records share this national ID` : 'Returning patient  -  national ID match',
-      body:`${p.name} · ${p.code} · enrolled ${esc(p.intake||'').slice(0,10)} (${days} days ago) · ${areaName(p.areaId)} · status ${p.status}. ${many?'Open duplicate review before creating another record.':'Open the existing record instead of creating a second one.'}` };
+    const classification=CARE_RULES.classify(p,new Date().toISOString(),DB.db);
+    if(res.level==='national-id') return { tone:classification.tone, title: many ? `${res.matches.length} records share this national ID` : classification.label+' — ID match',
+      body:`${esc(p.name)} · ${esc(p.code)} · enrolled ${esc(p.intake||'').slice(0,10)} (${days} days ago) · ${esc(areaName(p.areaId))} · status ${esc(p.status)}. ${many?'Open duplicate review before creating another record.':'Open the existing record instead of creating a second one.'}` };
     if(res.level==='name') return { tone:'warn', title:'Possible previous record by name',
       body:`${res.matches.length} record(s) match that name. A name is not an identifier: confirm the phone number or the national ID with the person.` };
     return { tone:'warn', title:'Possible previous record by telephone',
@@ -100,6 +104,8 @@ const PMI = {
     const dupe = DB.db.patients.find(p=>p.id===mergeId);
     if(!keep || !dupe) return { ok:false, error:'One of the two records no longer exists.' };
     if(keep.id===dupe.id) return { ok:false, error:'A record cannot be merged with itself.' };
+    if(!CARE_WORKFLOW.canSee(user,keep)||!CARE_WORKFLOW.canSee(user,dupe))return {ok:false,error:'Both identities must be within your clinical scope.'};
+    if([keep,dupe].some(p=>CARE_RULES.supported(p)||(DB.db.careReferrals||[]).some(r=>r.patientId===p.id)))return {ok:false,error:'Support-cycle histories cannot be merged by this shortcut. Retain both identities for an audited office identity review.'};
     const moved = { visits:0, pdcas:0, requests:0, documents:0, encounters:0 };
     ['visits','pdcas','requests','documents','encounters','supportIssues','clinicalRx'].forEach(coll=>{
       (DB.db[coll]||[]).forEach(r=>{ if(r.patientId===mergeId){ r.patientId=keep.id; if(moved[coll]!=null) moved[coll]++; } });
@@ -147,38 +153,53 @@ function renderRepeatCheck(user){
   const activeAdvisories = (typeof DISCHARGE_HARDCOPY !== 'undefined' && DISCHARGE_HARDCOPY.watchlistSummaryCard)
     ? DISCHARGE_HARDCOPY.watchlistSummaryCard(user)
     : '';
-  return pageHead('Returning patient checker & discharge advisory watchlist',
-      'Ask for the national ID <b>before</b> opening an assessment. Checks prior enrolment history AND flags any caregiver discharge advisories or policy-violation watch alerts immediately.',
-      RBAC.has(user,'patient.list')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="patients">${ic('users',15)} Patient register</button>`:'') +
-  `<div class="card"><div class="card-b">
-    <form data-form="pmi-search" class="pmi-search">
-      <div class="field" style="flex:1;margin:0"><label>National ID, LOM code, name or telephone</label>
-        <input class="input" name="q" value="${esc(q)}" placeholder="e.g. 92734587" autofocus></div>
-      <button class="btn btn-primary" type="submit">${ic('search',16)} Check</button>
-    </form>
-    ${q ? repeatBanner(res) : `<div class="pmi-hint">
-      <div>${ic('idcard',18)}<b>National ID first</b><span>An exact match on the national ID is the only identifier that raises a red flag on its own.</span></div>
-      <div>${ic('alert',18)}<b>Discharge advisory watchlist</b><span>If a returning patient had a prior caregiver/coordinator advisory (e.g. non-adherence, substance misuse, policy violation), an automatic alert is raised.</span></div>
-      <div>${ic('shield',18)}<b>Nothing is created here</b><span>Looking a person up writes an audit entry and nothing else.</span></div>
-    </div>`}
-    ${q && res && res.matches.length ? `<div class="card" style="margin-top:14px;box-shadow:none"><div class="card-b">
-      ${table([
-        {label:'Patient', render:p=>`<div class="cellname">${esc(p.name)}<span class="sm mono">${esc(p.code)}</span></div>`},
-        {label:'National ID', render:p=>`<span class="mono">${esc(p.nationalId||' - ')}</span>`},
-        {label:'Area', render:p=>esc(areaName(p.areaId))},
-        {label:'Status', render:p=>pBadge(p.status)},
-        {label:'Days in programme', render:p=>`<b>${PAT.days(p)}</b>`},
-        {label:'Advisory', render:p=>(p.dischargeAdvisory && p.dischargeAdvisory.flagged) ? badge(p.dischargeAdvisory.severity==='high'?'High Watch Alert':'Caregiver Advisory', p.dischargeAdvisory.severity==='high'?'b-crit':'b-warn') : badge('Clear','b-ok',false)},
-        {label:'Match', render:p=>badge(res.level==='national-id'?'National ID':res.level==='name'?'Name':'Telephone', res.level==='national-id'?'b-crit':'b-warn', false)}
-      ], res.matches, {})}
-    </div></div>`:''}
-  </div></div>` +
-  activeAdvisories +
-  (RBAC.has(user,'pmi.merge') ? renderDuplicateQueue(user) : '');
+  return `<section class="return-check" aria-label="Returning patient check">
+    <header class="return-check__header">
+      <div><span class="return-check__eyebrow">PATIENT IDENTITY</span>
+        <h1>Returning patient check</h1>
+        <p>Find an existing record before starting a new assessment.</p></div>
+      ${RBAC.has(user,'patient.list')?`<button class="btn btn-ghost" data-act="go" data-v="patients">${ic('users',16)} Patient register</button>`:''}
+    </header>
+    <section class="return-check__search" aria-labelledby="return-search-title">
+      <span class="return-check__step">01 / FIND A PATIENT</span>
+      <h2 id="return-search-title">Have we met this person before?</h2>
+      <p class="return-check__intro">Start with their National ID or LOM code. If unavailable, try their name or telephone.</p>
+      <form data-form="pmi-search" class="pmi-search">
+        <div class="field"><label for="return-query">Patient identifier or name</label>
+          <input id="return-query" class="input" name="q" value="${esc(q)}" placeholder="Enter National ID, LOM code, name or telephone" aria-describedby="return-search-help" required autocomplete="off" autofocus></div>
+        <button class="btn btn-primary" type="submit">${ic('search',18)} Check patient</button>
+      </form>
+      <div id="return-search-help" class="return-check__help">${ic('shield',15)} Searches records within your access scope. This check does not create a patient.</div>
+    </section>
+    <section class="return-check__results" aria-labelledby="return-results-title" aria-live="polite">
+      <div class="return-check__results-head"><h2 id="return-results-title">${q?'Search results':'Ready to check'}</h2>
+        ${q?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="repeat">Clear search</button>`:''}</div>
+      ${q ? `<div class="return-check__verdict">${repeatBanner(res)}</div>
+        ${res.matches.length?`<div class="return-check__matches">${res.matches.map(p=>`
+          <article class="return-check__patient">
+            <div class="return-check__identity"><span class="return-check__avatar" aria-hidden="true">${ic('user',22)}</span>
+              <div><h3>${esc(p.name)}</h3><span class="mono muted">${esc(p.code||'No LOM code')}</span></div>${pBadge(p.status)}</div>
+            <dl><div><dt>National ID</dt><dd>${esc(p.nationalId||'Not recorded')}</dd></div>
+              <div><dt>Area</dt><dd>${esc(areaName(p.areaId))}</dd></div>
+              <div><dt>Programme</dt><dd>${PAT.days(p)} days</dd></div>
+              <div><dt>Matched by</dt><dd>${res.level==='national-id'?'ID / LOM code':res.level==='name'?'Name':'Telephone'}</dd></div></dl>
+            <div class="return-check__patient-foot">
+              ${(p.dischargeAdvisory&&p.dischargeAdvisory.flagged)?badge(p.dischargeAdvisory.severity==='high'?'High advisory':'Caregiver advisory',p.dischargeAdvisory.severity==='high'?'b-crit':'b-warn'): '<span class="small muted">No discharge advisory recorded</span>'}
+              ${RBAC.has(user,'patient.list')?`<button class="btn btn-sm btn-ghost" data-act="pmi-open" data-id="${esc(p.id)}">View record ${ic('arrow-right',14)}</button>`:''}
+            </div>
+          </article>`).join('')}</div>`:`<p class="return-check__guidance">Confirm the spelling or try another identifier before starting a new assessment. Results only cover records you can access.</p>`}`:
+        `<div class="return-check__empty">${ic('search',28)}<div><h3>Start with one identifier</h3><p>Matching records and any linked discharge advisories will appear here.</p></div></div>`}
+    </section>
+    <aside class="return-check__guidance">${ic('info',16)} A match is a prompt to confirm identity, not an automatic decision. Names and shared family phones need extra verification.</aside>
+    <div class="return-check__secondary">
+      ${activeAdvisories?`<details class="return-check__disclosure"><summary>Discharge advisory watchlist <span>Browse all in-scope advisories</span></summary><div class="return-check__disclosure-body">${activeAdvisories}</div></details>`:''}
+      ${RBAC.has(user,'pmi.merge')?`<details class="return-check__disclosure"><summary>Duplicate identity review <span>For authorised identity reviewers</span></summary><div class="return-check__disclosure-body">${renderDuplicateQueue(user)}</div></details>`:''}
+    </div>
+  </section>`;
 }
 
 function renderDuplicateQueue(user){
-  const groups = PMI.duplicates(DB.db);
+  const groups = PMI.duplicates({...DB.db,patients:repo.patientList(user)});
   return `<div class="card" style="margin-top:16px"><div class="card-h"><div>
       <h3>Duplicate identity review</h3><div class="sub">${groups.length} identifier group(s) appear on more than one record. Merging keeps both records; the duplicate is marked, never deleted.</div>
     </div></div><div class="card-b">` +

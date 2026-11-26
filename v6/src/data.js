@@ -25,7 +25,7 @@ const APP = {
   shortName: 'CareLink',
   formerName: 'LOMAMO C-DIMS',
   full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
-  version: '6.9.6',
+  version: '6.9.8',
   build: '2026.10.29',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
@@ -153,7 +153,7 @@ const CAPS = {
 
   /* CareLink v6.3 strict departmental, clinical & partner capabilities */
   'pmi.check':        { g:'Patients', l:'Check returning-patient history & discharge advisories' },
-  /* v6.9.6 — the weekly planning page counts recorded decisions but not their
+  /* v6.9.7 — the weekly planning page counts recorded decisions but not their
      content. Only a ministry or leadership role may read who was recorded, so
      the aggregate is gated by the same capability rather than being inferred
      from holding a reporting capability. */
@@ -249,7 +249,7 @@ const ROLES = [
 
   { id:'countyadmin', name:'County Office Administrator', dept:'admin', accent:'#C8102E', consoleTitle:'County Administration',
     scope:{ geo:'county', records:'county' },
-    perms:['user.view','user.create','user.approve','patient.list','patient.view.basic','patient.view.clinical','patient.verify','patient.enrol','patient.discharge.approve','patient.edit','patient.return',
+    perms:['user.view','user.create','user.approve','patient.list','patient.view.basic','patient.view.clinical','patient.verify','patient.discharge.approve','patient.edit','patient.return',
       'finance.view','finance.commit','finance.pay','finance.reconcile','finance.report','finance.budget.manage','procurement.view',
       'hosp.request.create','hosp.request.assign','hosp.receipt.review','hosp.close','patient.export',
       'report.patient_days','report.patient_figures','report.expenditure','report.targets.manage','report.departmental','audit.view','hr.view','ai.use','welfare.view','vehicle.view',
@@ -263,7 +263,7 @@ const ROLES = [
 
   { id:'coordinator', name:'Ministry Area Coordinator', dept:'ministry', accent:'#B45309', consoleTitle:'Ministry Area Console',
     scope:{ geo:'areas', records:'areas' },
-    perms:['user.view','user.create','patient.list','patient.view.basic','patient.discharge.recommend','visit.view','visit.create','pdca.create','report.patient_days','report.departmental','hosp.request.create','ai.use', 'condition.view', 'care.view', 'patient.ministry.view'] },
+    perms:['user.view','user.create','patient.list','patient.view.basic','patient.view.clinical','patient.discharge.recommend','visit.view','visit.create','pdca.create','report.patient_days','report.departmental','hosp.request.create','ai.use', 'condition.view', 'care.view', 'patient.ministry.view'] },
 
   { id:'caregiver', name:'Supporting Caregiver', dept:'ministry', accent:'#C2410C', consoleTitle:'Caregiver Field Console',
     scope:{ geo:'areas', records:'areas' },
@@ -277,7 +277,7 @@ const ROLES = [
 
   { id:'mcm', name:'Medical Case Manager', dept:'medical', accent:'#0E7490', consoleTitle:'Medical Case Management',
     scope:{ geo:'county', records:'county' },
-    perms:['user.view','user.create','patient.list','patient.view.basic','patient.view.clinical','patient.discharge.recommend','patient.discharge.approve','patient.edit','patient.export',
+    perms:['user.view','user.create','patient.list','patient.view.basic','patient.view.clinical','patient.enrol','patient.discharge.recommend','patient.discharge.approve','patient.edit','patient.export',
       'pdca.review','visit.view','visit.create','pdca.create','hosp.request.create','hosp.request.review','hosp.request.assign','hosp.receipt.review','hosp.close',
       'report.referral','report.patient_days','report.departmental','ai.use','media.consent.manage',
       'condition.view', 'condition.record', 'condition.confirm', 'condition.sensitive', 'condition.aggregate', 'care.view', 'care.log', 'care.incident', 'care.manage'] },
@@ -290,7 +290,7 @@ const ROLES = [
     scope:{ geo:'county', records:'county' },
     perms:['patient.list','patient.view.basic','patient.view.clinical','patient.assess.create','visit.create','visit.view','pdca.create','pdca.review','media.upload','report.departmental','ai.use', 'condition.view', 'condition.record', 'condition.confirm', 'condition.sensitive', 'care.view', 'care.log', 'care.incident'] },
 
-  { id:'mediahead', name:'Media & Information Governance Head', dept:'media', accent:'#7C3AED', consoleTitle:'Media & Governance',
+  { id:'mediahead', name:'Media & Information Governance Head', dept:'media', accent:'#7C3AED', consoleTitle:'Media & Information Governance',
     scope:{ geo:'global', records:'global', crossCounty:true },
     perms:['media.view','media.consent.manage','media.publish','media.library.manage','policy.manage','kb.manage',
       'patient.list','patient.view.basic','report.departmental','ai.use','system.backup','system.audit'] },
@@ -416,7 +416,7 @@ const INDICATORS = {
   inpatient:{ l:'Inpatients', def:'Patients with an open hospital admission record at cut-off (admission recorded, discharge not yet recorded).', src:'hospital_encounter.admitted_at' },
   outpatient:{ l:'Outpatients (tracked)', def:'Hospital outpatient encounters recorded in the period, de-duplicated per patient per day.', src:'hospital_encounter.type="outpatient"' },
   support:{ l:'Support items issued', def:'Physical items (foodbags, Bibles, nets, mattresses, blankets, special bags) issued and evidenced in the period, by item type. Not monetary transfers.', src:'support_issue' },
-  orphans_prevented:{ l:'Children supported by orphan-prevention work', def:'Children in enrolled households who meet the approved orphan-prevention outcome definition (education continuity + nutrition + guardian care plan, verified at assessment and review). NOT every child in a household.', src:'household_child + outcome_verification' },
+  orphans_prevented:{ l:'Children supported by orphan-prevention work', def:'Children in enrolled households who meet the approved orphan-prevention outcome definition (health and nutrition + guardian care plan, verified at assessment and review). NOT every child in a household.', src:'household_child + outcome_verification' },
   salvation:{ l:'Reported faith engagement', def:'Patients who voluntarily record a faith decision, where the patient consents to its recording. Restricted field: visible only to authorised ministry and leadership roles. Never used as a performance target for staff.', src:'patient.faith_record (restricted)' },
   hosp_submitted:{ l:'Hospital requests submitted', def:'Hospital appointment/transport requests submitted in the period.', src:'hospital_request.submitted_at' },
   hosp_approved:{ l:'Hospital requests approved', def:'Requests approved by the Medical Case Manager in the period.', src:'hospital_request.decided_at' },
@@ -427,7 +427,7 @@ const INDICATORS = {
 /* ---------- 6. DEMO DATASET (synthetic) ----------
    Deterministic, seeded, clearly labelled. Never presented as real. */
 function seedDemo(db, now){
-  const T = new Date(now); T.setHours(9,0,0,0);
+  const T = new Date(now); T.setUTCHours(9,0,0,0);
   const DAY = 86400000, d = n => new Date(T.getTime() - n*DAY);
   const iso = x => new Date(x).toISOString();
   const rnd = (function(s){ return function(){ s = (s*1664525 + 1013904223) % 4294967296; return s/4294967296; }; })(20261018);
@@ -442,7 +442,7 @@ function seedDemo(db, now){
     /* The requested LOMAMO domain is stored as a mock login alias only; the
        app does not deliver email. Synthetic phone and clinic numbers stay in
        dedicated demo ranges - see the demo patient seed below. */
-    email:username+'@'+OFFICIAL_EMAIL_DOMAIN, phone:'', createdBy:'u-chief', approvedBy:'u-chief',
+    email:username+'@lomamo.example', phone:'', createdBy:'u-chief', approvedBy:'u-chief',
     salt: demoSalt, hash: strongHash('LOMAMO2026', demoSalt),
     created:iso(d(420)), lastLogin:null, mustChange:false, demo:true, ...extra
   });
@@ -812,7 +812,7 @@ function seedDemo(db, now){
     if(hasPlan){
       p.carePlan = {
         needs: ['Nutrition and household food security','Adherence support and clinic escort',
-                'Wound care and hygiene','Psychosocial support and school re-entry',
+                'Wound care and hygiene','Psychosocial support and family care',
                 'Transport to hospital appointments'][i%5],
         objectives: ['Stable weight across three consecutive visits','No missed clinical appointment in the quarter',
                      'Caregiver able to describe the treatment plan','Household able to sustain care without support'][i%4],
@@ -941,7 +941,7 @@ function seedDemo(db, now){
       data:{ assessmentDate:iso(d(5)), areaLocation:COUNTIES.flatMap(c=>c.areas).find(a=>a.id===demoPatient(2).areaId)?.name||'', name:demoPatient(2).name, sex:'M', age:7,
         weightKg:18, heightCm:112, birthCertificate:'Yes', parentName:'Guardian of '+demoPatient(2).name,
         chiefComplaint:'Poor appetite and repeated illness.', hivPositive:'No', tbDiagnosis:'No', medicationAllergies:'No',
-        nhif:'No', saved:'No', schoolName:'Demo Primary School', schoolContact:'0700000000' } },
+        nhif:'No', saved:'No', schoolName:'Demo Primary School', schoolContact:'0700100000' } },
     { id:'frm-demo-4', kind:'hospital_outpatient', code:'LMMK 020', title:'LOMAMO Outpatient Hospital Visit Form',
       patientId:demoPatient(3).id, patientName:demoPatient(3).name, countyId:demoPatient(3).countyId, areaId:demoPatient(3).areaId,
       status:'verified', visitDate:iso(d(9)), enteredBy:'u-lia-ksm', createdAt:iso(d(9)), enteredAt:iso(d(9)), submittedAt:iso(d(9)),
@@ -1022,7 +1022,7 @@ function seedDemo(db, now){
   ];
 
   /* Normalise all seeded patient durations to 95%+ in 45-240 days and ~5% in 241-330 days (zero <45 or >330) */
-  const _nowT = new Date(); _nowT.setHours(9,0,0,0);
+  const _nowT = new Date(T); _nowT.setUTCHours(9,0,0,0);
   patients.forEach((p, idx)=>{
     const isTail = idx >= Math.ceil(patients.length * 0.95);
     const stay = isTail ? (246 + ((idx * 37) % 80)) : (45 + ((idx * 41) % 196));

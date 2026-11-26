@@ -18,7 +18,7 @@ const DEMO_PREVIEW = {
     this.savedDb = DB.db;
     this.savedUser = AUTH.user; this.savedSession = AUTH.session;
     const isolated = DB.blank();
-    seedOfficial(isolated, new Date(), {patients:DEMO_REGISTER.patients, mustChange:false});
+    seedSyntheticDataset(isolated, new Date('2026-11-22T00:00:00.000Z'), {patients:DEMO_REGISTER.patients, mustChange:false});
     isolated.meta = Object.assign(isolated.meta||{}, {label:'Isolated synthetic board preview', demoPreview:true, demoSeeded:true, seeded:'official'});
     DB.db = isolated; DB._vIdx=null;
     const user = (isolated.users||[]).find(u=>u.roleId==='director' && u.status==='active')
@@ -51,21 +51,24 @@ const DEMO_PREVIEW = {
 
 /* ---------------- Boot ---------------- */
 /* ---------------- Inactivity ----------------
-   Three hundred seconds (five minutes) without genuine activity ends the session. The browser runs
-   the countdown you can see; the host runs the one that matters, because it
-   refuses an expired token whether or not this code ever runs. */
+   Fifteen minutes without genuine activity ends the browser session. Only
+   genuine activity renews the host's separate signed-token idle window; a
+   refresh or an abandoned tab must never keep it alive. */
 const SESSION = {
   WARN_AT: 870,            // seconds: a 30 second warning before the end
   END_AT: 900,
   last: Date.now(),
   warned: false,
   activeSinceBeat: false,
+  BEAT_MS: 60000,
+  lastBeat: 0,
+  _beating: false,
   _beat: null,
   _watch: null,
 
   start(){
     this.stop();
-    this.last = Date.now(); this.warned=false; this.activeSinceBeat=false;
+    this.last = Date.now(); this.lastBeat=this.last; this.warned=false; this.activeSinceBeat=false;
     if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
     if(typeof LIVE!=='undefined') setTimeout(()=>LIVE.start(), 600);
     this._watch = setInterval(()=>this.tick(), 1000);
@@ -113,31 +116,48 @@ const SESSION = {
       if(typeof DB.persistState === 'function') DB.persistState();
     }
     if(!AUTH.user||typeof SYNC==='undefined'||!SYNC.sessionToken) return;
-    const active = this.activeSinceBeat; this.activeSinceBeat=false;
-    /* An inactive beat deliberately does not extend the host session. */
-    const left = await SYNC.beat();
-    if(left===null && SYNC.sessionToken===null && AUTH.user){ /* handled by _json 401 */ }
+    /* Reconcile calls locally every ten seconds, but renew the online lease at
+       most once a minute and only after real activity. Keep activity that
+       arrives during the request (or a failed renewal) for the next attempt. */
+    if(this._beating || !this.activeSinceBeat || document.hidden ||
+        this.idleSeconds() >= this.END_AT || Date.now()-this.lastBeat < this.BEAT_MS || SYNC.kvBlocked()) return;
+    const activityAt = this.last;
+    this._beating = true;
+    try{
+      const left = await SYNC.beat();
+      if(left !== null){
+        this.lastBeat = Date.now();
+        if(this.last === activityAt) this.activeSinceBeat = false;
+      }
+    }finally{ this._beating = false; }
   },
-  serverExpired(){ this.expire('server'); },
+  serverExpired(reason){ this.expire(reason || 'server'); },
   expire(reason){
     if(!AUTH.user) return;
     const who = AUTH.user.id;
     try{
       AUDIT.append({actor:who,action:'session.expired',entity:'session',entityId:who,
-        detail: reason==='inactivity' ? 'Ended after 900 seconds without activity' : 'Ended because the host session expired'});
+        detail: reason==='inactivity' ? 'Ended after 900 seconds without activity'
+          : reason==='superseded' ? 'Ended because this account signed in on another browser'
+          : 'Ended because the host session expired'});
       DB.save();
     }catch(e){}
     this.stop();
     closeAllModals(true);
     const box=$('#idleWarn'); if(box) box.remove();
-    if(typeof SYNC!=='undefined') SYNC.logout();
+    /* The host has already ended this session (that is why we are here), so do not
+       post a second sign-out; just forget the token locally. */
+    if(typeof SYNC!=='undefined') SYNC.storeToken(null);
     AI.history = [];
     try{ sessionStorage.removeItem('carelink.lastUser'); }catch(e){}
     AUTH.logout();
     NAVH.reset(); APPX.screen='login'; APPX.view='home'; APPX.params={}; APPX.dirty=false; APPX.aiOpen=false;
     try{ history.replaceState(null,'',location.pathname+'#/'); }catch(e){}
     render();
-    toast('Signed out','Your session ended. Sign in again to continue.','warn');
+    toast(reason==='superseded' ? 'Signed in elsewhere' : 'Signed out',
+      reason==='superseded'
+        ? 'This account signed in on another browser, so this window was signed out. Any unsaved work is held and will be offered again after you sign in.'
+        : 'Your session ended. Sign in again to continue.', 'warn');
   }
 };
 
@@ -184,13 +204,24 @@ let _booted = false;
 async function boot(){
   if(_booted) return;
   _booted = true;
+  if(typeof CANONICAL_HOST!=='undefined' && CANONICAL_HOST.enforce()) return;
   DB.load();
   applyTheme();
   /* Attach click, submit, change and hash listeners synchronously at 0 ms
      BEFORE the first render() or network probe so clicking Sign-In or
      submitting a form works immediately even while /api/health is loading. */
   AUTH.listeners.push(()=>render());
-  window.addEventListener('hashchange', ()=>{ parseHash(); render(); });
+  window.addEventListener('hashchange', ()=>{ parseHash(); render(); const land=landingTarget(APPX.view); if(AUTH.user){ if(land) revealLanding(land); revealWorkspace(APPX.view, land); } });
+  /* Closing the tab, closing the window or navigating away gives up this
+     account's single-instance lease straight away, so the next sign-in does not
+     wait out a fifteen-minute idle window and a shared tablet is not left holding
+     an open session. `pagehide` fires on both close and the back/forward cache, and
+     `visibilitychange` covers a phone being backgrounded and then killed. */
+  window.addEventListener('pagehide', ()=>{ if(typeof SYNC!=='undefined' && AUTH.user) SYNC.releaseOnExit(); });
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState!=='hidden') return;
+    if(typeof SYNC!=='undefined' && AUTH.user && typeof SESSION!=='undefined' && SESSION.idleSeconds && SESSION.idleSeconds()>SESSION.END_AT) SYNC.releaseOnExit();
+  });
   document.addEventListener('click', onClick, false);
   document.addEventListener('submit', onSubmit, false);
   document.addEventListener('change', onChange, false);
@@ -208,13 +239,14 @@ async function boot(){
      moment it comes back, not at the next poll; and a lost link must be visible
      in the status chip without waiting for a failed request to time out. */
   window.addEventListener('carelink:network-online', ()=>{
-    try{ if(AUTH.user){ SESSION.touch(); if(typeof SYNC!=='undefined') SYNC.retryNow(); } }catch(e){}
+    try{ if(AUTH.user && typeof SYNC!=='undefined') SYNC.retryNow(); }catch(e){}
   });
   window.addEventListener('carelink:open-sync', ()=>{ try{ if(AUTH.user && typeof openSyncModal==='function') openSyncModal(); }catch(e){} });
   /* Redraw the chip on a plain network change so the console states the truth
      immediately instead of waiting for a request to fail. */
   const refreshChipOnNetworkChange = ()=>{
     try{
+      document.querySelectorAll('[data-network-indicator]').forEach(el=>{ el.hidden = navigator.onLine !== false; });
       if(typeof SYNC==='undefined' || !AUTH.user) return;
       if(SYNC.state==='error' || SYNC.state==='idle' || SYNC.state==='connected') SYNC.bump();
     }catch(e){}
@@ -262,7 +294,7 @@ function go(view, params={}){
   APPX.view = view; APPX.params = params;
   if(typeof NAVP!=='undefined'){
     NAVP._tempOpen = false;
-    NAVP._workspaceEngaged = (view !== 'home');
+    NAVP._workspaceEngaged = true;
   }
   if(typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.isActive()) SILENT_OVERRIDE.recordView(view);
   const q = Object.keys(params).length? '?'+Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&'):'';
@@ -276,9 +308,67 @@ function go(view, params={}){
     if(id) MESSAGING.markRead(AUTH.user, id);
   }
   render();
-  const contentEl = document.querySelector && document.querySelector('#content');
-  if(contentEl && typeof contentEl.scrollTo === 'function') contentEl.scrollTo({top:0,behavior:'auto'});
-  else window.scrollTo({top:0,behavior:'auto'});
+  const land = landingTarget(view);
+  if(land) revealLanding(land);
+  revealWorkspace(view, land);
+}
+
+/* Click-through into the workspace must land on the content, not on the banner
+   above it. Every view opens with a hero/banner, and on a narrow screen that
+   banner is most of the first screenful, so a reader who taps a nav item sees a
+   heading and no content until they scroll. The landing anchor is the first real
+   block below the hero, marked by the view itself; where a view marks nothing the
+   reveal falls back to the workspace heading it already used. */
+function landingTarget(view){
+  /* The console home is a greeting, not a task, so it keeps the top of the page. */
+  if(!view || view==='home' || view==='login' || view==='landing') return null;
+  const ws = document.getElementById && document.getElementById('workspaceView');
+  if(!ws || typeof ws.querySelector!=='function') return null;
+  const marked = ws.querySelector('[data-landing]:not(#workspaceView)');
+  if(marked && marked.id) return marked.id;
+  /* Otherwise every view lands on the workspace itself, which sits below the role
+     banner and the shortcut bar. That one anchor covers all 300-odd views, so a
+     newly added page cannot forget to opt in. */
+  return ws.id || null;
+}
+
+/* Reposition the scrollport and then correct once, on the next frame, in case the
+   browser re-anchored scrolling while the new markup was laid out. Both passes are
+   idempotent: on a short page the clamp leaves the scrollport at 0 and nothing moves. */
+function revealLanding(id){
+  if(!id) return;
+  const settle = ()=>{ try{ revealWorkspace(APPX.view,id); }catch(e){} };
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(settle);
+  else if(typeof setTimeout==='function') setTimeout(settle,0);
+  else settle();
+}
+
+/* The desktop pane shell itself scrolls; #content is not the scrollport.
+   Reveal the selected workspace in its own scrollport, below the toolbar;
+   older layouts without that scrollport use the shell/window fallback. */
+function revealWorkspace(view,targetId=null){
+  const content = document.querySelector && document.querySelector('#content');
+  const shell = document.querySelector && document.querySelector('.app.shell.has-pane');
+  if(!content || !content.getBoundingClientRect){ if(window.scrollTo) window.scrollTo(0,0); return; }
+  const requested=targetId && document.getElementById ? document.getElementById(targetId) : null;
+  const focusTarget=requested || content;
+  if(focusTarget.setAttribute)focusTarget.setAttribute('tabindex','-1');
+  if(focusTarget.focus)focusTarget.focus({preventScroll:true});
+  if(typeof getComputedStyle==='function'&&/auto|scroll/.test(getComputedStyle(content).overflowY)&&typeof content.scrollTo==='function'){
+    const target=requested || (document.getElementById&&document.getElementById('workspaceView'));
+    const top=target?.getBoundingClientRect?content.scrollTop+target.getBoundingClientRect().top-content.getBoundingClientRect().top:0;
+    content.scrollTo({top:Math.max(0,top-16),behavior:'auto'});return;
+  }
+  const target=requested || content;
+  const bar = document.querySelector('.topbar.cbar');
+  const sticky = bar && typeof getComputedStyle==='function' && getComputedStyle(bar).position==='sticky' ? bar.getBoundingClientRect().height : 0;
+  if(shell && typeof shell.scrollTo==='function' && typeof getComputedStyle==='function' && /auto|scroll/.test(getComputedStyle(shell).overflowY)){
+    const top = shell.scrollTop + target.getBoundingClientRect().top - shell.getBoundingClientRect().top - sticky;
+    shell.scrollTo({top:Math.max(0,top),behavior:'auto'});
+  }else if(window.scrollTo){
+    const top = (window.scrollY||0) + target.getBoundingClientRect().top - sticky;
+    window.scrollTo({top:Math.max(0,top),behavior:'auto'});
+  }
 }
 function applyTheme(){
   /* Colour, density, text size, touch size and motion all come from one place,
@@ -358,7 +448,14 @@ function render(){
   if(AUTH.locked()){ root.innerHTML = renderLocked(); return; }
   const paneTop = NAVP.scrollState();
   const sheetLeft = (document.querySelector('.sheet')||{}).scrollLeft;
+  const oldShell = document.querySelector('.app.shell.has-pane');
+  const workspaceTop = oldShell && typeof oldShell.scrollTop==='number' ? oldShell.scrollTop : null;
+  const oldContent=document.querySelector('#content');
+  const contentTop=oldContent&&typeof oldContent.scrollTop==='number'?oldContent.scrollTop:null;
   root.innerHTML = renderShell();
+  const newContent=document.querySelector('#content');if(newContent&&contentTop!==null)newContent.scrollTop=contentTop;
+  const newShell = document.querySelector('.app.shell.has-pane');
+  if(newShell && workspaceTop!==null) newShell.scrollTop = workspaceTop;
   NAVP.restoreScroll(paneTop);
   const ms = document.querySelector('.msg-scroll'); if(ms) ms.scrollTop = ms.scrollHeight;
   const sh = document.querySelector('.sheet');
@@ -483,7 +580,12 @@ function renderShell(){
   const groups = navModel(user);
   const role = roleObj(user.roleId)||{};
   const dept = deptObj(user.departmentId)||{accent:'#C8102E'};
-  const unread = DB.db.notifications.filter(n=>n.userId===user.id&&!n.read).length;
+  /* The bell counts two different things and says so: workflow notifications
+     addressed to this person, and scoped notices published to an audience that
+     includes them. A notice nobody has opened is unread even if every
+     notification row has been cleared. */
+  const unreadNotes = (()=>{ try{ return ANNOUNCEMENTS.unread(DB.db, user).length; }catch(_e){ return 0; } })();
+  const unread = DB.db.notifications.filter(n=>n.userId===user.id&&!n.read).length + unreadNotes;
   const crumb = viewCrumb();
   const here = v => APPX.view===v || (APPX.view==='patient'&&v==='patients')
                  || (APPX.view==='form'&&v==='forms') || (APPX.view==='careplan'&&v==='careplans')
@@ -507,7 +609,6 @@ function renderShell(){
     ? WORKSPACE_LAYOUTS.renderHomeHero(user, heroCtx) : '';
   return `<div class="app shell ${paneOn?'has-pane':''} ${railOn?'np-rail':''} ${APPX.navOpen?'np-open':''}">
     ${paneOn? NAVP.html(user, here) : ''}${paneOn? '<div class="np-scrim" data-act="nav-close"></div>' : ''}
-    ${roleHero ? `<div class="shell-role-banner no-print" role="region" aria-label="Role console banner" tabindex="0">${roleHero}</div>` : ''}
     <header class="topbar cbar ${railOn?'cbar-rail':'cbar-open'}" data-role="${esc(user.roleId)}" data-dept="${esc(role.dept||'exec')}">
       <img class="cb-logo" src="${window.LOGO||''}" alt="CareLink · LOMAMO Foundation">
       <div class="cb-nav" role="group" aria-label="Navigation & history">
@@ -516,22 +617,21 @@ function renderShell(){
         <button class="icon-btn" data-act="nav-forward" aria-label="Forward" title="Forward (Alt+Right)" ${NAVH.canForward()?'':'disabled aria-disabled="true"'}>${ic('forward',18)}</button>
       </div>
       <div class="cb-id">
-        <div class="cb-k"><span class="cb-os-tag">CareLink</span><span class="cb-county-tag">${esc(countyDisp)}</span></div>
+        <div class="cb-k"><span class="cb-os-tag">CareLink OS</span><span class="cb-county-tag">${esc(countyDisp)}</span></div>
         <h1><span class="cb-console-name">${esc(role.consoleTitle||((role.name||'Staff')+' Console'))}</span>${APPX.view!=='home'?`<span class="cb-title-sep"> / </span><span class="cb-view-name">${esc(crumb.title)}</span>`:''}</h1>
         <div class="xs muted" title="Fixed office role: ${esc(role.name||user.roleId)} · Current role holder: ${esc(user.name)}">Role holder: ${esc(user.displayName||user.name)}</div>
       </div>
-      <div class="cb-quick no-print" role="navigation" aria-label="Quick console shortcuts">
-        ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
-      </div>
       <div class="searchbox"><span>${ic('search',16)}</span><input placeholder="${esc(searchPh)}" data-search aria-label="Search"></div>
       <div class="tb-actions">
+        <button type="button" class="network-indicator workspace-network no-print" data-network-indicator data-act="open-sync" title="Network unavailable; shared saves are not confirmed" ${typeof navigator==='undefined' || navigator.onLine!==false?'hidden':''}>No network</button>
+        <span class="tb-os-identity" aria-label="CareLink OS">CareLink OS</span><span class="cb-build" title="Application build">${esc(window.BUILD_STAMP||'')}</span>
         <span class="live-pill neutral" data-live title="Live record indicator"><span class="live-dot"></span><span class="live-t">Live</span></span>
         ${typeof SYNC!=='undefined'?SYNC.chip():''}
         <button class="btn btn-xs btn-ghost no-print tb-ai-label" data-act="toggle-ai" title="Open ${esc(aiProf.title||'Console AI')}">${ic('sparkles',14)} <span>${esc(aiProf.badge||'Console AI')}</span></button>
         <button class="icon-btn tb-ai-icon no-print" data-act="toggle-ai" aria-label="Open ${esc(aiProf.title||'Console AI')}" title="${esc(aiProf.title||'Console AI')}">${ic('sparkles',18)}</button>
         <button class="icon-btn tb-theme no-print" data-act="wtheme-open" aria-label="Themes, Fonts & Visual Packs" title="Themes, Fonts & Visual Packs">${ic('palette',18)}</button>
         <button class="icon-btn no-print" data-act="${DEMO_PREVIEW.active?'demo-role-picker':'open-switch-account'}" aria-label="${DEMO_PREVIEW.active?'Switch read-only demo role':'Switch account'}" title="${DEMO_PREVIEW.active?'Explore another read-only synthetic role console':'Switch Account / Role Console'}">${ic('users',18)}</button>
-        <button class="icon-btn no-print" data-act="open-notifications" aria-label="Notifications" title="Notifications">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
+        <button class="icon-btn no-print" data-act="open-notifications" aria-label="Notifications${unreadNotes?' and '+unreadNotes+' unopened notice'+(unreadNotes===1?'':'s'):''}" title="Notifications &amp; notices${unreadNotes?' · '+unreadNotes+' unopened notice'+(unreadNotes===1?'':'s'):''}">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
         <button class="me-btn" data-act="toggle-user-menu" aria-label="Your account" title="${esc(user.name)} · ${esc(role.name||'')}">
           ${avatarFor(user.name, dept.accent, user.photo)}
           <span class="me-nm">${esc(user.name.replace(/^Demo - /,'').split(' ')[0])}</span>
@@ -549,10 +649,14 @@ function renderShell(){
       <button class="tab" data-act="go" data-v="settings">${ic('settings',15)}<span>Preferences</span></button>
     </nav>
 
-    <main class="content" id="content">
+    <main class="content" id="content" tabindex="-1">
+    ${roleHero ? `<div class="shell-role-banner no-print" role="region" aria-label="Role console banner" tabindex="0">${roleHero}</div>` : ''}
+      <nav class="cb-quick console-shortcuts no-print" role="navigation" aria-label="Quick console shortcuts">
+        ${quickBarItems.map(qi=>`<button class="cb-qbtn ${here(qi.id)?'on':''}" data-act="go" data-v="${esc(qi.id)}" title="${esc(qi.label)}">${ic(qi.icon,14)}<span>${esc(qi.id==='home'?'Home':qi.id==='smartflow'?'Smart QA':qi.id==='monday'?'Monday':qi.id==='messages'?'Messages':qi.label)}</span></button>`).join('')}
+      </nav>
       ${!Store.durable?`<div class="alert warn no-print" style="margin-bottom:16px">${ic('info',18)}<div><b>Preview session</b>
         <span class="small">This browser has blocked persistent storage, so changes are held for this session only. Download the file and open it directly in Chrome or Edge for a persistent installation.</span></div></div>`:''}
-      ${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}
+      <div class="workspace-view" id="workspaceView" tabindex="-1" data-landing>${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}</div>
       ${PAGER.bar(user, here)}</main>
     ${(typeof CALLING!=='undefined' && CALLING.incomingBanner) ? CALLING.incomingBanner() : ''}
   </div>`;
@@ -593,7 +697,9 @@ function viewCrumb(){
 function workspaceHeroBanner(view, user){
   const isGlobalAct = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const overrideBar = (typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.bannerHTML) ? SILENT_OVERRIDE.bannerHTML() : '';
-  const globalActBar = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.globalActivationBannerHTML) ? PROD_SETUP.globalActivationBannerHTML(user) : '';
+  const trialActive = typeof trialEntryActive==='function' && trialEntryActive();
+  const globalActBar = !trialActive && (typeof PROD_SETUP!=='undefined' && PROD_SETUP.globalActivationBannerHTML) ? PROD_SETUP.globalActivationBannerHTML(user) : '';
+  const trialBar = trialActive ? `<div class="alert warn" role="status" style="margin:10px 16px"><span>${ic('shield',15)}</span><div><b>TEAM TRIAL · SYNTHETIC DATA ONLY</b><span class="small">Shared evaluation environment. Never enter real patient, staff or confidential information.</span></div></div>` : '';
   const demoBar = DEMO_PREVIEW.active
     ? `<div class="alert info" style="margin:10px 16px;border:1px solid #93C5FD"><span>${ic('shield',15)}</span><div style="flex:1"><b>BOARD PREVIEW · SYNTHETIC DATA · READ ONLY</b><span class="small">Isolated in this browser. No hosted records, account login, edits, uploads or sync are used.</span></div><button class="btn btn-xs btn-ghost" data-act="demo-preview-exit">Exit preview</button></div>`
     : ((!isGlobalAct && typeof DEMO_SWITCH!=='undefined' && DEMO_SWITCH.bannerHTML) ? DEMO_SWITCH.bannerHTML() : '');
@@ -602,18 +708,21 @@ function workspaceHeroBanner(view, user){
   const dpaBar = (typeof CARELINK_GOVERNANCE!=='undefined' && CARELINK_GOVERNANCE.dpaBannerHTML) ? CARELINK_GOVERNANCE.dpaBannerHTML(view, user) : '';
   /* Avoid stacking duplicate context + workflow banners on Console Home: ws67-hero provides a clean, unified Home header */
   const ctxStrip = (view!=='home' && typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip) ? ROLE_CTX.contextStrip(user, view) : '';
-  return overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + dpaBar + ctxStrip;
+  return trialBar + overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + dpaBar + ctxStrip;
 }
 function contentFor(view, params, user, options = {}){
   const guard = (cap)=>{ if(!RBAC.assert(user,cap,{},false)) return deniedPanel(cap); return null; };
   try{
     const html = (()=>{
     switch(view){
-      case 'home': return renderHome(user, {omitHeader:options.omitHomeHeader});
+      case 'devices': return user.roleId==='chief' ? renderDevicesConsole(user) : deniedPanel('system.config');
+      case 'staffaccounts': return user.roleId==='chief' ? renderStaffAccountsConsole(user) : deniedPanel('system.config');
+      case 'home': return BOARD_ROLE_IDS.includes(user.roleId)?renderBoardWorkspace(user):renderHome(user, {omitHeader:options.omitHomeHeader});
       case 'attention': return guard('patient.list')||renderAttention(user);
       case 'patients': return guard('patient.list')||renderPatients(user,params);
       case 'patient': return renderPatient(user,params);
       case 'pipeline': return (guard('patient.digitise')||renderPipeline(user));
+      case 'boardworkspace': return renderBoardWorkspace(user);
       case 'visits': return guard('patient.list')||renderVisits(user,params);
       case 'pdca': return guard('patient.list')||renderPdca(user,params);
       case 'requests':
@@ -708,6 +817,7 @@ function contentFor(view, params, user, options = {}){
       case 'hardcopy': return guard('hardcopy.intake')||DISCHARGE_HARDCOPY.renderHardcopyDesk(user, params);
       case 'clinicalmcm': return guard('clinical.mcm')||BMI_CLINICAL.renderMcmConsole(user, params);
       case 'bmiboard': return BMI_CLINICAL.renderBmiBoard(user, params);
+      case 'masterreferrals': return guard('ccc.desk')||HANDOVER_PARTNERS.renderCccDesk(user,{...params,tab:params.tab||'master'});
       case 'cccdesk': return guard('ccc.desk')||HANDOVER_PARTNERS.renderCccDesk(user, params);
       case 'govdashboard': return guard('gov.oversight')||HANDOVER_PARTNERS.renderGovDashboard(user, params);
       case 'intlmedical': return guard('intl.medical')||HANDOVER_PARTNERS.renderIntlMedical(user, params);
@@ -730,7 +840,7 @@ function contentFor(view, params, user, options = {}){
 }
 function deniedPanel(cap){
   const globallyActivated = typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated();
-  const isDemoSession = !globallyActivated && Boolean((AUTH.user && AUTH.user.demo) || DB.db?.meta?.demoSeeded || DB.db?.meta?.seeded==='official');
+  const isDemoSession = !(typeof trialEntryActive==='function' && trialEntryActive()) && !globallyActivated && Boolean((AUTH.user && AUTH.user.demo) || DB.db?.meta?.demoSeeded || DB.db?.meta?.seeded==='official');
   const candidate = (isDemoSession && typeof DEMO_SWITCH!=='undefined' && typeof cap==='string')
     ? DEMO_SWITCH.findBestUserForCap(cap) : null;
   const switchBtn = (candidate && AUTH.user && candidate.username !== AUTH.user.username)
@@ -770,6 +880,13 @@ function onClick(e){
   const el = e.target.closest('[data-act]');
   if(!el) return;
   const act = el.dataset.act;
+  if(AUTH.user && typeof NAVP!=='undefined' && !NAVP.narrow() && act==='nav-group' &&
+      el.closest && el.closest('#npane') && NAVP.effectiveRail(AUTH.user,APPX.view)){
+    e.preventDefault();
+    NAVP.expandTemporarily();
+    render();
+    return;
+  }
   if(el.disabled && act!=='noop') return;
   if(el.dataset.skip) return;
   const fn = ACTIONS[act];
@@ -779,8 +896,28 @@ function onClick(e){
     if(duplicatePress(act)) return;
     el.setAttribute('aria-busy','true'); el.classList.add('is-busy');
   }
-  try{ fn(el.dataset, el); }
+  const priorContent=document.querySelector('#content');
+  try{ fn(el.dataset, el);
+    if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(patient-tab|nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
+  }
   finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
+}
+/* Keep the visible readout and the hidden field in step with the stroke store, so
+   what the form posts is exactly what the person can see they drew. */
+function updateMarks(id){
+  try{
+    const methodEl = document.querySelector && document.querySelector(`[data-ink-method="${id}"]`);
+    const countEl = document.querySelector && document.querySelector(`[data-ink-count="${id}"]`);
+    const emptyEl = document.querySelector && document.querySelector(`[data-ink-empty="${id}"]`);
+    if (methodEl) methodEl.textContent = INK.describeMethod(INK_PAD.padFor(id));
+    if (countEl) countEl.textContent = INK_PAD.points(id) + ' points';
+    if (emptyEl) emptyEl.style.display = INK_PAD.isEmpty(id) ? '' : 'none';
+    const hidden = document.querySelector && document.querySelector(`[data-ink-record="${id}"]`);
+    if (hidden){
+      const rec = INK_PAD.record(id, { by:(AUTH.user&&AUTH.user.name)||'', role:(AUTH.user&&(roleObj(AUTH.user.roleId)||{}).name)||'' });
+      hidden.value = rec ? JSON.stringify({ method:rec.method, points:rec.points, verification:rec.verification, capturedAt:rec.capturedAt }) : '';
+    }
+  }catch(_e){}
 }
 function onSubmit(e){
   if(DEMO_PREVIEW.active){ e.preventDefault(); if(typeof toast==='function') toast('Read-only board preview','Form submissions are disabled in the isolated synthetic preview.','info'); return; }
@@ -893,33 +1030,23 @@ const ACTIONS = {
     toast('Draft saved','Stored on this device. Returned cleanly to your console.','ok');
   },
   'discard-draft':(d)=>{ const fid=d.draftid||d.form; clearDraft(fid); closeModal(true); toast('Draft discarded','It will not be restored.','warn'); },
-  'set-landing-theme':(d)=>{
-    if(!(RBAC.has(AUTH.user,'system.config')||RBAC.has(AUTH.user,'org.manage')))
-      return toast('Not permitted','Only a system administrator may change the landing page identity.','err');
-    const t = LANDING_THEMES.find(x=>x.id===d.id);
-    if(!t) return toast('Unknown theme','The selected theme is not available. The default remains in use.','err');
-    const before = DB.db.settings.landingTheme||DEFAULT_THEME;
-    DB.db.settings.uiEpoch = 691;
-    DB.db.settings.landingTheme = t.id;
-    DB.db.settings.landingThemeExplicit = true;
-    AUDIT.append({actor:AUTH.user.id,action:'landing.theme_changed',entity:'setting',entityId:'landingTheme',
-      detail:`${before} to ${t.id}`});
-    DB.save(); toast('Landing page updated', t.name+' is now the front door.','ok');
-    render();
+  'set-landing-theme':async(d)=>{
+    try{ await ENTRY_THEME.apply(d.id); closeModal(true); render(); toast('Entry theme applied','Landing and sign-in now use the shared, audited setting.','ok'); }
+    catch(error){ toast('Theme not changed',error.message,'err'); }
   },
   'preview-theme':(d)=>{
-    const t = LANDING_THEMES.find(x=>x.id===d.id)||LANDING_THEMES[0];
-    const cur = landingTheme().id;
-    /* A preview must not change what anyone else sees, so it is drawn from the
-       same renderer into a frame rather than by saving the setting. */
-    DB.db.settings._landingPreview = t.id;
-    let html='';
-    try{ html = renderLanding(); } finally { delete DB.db.settings._landingPreview; }
-    openModal({title:'Landing preview', sub:`${t.name} · ${t.mode==='dark'?'dark':'light'} · nothing has been saved`, wide:true,
-      body:`<div class="theme-preview-wrap"><div class="theme-preview-inner">${html}</div></div>
-        <div class="row" style="margin-top:12px"><span class="chip">${esc(t.blurb)}</span></div>`,
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
-        <button class="btn btn-primary" data-act="set-landing-theme" data-id="${t.id}" ${cur===t.id?'disabled':''}>${cur===t.id?'Already in use':'Apply this theme'}</button>`});
+    if(!AUTH.user || AUTH.user.roleId!=='chief') return toast('Chief access required','Only the Chief may preview or apply the public entry identity.','err');
+    const t=ENTRY_THEMES.find(x=>x.id===d.id)||ENTRY_THEMES[0], page=d.page==='signin'?'signin':'landing';
+    let html=''; ENTRY_THEME.previewId=t.id;
+    try{html=page==='signin'?renderLogin6():renderLanding6();}finally{ENTRY_THEME.previewId=null;}
+    ENTRY_THEME.previewed.add(t.id);
+    const measured=ENTRY_THEME.measurements(t.id), passed=measured.every(m=>m.ratio>=4.5);
+    closeModal(true);
+    openModal({title:'Official entry preview',sub:t.name+' · nothing saved · '+page,wide:true,
+      body:`<div class="seg" aria-label="Preview page"><button data-act="preview-theme" data-id="${t.id}" data-page="landing" class="${page==='landing'?'on':''}">Landing</button><button data-act="preview-theme" data-id="${t.id}" data-page="signin" class="${page==='signin'?'on':''}">Sign-in</button></div>
+        <div class="theme-preview-wrap"><div class="theme-preview-inner" inert>${html}</div></div>
+        <ul class="entry-contrast-evidence">${measured.map(m=>`<li>${esc(m.label)}: <b>${m.ratio.toFixed(2)}:1</b> ${m.ratio>=4.5?'PASS':'FAIL'}</li>`).join('')}</ul>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="set-landing-theme" data-id="${t.id}" ${passed?'':'disabled'}>Apply to landing &amp; sign-in</button>`});
   },
   'goto-public':()=>{ APPX.screen='public'; APPX.params={}; refreshPublicFeed(); render(); window.scrollTo({top:0}); },
   'my-profile':()=>{
@@ -1351,9 +1478,9 @@ const ACTIONS = {
     toast('Organisation default saved','People who have not chosen their own theme now see it.','ok'); render();
   },
   'toggle-user-menu':()=>{ userMenu(); },
-  logout:()=>{
+  logout:async ()=>{
+    if(typeof SYNC!=='undefined' && SYNC.sessionToken && !await SYNC.logout()) return toast('Sign-out not confirmed','The server could not release this session. Stay connected and retry before signing in on another client.','warn');
     SESSION.stop();
-    if(typeof SYNC!=='undefined') SYNC.logout();
     closeAllModals();
     AUTH.logout();
     APPX.aiOpen=false; APPX.showUserMenu=false; APPX.navOpen=false;
@@ -1363,7 +1490,7 @@ const ACTIONS = {
     try{ history.replaceState(null,'','#/'); }catch(e){}
     render();
   },
-  print:()=>{ try{ window.print(); }catch(e){ toast('Printing blocked','Open the file in a browser tab to print.','warn'); } },
+  print:()=>PRINT_CONTROL.open('workspace'),
   'toggle-pw':(d, el)=>{
     const wrap = el && el.closest ? el.closest('.pw-wrap') : null;
     const inp = wrap ? wrap.querySelector('input') : null;
@@ -1373,6 +1500,49 @@ const ACTIONS = {
     el.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
     el.innerHTML = ic(show ? 'eyeoff' : 'eye', 15);
     try{ inp.focus({preventScroll:true}); }catch(_e){}
+  },
+  /* ---- stylus pad ------------------------------------------------------
+     Pointer events only: they cover a pen, a finger and a mouse in one path, so
+     the pad cannot behave differently depending on which one a tablet reports. */
+  'ink-draw': (d, el) => {
+    const id = (d && d.inkId) || '';
+    if (!id || !el) return;
+    const canvas = el;
+    if (el.__inkBound) return;
+    el.__inkBound = true;
+    const opts = { passive: false };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button > 0) return;
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch (_e) {}
+      INK_PAD.down(id, e, canvas);
+    }, opts);
+    el.addEventListener('pointermove', (e) => {
+      if (!INK_PAD.move(id, e, canvas)) return;
+      e.preventDefault();
+      INK_PAD.repaint(id, canvas);
+    }, opts);
+    const finish = (e) => { if (INK_PAD.up(id, e, canvas)) { updateMarks(id); } };
+    el.addEventListener('pointerup', finish, opts);
+    el.addEventListener('pointercancel', finish, opts);
+    el.addEventListener('pointerleave', (e) => { if (e.buttons) finish(e); }, opts);
+    /* A stylus hover tells us which input the tablet actually has, so the label
+       is right before the first stroke rather than after it. */
+    el.addEventListener('pointerover', (e) => {
+      const m = INK.methodOf({ strokes: [[]], kinds: [INK.kindOf(e)] });
+      const label = document.querySelector(`[data-ink-method="${id}"]`);
+      if (label && !INK_PAD.points(id)) label.textContent = INK.describeMethod(m);
+    });
+  },
+  'ink-clear': (d) => {
+    const id = (d && d.inkId) || '';
+    if (!id) return;
+    INK_PAD.reset(id);
+    const canvas = document.getElementById ? document.getElementById(id) : null;
+    if (canvas) INK_PAD.repaint(id, canvas);
+    const typed = document.getElementById ? document.getElementById(id + '-typed') : null;
+    if (typed) typed.value = '';
+    updateMarks(id);
   },
   'quick-login': async (d)=>{
     if((typeof demoEntryBlocked === 'function' && demoEntryBlocked()) || (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated())){
@@ -1403,7 +1573,7 @@ const ACTIONS = {
   'load-reference':()=>{
     if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated()) return toast('Reference data locked', 'Synthetic reference data cannot be loaded into the globally activated installation.', 'err');
     if(!RBAC.has(AUTH.user,'system.import')) return toast('Not permitted','Only a system administrator may load the reference register.','err');
-    const n = DB.seedOfficial({patients:DEMO_REGISTER.patients});
+    const n = DB.seedSynthetic({patients:DEMO_REGISTER.patients});
     AUDIT.append({actor:AUTH.user.id,action:'register.reference_loaded',entity:'system',entityId:'register',
       detail:`${n} synthetic patients loaded as the reference register`});
     DB.save();
@@ -1420,7 +1590,7 @@ const ACTIONS = {
     AUDIT.append({actor:AUTH.user?.id||'system',action:'system.bootstrap',entity:'system',entityId:'org',detail:'Organisational structure confirmed'});
     DB.save(); go('home'); toast('Installation ready','Organisational structure confirmed. Create accounts through the approval workflow.','ok');
   },
-  'patient-tab':(d)=>{ go('patient',{id:d.id,tab:d.tab}); },
+  'patient-tab':(d)=>{ go('patient',{id:d.id,tab:d.tab}); revealWorkspace('patient','patient-section-content'); },
   'open-patient':(d)=>{
     const p = repo.patient(AUTH.user,d.id);
     if(!p) return toast('Access denied','This patient is outside your authorised scope. The attempt was logged.','err');
@@ -1437,68 +1607,7 @@ const ACTIONS = {
   },
   'export-pdca-word':(d={})=>{ PAT_DISCHARGE.exportWord(d.id, AUTH.user, d.mode||'auto'); },
   'export-pdca-json':(d={})=>{ PAT_DISCHARGE.exportMergeJson(d.id, AUTH.user, d.mode||'auto'); },
-  'print-discharge-summary':(d={})=>{
-    const p = repo.patient(AUTH.user, d.id) || (DB.db.patients||[]).find(x=>x.id===d.id);
-    if(p && typeof PAT_DISCHARGE!=='undefined' && PAT_DISCHARGE.renderOfficialTemplateHTML){
-      const compiled = PAT_DISCHARGE.compileOfficialPdcaData(p.id, { mode: d.mode||PAT_DISCHARGE._sheetMode||'auto' });
-      const docHtml = PAT_DISCHARGE.renderOfficialTemplateHTML(compiled, { standalone:true });
-      const w = window.open('', '_blank', 'width=940,height=920');
-      if(w){
-        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>CareLink C-DIMS Official PDCA - ${esc(p.code||p.id)}</title>
-        <style>
-          @page{size:A4;margin:12mm 14mm}
-          *{box-sizing:border-box}
-          body{margin:0;padding:18px;font-family:Calibri,'Segoe UI',system-ui,sans-serif;color:#0F1E36;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-          .cdims-pdca-doc{max-width:790px;margin:0 auto}
-          .cdims-pdca-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:8px}
-          .cdims-pdca-brand{display:flex;align-items:center;gap:14px}
-          .cdims-pdca-logo{width:60px;height:60px;object-fit:contain}
-          .cdims-pdca-kicker{font-size:10px;font-weight:800;letter-spacing:.15em;color:#C8102E;text-transform:uppercase}
-          .cdims-pdca-h1{margin:2px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;color:#162F59;font-weight:700}
-          .cdims-pdca-area{font-size:12px;color:#475569;font-style:italic}
-          .cdims-pdca-modechip{padding:4px 10px;border-radius:999px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1E3A8A;font-size:9.5px;font-weight:800;letter-spacing:.08em}
-          .cdims-trirule{display:flex;height:4px;margin:8px 0 14px;border-radius:2px;overflow:hidden}
-          .cdims-pdca-sec-title{font-size:10.5px;font-weight:800;letter-spacing:.11em;color:#162F59;text-transform:uppercase;margin:13px 0 6px;display:flex;align-items:center;gap:6px}
-          .cdims-pdca-sec-title .sq{width:7px;height:7px;background:#C8102E;display:inline-block}
-          .cdims-meta-tbl{width:100%;border-collapse:collapse;margin-bottom:12px}
-          .cdims-meta-tbl td{border:1px solid #CBD5E1;padding:6px 9px;vertical-align:top;background:#F8FAFC}
-          .cdims-lbl{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:2px}
-          .cdims-pat-name{font-family:Georgia,serif;font-size:14px;font-weight:700;color:#8B1538}
-          .cdims-val{font-size:11.8px;color:#0F1E36;font-weight:600}
-          .cdims-anthro-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:11px 0}
-          .cdims-anthro-card{border:1px solid #CBD5E1;border-top-width:4px;border-radius:6px;padding:8px 10px;background:#fff}
-          .cdims-anthro-big{font-size:17px;font-weight:800;color:#162F59;margin:2px 0}
-          .cdims-anthro-big span{font-size:11px;font-weight:600;color:#64748B}
-          .cdims-anthro-sub{font-size:10px;color:#475569}
-          .cdims-aim-box{border-left:4px solid #C8102E;background:#FFF5F6;padding:9px 13px;border-radius:0 6px 6px 0;font-size:12px;line-height:1.48;color:#1E293B;margin-bottom:10px}
-          .cdims-pdca-row{display:grid;grid-template-columns:44px 1fr;border:1px solid #CBD5E1;border-radius:6px;overflow:hidden;margin-bottom:8px;background:#fff;page-break-inside:avoid}
-          .cdims-pdca-badge{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px}
-          .cdims-pdca-cell{padding:8px 12px}
-          .cdims-pdca-rhead{font-size:10.5px;font-weight:800;letter-spacing:.06em;margin-bottom:4px}
-          .cdims-pdca-rhead span{font-weight:500;color:#64748B;margin-left:7px;letter-spacing:0}
-          .cdims-pdca-ul{margin:0;padding-left:17px;font-size:11.6px;line-height:1.45;color:#1E293B}
-          .cdims-cc-sub{margin-top:6px;padding-top:5px;border-top:1px dashed #CBD5E1;font-size:11px;color:#334155}
-          .cdims-just-box{border-left:4px solid #162F59;background:#F1F5F9;padding:9px 13px;border-radius:0 6px 6px 0;font-size:12px;line-height:1.5;margin-bottom:10px}
-          .cdims-disch-banner{background:#162F59;color:#fff;padding:11px 15px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-          .cdims-disch-banner span{font-size:10px;font-weight:800;letter-spacing:.11em;color:#93C5FD;text-transform:uppercase}
-          .cdims-disch-banner b{font-size:15.5px;font-family:Georgia,serif}
-          .cdims-pdca-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-          .cdims-pdca-box{border:1px solid #CBD5E1;border-radius:6px;padding:9px 11px;background:#F8FAFC}
-          .cdims-sig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
-          .cdims-sig-line{border-bottom:1.5px solid #162F59;height:20px;margin-bottom:5px}
-          .cdims-pdca-foot{margin-top:16px;padding-top:6px;border-top:1px solid #CBD5E1;display:flex;justify-content:space-between;font-size:9.5px;color:#64748B}
-        </style></head><body>${docHtml}</body></html>`);
-        w.document.close();
-        setTimeout(()=>{ try{ w.focus(); w.print(); }catch(_e){} }, 180);
-        return;
-      }
-    }
-    if(APPX.view !== 'patient' || APPX.params?.tab !== 'discharge'){
-      closeAllModals();
-      go('patient', { id:d.id, tab:'discharge' });
-    }
-    setTimeout(()=>{ try{ window.print(); }catch(e){} }, 120);
-  },
+  'print-discharge-summary':(d={})=>CARE_REVIEW.output(CARE_REVIEW.data(d.id,{mode:d.mode||'auto'}),'print'),
   'open-hosp-followup':(d)=>{ HOSP_FOLLOWUP.openModal(d.id, AUTH.user); },
   'ack-hosp-followup':(d)=>{
     const r = HOSP_FOLLOWUP.acknowledge(d.id, AUTH.user);
@@ -1611,7 +1720,7 @@ function workflowActionsUI(){ return {
     openModal({
       title:t.label, sub:`${cfg.label} · ${rec.code||rec.no||rec.id}`, narrow:false,
       body:`<form data-form="wf" id="wfForm">
-        <input type="hidden" name="kind" value="${d.kind}"><input type="hidden" name="id" value="${d.id}"><input type="hidden" name="t" value="${d.t}">
+        <input type="hidden" name="kind" value="${d.kind}"><input type="hidden" name="id" value="${d.id}"><input type="hidden" name="t" value="${d.t}"><input type="hidden" name="requestId" value="${CARE_REVIEW.token()}">
         ${t.needsAssignee? field('Assign to hospital focal person','assignee','select',{required:true, options:assignees.map(u=>({v:u.id,l:u.name+' · '+countyName(u.countyId)}))}) : ''}
         ${t.needsReason? field(t.a==='reject'?'Reason for rejection':'Reason','reason','textarea',{required:true,hint:'Recorded permanently in the audit trail'}) : ''}
         ${t.needsEvidence? field('Supporting evidence','evidence','textarea',{required:true,hint:'Cite the assessment, visits, PDCA outcomes or clinical review supporting this decision'}) : ''}
@@ -1624,8 +1733,9 @@ function workflowActionsUI(){ return {
             ${field('Responsible officer','responsible','select',{options:DB.db.users.filter(u=>['caregiver','coordinator','mch'].includes(u.roleId)).map(u=>({v:u.id,l:u.name}))})}
           </div>
           ${field('Reason for that estimate','rationale','textarea',{required:true,hint:'Presenting condition, household capacity and clinical advice'})}
-          ${field('Agreed objective','objectives','textarea',{})}
-          ${field('Planned intervention','interventions','textarea',{})}
+          ${field('Agreed objective','objectives','textarea',{required:true})}
+          ${field('Planned intervention','interventions','textarea',{required:true})}
+          ${field('I am the MCM recording the final decision at the office — not field enrolment','officeConfirmed','checkbox',{required:true})}
         `:''}
         ${(d.kind==='patient' && t.a==='recommend_discharge' && typeof PAT_DISCHARGE!=='undefined')? PAT_DISCHARGE.referralFieldsHTML(rec) : ''}
         ${t.a==='approve'? field('Clinical note (optional)','note','textarea',{}) : ''}
@@ -1640,14 +1750,16 @@ function workflowActionsUI(){ return {
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
         <button class="btn ${t.a==='reject'?'btn-danger':'btn-primary'}" data-act="submit-wf">${esc(t.label)}</button>`});
   },
-  'submit-wf':()=>{
+  'submit-wf':async()=>{
     const f=$('#wfForm'); const d=new FormData(f);
     const kind=d.get('kind'), recId=d.get('id'), tr=d.get('t');
     const payload = { reason:d.get('reason'), evidence:d.get('evidence'), note:d.get('note'),
       assignee:d.get('assignee'), report:d.get('report'), expenses:d.get('expense')?[{amount:+d.get('expense'), category:'service', budgetLine:d.get('budgetLine')}]:[],
       needs:d.get('needs'), expectedDays:d.get('expectedDays'), rationale:d.get('rationale'),
-      objectives:d.get('objectives'), interventions:d.get('interventions'), responsible:d.get('responsible') };
-    const r = transition(kind, recId, tr, AUTH.user, payload);
+      objectives:d.get('objectives'), interventions:d.get('interventions'), responsible:d.get('responsible'),officeConfirmed:!!d.get('officeConfirmed') };
+    const r = (kind==='patient'&&['enrol','approve_discharge'].includes(tr)&&SYNC.sessionToken)
+      ? await CARE_REVIEW.command(tr==='enrol'?'enrol_fresh':'discharge_cycle',{...payload,patientId:recId},d.get('requestId'))
+      : transition(kind, recId, tr, AUTH.user, payload);
     if(!r.ok) return toast('Action not completed', r.msg,'err');
     if(kind==='patient' && typeof PAT_DISCHARGE!=='undefined'){
       const pRec = DB.db.patients.find(x=>x.id===recId);
@@ -1656,7 +1768,7 @@ function workflowActionsUI(){ return {
         PAT_DISCHARGE.stampOnDischarge(pRec, AUTH.user);
         DB.save();
         closeModal(true);
-        toast('Patient discharged & summary generated', 'Full Intake-to-Discharge Programme Summary & Referral Handover ready to print.', 'ok');
+        toast('MCM discharge decision recorded', 'The report uses saved evaluations and recorded referral facts only. Missing findings and physical signatures remain unrecorded.', 'ok');
         go('patient', { id:pRec.id, tab:'discharge' });
         return;
       }
@@ -1689,7 +1801,18 @@ function workflowActionsUI(){ return {
   'pdca-review-comment':(d)=>{
     const x=(DB.db.pdcas||[]).find(y=>y.id===d.id);
     if(!x || !PDCAX.canReviewDiscussion(AUTH.user,x)) return toast('Not permitted','Only the scoped Medical Case Manager may review this caregiver PDCA.','err');
+    /* The review engine reads this cycle against what a finished cycle looks like
+       in this register. It is a second pair of eyes, not a substitute for the
+       reviewer's own judgement, and it is labelled that way on screen. */
+    const model = PDCA_REVIEW.train(DB.db);
+    const advice = PDCA_REVIEW.review(x, model);
+    const adviceHtml = advice.findings.length ? `<div class="alert warn" style="margin-bottom:12px">${ic('alert',15)}<div>
+        <b>Pattern check against ${model.closedCount} closed cycles</b>
+        <div class="small" style="margin-top:4px;white-space:pre-wrap">${esc(PDCA_REVIEW.summary(advice))}</div>
+        <div class="xs muted" style="margin-top:6px">${esc(advice.recommendation)} Each finding names the evidence behind it, so you can disagree with any of them.</div>
+      </div></div>` : '';
     openModal({title:'Review caregiver PDCA',sub:'Your clinical review and comment will open a formal, audited correction thread with this caregiver.',body:`
+      ${adviceHtml}
       <form data-form="pdca-review" id="pdcaReviewForm"><input type="hidden" name="pdcaId" value="${esc(x.id)}">
         <div class="field"><label>Review comment *</label><textarea class="input" name="comment" rows="5" minlength="8" maxlength="1200" required placeholder="Describe the review, required corrections, or follow-up questions."></textarea><div class="hint">8–1,200 characters. Do not include unnecessary identifiers or unrelated sensitive details.</div></div>
       </form>`,footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-pdca-review">Complete review &amp; open thread</button>`});
@@ -1728,24 +1851,20 @@ function workflowActionsUI(){ return {
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="save-pdca">Save cycle</button>`});
   },
   'save-pdca':()=>{
-    const d=new FormData($('#pdcaForm')); const x=DB.db.pdcas.find(y=>y.id===d.get('id'));
-    x.stage=d.get('stage'); x.doNote=d.get('doNote'); x.checkNote=d.get('checkNote'); x.actNote=d.get('actNote');
-    x.status=d.get('closed')?'closed':'open'; x.updatedAt=todayISO();
-    AUDIT.append({actor:AUTH.user.id,action:'pdca.updated',entity:'pdca',entityId:x.id,detail:'Stage '+x.stage});
-    DB.save(); closeModal(); toast('PDCA cycle updated','','ok'); render();
+    toast('Historical entry is read-only','Create an on-demand report in the supplied template. Prior-cycle notes and revisions are retained.','warn');
   }
 };}
 
 function clinicalActions(){ return {
   'new-assessment':()=>{
-    const areas = COUNTIES.filter(c=>roleObj(AUTH.user.roleId)?.scope?.geo==='global'||c.id===AUTH.user.countyId).flatMap(c=>c.areas.map(a=>({v:a.id,l:a.name+' · '+c.name})));
+    const areas = COUNTIES.filter(c=>c.id===AUTH.user.countyId).flatMap(c=>c.areas.filter(a=>!['caregiver','coordinator','chw'].includes(AUTH.user.roleId)||(AUTH.user.areaIds||[]).includes(a.id)).map(a=>({v:a.id,l:a.name+' · '+c.name})));
     const durDefaults = [30,60,90,120,150,180,210,240,270,300,330,360];
     const durExtra = [45,75,105,110,135,165,195];
     const durOptions = [
       ...durDefaults.map(n=>({v:String(n), l:`${n} days (Standard ${n/30}-month PDCA review track)`})),
       ...durExtra.map(n=>({v:String(n), l:`${n} days (Custom milestone duration)`}))
     ];
-    openModal({title:'New patient assessment & returning-beneficiary check', sub:'Enter the National ID first to verify instantly whether the person has ever been registered before completing the LOMAMO assessment.',
+    openModal({title:'Register identity & check prior assessment', sub:'Enter the National ID first to verify instantly whether the person has ever been registered before completing the LOMAMO assessment.',
       body:`<form data-form="assessment" id="assessForm">
         <div class="steps" style="margin-bottom:14px"><div class="step cur"><span class="n">1</span>ID check &amp; initiate</div><div class="step"><span class="n">2</span>Physical form</div><div class="step"><span class="n">3</span>Digitised</div><div class="step"><span class="n">4</span>Verified</div><div class="step"><span class="n">5</span>Enrolled</div></div>
         <div class="field"><label for="assessNatId">National ID number (checked first before assessment)</label>
@@ -1753,7 +1872,7 @@ function clinicalActions(){ return {
         <div id="assessRepeatBox"><div class="rb rb-ok"><div class="rb-ic">${ic('search',18)}</div><div style="flex:1"><b>Step 1: Returning beneficiary check active</b><div class="rb-body">Key in the patient's National ID above to check prior enrolment before completing a new assessment.</div></div></div></div>
         ${field('Patient name','name','text',{required:true,hint:'As written on the LOMAMO patient assessment form'})}
         <div class="grid g2">
-          ${field('Sex','sex','select',{options:[{v:'F',l:'Female'},{v:'M',l:'Male'}]})}
+          ${field('Sex','sex','select',{options:[{v:'',l:'Not recorded'},{v:'F',l:'Female'},{v:'M',l:'Male'}]})}
           ${field('Age (years)','age','number',{required:true})}
           ${field('Ministry area','areaId','select',{required:true,options:areas})}
           ${field('Planned programme duration','plannedDays','select',{value:'180',options:durOptions})}
@@ -1773,7 +1892,7 @@ function clinicalActions(){ return {
               ${field('Female children in the household','femaleChildren','number',{min:0,hint:'Column Q - total children is calculated'})}
               ${field('Visit schedule','schedule','select',{options:[{v:'',l:'Not set'},{v:'EW',l:'EW - every week'},{v:'EOW',l:'EOW - every other week'},{v:'1 Month',l:'Once a month'}],hint:'Column Y'})}
               ${field('Food bag at enrolment','bagCode','select',{options:[{v:'',l:'Not issued yet'},{v:'BG1',l:'BG1 - Bag 1 (normal household)'},{v:'BG2',l:'BG2 - Bag 2 (family / couple)'},{v:'SPB',l:'SPB - Special bag'}],hint:'Week grid codes BG1 / BG2 / SPB'})}
-              ${field('Returning beneficiary (repeat patient)','repeatPatient','checkbox',{})}
+              <p class="small">Repeat / returning status is classified from the previous discharge. Select the existing record above; do not tick a manual repeat flag on a new identity.</p>
               ${field('Relocated patient','relocated','checkbox',{})}
               ${field('Medical only (no food bag)','medicalOnly','checkbox',{})}
               ${field('TB type','tbType','select',{options:[{v:'',l:'Not a TB patient'},{v:'Pulmonary TB',l:'Pulmonary TB'},{v:'Extra pulmonary TB',l:'Extra pulmonary TB'}],hint:'Column CS - opens the ten-day pyridoxine cycle'})}
@@ -1790,7 +1909,8 @@ function clinicalActions(){ return {
             <p class="xs muted" style="margin:6px 0 10px">Days in programme, the minimal-care review beyond 183 days, total children, orphan prevention and every cost total are calculated from these fields - they are never typed twice. See <b>Master registry mapping</b> for the full column-by-column map.</p>
           </div>
         </details>
-        ${field('Consent to record information','consent','checkbox',{value:true})}
+        ${field('I confirmed any shared name / phone match is a different person','distinctPersonConfirmed','checkbox',{})}
+        ${field('Consent to record information','consent','checkbox',{})}
       </form>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
         <button class="btn btn-ghost" data-act="save-draft" data-form="assessment">${ic('save',14)} Save draft</button>
@@ -1803,16 +1923,21 @@ function clinicalActions(){ return {
     const area = areaObj(d.get('areaId'));
     const plannedDays = +d.get('plannedDays') || 180;
     const natId = String(d.get('nationalId')||'').trim();
+    if(!area||!String(d.get('name')||'').trim())return toast('Assessment incomplete','Record the patient name and an authorized ministry area.','err');
+    const matches=PMI.look(DB.db,natId);
+    if(natId&&matches.level==='national-id'&&matches.matches.length)return toast('Existing identity found','Open the existing assessment or repeat / returning support report. No second identity was created.','warn');
+    const possible=[...PMI.look(DB.db,d.get('name')).matches,...PMI.look(DB.db,d.get('phone')).matches];
+    if(possible.length&&!d.get('distinctPersonConfirmed'))return toast('Confirm the person','A name / phone match is only a prompt. Open the existing record if this is the same person; otherwise confirm the distinct person checkbox.','warn');
     const p = { id:uid('p'), code:'LOM-'+area.id.slice(0,3).toUpperCase()+'-'+Math.floor(1000+Math.random()*9000),
-      name:d.get('name'), sex:d.get('sex')||'F', age:+d.get('age')||0, nationalId:natId,
+      name:d.get('name'), sex:d.get('sex')||'', age:d.get('age')===''?null:Number(d.get('age')), nationalId:natId,
       countyId:COUNTIES.find(c=>c.areas.some(a=>a.id===area.id)).id,
       areaId:d.get('areaId'), caregiverId:d.get('caregiverId')||AUTH.user.id, status:'assessment_initiated',
       intake:d.get('intake')||todayISO(), discharge:null, plannedDays, referralEntityId:d.get('referralEntityId'),
       ccc:d.get('ccc')||'', phone:d.get('phone')||'',
-      clinical:{diagnosis:d.get('diagnosis')||'Pending clinical verification',art:false,weightKg:null,heightCm:null,adherence:'Not recorded'},
-      household:{children:(+d.get('maleChildren')||0)+(+d.get('femaleChildren')||0),
-        maleChildren:+d.get('maleChildren')||0, femaleChildren:+d.get('femaleChildren')||0,
-        orphansSupported:0,guardian:'-'},
+      clinical:{diagnosis:d.get('diagnosis')||'',weightKg:null,heightCm:null},
+      household:{children:d.get('maleChildren')!==''&&d.get('femaleChildren')!==''?Number(d.get('maleChildren'))+Number(d.get('femaleChildren')):null,
+        maleChildren:d.get('maleChildren')===''?null:Number(d.get('maleChildren')),femaleChildren:d.get('femaleChildren')===''?null:Number(d.get('femaleChildren')),
+        orphansSupported:null,guardian:''},
       insurance:String(d.get('insurance')||''), spouseId:String(d.get('spouseId')||''),
       visitFrequency:(()=>{const s=String(d.get('schedule')||'');return s==='EW'?'Every week':s==='EOW'?'Every other week':s==='1 Month'?'Once a month':'';})(),
       /* The master registry fields, with the workbook's own derived measures
@@ -1832,62 +1957,25 @@ function clinicalActions(){ return {
         sourceWorkbook:'LOMAMO C-DIMS registration (master registry blueprint)', sourceSheet:'', sourceRow:null
       },
       consent:{status:d.get('consent')?'granted':'not_requested',scope:'internal',date:todayISO()},
-      faithRecord:'not_recorded', docsVerified:false, flags:['duplicate_check_pending'], pdcaStage:'Plan', demo:true, createdBy:AUTH.user.id };
+      faithRecord:'not_recorded', docsVerified:false, flags:['duplicate_check_pending'], assessmentKind:'new', assessmentDate:d.get('intake')||dateOnly(new Date()), pdcaStage:'Plan', demo:CARE_REVIEW.synthetic(), createdBy:AUTH.user.id };
   /* Derived on every save, never typed: days in programme and the minimal-care
      flag beyond 183 days (master columns K and H). */
-  p.programDays = MASTER_RULES.daysInProgramme(p.enrolledAt||p.intake, p.dischargedAt||p.discharge);
+  p.programDays = 0; // Assessment date is not MCM office enrollment / programme start.
   p.master.minimalCareFlag = MASTER_RULES.minimalCareFlag(p.programDays, p.master.newInMonth && p.status==='discharged'? p.master.newInMonth : '');
-    if(DB.db.patients.some(x=>x.name.toLowerCase()===p.name.toLowerCase()&&x.areaId===p.areaId)){
-      return toast('Possible duplicate','A patient with this name already exists in this ministry area. Review the register before creating another record.','warn');
-    }
     clearDraft('assessment');
     DB.db.patients.push(p);
-    /* Immediately establish the initial 30-day review PDCA plan informed by plannedDays */
-    const due30 = new Date(Date.now() + 30*86400e3).toISOString().slice(0,10);
-    DB.db.pdcas.push({
-      id: uid('pd'), patientId: p.id, title: `Initial ${plannedDays}-day care plan & 30-day review`,
-      stage: 'Plan', status: 'open', owner: p.caregiverId, due: due30,
-      planNote: `Enrolled for ${plannedDays} days; scheduled for formal review every 30 days (30, 60, 90 ... ${plannedDays} days).`,
-      createdAt: todayISO(), updatedAt: todayISO()
-    });
+    /* An assessment is not enrolment. The programme clock and review cycle
+       start only after the MCM's explicit office decision. */
     AUDIT.append({actor:AUTH.user.id,action:'patient.assessment_initiated',entity:'patient',entityId:p.id,detail:`${p.name} · ${areaName(p.areaId)} · ${plannedDays}d plan`});
     notify(DB.db.users.find(u=>u.roleId==='assistant'&&u.countyId===p.countyId)?.id,'New assessment submitted',p.name+' - awaiting physical form and digitisation','info');
-    DB.save(); closeModal(true); toast('Assessment & initial PDCA created', `Planned duration ${plannedDays} days; first review due ${due30}.`,'ok'); go('patient',{id:p.id});
+    DB.save(); closeModal(true); toast('Assessment created — not enrolled', 'Awaiting source verification and final MCM office enrollment. No PDCA completion or programme start was invented.','ok'); go('patient',{id:p.id});openFormEditor(Number(p.age)<18?'minor_assessment':'patient_assessment',p.id);
   },
   'submit_form':()=>{},
-  'record-visit':(d)=>{
-    const ps = repo.patientList(AUTH.user);
-    openModal({title:'Record visit', sub:'Visit records are attributed to you and timestamped.',
-      body:`<form data-form="visit" id="visitForm">
-        ${field('Patient','patientId','select',{required:true,value:d.patient,options:ps.map(p=>({v:p.id,l:p.name+' · '+p.code}))})}
-        <div class="grid g2">
-          ${field('Visit type','type','select',{options:[{v:'home',l:'Home visit'},{v:'clinical',l:'Clinical visit'}]})}
-          ${field('Date','date','date',{value:dateOnly(new Date())})}
-          ${field('Weight (kg)','weight','number',{})}
-          ${field('Blood pressure','bp','text',{})}
-          ${field('Outcome','outcome','select',{options:[{v:'seen',l:'Patient seen'},{v:'not_found',l:'Not found at home'},{v:'refused',l:'Declined visit'},{v:'referred',l:'Referred for clinical review'}]})}
-          ${field('Next visit due','nextDue','date',{})}
-        </div>
-        ${field('Visit notes','notes','textarea',{required:true,hint:'Observations, adherence, household situation, support issued'})}
-        ${field('Escalate as clinical concern','escalate','checkbox',{})}
-      </form>`,
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-visit">Save visit</button>`});
+  'record-visit':(d={})=>{
+    if(d.patient)openFormEditor('home_visit',d.patient);
+    else openPatientPicker('home_visit');
   },
-  'submit-visit':()=>{
-    const d=new FormData($('#visitForm'));
-    const v={ id:uid('v'), patientId:d.get('patientId'), caregiverId:AUTH.user.id, type:d.get('type')||'home',
-      date:d.get('date')||todayISO(), weight:+d.get('weight')||null, bp:d.get('bp')||'', outcome:d.get('outcome')||'seen',
-      notes:d.get('notes'), nextDue:d.get('nextDue')||'', demo:true };
-    DB.db.visits.push(v);
-    const p=DB.db.patients.find(x=>x.id===v.patientId);
-    if(v.weight&&p?.clinical) p.clinical.weightKg=v.weight;
-    if(d.get('escalate')&&p){
-      DB.db.concerns.push({id:uid('cn'),patientId:p.id,type:'field_escalation',level:'clinical',opened:todayISO(),detail:v.notes,by:AUTH.user.id,status:'open',demo:true});
-      notifyPatientCareTeam(p,'Clinical concern needs review','A caregiver escalated a clinical concern. Review the scoped patient record; the concern text is not repeated in this notification.','warn',AUTH.user.id);
-    }
-    AUDIT.append({actor:AUTH.user.id,action:'visit.recorded',entity:'patient',entityId:v.patientId,detail:`${titleCase(v.type)} visit · ${titleCase(v.outcome)}`});
-    DB.save(); closeModal(); toast('Visit recorded', v.outcome==='not_found'?'Marked as not found at home.':'Visit saved.','ok'); render();
-  },
+  'submit-visit':()=>toast('Use the source-mapped visit sheet','Open Record home visit and submit the detailed form for verification. The former short entry is no longer used.','warn'),
   'new-request':(d)=>{
     const ps = repo.patientList(AUTH.user);
     openModal({title:'Hospital appointment & transport request', sub:'Stage 1 of 7 - the request goes to the Medical Case Manager for clinical decision.',
@@ -1932,22 +2020,8 @@ function clinicalActions(){ return {
   },
   'open-request':(d)=>openRequestModal(d.id),
   'upload-doc':(d)=>openUploadModal(d.patient),
-  'new-pdca':(d)=>{
-    const ps = repo.patientList(AUTH.user);
-    openModal({title:'New PDCA cycle', narrow:true, body:`<form data-form="newpdca" id="npForm">
-      ${field('Patient','patientId','select',{value:d.patient,required:true,options:ps.map(p=>({v:p.id,l:p.name+' · '+p.code}))})}
-      ${field('Plan','plan','textarea',{required:true,hint:'What will be done, with whom, and by when'})}
-      ${field('Due date','due','date',{required:true})}
-    </form>`,
-    footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-newpdca">Create cycle</button>`});
-  },
-  'submit-newpdca':()=>{
-    const d=new FormData($('#npForm'));
-    DB.db.pdcas.push({id:uid('pd'),patientId:d.get('patientId'),stage:'Plan',plan:d.get('plan'),doNote:'',checkNote:'',actNote:'',due:d.get('due'),owner:AUTH.user.id,status:'open',demo:true});
-    const p=DB.db.patients.find(x=>x.id===d.get('patientId'));
-    AUDIT.append({actor:AUTH.user.id,action:'pdca.created',entity:'patient',entityId:p.id,detail:d.get('plan')});
-    DB.save(); closeModal(); toast('PDCA cycle created','','ok'); render();
-  },
+  'new-pdca':(d)=>ACTIONS['care-review-new'](d),
+  'submit-newpdca':()=>toast('Use the editable template','Legacy note-only reports cannot be submitted as reviewed PDCAs.','warn'),
   'discharge-review':()=>{
     const ps=repo.patientList(AUTH.user).filter(p=>p.status==='discharge_recommended');
     openModal({title:'Discharge recommendations', body: ps.length? table([
@@ -2026,7 +2100,7 @@ Requested by ${esc(userName(r.requestedBy))}</pre>
 
 function openUploadModal(patientId){
   openModal({title:'Upload patient document', sub:'Documents are classified. A clinical record is not a media asset.',
-    body:`<form data-form="upload" id="upForm">
+    body:`<div class="alert warn" style="margin-bottom:12px">${ic('alert',16)}<div><b>Secure sharing is not configured.</b><span>The legacy standalone file service does not enforce document-level permissions or scan uploads; signed-in users may be able to access files outside their scope. The hosted service does not support file uploads. Use an approved secure procedure for sensitive documents.</span></div></div><form data-form="upload" id="upForm">
       ${field('Patient','patientId','select',{value:patientId,required:true,options:repo.patientList(AUTH.user).map(p=>({v:p.id,l:p.name+' · '+p.code}))})}
       ${field('Document type','kind','select',{options:[
         {v:'assessment_form',l:'Signed assessment form'},{v:'ccc_card',l:'CCC clinic card'},{v:'hospital_record',l:'Hospital record'},
@@ -2034,7 +2108,7 @@ function openUploadModal(patientId){
       ${field('Classification','classification','select',{options:[
         {v:'clinical',l:'Clinical record'},{v:'identification',l:'Identification document'},{v:'hospital',l:'Hospital document'},
         {v:'internal_photo',l:'Internal patient photograph'},{v:'story_material',l:'Potential storytelling material'},{v:'restricted',l:'Restricted confidential attachment'}]})}
-      ${field('File','file','file',{hint:'The file is stored by the shared online service with a SHA-256 digest. It is not kept only in the browser.',accept:'.pdf,.jpg,.jpeg,.png,.docx,.xlsx'})}
+      ${field('File','file','file',{hint:'The hosted service cannot store this file. The legacy standalone store is not an approved secure sharing service.',accept:'.pdf,.jpg,.jpeg,.png,.docx,.xlsx'})}
       ${field('Consent confirmed for intended use','consent','checkbox',{})}
       ${field('Restrict to clinical roles','restricted','checkbox',{})}
     </form>`,
@@ -2207,16 +2281,17 @@ function mediaActions(){ return {
     DB.save(); toast('Publication declined','','warn'); render();
   },
   'view-doc':(d)=>{
-    const doc=DB.db.documents.find(x=>x.id===d.id);
+    const doc=repo.documents(AUTH.user).find(x=>x.id===d.id);
+    if(!doc) return toast('Not available','This document is not available in your current scope.','err');
     const p=DB.db.patients.find(x=>x.id===doc.patientId);
     if(doc.restricted && !RBAC.has(AUTH.user,'patient.view.clinical')) return toast('Restricted','This attachment requires clinical authority.','err');
-    const retention=doc.retention? RETENTION_BY_ID[doc.retention]:RETENTION_FOR_CLASS[doc.classification];
+    const retention=RETENTION_BY_ID[doc.retention || RETENTION_FOR_CLASS[doc.classification]] || RETENTION_BY_ID.standard;
     const stored=doc.fileStored && doc.fileId;
     openModal({title:titleCase(doc.kind), sub:(p?.name||'')+' · '+titleCase(doc.classification), body:`
-      ${stored?`<div class="alert ok" style="margin-bottom:10px">${ic('check',16)}<div><b>File held by the shared online service</b>
-        <span class="small">${esc(doc.fileName||'Document')} · ${num(Math.round((doc.fileBytes||0)/1024))} KB · SHA-256 ${esc(String(doc.fileSha||'').slice(0,24))}…</span></div></div>`
-      :`<div class="alert warn" style="margin-bottom:10px">${ic('alert',16)}<div><b>No file is attached to this record</b>
-        <span class="small">The document record exists, but the bytes were never stored. Upload the file again.</span></div></div>`}
+      ${stored?`<div class="alert warn" style="margin-bottom:10px">${ic('alert',16)}<div><b>Legacy file reference</b>
+        <span class="small">${esc(doc.fileName||'Document')} · ${num(Math.round((doc.fileBytes||0)/1024))} KB. The file’s current availability and security have not been verified. The legacy file service does not enforce document-level permissions.</span></div></div>`
+      :`<div class="alert warn" style="margin-bottom:10px">${ic('alert',16)}<div><b>No stored file is recorded</b>
+        <span class="small">This metadata does not establish that a file is available. Secure upload is not yet configured.</span></div></div>`}
       <dl class="dl">
         <dt>Uploaded</dt><dd>${fmtDate(doc.uploadedAt)} · ${esc(userName(doc.uploadedBy).replace(/^Demo - /,''))}</dd>
         <dt>Classification</dt><dd>${esc(titleCase(doc.classification))}</dd>
@@ -2224,14 +2299,17 @@ function mediaActions(){ return {
         <dt>Retention note</dt><dd>${esc(retention.note)}</dd>
         <dt>Consent</dt><dd>${esc(titleCase(doc.consent||p?.consent?.status||'pending'))}</dd>
       </dl>
-      <div class="note" style="margin-top:12px">${ic('lock',14)}<span>Opening the file is recorded in the audit trail. A restricted clinical image is never served to a role without clinical authority.</span></div>`,
+      <div class="note" style="margin-top:12px">${ic('lock',14)}<span>This is a metadata view, not a verified file-access audit. Secure document storage and sharing are not yet available.</span></div>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
         ${stored&&FILEVAULT.available()?`<button class="btn btn-primary" data-act="open-stored-file" data-id="${esc(doc.fileId)}">Open the file</button>`:''}`});
     AUDIT.append({actor:AUTH.user.id,action:'document.viewed',entity:'document',entityId:doc.id,detail:titleCase(doc.kind)}); DB.save();
   },
-  'open-stored-file':(d)=>{
-    FILEVAULT.open(d.id).then(r=>{ if(!r.ok) toast('Not opened',r.msg,'err'); });
-    AUDIT.append({actor:AUTH.user.id,action:'document.file_opened',entity:'file',entityId:d.id,detail:'Stored document opened'});
+  'open-stored-file':async (d)=>{
+    const doc=repo.documents(AUTH.user).find(x=>x.fileId===d.id);
+    if(!doc || (doc.restricted && !RBAC.has(AUTH.user,'patient.view.clinical'))) return toast('Not available','This document is not available in your current scope.','err');
+    const result=await FILEVAULT.open(d.id);
+    if(!result.ok) return toast('Not opened',result.msg,'err');
+    AUDIT.append({actor:AUTH.user.id,action:'document.file_download_started',entity:'file',entityId:d.id,detail:'File download initiated in this browser'});
     DB.save();
   },
   'edit-consent':(d)=>{
@@ -2728,16 +2806,110 @@ function systemActions(){ return {
     const ok=await AI.ollamaProbe();
     toast(ok?'Local model reachable':'Local model not reachable', ok?'Ollama responded at the configured endpoint.':'Start Ollama locally, or continue with the built-in rule-based assistant.','info');
   },
+  /* ---- scoped announcements (D21) ------------------------------------- */
+  'notice-new':()=>{
+    if(!RBAC.assert(AUTH.user,'org.manage',{},false) && !(typeof isGlobal === 'function' && isGlobal(AUTH.user)) &&
+       !['depthead','assistant','countyadmin','coordinator','mcm','hr','welfare','mediahead','auditor'].includes(AUTH.user.roleId)){
+      return toast('Not permitted','Publishing a notice needs a role that can address other staff. The attempt was logged.','err');
+    }
+    openModal({ title:'Publish a scoped notice', wide:true,
+      body:`<form id="noticeForm">
+        <div class="alert info"><b>Address the people who need it, not everybody.</b>
+          <span class="small">A notice goes only to the audience you choose. You can publish to everyone only if your role covers the whole organisation.</span></div>
+        <div class="grid g2">
+          <div class="field"><label>Title *</label><input class="input" name="title" maxlength="160" required placeholder="e.g. Pharmacy stock-take on Friday"></div>
+          <div class="field"><label>Severity</label><select class="input" name="severity">
+            ${Object.entries(ANNOUNCEMENTS.SEVERITY).map(([k,v])=>`<option value="${esc(k)}">${esc(v.label)}</option>`).join('')}
+          </select></div>
+        </div>
+        <div class="field"><label>Notice *</label><textarea class="input" name="body" rows="4" maxlength="4000" required placeholder="What has changed, what people must do, and by when."></textarea></div>
+        <div class="grid g2">
+          <div class="field"><label>Audience</label><select class="input" name="audience" data-notice-audience>
+            ${Object.entries(ANNOUNCEMENTS.AUDIENCES).map(([k,v])=>`<option value="${esc(k)}">${esc(v.label)}</option>`).join('')}
+          </select></div>
+          <div class="field" data-notice-detail="county"><label>County office</label><select class="input" name="countyId">
+            ${(DB.db.counties||[]).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
+        </div>
+        <div class="grid g2">
+          <div class="field" data-notice-detail="department" style="display:none"><label>Department</label><select class="input" name="departmentId">
+            ${(typeof DEPARTMENTS!=='undefined'?DEPARTMENTS:[]).map(d=>`<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('')}</select></div>
+          <div class="field" data-notice-detail="role" style="display:none"><label>Role</label><select class="input" name="roleId">
+            ${(typeof ROLES!=='undefined'?ROLES:[]).map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></div>
+        </div>
+        <div class="field" data-notice-detail="area" style="display:none"><label>Ministry area</label><select class="input" name="areaId">
+          ${(DB.db.areas||[]).map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(countyName(a.countyId))}</option>`).join('')}</select></div>
+        <label class="lg-check" style="margin:6px 0 12px;display:flex;gap:8px;align-items:flex-start">
+          <input type="checkbox" name="needsAcknowledgement" value="1">
+          <span class="small">Require each person to acknowledge that they have read it.</span></label>
+      </form>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-act="notice-publish">${ic('check',14)} Publish to the chosen audience</button>` });
+  },
+  'notice-publish':()=>{
+    const f=document.querySelector('#noticeForm');
+    if(!f) return;
+    const fd=new FormData(f);
+    const res=ANNOUNCEMENTS.publish(DB.db, AUTH.user, {
+      title:fd.get('title'), body:fd.get('body'), severity:fd.get('severity'),
+      audience:fd.get('audience'), countyId:fd.get('countyId'), departmentId:fd.get('departmentId'),
+      roleId:fd.get('roleId'), areaId:fd.get('areaId'),
+      needsAcknowledgement: Boolean(fd.get('needsAcknowledgement')),
+    });
+    if(!res.ok) return toast('Notice not published', res.msg, 'err');
+    AUDIT.append({ actor:AUTH.user.id, action:'notice.published', entity:'announcement', entityId:res.rec.id,
+      detail:`${res.rec.severity} notice to ${res.rec.audienceLabel} (${res.rec.resolvedCount} people)` });
+    DB.save(); closeModal(true); render();
+    toast('Notice published', `${res.rec.resolvedCount} ${res.rec.resolvedCount===1?'person':'people'} · ${res.rec.audienceLabel}.`, 'ok');
+  },
+  'notice-open':(d)=>{
+    const rec=(DB.db.announcements||[]).find(a=>a.id===d.id);
+    if(!rec) return;
+    ANNOUNCEMENTS.markSeen(DB.db, AUTH.user, rec.id);
+    const r=ANNOUNCEMENTS.receipt(DB.db, rec.id);
+    openModal({ title: rec.title, wide:true,
+      body:`<div class="alert ${ANNOUNCEMENTS.SEVERITY[rec.severity].tone}"><b>${esc(ANNOUNCEMENTS.SEVERITY[rec.severity].label)}</b>
+          <span class="small"> · ${esc(rec.audienceLabel)} · published ${fmtDateTime(rec.publishedAt)} by ${esc(rec.authorName)}</span></div>
+        <p class="small" style="white-space:pre-wrap">${esc(rec.body)}</p>
+        ${rec.authorId===AUTH.user.id ? `<div class="xs muted">Reached ${r.audience} ${r.audience===1?'person':'people'} · opened by ${r.seen}${rec.needsAcknowledgement?` · acknowledged by ${r.acknowledged}`:''}. This is a live count: the audience is re-evaluated each time it is read.</div>` : ''}`,
+      footer:`${rec.authorId===AUTH.user.id?`<button class="btn btn-ghost" data-act="notice-withdraw" data-id="${esc(rec.id)}">Withdraw</button>`:''}
+        ${rec.needsAcknowledgement && rec.authorId!==AUTH.user.id ? `<button class="btn btn-primary" data-act="notice-ack" data-id="${esc(rec.id)}">${ic('check',14)} I have read this</button>` : ''}
+        <button class="btn btn-ghost" data-act="close-modal">Close</button>` });
+  },
+  'notice-ack':(d)=>{
+    const res=ANNOUNCEMENTS.acknowledge(DB.db, AUTH.user, d.id);
+    if(!res.ok) return toast('Not recorded', res.msg, 'err');
+    AUDIT.append({ actor:AUTH.user.id, action:'notice.acknowledged', entity:'announcement', entityId:d.id, detail:res.rec.title });
+    DB.save(); closeModal(true); render();
+    toast('Acknowledgement recorded','Your name is now on the record for this notice.','ok');
+  },
+  'notice-withdraw':(d)=>{
+    const res=ANNOUNCEMENTS.withdraw(DB.db, AUTH.user, d.id, 'Withdrawn by the author');
+    if(!res.ok) return toast('Not withdrawn', res.msg, 'err');
+    AUDIT.append({ actor:AUTH.user.id, action:'notice.withdrawn', entity:'announcement', entityId:d.id, detail:res.rec.title });
+    DB.save(); closeModal(true); render();
+    toast('Notice withdrawn','It no longer appears for its audience. The record of it being sent is kept.','warn');
+  },
   'open-notifications':()=>{
+    const notes=(()=>{ try{ return ANNOUNCEMENTS.visibleTo(DB.db, AUTH.user); }catch(_e){ return []; } })();
     const ns=DB.db.notifications.filter(n=>n.userId===AUTH.user.id);
     ns.forEach(n=>n.read=true); DB.save();
-    openModal({title:'Notifications', body: ns.length? `<div class="col" style="gap:9px">${ns.slice(0,30).map(n=>`
+    const noticeCards = notes.length ? `<div class="col" style="gap:9px;margin-bottom:12px">
+      <div class="xs bold muted" style="text-transform:uppercase;letter-spacing:.06em">Scoped notices (${notes.length})</div>
+      ${notes.slice(0,20).map(a=>`<button class="row" style="gap:11px;padding:11px;border:1px solid var(--line);border-radius:10px;align-items:flex-start;width:100%;text-align:left;background:${a.seen&&a.seen[AUTH.user.id]?'transparent':'var(--surface-2)'}" data-act="notice-open" data-id="${esc(a.id)}">
+        <span style="color:${ANNOUNCEMENTS.SEVERITY[a.severity].tone==='crit'?'var(--crit)':ANNOUNCEMENTS.SEVERITY[a.severity].tone==='warn'?'var(--warn)':'var(--info)'};flex:0 0 18px">${ic(a.severity==='info'?'info':'alert',16)}</span>
+        <span style="flex:1"><span class="small bold">${esc(a.title)}</span>
+          <span class="xs muted" style="display:block">${esc(ANNOUNCEMENTS.SEVERITY[a.severity].label)} · ${esc(a.audienceLabel)} · ${esc(fmtDateTime(a.publishedAt))}</span>
+          ${a.needsAcknowledgement?`<span class="xs" style="display:block;color:var(--ink-3)">${a.acknowledged&&a.acknowledged[AUTH.user.id]?'Acknowledged':'Acknowledgement requested'}</span>`:''}
+        </span></button>`).join('')}
+      </div>` : '';
+    openModal({title:'Notifications', body: (noticeCards + (ns.length? `<div class="col" style="gap:9px">${ns.slice(0,30).map(n=>`
       <div class="row" style="gap:11px;padding:11px;border:1px solid var(--line);border-radius:10px;align-items:flex-start">
         <div style="color:${n.kind==='warn'?'var(--warn)':'var(--info)'};flex:0 0 18px">${ic(n.kind==='warn'?'alert':'info',16)}</div>
         <div style="flex:1"><div class="small bold">${esc(n.title)}</div><div class="xs muted">${esc(n.body)}</div>
         <div class="xs" style="margin-top:3px;opacity:.6">${fmtDateTime(n.at)}</div></div></div>`).join('')}</div>`
-      : emptyState('No notifications','Workflow updates assigned to you appear here.','bell'),
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>`});
+      : (notes.length? '' : emptyState('No notifications','Workflow updates and scoped notices addressed to you appear here.','bell')))),
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
+        <button class="btn btn-primary" data-act="notice-new">${ic('bell',14)} Publish a scoped notice</button>`});
     setTimeout(()=>render(),200);
   }
 };}
@@ -2807,11 +2979,15 @@ function aiActions(){ return {
       ok ? 'ok' : 'info');
   },
   'ai-save-cfg':async ()=>{
+    if(AUTH.user?.roleId!=='chief' || !RBAC.has(AUTH.user,'system.config'))
+      return toast('Not changed','Shared AI configuration belongs to the Chief System Administrator.','err');
     const cfg = AI.cfg();
     const urlEl = $('#aiCfgUrl'), modEl = $('#aiCfgModel'), modeEl = $('#aiCfgMode');
-    if(urlEl) cfg.ollama = String(urlEl.value||'http://127.0.0.1:11434').trim();
-    if(modEl) cfg.model = String(modEl.value||'llama3.2').trim();
+    if(urlEl) cfg.ollama = String(urlEl.value||'/api/ai').trim();
+    if(modEl) cfg.model = String(modEl.value||'carelink-online-v6.4').trim();
     if(modeEl) cfg.mode = String(modeEl.value||'auto').trim();
+    DB.db.settings.ai = cfg;
+    AUDIT.append({actor:AUTH.user.id,action:'settings.changed',entity:'setting',entityId:'ai',detail:'Shared AI configuration explicitly updated'});
     DB.save();
     AI.settingsOpen = false;
     await AI.ollamaProbe();
@@ -2873,11 +3049,11 @@ function field(label, name, type='text', opts={}){
   } else if(type==='textarea'){
     input=`<textarea class="input" id="${id}" name="${name}"${req} placeholder="${esc(opts.placeholder||'')}">${esc(val)}</textarea>`;
   } else if(type==='checkbox'){
-    return `<div class="checkline"><input type="checkbox" id="${id}" name="${name}" ${val?'checked':''}><label for="${id}" style="margin:0;font-weight:500">${esc(label)}</label></div>`;
+    return `<div class="checkline"><input type="checkbox" id="${id}" name="${name}"${req} ${val?'checked':''}><label for="${id}" style="margin:0;font-weight:500">${esc(label)}</label></div>`;
   } else if(type==='file'){
     input=`<input class="input" id="${id}" name="${name}" type="file" accept="${esc(opts.accept||'')}">`;
   } else {
-    input=`<input class="input" id="${id}" name="${name}" type="${type}" value="${esc(val)}"${req} placeholder="${esc(opts.placeholder||'')}" ${opts.min!==undefined?`min="${opts.min}"`:''}>`;
+    input=`<input class="input" id="${id}" name="${name}" type="${type}" value="${esc(val)}"${type==='number'?` step="${esc(opts.step??'any')}"`:''}${req} placeholder="${esc(opts.placeholder||'')}" ${opts.min!==undefined?`min="${opts.min}"`:''}>`;
   }
   return `<div class="field"><label for="${id}">${esc(label)}${opts.required?' <span style="color:var(--crit)">*</span>':''}</label>${input}
     ${opts.hint?`<div class="hint">${esc(opts.hint)}</div>`:''}</div>`;
@@ -2978,32 +3154,31 @@ const FORMS = {
   'request':()=>{},
   'newpdca':()=>{},
   'upload':async (d)=>{
-    const pid=d.get('patientId'); const p=DB.db.patients.find(x=>x.id===pid);
+    if(!FILEVAULT.available()) return toast('Upload unavailable',FILEVAULT.unavailableMessage,'err');
+    const pid=d.get('patientId'); const p=repo.patientList(AUTH.user).find(x=>x.id===pid);
+    if(!p || !RBAC.has(AUTH.user,'media.upload')) return toast('Not available','This patient or upload action is not available in your current scope.','err');
     const file=d.get('file');
     const doc={id:uid('doc'),patientId:pid,kind:d.get('kind'),classification:d.get('classification'),
-      uploadedBy:AUTH.user.id,uploadedAt:todayISO(),consent:p?.consent.status||'pending',
+      uploadedBy:AUTH.user.id,uploadedAt:todayISO(),consent:p?.consent?.status||'pending',
       publication:d.get('classification')==='story_material'?'pending_review':'not_eligible',
       restricted:!!d.get('restricted'),demo:false,fileStored:false};
     const hasFile=file && typeof file==='object' && file.size>0;
+    if(!hasFile) return toast('No file selected','Choose a file; no document record was saved.','warn');
     if(hasFile){
       const r=await FILEVAULT.store(file,{patientId:pid,kind:d.get('kind'),classification:d.get('classification'),
         note:d.get('note')||''});
       if(r.ok){ doc.fileStored=true; doc.fileId=r.id; doc.fileName=r.name; doc.fileBytes=r.bytes; doc.fileSha=r.sha256; doc.retention=r.retention; }
       else {
-        /* The metadata is kept, but the record must not claim the file exists. */
-        DB.db.documents.push(doc);
-        AUDIT.append({actor:AUTH.user.id,action:'document.upload_failed',entity:'patient',entityId:pid,detail:r.msg});
-        DB.save(); closeModal();
-        toast('Document recorded without its file', r.msg+' The record is marked as having no stored file.','err');
-        render(); return;
+        /* A rejected or unknown-outcome upload is not a saved document.
+           Do not create a misleading metadata row or silently retry. */
+        return toast('Upload not confirmed',r.msg+' No document record was saved. If the connection failed, check with the host administrator before retrying.','err');
       }
     }
     DB.db.documents.push(doc);
     AUDIT.append({actor:AUTH.user.id,action:'document.uploaded',entity:'patient',entityId:pid,
       detail:titleCase(d.get('kind'))+(doc.fileStored?` · file ${doc.fileName} · ${doc.fileBytes} bytes · sha ${String(doc.fileSha||'').slice(0,12)}`:' · no file attached')});
     DB.save(); closeModal();
-    toast('Document uploaded', doc.fileStored?'The file is stored on the host with its digest and retention class.'
-      :'The record was saved without a file. Choose a file next time, or attach it from the documents tab.','ok');
+    toast('File accepted by legacy host','The host returned a file receipt. Document metadata may still be pending synchronization; secure sharing is not configured.','warn');
     render();
   },
   'recon':()=>{},
@@ -3044,7 +3219,8 @@ function renderAIDock(){
   if(!dock){ dock=document.createElement('div'); dock.className='ai-dock'; document.body.appendChild(dock); }
   if(!RBAC.has(AUTH.user,'ai.use')){ dock.innerHTML=''; return; }
   const prof = AI.profileFor ? AI.profileFor(AUTH.user, APPX.view) : { title:'LOMAMO C-DIMS Assistant', badge:'Console AI', summary:'', chips:[] };
-  const cfg = AI.cfg ? AI.cfg() : { mode:'auto', ollama:'http://127.0.0.1:11434', model:'llama3.2' };
+  const cfg = AI.cfg ? AI.cfg() : { mode:'auto', ollama:'/api/ai', model:'carelink-online-v6.4' };
+  const mayConfigure = AUTH.user.roleId==='chief' && RBAC.has(AUTH.user,'system.config');
   const chipList = (prof.chips && prof.chips.length ? prof.chips : [
     'What is my caseload this week?',
     'Which patients need attention?',
@@ -3075,11 +3251,11 @@ function renderAIDock(){
           </span>
           <span class="row" style="gap:4px">
             <button type="button" class="btn btn-xs btn-ghost" data-act="ai-probe-dock">${AI.busy?'Testing...':'Test Ollama'}</button>
-            <button type="button" class="btn btn-xs btn-ghost" data-act="ai-toggle-cfg">${AI.settingsOpen?'Hide config':'Model & URL'}</button>
+            ${mayConfigure?`<button type="button" class="btn btn-xs btn-ghost" data-act="ai-toggle-cfg">${AI.settingsOpen?'Hide config':'Model & URL'}</button>`:''}
             ${AI.history.length?`<button type="button" class="btn btn-xs btn-ghost" data-act="ai-clear-chat">Clear</button>`:''}
           </span>
         </div>
-        ${AI.settingsOpen ? `<div class="card" style="padding:10px;margin-bottom:10px">
+        ${AI.settingsOpen && mayConfigure ? `<div class="card" style="padding:10px;margin-bottom:10px">
           <div class="xs bold" style="margin-bottom:6px">Online / LAN Ollama &amp; Offline Engine Configuration</div>
           <div class="grid g2" style="gap:6px">
             <div class="field" style="margin:0"><label class="xs">Mode</label>
@@ -3129,7 +3305,7 @@ function formatAIText(t){
 /* ---------------- User menu ---------------- */
 function userMenu(){
   const u=AUTH.user; const role=roleObj(u.roleId);
-  const demoPreviewAllowed = !(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+  const demoPreviewAllowed = !(typeof trialEntryActive==='function' && trialEntryActive()) && !(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   openModal({title:u.name, sub:`${role.name} · ${deptName(u.departmentId)}`, narrow:true, body:`
     <dl class="dl">
       <dt>Username</dt><dd class="mono">${esc(u.username)}</dd>

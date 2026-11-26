@@ -214,14 +214,14 @@ function renderExecConsole(user){
     </div>` : emptyState('No agenda open','The Country Director has not published the next agenda.','calendar'));
 
   const actionsCard = card(`Executive Action & Follow-Up Matrix (${openActions.length} open · ${doneActions.length} completed)`,
-    allActions.length ? table([
+    allActions.length ? `<div class="exec-action-matrix">${table([
       { label:'Action Item', render:a=>`<div class="cellname">${esc(a.text)}<span class="sm">${esc(a.meeting)}</span></div>` },
       { label:'Lead Owner', render:a=>`<span class="small">${esc(userName(a.owner)||'-')}</span>` },
       { label:'Due Date', cls:'mono', render:a=>fmtDate(a.due) },
       { label:'Status', render:a=>(a.done||a.status==='done') ? badge('Completed','b-ok') : badge(a.priority==='high'?'Urgent Open':'Open','b-warn') },
       { label:'', cls:'act', render:a=>(!a.done && a.status!=='done' && RBAC.has(user,'exec.manage'))
         ? `<button class="btn btn-xs btn-primary" data-act="exec-done" data-m="${esc(a.meetingId)}" data-i="${a.actionIdx}">Mark done</button>` : '' }
-    ], sheet==='actions' ? allActions : openActions.concat(doneActions.slice(0,2))) : emptyState('Every action is closed','Nothing is outstanding from executive sittings.','check'));
+    ], sheet==='actions' ? allActions : openActions.concat(doneActions.slice(0,2)))}</div>` : emptyState('Every action is closed','Nothing is outstanding from executive sittings.','check'));
 
   const archiveCards = meetings.map(m=>card(`${esc(m.title)} · ${fmtDate(m.date)}`,
     `<div class="exec-meta-strip">
@@ -268,6 +268,7 @@ function renderExecConsole(user){
       ${kpi('Agenda & resolutions', `${num(totalAgenda)} / ${num(totalMinutes)}`, 'Published items vs recorded minutes', 'ok', 'clipboard')}
       ${kpi('Executive actions', num(openActions.length), openActions.length ? `${num(doneActions.length)} completed · ${num(openActions.length)} open` : '100% closed on schedule', openActions.length?'warn':'ok', 'target')}
     </div>`
+  + executiveCommitteePanel(user)
   + tabBar
   + (sheet==='agenda' ? agendaCard
     : sheet==='actions' ? actionsCard

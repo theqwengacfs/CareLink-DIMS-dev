@@ -133,6 +133,15 @@ ROLES.forEach(r=>{
   });
 });
 
+/* Individually provisioned oversight seats. No shared credentials or clinical
+   editing privileges; named occupants must be confirmed before activation. */
+const BOARD_ROLE_IDS=['founder','cofounder','board.member','intl.advisory','intl.finance','intl.legal','intl.data'];
+for(const [id,name,section] of [
+  ['founder','Founder / President / CEO','admin'],['cofounder','Co-Founder','admin'],
+  ['board.member','Board Member','exec'],['intl.advisory','International Advisory Team','exec'],
+  ['intl.finance','International Finance Officer','finance'],['intl.legal','International Legal Officer','exec'],['intl.data','International Data Officer','exec']
+])ROLES.push({id,name,dept:section,accent:'#243c75',consoleTitle:'Foundation Board & Oversight',external:id.startsWith('intl.'),scope:{geo:'county',records:'own',readOnly:true},perms:['gov.oversight','presence.view']});
+
 const EXEC_DEFAULT = ['chief.admin','director','president','program.admin','program.assistant','mcm.kisumu','kisumu.admin','homabay.admin'];
 
 /* ---------------- 4. Programme duration reference ---------------- */
@@ -178,6 +187,8 @@ const OFFICIAL_ROSTER = [
   { name:'President / Board Chair (seat to be confirmed)', username:'president', roleId:'president',   countyId:'kisumu',  areas:[], dept:'exec',     job:'President, LOMAMO Foundation', unconfirmed:true },
   { name:'Irene Atieno Omondi',                   username:'program.admin',       roleId:'program.admin',     countyId:'kisumu',  areas:[], dept:'exec',     job:'Internal Operations Manager' },
   { name:'Programme Office Assistant (seat to be confirmed)', username:'program.assistant', roleId:'program.assistant', countyId:'kisumu', areas:[], dept:'exec', job:'Program Administrator Assistant', unconfirmed:true },
+
+  ...BOARD_ROLE_IDS.map(roleId=>({name:(ROLES.find(r=>r.id===roleId)?.name||roleId)+' (seat to be confirmed)',username:roleId==='intl.data'?'intl.data.oversight':roleId,roleId,countyId:'kisumu',areas:[],dept:['founder','cofounder'].includes(roleId)?'admin':'exec',job:ROLES.find(r=>r.id===roleId)?.name,unconfirmed:true})),
 
   /* Chief system administration and distinct county administration seats */
   { name:'Daniel Naphtaly Ombija',         username:'chief.admin',         roleId:'chief',             countyId:'kisumu',  areas:[], dept:'admin',    job:'Chief System Administrator, LOMAMO Foundation' },
@@ -409,7 +420,7 @@ function enrichV6Collections(db, T){
   /* Public Relations stakeholders, enquiries, media studio projects, messages & calendar */
   if(!db.stakeholders || !db.stakeholders.length){
     db.stakeholders = [
-      { id:'stk-001', name:'JOOTRH Social Work & Oncology Unit', kind:'Referral hospital', county:'Kisumu', contact:'Focal Desk · 0712 340 890', status:'active', note:'Primary tertiary referral partner for oncology, TB & complex inpatient care.' },
+      { id:'stk-001', name:'JOOTRH Social Work & Oncology Unit', kind:'Referral hospital', county:'Kisumu', contact:'Synthetic referral desk · 0700 510001', status:'active', note:'Primary tertiary referral partner for oncology, TB & complex inpatient care.' },
       { id:'stk-002', name:'Kisumu County Department of Health (CHMT)', kind:'County government', county:'Kisumu', contact:'Sub-County CHS Coordinator', status:'active', note:'Community health strategy & non-official data verification alignment.' },
       { id:'stk-003', name:'Homa Bay County Referral Hospital', kind:'Referral hospital', county:'Homa Bay', contact:'Outpatient Liaison Desk', status:'active', note:'Homa Bay Town cluster referral & SHA verification partner.' },
       { id:'stk-004', name:'Local Church & Community Orphan-Prevention Network', kind:'Community partner', county:'Kisumu', contact:'Pastoral & Household Support Desk', status:'active', note:'Household nutrition, Upper Room discipleship and guardian support.' }
@@ -474,7 +485,7 @@ function enrichV6Collections(db, T){
       countyId:'kisumu', areaIds:[], departmentId:'intldata', jobTitle:'International Data & Global Verification Lead',
       reportsTo:'u-chief', status:'active', active:true, mustChange:false, provisioned:true, demo:true,
       salt, hash:strongHash('LOMAMO2026', salt), /* Mock login alias only; no email delivery is configured. */
-      email:'intl.data@lomamofoundation.org', phone:'0700000010',
+      email:'intl.data@lomamo.example', phone:'0700300010',
       createdBy:'u-chief', created:ago(180), lastLogin:ago(1)
     });
   }
@@ -561,10 +572,10 @@ function enrichV6Collections(db, T){
   if(!Array.isArray(db.accountRequests) || db.accountRequests.length < 2){
     db.accountRequests = [
       { id:'acr-seed-1', at:ago(1), name:'Beatrice Akinyi Ochieng', roleId:'caregiver', countyId:'kisumu', assignedCountyId:'kisumu',
-        assignedAdminUsername:'kisumu.admin', urgent:true, contact:'0700201104', email:'beatrice.akinyi@lomamofoundation.org',
+        assignedAdminUsername:'kisumu.admin', urgent:true, contact:'0700101104', email:'beatrice.akinyi@lomamo.example',
         reason:'Newly assigned Nyalenda Cluster B field caregiver — requires mobile tablet sign-in before Monday area briefing.', status:'open', demo:true },
       { id:'acr-seed-2', at:ago(2), name:'Samuel Odhiambo Otieno', roleId:'assistant', countyId:'homabay', assignedCountyId:'homabay',
-        assignedAdminUsername:'homabay.admin', urgent:true, contact:'0700201198', email:'samuel.otieno@lomamofoundation.org',
+        assignedAdminUsername:'homabay.admin', urgent:true, contact:'0700101198', email:'samuel.otieno@lomamo.example',
         reason:'Homa Bay County Office hard-copy intake filing desk support — requires verified County Office account.', status:'open', demo:true }
     ];
   }
@@ -706,13 +717,12 @@ function enrichV6Collections(db, T){
 }
 
 function seedOfficial(db, now, opts={}){
-  /* Anchored to midnight, not to 09:00. Days in programme are counted from the
-     intake timestamp to now; with a 09:00 anchor a run before nine in the
-     morning made every patient one day shorter than the seed intended, which
-     moved the 45-240 / 241-330 distribution off its stated profile. */
-  const T = new Date(now); T.setHours(0,0,0,0);
+  /* Anchor the generated civil dates to the current Kenyan programme day.
+     CARE_RULES measures programme days in Africa/Nairobi (UTC+03), so using
+     the UTC calendar day here shifts the register by one day after 21:00 UTC. */
+  const T = new Date(new Date(now).getTime() + 3 * 3600000); T.setUTCHours(0,0,0,0);
   const DAY = 86400000;
-  const rnd = rng6(20261022);
+  const rnd = rng6(Number.isInteger(opts.seed) ? opts.seed : 20261022);
   const pick = a => a[Math.floor(rnd()*a.length)];
   const int = (a,b) => a + Math.floor(rnd()*(b-a+1));
   const iso = d => new Date(d).toISOString();
@@ -776,7 +786,7 @@ function seedOfficial(db, now, opts={}){
       reportsTo:officialReportsTo(r),
       status:'active', active:true, mustChange:mustChangeFlag, provisioned:true, demo:true,
       salt, hash:strongHash('LOMAMO2026', salt),
-      email:(r.emailLocal||r.username)+'@lomamofoundation.org', phone:'0700' + String(300000 + (i*13799) % 99999).padStart(6,'0'),
+      email:r.username+'@lomamo.example', phone:'0700' + String(300000 + (i*13799) % 99999).padStart(6,'0'),
       createdBy:'u-chief-admin', created:iso(new Date(T.getTime()-420*DAY)), lastLogin:iso(new Date(T.getTime()-(i%7)*DAY)),
       execTeam:EXEC_DEFAULT.includes(r.username),
       /* Administration's own scheduling data, carried on the account so the
@@ -851,13 +861,13 @@ function seedOfficial(db, now, opts={}){
     sofia:['Sofia Estate','Asego','Salama']
   };
   const careObjectives = [
-    ['ART adherence >=95% & viral suppression','Monthly nutrition basket & +3 kg weight recovery','All household children retained in school'],
+    ['ART adherence >=95% & viral suppression','Monthly nutrition basket & +3 kg weight recovery','Dependent-child nutrition and guardian care reviewed'],
     ['Complete specialist hospital review & diagnostics','Stabilise blood pressure / blood glucose within target','Strengthen guardian household income resilience'],
     ['Complete full TB / infection treatment course','Clean wound healing & pain-free mobility','30-day PDCA household hygiene & safe water check'],
     ['Prevent maternal/guardian hospital readmission','Immunisation & MUAC growth catch-up for under-5s','Prepare household graduation & CHU continuity link']
   ];
   const visitSummaries = [
-    'Home visit completed with guardian; ART & medication adherence >=95%, monthly nutrition basket verified, children attending school regularly.',
+    'Home visit completed with guardian; ART & medication adherence >=95%, monthly nutrition basket verified, dependent-child nutrition and guardian care reviewed.',
     'Vitals and weight checked at household; steady clinical improvement noted, safe water & hygiene counselling reinforced.',
     '30-day PDCA household assessment conducted; caregiver reviewed clinic appointment card, nutrition progress and child welfare.',
     'Follow-up after hospital clinic review; prescriptions taken as directed, appetite and functional mobility improving well.'
@@ -1063,7 +1073,7 @@ function seedOfficial(db, now, opts={}){
         notes: 'Enrolled under ' + area.name + ' cluster; 30-day PDCA clinical & household nutrition plan active.'
       },
       carePlan:{
-        needs: diag + ' clinical stabilisation, household food security and child schooling continuity in ' + village,
+        needs: diag + ' clinical stabilisation, household food security and dependent-child wellbeing in ' + village,
         objectives: objSet,
         interventions: 'Bi-weekly caregiver home visits, monthly nutrition support, 30-day PDCA review and hospital clinic linkage.',
         responsible: caregiver,
@@ -1210,9 +1220,9 @@ function seedOfficial(db, now, opts={}){
         dueDay:dueD,
         stage:'Check',
         title:'Day-' + dueD + ' Formal 30-Day Care Plan Review',
-        plan:'Review clinical stability (' + diag + '), weight recovery and child schooling at Day ' + dueD + '.',
+        plan:'Review clinical stability (' + diag + '), weight recovery and household nutrition at Day ' + dueD + '.',
         doNote:'Household visit and guardian review completed on schedule.',
-        checkNote:'Weight ' + currWt + ' kg, adherence ' + pObj.clinical.adherence + '; all children in school.',
+        checkNote:'Weight ' + currWt + ' kg, adherence ' + pObj.clinical.adherence + '; household nutrition and guardian care reviewed.',
         actNote: dueD >= planned ? 'Prepare graduation readiness & continuity referral.' : 'Continue active care plan to next 30-day milestone.',
         due:revDate,
         completedAt:revDate,
@@ -1274,7 +1284,7 @@ function seedOfficial(db, now, opts={}){
     const supAmt = 1400 + (i % 6) * 450;
     const supItem = pick(SUPPORT_ITEMS);
     const supOffset = (i % 90) * 3;
-    const supWhen = Math.min(Date.now(), intake.getTime() + supOffset * DAY);
+    const supWhen = Math.min(T.getTime(), intake.getTime() + supOffset * DAY);
     const supDate = iso(new Date(supWhen)).slice(0, 10);
     supportIssues.push({
       id:'sup-'+pid, patientId:pid, countyId:area.countyId, areaId:area.id,
@@ -1301,7 +1311,7 @@ function seedOfficial(db, now, opts={}){
         id:rid, no:reqNo, code:reqNo, patientId:pid,
         requestedBy:caregiver, caregiverId:caregiver, countyId:area.countyId, areaId:area.id,
         status:st, submittedAt:subIso, createdAt:subIso.slice(0,10),
-        patientContact: pObj.phone || '0700000000',
+        patientContact: pObj.phone || '0700100000',
         shaStatus: pick(['Active','Active','Pending registration']),
         chiefComplaints: pick(['Cervical screening & GOPC review','Persistent cough & MOPC chest review','Chronic wound SOPC review','Physiotherapy neuro-rehab session','Paediatric POPC growth review']),
         reason: pick(['Specialist MOPC clinical review & lab panel at '+fac,'GOPC screening results & treatment plan at '+fac,'SOPC surgical wound review at '+fac,'Physiotherapy rehabilitation session at '+fac,'Onward specialist clinic review at '+fac]),
@@ -1407,7 +1417,7 @@ function seedOfficial(db, now, opts={}){
   db.patientConditions = patientConditions;
 
   enrichV6Collections(db, T);
-  if(typeof DUALCHECK !== 'undefined' && DUALCHECK.ensureStore) DUALCHECK.ensureStore(db);
+  if(!opts.deterministic && typeof DUALCHECK !== 'undefined' && DUALCHECK.ensureStore) DUALCHECK.ensureStore(db);
   return db;
 }
 
@@ -1421,7 +1431,7 @@ function librarySeed(users){
     ['Programme','LOMAMO Constitution and Bylaws (Governance Reference)','governance','22 July 2025','Governing constitution and board accountability framework.'],
     ['Programme','LOMAMO C-DIMS Trial Usage Report, 31 August 2026','research','final','Findings from the field trial and user journey refinements closed in v6.'],
     ['Medical','LOMAMO Adult Patient Assessment Form (LMMK 001)','form','current','Paper form reproduced field for field with National ID returning-patient check first.'],
-    ['Medical','LOMAMO Minor Child Assessment & Orphan Prevention Form (LMMK 004)','form','current','Child health, guardian household capacity and schooling protection form.'],
+    ['Medical','LOMAMO Minor Child Assessment & Orphan Prevention Form (LMMK 004)','form','current','Child health, guardian household capacity and nutrition assessment form.'],
     ['Medical','LOMAMO Outpatient & Inpatient Hospital Visit Forms (LMMK 020)','form','current','Used by Hospital Focal Persons at JOOTRH, Kisumu County Referral and Homa Bay Referral.'],
     ['Medical','Omaha System Care Plan & KBS Rating Reference','reference','v2','Worked HIV/TB, nutrition and chronic care plans used in clinical case management.'],
     ['Finance','County Monthly Budget & Expenditure Controls Workbook FY2026','workbook','October 2026','Configurable expenditure categories, MPESA reference rules and reconciliation checks.'],
@@ -1666,7 +1676,7 @@ function usageScore(user, db){
   const openPdca = c.openPdcaByOwner[user.id] || 0;
   const parts = [
     { k:'Records registered', w:30, v: mineLen ? Math.min(1, mineLen/Math.max(20, mineLen*0.85)) : 0, note:mineLen+' patients in scope' },
-    { k:'Field documentation', w:25, v: mineLen ? documented/mineLen : 0, note:documented+' of '+mineLen+' verified' },
+    { k:'Field documentation', w:25, v: mineLen ? documented/mineLen : 0, note:documented+' of '+mineLen+' marked verified' },
     { k:'Activity recorded', w:20, v: Math.min(1, visitLen/Math.max(12, mineLen*0.35||1)), note:visitLen+' visits' },
     { k:'Identity completeness', w:15, v: mineLen ? withId/mineLen : 0, note:withId+' national IDs captured' },
     { k:'Follow-up discipline', w:10, v: mineLen ? Math.max(0, 1 - openPdca/Math.max(1,mineLen)) : 0, note:openPdca+' open PDCA' }
@@ -1680,4 +1690,59 @@ function scoreBand(score){
   if(score>=60) return { name:'Silver', tone:'neutral', coins:2 };
   if(score>=40) return { name:'Bronze', tone:'neutral', coins:1 };
   return { name:'Building', tone:'crit', coins:0 };
+}
+
+
+/* A reproducible evaluation estate, not a production roster. The reference
+   service uses this at runtime; no generated rows are committed or embedded.
+   Official person names stay in OFFICIAL_ROSTER for real account issuance only. */
+function seedSyntheticDataset(db, now=new Date('2026-11-22T00:00:00.000Z'), opts={}){
+  const anchor = new Date(now), seed = Number.isInteger(opts.seed) ? opts.seed : 20261022;
+  seedOfficial(db, anchor, {...opts, seed, deterministic:true});
+  const names = new Map();
+  (db.users||[]).forEach((u,i)=>{
+    const label = u.unconfirmed ? u.name : 'Synthetic Staff ' + String(i+1).padStart(3,'0');
+    if(!u.unconfirmed) names.set(u.name,label);
+    u.name=label; u.email=u.username+'@lomamo.example'; u.phone='07003'+String(i+1).padStart(5,'0');
+    u.synthetic=true; u.demo=true;
+  });
+  (db.employees||[]).forEach((e,i)=>{
+    const user=(db.users||[]).find(u=>u.id===e.userId);
+    e.name=user ? user.name : 'Synthetic Roster ' + String(i+1).padStart(3,'0');
+    e.email=(e.username||('roster.'+(i+1)))+'@lomamo.example';
+    e.phone='07005'+String(i+1).padStart(5,'0');
+  });
+  // Seat notes and attribution strings can embed a real roster name even when
+  // their own name field is synthetic. Replace full names throughout evaluation
+  // text; this never changes OFFICIAL_ROSTER or a real staff-account export.
+  const personPattern=new RegExp([...names.keys()].sort((a,b)=>b.length-a.length)
+    .map(name=>name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
+  let contact=1;
+  const walk=(value,key='')=>{
+    if(Array.isArray(value)){
+      value.forEach(row=>{if(row && typeof row==='object' && !Array.isArray(row)) row.synthetic=true; walk(row,key);});
+    }else if(value && typeof value==='object'){
+      if(value.id) value.synthetic=true;
+      Object.keys(value).forEach(k=>{
+        const v=value[k];
+        if(typeof v==='string'){
+          if(names.size) value[k]=v.replace(personPattern,name=>names.get(name));
+          if(/email/i.test(k) && v.includes('@')) value[k]=(value.username||('demo.'+(contact++)))+'@lomamo.example';
+          if(/phone|mobile|contact|telephone/i.test(k) && /(?:0|254)[17][0-9 ()-]{7,}/.test(v)){
+            if(!/^0700[135]\d{5}$/.test(v)) value[k]='07001'+String(contact++).padStart(5,'0');
+          }
+        }else walk(v,k);
+      });
+    }
+  };
+  walk(db);
+  (db.patients||[]).forEach((p,i)=>{
+    p.synthetic=true; p.demo=true;
+    p.phone='07001'+String(i+1).padStart(5,'0');
+    p.nationalId=String(91000000+i+1); p.ccc='CCC/'+String(900000+i+1);
+    p.docsVerified=true;
+  });
+  db.meta={...db.meta,created:anchor.toISOString(),installationId:'SYN-'+seed,
+    label:'Synthetic evaluation estate — no real patients or staff',synthetic:true,demoMode:true,realPatientData:false,seed,anchor:anchor.toISOString()};
+  return db;
 }

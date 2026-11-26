@@ -439,7 +439,7 @@ const CARELINK_GOVERNANCE = {
       title: 'Safeguarding & Child Protection Policy (Children Act, 2022)',
       owner: 'Safeguarding Lead · Staff Welfare · Homestay & Care Centre · HR',
       legalBasis: 'Kenya Children Act, 2022 (§27 Privacy & Best Interests) · Sexual Offences Act · LOMAMO Safeguarding Code',
-      summary: 'Protects children at risk of orphanhood and critically ill adults across home visits, hospital escorts, school support, Alumni mentorship and Care Centre placements.',
+      summary: 'Protects children at risk of orphanhood and critically ill adults across home visits, hospital escorts, nutrition support, Alumni mentorship and Care Centre placements.',
       controls: [
         'Zero Tolerance Code: Binding prohibition on physical, emotional, sexual or financial exploitation of beneficiaries or children by any staff member, caregiver, Alumni mentor, intern or volunteer.',
         'Child-Specific Privacy & Care Chains: Documented guardianship (`Households & Care Chains`) during parent hospitalisation, and heightened child privacy review before any media/donor mention.',
@@ -677,9 +677,9 @@ const CARELINK_GOVERNANCE = {
     } else {
       body = `<div class="gov67-charter-grid">
         ${this.CHARTER_SECTIONS.map(sec => `<article class="gov67-sec-card">
-          <div class="spread" style="gap:8px;align-items:flex-start">
+          <div class="gov67-sec-meta">
             <span class="badge ${sec.tone}">${esc(sec.badge)}</span>
-            <span class="xs mono muted">${esc(sec.visibility)}</span>
+            <span class="gov67-sec-visibility xs mono muted">${esc(sec.visibility)}</span>
           </div>
           <h3>${esc(sec.title)}</h3>
           <div class="xs muted" style="margin-bottom:6px"><b>Custodian:</b> ${esc(sec.owner)} · <b>Basis:</b> ${esc(sec.legalBasis)}</div>
@@ -795,11 +795,11 @@ const WORKSPACE_LAYOUTS = {
         <div class="row" style="gap:6px;flex-wrap:wrap">
           ${roleTabs.map(t => `<button type="button" class="ctx-rtab ${t.v === (ctx.currentView || 'home') ? 'on' : ''}" data-act="go" data-v="${esc(t.v)}">${ic(t.ic || 'file', 13)}<span>${esc(t.l)}</span></button>`).join('')}
         </div>
-        ${(!ctx.currentView || ctx.currentView === 'home') ? `<div class="seg ws67-mode-seg no-print" role="group" aria-label="Console workspace layout mode">
+        ${(!ctx.currentView || ctx.currentView === 'home') ? `<details class="ws67-layout-options no-print"><summary>${ic('layers',13)} Layout</summary><div class="seg ws67-mode-seg" role="group" aria-label="Console workspace layout mode">
           <button type="button" class="${mode === 'smart' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="smart">Decongested Deck</button>
           <button type="button" class="${mode === 'tabbed' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="tabbed">Focused Tabs</button>
           <button type="button" class="${mode === 'full' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="full">Expanded Stack</button>
-        </div>` : ''}
+        </div></details>` : ''}
       </div>`;
     const introText = (roleSpec && roleSpec.summary) || `${role.consoleTitle || 'Department Console'} — ${ctx.dateStr}. ${ctx.scopeText}`;
     const quickMetricsHtml = qtabs.length ? `<div class="ws67-qgrid hero-qtabs" role="group" aria-label="Key console metrics">
@@ -818,9 +818,11 @@ const WORKSPACE_LAYOUTS = {
           <p class="ws67-sub">${esc(introText)}</p>
           <div class="ws67-actions">
             ${ctx.actionsHtml || ''}
+            <details class="ws67-workspace-tools"><summary>${ic('settings',13)} Workspace tools</summary><div class="ws67-workspace-tools-body">
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="open-switch-account">${ic('users', 13)} Switch Account</button>
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="wtheme-open" data-tab="studio">${ic('palette', 13)} Themes &amp; Style</button>
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="arrange-home">${ic('settings', 13)} Arrange</button>
+            </div></details>
           </div>
         </div>
         ${quickMetricsHtml}
@@ -875,25 +877,28 @@ const WORKSPACE_LAYOUTS = {
       const primary = contentCards.slice(0, 2);
       const secondary = contentCards.slice(2);
       const secIdx = Math.min(secondary.length - 1, Math.max(0, this.sectionTabFor(user)));
+      // Sections containing critical/alert markup remain expanded. Disclosure is presentation only:
+      // all authorised modules and their actions stay in the document.
+      const needsAttention = secondary.some(c => /class=["'][^"']*\b(?:crit|b-crit|rb-crit|is-alert)\b/.test(c));
+      const moreOpen = needsAttention || Boolean(this._moreOpen && this._moreOpen[user.id]);
       cardsHtml = `<div class="ws67-primary-grid arch-${esc(arch.id)}">
           ${primary.map(c => `<div class="ws67-primary-slot">${c}</div>`).join('')}
         </div>
-        <section class="ws67-secondary-drawer" aria-label="Additional console modules">
-          <div class="ws67-drawer-head">
-            <div>
-              <span class="ws67-drawer-tag">SECONDARY WORKSPACE MODULES (${secondary.length})</span>
-              <span class="xs muted">Select any module tab below — keeps your main workspace clean and uncongested.</span>
-            </div>
-          </div>
+        <details class="ws67-secondary-drawer ws67-more-workspaces" data-workspace-more="${esc(user.id)}" ${moreOpen?'open':''}>
+          <summary class="ws67-drawer-head">
+            <span><span class="ws67-drawer-tag">MORE IN YOUR WORKSPACE</span>
+              <span class="ws67-more-description">${secondary.length} additional modules · Open when you need them${needsAttention?' · Attention flagged':''}</span>
+            </span><span class="ws67-more-count" aria-hidden="true">${secondary.length}</span>
+          </summary><div class="ws67-more-body">
           <div class="tabs ws67-mod-tabs" role="tablist">
             ${secondary.map((c, idx) => `<button type="button" class="tab ${idx === secIdx ? 'active' : ''}" data-act="ws-sec-tab" data-idx="${idx}">${esc(this.extractTitle(c, 'Module ' + (idx + 3)))}</button>`).join('')}
           </div>
           <div class="ws67-mod-stage">${secondary[secIdx]}</div>
-          <details class="ws67-all-modules-toggle">
-            <summary class="xs muted">Show all ${secondary.length} remaining modules simultaneously</summary>
+          ${secondary.length>1?`<details class="ws67-all-modules-toggle">
+            <summary class="xs muted">Show the other ${secondary.length-1} modules together</summary>
             <div class="ws67-stack" style="margin-top:12px">${secondary.filter((_, idx) => idx !== secIdx).join('')}</div>
-          </details>
-        </section>`;
+          </details>`:''}
+        </div></details>`;
     } else {
       cardsHtml = `<div class="${contentCards.length === 2 ? 'ws67-primary-grid arch-' + esc(arch.id) : 'ws67-stack'}">${contentCards.join('')}</div>`;
     }
@@ -1134,6 +1139,8 @@ Object.assign(ACTIONS, {
     DB.db.personalPrefs = DB.db.personalPrefs || {};
     DB.db.personalPrefs[AUTH.user.id] = DB.db.personalPrefs[AUTH.user.id] || {};
     DB.db.personalPrefs[AUTH.user.id].homeSecIdx = Number(d.idx) || 0;
+    WORKSPACE_LAYOUTS._moreOpen = WORKSPACE_LAYOUTS._moreOpen || {};
+    WORKSPACE_LAYOUTS._moreOpen[AUTH.user.id] = true;
     DB.save();
     render();
   }
@@ -1170,4 +1177,17 @@ if(typeof document !== 'undefined' && document.addEventListener){
       if(out) out.innerHTML = `${ic('alert', 15)}<span>Could not compute local SHA-256 digest.</span>`;
     }
   });
+}
+
+/* Native details keyboard behaviour is retained. Keep disclosure state in
+   memory per signed-in user, not in clinical data or shared preferences. */
+if(typeof document !== 'undefined' && document.addEventListener){
+  document.addEventListener('toggle', ev => {
+    const target = ev.target;
+    if(!target || !target.getAttribute || !target.isConnected) return;
+    const owner = target.getAttribute('data-workspace-more');
+    if(!owner || !AUTH.user || owner !== AUTH.user.id) return;
+    WORKSPACE_LAYOUTS._moreOpen = WORKSPACE_LAYOUTS._moreOpen || {};
+    WORKSPACE_LAYOUTS._moreOpen[owner] = target.open;
+  }, true);
 }

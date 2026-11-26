@@ -296,7 +296,7 @@ const HOUSEHOLD = {
   /* ---------------- console ---------------- */
   render(user, params={}){
     if(!RBAC.has(user,'household.view')) return deniedPanel('household.view');
-    Object.keys(params||{}).forEach(k=>{ if(k in HOUSEHOLD_STATE && params[k]!==undefined) HOUSEHOLD_STATE[k]=params[k]; });
+    applyRouteState(HOUSEHOLD_STATE,params);
     const st = HOUSEHOLD_STATE;
     const rows = this.households(user, {q:st.q, areaId:st.areaId});
     const people = rows.reduce((n,r)=>n+r.members.length,0);

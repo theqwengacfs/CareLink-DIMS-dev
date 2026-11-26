@@ -1,36 +1,23 @@
 /* ============================================================
    views_entry.js - Public landing page and sign-in entry
-   The landing page is the organisation's front door: navy and
-   gold, one screen, one action. The sign-in page is separate,
-   quiet and white. No console data appears on either.
+   The landing page is the organisation's letterhead front door:
+   white space, emblem red and one clear action. The separate
+   sign-in form stays white in both official entry identities. No console data appears on either.
    ============================================================ */
 
-/* Ten landing identities. Each is a different arrangement and palette, not a
-   recolour of one page. The workspace accent is deliberately separate: a theme
-   changes only the public front door. */
-const LANDING_THEMES = [
-{ id:'heritage', name:'LOMAMO Red', blurb:'LOMAMO Foundation black, white and grey with a red accent, inspired by the Foundation emblem.', accent:'#ED0000', mode:'dark' },
-  { id:'clinic',   name:'Foundation White', blurb:'Luminous architectural pure white with crisp slate typography and royal sapphire accent.', accent:'#1E3A8A', mode:'light' },
-  { id:'dawn',     name:'Dawn',          blurb:'Warm sunrise gradient, centred hero, soft cards. Optimistic and open.', accent:'#F97316', mode:'dark' },
-  { id:'editorial',name:'Editorial',     blurb:'Magazine layout: oversized serif headline, rule lines, one column of text.', accent:'#7C2D12', mode:'light' },
-  { id:'canopy',   name:'Canopy',        blurb:'Deep green, organic shapes, layered leaves of colour. Rooted and human.', accent:'#15803D', mode:'dark' },
-  { id:'signal',   name:'Signal',        blurb:'High-contrast black with a vivid spectrum bar. Direct and modern.', accent:'#E11D48', mode:'dark' },
-  { id:'sand',     name:'Sandstone',     blurb:'Earth tones, wide type, photograph band across the base. Grounded.', accent:'#B45309', mode:'light' },
-  { id:'violet',   name:'Violet hour',   blurb:'Indigo, violet glow and a glassy panel. Contemporary and calm.', accent:'#7C3AED', mode:'dark' },
-  { id:'paper',    name:'Paper',         blurb:'Off-white, black rules, small caps. Plain, documentary, unfussy.', accent:'#111827', mode:'light' },
-  { id:'spectrum', name:'Spectrum',      blurb:'A full visible-light ribbon running through the page. Vibrant and celebratory.', accent:'#2563EB', mode:'dark' }
-];
-const DEFAULT_THEME = 'heritage';
+/* Exactly two official entry identities; both landing and sign-in read the
+   same Chief-owned system.config value. Preview state never enters the DB. */
+const LANDING_THEMES = ENTRY_THEMES;
+const DEFAULT_THEME = 'clinic';
 function landingTheme(){
-  const preview = DB.db && DB.db.settings && DB.db.settings._landingPreview;
-  if(preview) return LANDING_THEMES.find(t=>t.id===preview) || LANDING_THEMES[0];
-  const explicitLocal = DB.db && DB.db.settings && DB.db.settings.landingTheme;
-  const hostLanding = typeof APPX !== 'undefined' && APPX.host && APPX.host.landingTheme;
-  const cachedLanding = typeof DB !== 'undefined' && typeof DB.loadLocalPrefs === 'function' && (DB.loadLocalPrefs()||{}).landingTheme;
-  const id = (explicitLocal && explicitLocal !== DEFAULT_THEME)
-    ? explicitLocal
-    : (hostLanding || explicitLocal || cachedLanding || DEFAULT_THEME);
-  return LANDING_THEMES.find(t=>t.id===id) || LANDING_THEMES[0];
+  if(ENTRY_THEME.previewId) return ENTRY_THEME.tokens(ENTRY_THEME.previewId);
+  const settings=DB.db && DB.db.settings || {};
+  const config=settings.system && settings.system.config || {};
+  const host=typeof APPX!=='undefined' && APPX.host;
+  const saved=ENTRY_THEMES.some(t=>t.id===config.entryTheme) ? config.entryTheme :
+    (settings.landingThemeExplicit ? settings.landingTheme : null);
+  const id=(host && host.landingTheme) || saved || DEFAULT_THEME;
+  return ENTRY_THEME.tokens(id);
 }
 
 function renderLanding(){
@@ -126,6 +113,13 @@ function refreshPublicFeed(){
 
 function renderPublicPortal(params={}){
   const C = PORTAL_CONTENT;
+  /* Ask the server for the reviewed aggregates once per page load. It is a public
+     read, so it cannot fail into anything sensitive: if it does not answer, the
+     page keeps the Foundation's own reported totals and says so. */
+  if(typeof PORTAL_STATS_LIVE!=='undefined' && !PORTAL_STATS_LIVE.data && !PORTAL_STATS_LIVE.loading && !PORTAL_STATS_LIVE.attempted){
+    PORTAL_STATS_LIVE.attempted = true;
+    PORTAL_STATS_LIVE.load().then(()=>{ try{ if(typeof render==='function') render(); }catch(_e){} }).catch(()=>{});
+  }
   const items = PORTALX.news();
   const cat = params.cat || '';
   const q = String(params.q||'').toLowerCase();
@@ -184,8 +178,17 @@ function renderPublicPortal(params={}){
     </section>
 
     <section class="portal-stats">
-      ${C.stats.map(s=>`<div class="ps"><span class="ps-i">${PORTALX.icon(s.icon,20)}</span><b>${esc(s.value)}</b><span class="ps-l">${esc(s.label)}</span><span class="ps-n">${esc(s.note)}</span></div>`).join('')}
+      ${C.stats.map(s=>{
+        /* A live, reviewed figure replaces the reported total when the server has
+           cleared one for this card; otherwise the Foundation's own cumulative
+           total is shown and labelled as reported, never as counted. */
+        const live = (typeof PORTAL_STATS_LIVE!=='undefined') ? PORTAL_STATS_LIVE.publishable()[s.key] : null;
+        const value = live ? num(live.value) : s.value;
+        const note = live ? `Counted from the central register · reviewed${live.reviewedAt?' '+fmtDate(live.reviewedAt):''}` : s.note;
+        return `<div class="ps"><span class="ps-i">${PORTALX.icon(s.icon,20)}</span><b>${esc(String(value))}</b><span class="ps-l">${esc(s.label)}</span><span class="ps-n">${esc(note)}</span></div>`;
+      }).join('')}
     </section>
+    <div class="xs muted" style="margin:-4px 0 14px;padding:0 4px">${esc((typeof PORTAL_STATS_LIVE!=='undefined') ? PORTAL_STATS_LIVE.provenance() : 'Cumulative programme totals reported by the Foundation')}.</div>
 
     ${(C.extendedImpact&&C.extendedImpact.length)?`<section class="portal-sect" style="padding-top:8px">
       <div class="ps-h"><div><div class="portal-kicker">Cumulative verified programme reach · 2018-2026</div><h2>Holistic household restoration across Kisumu &amp; Homa Bay</h2></div>

@@ -159,31 +159,20 @@ const COND = {
 const PDCAX = {
   plan(p){ return p?.carePlan || null; },
 
-  daysInProgramme(p, now=new Date()){
-    if(!p?.intake) return 0;
-    const end = p.discharge ? new Date(p.discharge) : now;
-    return Math.max(0, Math.floor((end - new Date(p.intake))/86400000));
-  },
+  daysInProgramme(p, now=new Date()) { return CARE_RULES.days(p,now.toISOString()); },
 
-  /* Twelve scheduled reviews from the programme start date. A review
-     keeps the date it was due, whether it was completed early, late or not at all. */
+  // Fixed programme-day milestones, scoped to this support cycle. Legacy
+  // reviews remain history but cannot count as new MCM-reviewed completions.
   schedule(p){
-    const cadence = DB.db?.settings?.programme?.reviewCadence || 30;
-    const max = DB.db?.settings?.programme?.maxReviews || 12;
-    if(!p?.intake) return [];
-    const start = new Date(p.intake).getTime();
-    const done = (DB.db.pdcas||[]).filter(x=>x.patientId===p.id && x.kind==='review');
-    const today = Date.now();
-    return Array.from({length:max},(_,i)=>{
-      const day = (i+1)*cadence;
-      const due = new Date(start + day*86400000);
-      const rec = done.find(x=>x.dueDay===day) || done.find(x=>x.dueDay==null && Math.abs(new Date(x.due)-due)<3*86400000);
-      const completed = rec && rec.completedAt ? new Date(rec.completedAt) : null;
-      let status = 'upcoming';
-      if(completed) status='completed';
-      else if(due.getTime() < today) status='overdue';
-      return { day, due, status, completed, recordId:rec?.id||null,
-        slipDays: completed? Math.round((completed - due)/86400000) : null };
+    if(!CARE_RULES.supported(p)||!CARE_RULES.cycleStart(p))return [];
+    const start=CARE_RULES.cycleStart(p),now=Date.now();
+    const done=(DB.db.careReviews||[]).filter(r=>r.patientId===p.id&&r.cycleId===CARE_RULES.cycleId(p));
+    return CARE_RULES.REVIEW_DAYS.map(day=>{
+      const due=new Date(CARE_RULES.addDays(start,day)+'T00:00:00Z'),rec=done.find(r=>r.dueDay===day);
+      const approved=rec&&['reviewed','scheduled','authorized','shared','archived'].includes(rec.status);
+      const completed=approved?new Date(rec.evaluatedAt):null;
+      return {day,due,completed,status:completed?'completed':rec?'in_progress':due.getTime()<now?'overdue':'upcoming',
+        workflowStatus:rec?.status||'',recordId:rec?.id||null,slipDays:completed?Math.round((completed-due)/86400000):null};
     });
   },
 
@@ -195,7 +184,7 @@ const PDCAX = {
       overdue:s.filter(x=>x.status==='overdue').length,
       upcoming:s.filter(x=>x.status==='upcoming').length,
       nextDue:s.find(x=>x.status!=='completed')?.due || null,
-      adherence: s.length? Math.round(100*s.filter(x=>x.status==='completed').length/s.filter(x=>x.due<=new Date()).length) : null
+      adherence: s.some(x=>x.due<=new Date())? Math.min(100,Math.round(100*s.filter(x=>x.status==='completed'&&x.due<=new Date()).length/s.filter(x=>x.due<=new Date()).length)) : null
     };
   },
 
@@ -214,67 +203,15 @@ const PDCAX = {
   },
 
   /* Completing a review preserves the due date and records the actual date. */
-  complete(user, patientId, dueDay, note=''){
-    const p = repo.patient(user, patientId);
-    if(!p) return { ok:false, msg:'Patient outside your scope.' };
-    if(!RBAC.can(user,'pdca.create',{countyId:p.countyId,areaId:p.areaId},true).ok &&
-       !RBAC.can(user,'pdca.review',{countyId:p.countyId,areaId:p.areaId},true).ok)
-      return { ok:false, msg:'Your role may not complete a care-plan review.' };
-    const slot = this.schedule(p).find(r=>r.day===Number(dueDay));
-    if(!slot) return { ok:false, msg:'That review is not on the schedule.' };
-    if(slot.status==='completed') return { ok:false, msg:'That review is already recorded.' };
-    /* One record per scheduled review. A late completion fills in the
-       existing slot rather than creating a second one. */
-    let rec = (DB.db.pdcas||[]).find(x=>x.patientId===patientId && x.kind==='review' && x.dueDay===Number(dueDay));
-    if(rec){
-      rec.completedAt = new Date().toISOString();
-      rec.reviewedBy = user.id; rec.status='closed'; rec.note = String(note||'').slice(0,600);
-      rec.overdue = false;
-    } else {
-      rec = {
-        id:'rv-'+p.id+'-'+dueDay, patientId, kind:'review', dueDay:Number(dueDay),
-        stage:'Check', plan:'Scheduled 30-day care plan review', due:slot.due.toISOString(),
-        completedAt:new Date().toISOString(), owner:user.id, reviewedBy:user.id,
-        note:String(note||'').slice(0,600), status:'closed', demo:false
-      };
-      DB.db.pdcas.push(rec);
-    }
-    AUDIT.append({actor:user.id, action:'pdca.review.completed', entity:'patient', entityId:patientId,
-      detail:`Review at day ${dueDay} completed${slot.slipDays>0?` (${slot.slipDays} days after the due date)`:''}`});
-    DB.save();
-    return { ok:true, rec };
-  },
+  complete(){return {ok:false,msg:'A note alone does not complete a PDCA. Use the editable template and county MCM review workflow.'};},
 
-  /* Extended cases: beyond the approved programme maximum a documented
-     review is required before the care episode can be closed. */
   extensionRequired(p){
-    const max = DB.db?.settings?.programme?.maxDays || 180;
-    if(!p || p.status==='discharged') return false;
-    const openExtension = (DB.db.pdcas||[]).some(x=>x.patientId===p.id && x.kind==='extension' && x.status!=='closed');
-    const latest = (DB.db.pdcas||[]).filter(x=>x.patientId===p.id && x.kind==='extension')
-      .sort((a,b)=>new Date(b.due)-new Date(a.due))[0];
-    const reviewedRecently = latest && latest.completedAt &&
-      (Date.now() - new Date(latest.completedAt).getTime()) < 90*86400000;
-    return this.daysInProgramme(p) > max && !reviewedRecently;
+    if(!p||p.status==='discharged')return false;
+    const max=DB.db?.settings?.programme?.maxDays||180;
+    return this.daysInProgramme(p)>max && !(DB.db.careReviews||[]).some(r=>r.patientId===p.id&&r.cycleId===CARE_RULES.cycleId(p)&&
+      ['reviewed','scheduled','authorized','shared','archived'].includes(r.status)&&Date.parse(r.evaluatedAt)>Date.now()-90*86400000);
   },
-
-  recordExtension(user, patientId, note){
-    const p = repo.patient(user, patientId);
-    if(!p) return { ok:false, msg:'Patient outside your scope.' };
-    if(!RBAC.can(user,'pdca.review',{countyId:p.countyId,areaId:p.areaId},true).ok && !RBAC.has(user,'pdca.create'))
-      return { ok:false, msg:'Your role may not record an extension review.' };
-    if(!note || note.trim().length < 20)
-      return { ok:false, msg:'An extension review needs a documented justification of at least 20 characters.' };
-    const rec = { id:'ext-'+patientId+'-'+Date.now().toString(36), patientId, kind:'extension',
-      stage:'Act', plan:'Extension review beyond the approved programme maximum',
-      due:new Date().toISOString(), completedAt:new Date().toISOString(), owner:user.id,
-      reviewedBy:user.id, note:note.trim().slice(0,800), status:'closed', demo:false };
-    DB.db.pdcas.push(rec);
-    AUDIT.append({actor:user.id, action:'pdca.extension.reviewed', entity:'patient', entityId:patientId,
-      detail:'Extended case reviewed; justification recorded'});
-    DB.save();
-    return { ok:true, rec };
-  },
+  recordExtension(){return {ok:false,msg:'Record the continued-care justification in a full on-demand PDCA and submit it for MCM review.'};},
 
   /* Only the assigned caregiver/case manager pair can see a cycle thread. */
   discussionAccess(user, rec){

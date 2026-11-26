@@ -177,7 +177,7 @@ const WAITLIST = {
 
   render(user, params={}){
     if(!RBAC.has(user,'waiting.view')) return deniedPanel('waiting.view');
-    Object.keys(params||{}).forEach(k=>{ if(k in WAIT_STATE && params[k]!==undefined) WAIT_STATE[k]=params[k]; });
+    applyRouteState(WAIT_STATE,params);
     const st = WAIT_STATE;
     const rows = this.rows(user, {areaId:st.areaId, reason:st.reason, q:st.q, open:false});
     const s = this.summary(user);
@@ -333,7 +333,7 @@ const URGENT = {
 
   render(user, params={}){
     if(!RBAC.has(user,'urgent.view')) return deniedPanel('urgent.view');
-    Object.keys(params||{}).forEach(k=>{ if(k in URG_STATE && params[k]!==undefined) URG_STATE[k]=params[k]; });
+    applyRouteState(URG_STATE,params);
     const st = URG_STATE;
     const year = PYEAR.yearOf(new Date()) || new Date().getFullYear();
     const rows = this.rows(user, {month:st.month, q:st.q});
@@ -417,7 +417,7 @@ const URGENT = {
 
 /* ---------------- actions & forms ---------------- */
 Object.assign(ACTIONS, {
-  'wl-tab': d => { WAIT_STATE.tab=d.tab||'list'; render(); },
+  'wl-tab': d => { WAIT_STATE.tab=d.tab||'list'; render(); revealLanding(landingTarget(APPX.view)); },
   'wl-add-open': () => {
     const areas = COUNTIES.flatMap(c=>c.areas).filter(a=>{
       const countyId = (COUNTIES.find(cc=>cc.areas.some(x=>x.id===a.id))||{}).id;
@@ -473,7 +473,7 @@ Object.assign(ACTIONS, {
     if(!r.ok) return toast('Not closed', r.msg, 'err');
     closeModal(true); toast('Entry closed', r.msg, 'ok'); render();
   },
-  'uc-tab': d => { URG_STATE.tab=d.tab||'register'; render(); },
+  'uc-tab': d => { URG_STATE.tab=d.tab||'register'; render(); revealLanding(landingTarget(APPX.view)); },
   'uc-add-open': () => {
     const rows = RBAC.has(AUTH.user,'patient.list')? repo.patientList(AUTH.user).slice(0,600) : [];
     openModal({ title:'Record an urgent case', sub:'NAME, WHAT, COSTS and the budget line - the URGCAS sheet\u2019s own columns.',

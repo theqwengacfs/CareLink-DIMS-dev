@@ -102,9 +102,9 @@ function chartBars(opts){
   if(isChartTableMode()) return tbl;
 
   return `<figure class="chart-fig" style="margin:0">
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">
       ${grid}${bars}
-    </svg>
+    </svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
     ${tbl}
   </figure>`;
@@ -233,7 +233,7 @@ function chartLine(opts){
   const tbl = chartTable([{key:'period',label:opts.labelHead||'Period'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'}))], rows, {title:opts.title||'Trend table'});
   if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">${key}
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${xlab}</svg>
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${xlab}</svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
     ${tbl}
   </figure>`;
@@ -258,7 +258,7 @@ function chartStacked(opts){
     const segs = series.map((s,si)=>{
       const v = Math.max(0, Number(s.values[i])||0); if(!v) return '';
       const h = clamp(inner*v/max, 0.8, Math.max(0.8, inner-acc)), y = padT+inner-acc-h; acc += h;
-      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0.8,h).toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="2"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>`;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0.8,h).toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="2"><title>${esc(s.label)} · ${esc(l)}: ${esc(opts.fmt?opts.fmt(v):fmtNum(v))}</title></rect>`;
     }).join('');
     const topY = Math.max(12, padT+inner-acc-(dense && i%2===1 ? 15 : 6));
     return `${segs}<text class="val" x="${(x+w/2).toFixed(1)}" y="${topY.toFixed(1)}" text-anchor="middle">${esc(fmtCompact(totals[i]))}</text>
@@ -274,7 +274,7 @@ function chartStacked(opts){
   if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">
     <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
     ${tbl}
   </figure>`;
@@ -296,7 +296,7 @@ function chartGrouped(opts){
     const x0 = padL + i*bw + (bw - groupW)/2;
     const g = series.map((s,si)=>{
       const v = Number(s.values[i])||0, mag = Math.abs(v), h = clamp(inner*mag/max, mag>0?2:1.5, inner), x = x0+si*gw, y = padT+inner-h;
-      return `<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(gw*0.84).toFixed(1)}" height="${h.toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="3"><title>${esc(s.label)} · ${esc(l)}: ${opts.fmt?opts.fmt(v):fmtNum(v)}</title></rect>
+      return `<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(gw*0.84).toFixed(1)}" height="${h.toFixed(1)}" fill="${s.color||colours[si%colours.length]}" rx="3"><title>${esc(s.label)} · ${esc(l)}: ${esc(opts.fmt?opts.fmt(v):fmtNum(v))}</title></rect>
         ${labels.length<=5?`<text class="val" x="${(x+gw*0.42).toFixed(1)}" y="${Math.max(12,y-(si%2===1?13:5)).toFixed(1)}" text-anchor="middle">${esc(fmtCompact(v))}</text>`:''}</g>`;
     }).join('');
     return `${g}<text class="axis-x" x="${(x0+groupW/2).toFixed(1)}" y="${H-(dense && i%2===1 ? 9 : 21)}" text-anchor="middle">${esc(String(l).slice(0,15))}</text>`;
@@ -306,7 +306,7 @@ function chartGrouped(opts){
   if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">
     <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Comparison')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Comparison')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Grouped comparison across '+labels.length+' categories.')}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
     ${tbl}
   </figure>`;
@@ -330,7 +330,7 @@ function chartDonut(segments, opts={}){
     const colour = s.color || colours[i%colours.length];
     return `<circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" fill="none" stroke="${colour}" stroke-width="${sw.toFixed(1)}"
       stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 ${c} ${c})">
-      <title>${esc(s.label)}: ${opts.fmt?opts.fmt(s.value):fmtNum(s.value)} (${(frac*100).toFixed(1)}%)</title></circle>`;
+      <title>${esc(s.label)}: ${esc(opts.fmt?opts.fmt(s.value):fmtNum(s.value))} (${(frac*100).toFixed(1)}%)</title></circle>`;
   }).join('');
   const pct = seg.map((s,i)=>{
     const frac = Number(s.value)/total;
@@ -353,7 +353,7 @@ function chartDonut(segments, opts={}){
     <div class="donut-wrap donut-wrap-clean">
       <div class="donut-svg-box">
         <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img"
-          aria-label="${esc(opts.title||'Share')}: ${seg.map(s=>s.label+' '+(opts.fmt?opts.fmt(s.value):fmtNum(s.value))).join(', ')}">
+          aria-label="${esc((opts.title||'Share')+': '+seg.map(s=>s.label+' '+(opts.fmt?opts.fmt(s.value):fmtNum(s.value))).join(', '))}">
           <circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" fill="none" stroke="var(--line-2)" stroke-width="${sw.toFixed(1)}"/>
           ${arcs}
         </svg>
@@ -377,8 +377,8 @@ function chartShare(segments, opts={}){
   if(!seg.length) return `<div class="empty small">${esc(opts.empty||'Nothing to plot yet.')}</div>`;
   const colours = opts.colours||chartColours(seg.length);
   const total = seg.reduce((n,s)=>n+Number(s.value),0)||1;
-  return `<div class="share-bar" role="img" aria-label="${esc(opts.title||'Share')}: ${seg.map(s=>`${s.label} ${(100*s.value/total).toFixed(1)}%`).join(', ')}">
-    ${seg.map((s,i)=>`<span style="width:${(100*Number(s.value)/total).toFixed(2)}%;background:${s.color||colours[i%colours.length]}" title="${esc(s.label)}: ${opts.fmt?opts.fmt(s.value):fmtNum(s.value)}"></span>`).join('')}
+  return `<div class="share-bar" role="img" aria-label="${esc((opts.title||'Share')+': '+seg.map(s=>`${s.label} ${(100*s.value/total).toFixed(1)}%`).join(', '))}">
+    ${seg.map((s,i)=>`<span style="width:${(100*Number(s.value)/total).toFixed(2)}%;background:${s.color||colours[i%colours.length]}" title="${esc(s.label)}: ${esc(opts.fmt?opts.fmt(s.value):fmtNum(s.value))}"></span>`).join('')}
   </div>
   <div class="chart-key" style="margin-top:8px">${seg.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)} · <b class="mono">${(100*Number(s.value)/total).toFixed(1)}%</b></span>`).join('')}</div>`;
 }
@@ -396,7 +396,7 @@ function chartGauge(value, max, opts={}){
   };
   const tone = pct>=1? 'var(--ok)' : pct>=0.75? 'var(--warn)' : 'var(--crit)';
   return `<div class="gauge">
-    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label||'Progress')}: ${opts.fmt?opts.fmt(v):fmtNum(v)} of ${opts.fmt?opts.fmt(m):fmtNum(m)} (${Math.round(pct*100)}%)">
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc((opts.label||'Progress')+': '+(opts.fmt?opts.fmt(v):fmtNum(v))+' of '+(opts.fmt?opts.fmt(m):fmtNum(m))+' ('+Math.round(pct*100)+'%)')}">
       ${arc(0,1,'var(--line-2)')}
       ${arc(0,Math.min(1,pct),tone)}
       ${opts.target!==undefined && Number(opts.target)>0 && Number(opts.target)<=m ? arc(Math.min(1,Number(opts.target)/m)-0.004, Math.min(1,Number(opts.target)/m)+0.004, 'var(--ink)', 20) : ''}
@@ -508,7 +508,7 @@ function chartWaterfall(steps, opts={}){
     const topLbl = signPrefix + fmtCompact(it.mag);
     return `<g>
       <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${colour}" rx="4" opacity="${it.kind==='total'?0.94:0.88}">
-        <title>${esc(it.label)}: ${isDeficit?'Deficit ':''}${opts.fmt?opts.fmt(it.v):fmtNum(it.v)}</title></rect>
+        <title>${esc(it.label)}: ${isDeficit?'Deficit ':''}${esc(opts.fmt?opts.fmt(it.v):fmtNum(it.v))}</title></rect>
       <text class="val" x="${(x+w/2).toFixed(1)}" y="${Math.max(13,y-(i%2===1?15:7)).toFixed(1)}" text-anchor="middle">${esc(topLbl)}</text>
       <text class="axis-x" x="${(x+w/2).toFixed(1)}" y="${H-22}" text-anchor="middle">${esc(String(it.label).slice(0,15))}</text>
     </g>`;
@@ -529,7 +529,7 @@ function chartWaterfall(steps, opts={}){
       <span class="ck"><i style="background:#0F7B4F"></i>Additions (+)</span>
       <span class="ck"><i style="background:#D97706"></i>Reductions / Outflows (-)</span>
     </div>
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Movement')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Movement')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Every step is plotted upright from the zero baseline with signed movement labels above.')}</figcaption>
     ${tbl}
   </figure>`;

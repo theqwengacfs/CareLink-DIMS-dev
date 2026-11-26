@@ -97,9 +97,10 @@ const DB = {
         care:{ capacity:12, handoverHour:19 },
         notifications:{ mondayReport:true, overdueReviews:true, pendingApprovals:true, incidents:true, weeklyDigest:false },
         accessibility:{ reducedMotion:false, highContrast:false },
-        landingTheme:'heritage', consoleTheme:'foundation', workspaceTheme:'foundation', uiEpoch:691,
+        landingTheme:'clinic', consoleTheme:'foundation', workspaceTheme:'foundation', uiEpoch:691,
         sync:{ mode:'auto', live:true, liveMs:500 }
       },
+      careCycles:[], careReferrals:[], careEvidence:[], programAdmissions:[], careReviews:[], careReviewRevisions:[], intlPdcaDossiers:[],
       users:[], roles:[], patients:[], visits:[], pdcas:[], pdcaDiscussions:[], requests:[], transactions:[],
       documents:[], supportIssues:[], encounters:[], concerns:[], referralEntities:[],
       budgets:[], targets:[], employees:[], leaveRequests:[], welfareActs:[], contributions:[],
@@ -196,7 +197,7 @@ const DB = {
       let hosted = false;
       try{ hosted = /^https?:$/.test(location.protocol); }catch(e){}
       if(!hosted && typeof seedOfficial === 'function'){
-        seedOfficial(this.db, new Date(), {patients:DEMO_REGISTER.patients, mustChange:false});
+        seedSyntheticDataset(this.db, new Date('2026-11-22T00:00:00.000Z'), {patients:DEMO_REGISTER.patients, mustChange:false});
         this.db.meta.freshSeeded = true;
         try{ Store.set(this.KEY, JSON.stringify(this.db)); }catch(e){}
       }
@@ -236,12 +237,12 @@ const DB = {
       this.db.meta.migratedAt = new Date().toISOString();
       this.db.meta.migratedFrom = was;
     }
-    /* v6.9.1 visual architecture migration: restores the LOMAMO Red front door
+    /* Legacy visual migration: use the light letterhead front door by default
        while keeping signed-in workspaces on clean Foundation White by default. */
     if(this.db.settings && prevUiEpoch < 691){
       this.db.settings.uiEpoch = 691;
       if(!this.db.settings.landingThemeExplicit){
-        this.db.settings.landingTheme = 'heritage';
+        this.db.settings.landingTheme = 'clinic';
         delete this.db.settings.landingThemeExplicit;
       }
       if(prevUiEpoch < 690){
@@ -314,7 +315,7 @@ const DB = {
           countyId:r.countyId, areaIds:r.areas||[], departmentId:r.dept, jobTitle:r.job,
           reportsTo:'u-chief', status:'active', active:true, mustChange:false, demo:true,
           salt, hash:strongHash('LOMAMO2026', salt),
-          email:r.username+'@'+OFFICIAL_EMAIL_DOMAIN, phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
+          email:r.username+'@lomamo.example', phone:'0700'+String(500000+(idx*977)%99999).padStart(6,'0'),
           created:demo.seededAt, execTeam:EXEC_DEFAULT.includes(r.username)
         });
       });
@@ -334,6 +335,13 @@ const DB = {
     this.db.meta.demoSeeded = new Date().toISOString();
     this.save();
     return this.db.patients.length;
+  },
+  seedSynthetic(opts={}){
+    if(!this.db) this.db=this.blank();
+    seedSyntheticDataset(this.db,new Date('2026-11-22T00:00:00.000Z'),opts);
+    this.db.settings.onboarding={complete:true,step:9};
+    this.db.meta.demoSeeded='2026-11-22T00:00:00.000Z';
+    this.save();return this.db.patients.length;
   },
   /* Fast, read-only lookups used by the return-visit checker. */
   byNationalId(id){ return patientsByNationalId(this.db, id); },
@@ -417,6 +425,7 @@ const AUTH = {
   logout(){
     if(this.user) AUDIT.append({actor:this.user.id,action:'auth.logout',entity:'user',entityId:this.user.id,detail:'Signed out'});
     if(typeof PROD_SETUP !== 'undefined' && PROD_SETUP.clearCredentialPack) PROD_SETUP.clearCredentialPack();
+    if(typeof ENTRY_ADMIN !== 'undefined') ENTRY_ADMIN.clear();
     this._pw=null; this.mustChange=false; this.user=null; this.session=null; DB.save(); this.emit();
   },
   touch(){ if(this.session) this.session.last = Date.now(); },
@@ -491,14 +500,14 @@ const AUTH = {
   online:false,
   mustChange:false,
 
-  async loginOnline(username, password, device){
+  async loginOnline(username, password, device, opts={}){
     const raw = String(username||'').trim();
     const name = raw;
     if(typeof SYNC === 'undefined' || !SYNC.available()){
       return {ok:false, code:'offline', error:'No network'};
     }
     let r;
-    try{ r = await SYNC.login(name, password, device); }
+    try{ r = await SYNC.login(name, password, device, opts); }
     catch(e){ return {ok:false, code:'offline', error:'The shared online source could not be reached. Sign-in was not completed locally.'}; }
     if(!r.ok) return r;
     const resolvedName = String(r.username||name).toLowerCase();
@@ -603,6 +612,10 @@ const RBAC = {
         if(CAPS[c] && (from.includes(c) || (d.capsAtIssue||[]).includes(c)) && !(ov.deny||[]).includes(c)) set.add(c);
       });
     });
+    // Clinical policy changes also apply to installations retaining older
+    // role definitions; a delegation cannot turn a field role into the MCM.
+    if(user.roleId==='mcm')set.add('patient.enrol');else set.delete('patient.enrol');
+    if(user.roleId==='coordinator')set.add('patient.view.clinical');
     return set;
   },
 
@@ -623,6 +636,7 @@ const RBAC = {
   /* Central authorisation decision. Returns {ok, reason}. */
   can(user, cap, ctx={}){
     if(!user) return {ok:false, reason:'No authenticated session'};
+    if(cap==='patient.enrol' && user.roleId!=='mcm') return {ok:false,reason:'Final enrolment is the Medical Case Manager’s office decision.'};
     if(!['active','pending_activation'].includes(user.status)) return {ok:false, reason:`Account is ${user.status}`};
     const role = roleObj(user.roleId)||{scope:{}};
     const scope = role.scope||{};
@@ -854,9 +868,9 @@ function transition(kind, id, action, user, payload={}){
   if(t.needsReason && !(payload.reason||'').trim()) return {ok:false,msg:'A documented reason is required'};
   if(t.needsEvidence && !payload.evidence) return {ok:false,msg:'Supporting evidence is required before approval'};
   if(t.guard && guardFns[t.guard] && !guardFns[t.guard](rec,payload)) return {ok:false,msg:(guardFns[t.guard].message||'Closure requirements are not met (evidence, report or reconciliation outstanding)')};
-  if(kind==='patient' && action==='enrol'){
-    if(!payload.expectedDays || !payload.rationale || !payload.needs)
-      return {ok:false,msg:'Enrolment needs an initial care plan: identified need, expected duration and the reason for that estimate.'};
+  if(kind==='patient' && ['enrol','approve_discharge'].includes(action)){
+    if(typeof CARE_REVIEW==='undefined')return {ok:false,msg:'Use the authoritative office clinical workflow.'};
+    return CARE_REVIEW.localCommand(user,action==='enrol'?'enrol_fresh':'discharge_cycle',{...payload,patientId:id});
   }
 
   const before = rec.status;
@@ -864,16 +878,6 @@ function transition(kind, id, action, user, payload={}){
   rec.updated = todayISO();
 
   if(kind==='patient'){
-    if(action==='enrol'){
-      rec.enrolDate = rec.enrolDate||todayISO(); rec.intake = rec.intake||todayISO();
-      rec.carePlan = {
-        needs: payload.needs, objectives: payload.objectives||'To be agreed with the patient at the next review',
-        interventions: payload.interventions||'To be agreed at the next review', responsible: payload.responsible||rec.caregiverId,
-        expectedDays: +payload.expectedDays, rationale: payload.rationale,
-        reviewDate: new Date(Date.now()+30*86400000).toISOString(),
-        version: 1, createdBy: user.id, createdAt: todayISO(), approvedBy: user.id, approvedAt: todayISO()
-      };
-    }
     if(action==='approve_discharge'){ rec.discharge = todayISO(); rec.dischargeEvidence = payload.evidence; }
     if(action==='recommend_discharge'){ rec.dischargeRecommendation = { by:user.id, at:todayISO(), reason:payload.reason, evidence:payload.evidence||'' }; }
     if(action==='verify'){ rec.verifiedBy=user.id; rec.verifiedAt=todayISO(); rec.docsVerified=true; }
@@ -1249,4 +1253,15 @@ function runSecuritySelfTest(user){
     detail:`Authorisation self-test: ${passed}/${total - skipped} passed, ${skipped} skipped (fixtures absent)`});
   DB.save();
   return result;
+}
+
+/* Route defaults apply once per route entry, not after every local tab click.
+   Otherwise an old deep-link tab/filter silently overwrites the new state. */
+const ROUTE_STATE_APPLIED=new WeakMap();
+function applyRouteState(state,params={}){
+  const signature=JSON.stringify(params),prior=ROUTE_STATE_APPLIED.get(state);
+  if(prior?.params===params&&prior.signature===signature)return false;
+  for(const key of Object.keys(params))if(Object.prototype.hasOwnProperty.call(state,key)&&params[key]!==undefined)state[key]=params[key];
+  ROUTE_STATE_APPLIED.set(state,{params,signature});
+  return true;
 }

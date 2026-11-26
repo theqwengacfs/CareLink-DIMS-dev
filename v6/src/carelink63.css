@@ -612,6 +612,65 @@ details.chart-table[open] > summary.chart-table-btn{
   font-size:10.5px; opacity:.85; font-family:var(--mono, monospace);
 }
 
+/* Responsive charts: use the available container, not the browser width.
+   Nested dashboard cards can be narrow even on a desktop-sized viewport. */
+.cost-chart-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%, 390px),1fr));
+  gap:18px; align-items:start;
+}
+.cost-chart-panel{min-width:0; padding:14px; border:1px solid var(--line); border-radius:var(--r); background:var(--surface);}
+.cost-chart-panel h3{margin:0 0 12px; font-size:14px; line-height:1.35; color:var(--ink);}
+.cm{min-width:0}
+.cm-v,.cm-s{overflow-wrap:anywhere}
+.chart-fig,.donut-block,.chart-rows-list{min-width:0; max-width:100%;}
+.chart-fig{container-type:inline-size;}
+.chart-plot{max-width:100%; overflow-x:auto; overscroll-behavior-inline:contain; scrollbar-width:thin;}
+.chart-fig .chart-plot svg.chart{min-width:560px; overflow:hidden;}
+.chart-fig svg.chart :is(text.val,text.axis-x,text.axis-y){font-size:13px;}
+.chart-scroll-hint{display:none; margin-top:5px; font-size:11px; color:var(--muted);}
+@container (max-width: 560px){.chart-scroll-hint{display:block;}}
+.chart-plot:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.chart-key .ck{min-width:0; overflow-wrap:anywhere;}
+.chart-fig figcaption{overflow-wrap:anywhere;}
+.donut-block{container-type:inline-size;}
+.donut-wrap.donut-wrap-clean{
+  display:grid; grid-template-columns:minmax(0,auto) minmax(0,1fr); gap:16px;
+  align-items:center; padding:4px 0;
+}
+.donut-svg-box{min-width:0; padding:0;}
+.donut-svg-box svg{display:block; max-width:100%; height:auto;}
+.donut-side-panel{min-width:0; width:100%;}
+.donut-total-strip{display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline;}
+.donut-total-val{margin-left:auto; overflow-wrap:anywhere;}
+.donut-total-meta{white-space:normal;}
+.legend.donut-legend{min-width:0; width:100%;}
+.legend.donut-legend .donut-li-sym{grid-template-columns:12px minmax(0,1fr) auto auto; gap:6px 8px;}
+.legend.donut-legend .donut-li-sym .lg-l{white-space:normal; overflow:visible; overflow-wrap:anywhere; line-height:1.35;}
+.legend.donut-legend .donut-li-sym .n{margin:0; padding:0; white-space:normal; overflow-wrap:anywhere; text-align:right;}
+.legend.donut-legend .donut-li-sym .pct{min-width:0;}
+@container (max-width: 460px){
+  .donut-wrap.donut-wrap-clean{grid-template-columns:minmax(0,1fr); justify-items:stretch;}
+  .donut-svg-box{justify-content:center;}
+}
+@container (max-width: 300px){
+  .legend.donut-legend .donut-li-sym{grid-template-columns:12px minmax(0,1fr) auto;}
+  .legend.donut-legend .donut-li-sym .n{grid-column:2; text-align:left;}
+  .legend.donut-legend .donut-li-sym .pct{grid-column:3; grid-row:2;}
+}
+.chart-rows-list{container-type:inline-size;}
+.chart-row-item{grid-template-columns:minmax(0,1fr) minmax(40px,1fr) minmax(0,auto); gap:8px;}
+.chart-row-lbl{white-space:normal; overflow:visible; overflow-wrap:anywhere; line-height:1.35;}
+.chart-row-val{white-space:normal; overflow-wrap:anywhere;}
+@container (max-width: 350px){
+  .chart-row-item{grid-template-columns:minmax(0,1fr) auto;}
+  .chart-row-track{grid-column:1/-1; grid-row:2;}
+}
+@media print{
+  .chart-plot{overflow:visible;}
+  .chart-fig .chart-plot svg.chart{min-width:0;}
+  .chart-scroll-hint{display:none;}
+}
+
 /* ---------------- 9. Coins Podium & Illustrated Rewards Store ---------------- */
 .coins-podium{
   display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
@@ -895,61 +954,7 @@ details.chart-table[open] > summary.chart-table-btn{
   .shell.has-pane.np-rail .npane{
     transition:width .18s ease, box-shadow .18s ease;
   }
-  .shell.has-pane.np-rail .npane:hover,
-  .shell.has-pane.np-rail .npane:focus-within{
-    width:268px !important;
-    z-index:85 !important;
-    box-shadow:0 20px 48px rgba(2,6,23,.42) !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-os,
-  .shell.has-pane.np-rail .npane:focus-within .np-os,
-  .shell.has-pane.np-rail .npane:hover .np-id,
-  .shell.has-pane.np-rail .npane:focus-within .np-id,
-  .shell.has-pane.np-rail .npane:hover .np-gi,
-  .shell.has-pane.np-rail .npane:focus-within .np-gi,
-  .shell.has-pane.np-rail .npane:hover .np-gt,
-  .shell.has-pane.np-rail .npane:focus-within .np-gt,
-  .shell.has-pane.np-rail .npane:hover .np-chev,
-  .shell.has-pane.np-rail .npane:focus-within .np-chev,
-  .shell.has-pane.np-rail .npane:hover .np-l,
-  .shell.has-pane.np-rail .npane:focus-within .np-l,
-  .shell.has-pane.np-rail .npane:hover .np-meta,
-  .shell.has-pane.np-rail .npane:focus-within .np-meta{
-    display:inline-flex !important;
-    opacity:1 !important;
-    width:auto !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-brand,
-  .shell.has-pane.np-rail .npane:focus-within .np-brand{
-    justify-content:flex-start !important;
-    padding:12px 14px !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-gh,
-  .shell.has-pane.np-rail .npane:focus-within .np-gh{
-    min-height:28px !important;
-    padding:6px 12px !important;
-    pointer-events:auto !important;
-    justify-content:flex-start !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-items,
-  .shell.has-pane.np-rail .npane:focus-within .np-items{
-    display:flex !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-i,
-  .shell.has-pane.np-rail .npane:focus-within .np-i{
-    justify-content:flex-start !important;
-    padding-inline:12px !important;
-  }
-  .shell.has-pane.np-rail .npane:hover .np-i .tcount,
-  .shell.has-pane.np-rail .npane:focus-within .np-i .tcount{
-    position:static !important;
-    display:inline-flex !important;
-    margin-left:auto !important;
-    min-width:20px !important;
-    height:18px !important;
-    padding:0 6px !important;
-    font-size:10.5px !important;
-  }
+
 }
 
 /* 2. Global Workspace Symmetry & Clean Justification */
@@ -2384,9 +2389,15 @@ details.wf-strip.wf-slim-ribbon[open] .wf-top-grid{
 }
 @media (max-width:920px){ .gov67-charter-grid{ grid-template-columns:1fr; } }
 .gov67-sec-card{
+  min-width:0; overflow-wrap:anywhere;
   background:var(--surface); color:var(--ink);
   border:1px solid var(--line); border-radius:14px; padding:16px 18px;
 }
+/* Status and classification are independent pieces of text. Allow both to
+   wrap without overlapping at zoom, on tablets, or with translated labels. */
+.gov67-sec-meta{display:flex; flex-wrap:wrap; align-items:flex-start; gap:8px 12px; min-width:0;}
+.gov67-sec-meta .badge{flex:0 1 auto; min-width:0; max-width:100%; white-space:normal; overflow-wrap:anywhere;}
+.gov67-sec-visibility{flex:1 1 180px; min-width:0; line-height:1.5; overflow-wrap:anywhere;}
 .gov67-sec-card h3{ margin:8px 0 4px; font-size:15.5px; font-family:var(--font); font-weight:700; color:var(--ink); }
 .gov67-list{ margin:8px 0 0; padding-left:18px; font-size:12.4px; line-height:1.52; color:var(--ink-2); }
 .gov67-list li{ margin-bottom:5px; }
@@ -2921,3 +2932,12 @@ html[data-wmode="dark"] .rc68-tile-ic{
 
 
 
+
+/* Individual oversight-seat console accents. */
+.topbar.cbar[data-role="founder"] { --cb-c1:#312E81; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="cofounder"] { --cb-c1:#164E63; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="board.member"] { --cb-c1:#334155; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.advisory"] { --cb-c1:#3730A3; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.finance"] { --cb-c1:#065F46; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.legal"] { --cb-c1:#581C87; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }
+.topbar.cbar[data-role="intl.data"] { --cb-c1:#075985; --cb-c2:#1E293B; --cb-c3:#475569; --cb-badge:#E2E8F0; }

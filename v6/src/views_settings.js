@@ -345,7 +345,9 @@ function settingsSecurity(user, may){
     ${settingRow('Lock the session after inactivity','The person must enter their own password to continue.',
       toggleControl('security.sessionLock', s.sessionLock))}
     ${settingRow('Failed attempts before lockout','A lockout is recorded and shown to the auditor.',
-      `<input class="input" type="number" min="3" max="10" data-setting="security.loginAttempts" value="${s.loginAttempts}">`)}`
+      `<input class="input" type="number" min="3" max="10" data-setting="security.loginAttempts" value="${s.loginAttempts}">`)}
+    ${settingRow('Allow offline sign-in','A device that was explicitly told to remember an account can sign in without a network. The device holds its own separate credential, never the server digest.', toggleControl('security.offlineSignIn', s.offlineSignIn !== false))}
+    ${settingRow('Offline credential expires after','Days an offline credential survives without a successful online sign-in.', `<input class="input" type="number" min="1" max="60" data-setting="security.offlineSignInDays" value="${Number(s.offlineSignInDays) || 14}">`)}`
     : note('Only the Chief System Administrator may change security policy.'))}
     ${card('Controls verified in this build', `
       <div class="row" style="flex-wrap:wrap;gap:8px">
@@ -513,7 +515,7 @@ function studioHtml(user){
   const dots = `<div class="st-sw" role="group" aria-label="Accent colour">${STUDIO.accentPick.opts.map(o=>
     `<button class="st-dot ${o.v===''?'none':''} ${st.accentPick===o.v?'on':''}" ${o.v?`style="background:${o.v}"`:''} data-act="studio-set" data-key="accentPick" data-value="${esc(o.v)}" aria-pressed="${st.accentPick===o.v}" aria-label="${esc(o.l)}" title="${esc(o.l)}">${st.accentPick===o.v?'\u2713':''}</button>`).join('')}</div>`;
   const schemeChoices = `<div class="console-scheme-grid" role="group" aria-label="Console colour schemes">${CONSOLE_COLOR_SCHEMES.map(s=>{
-    const colors = consoleSchemeColors(s.id, deptPaletteFor(user));
+    const colors = consoleSchemeColors(s.id, accountSignaturePalette(user,deptPaletteFor(user)));
     const selected = st.colorScheme === s.id;
     return `<button type="button" class="console-scheme-choice ${selected?'is-selected':''}" data-act="studio-set" data-key="colorScheme" data-value="${s.id}" aria-pressed="${selected}" aria-label="${esc(s.name)} colour scheme">
       <span class="console-scheme-swatches" aria-hidden="true">${colors.map(c=>`<i style="--swatch:${c}"></i>`).join('')}</span>
@@ -593,52 +595,33 @@ function settingsAppearance(user){
 
 /* ---------------- 14. Landing page theme ---------------- */
 function themeSwatchCss(id){
-  const map = {
-    heritage:'linear-gradient(150deg,#FFFFFF 0%,#E5E5E5 45%,#242424 46%,#242424 83%,#C91B2B 84%)',
-    dawn:'linear-gradient(160deg,#2A1206,#B4430F,#1A0C05)',
-    clinic:'linear-gradient(160deg,#FFFFFF,#E6F4F7)',
-    editorial:'linear-gradient(160deg,#F7F3EC,#E4D8C6)',
-    canopy:'linear-gradient(160deg,#06251A,#0F5237,#041A12)',
-    signal:'linear-gradient(160deg,#08090B,#1B1D22)',
-    sand:'linear-gradient(160deg,#FBF6EF,#E4D2B7)',
-    violet:'linear-gradient(160deg,#120A24,#3B1D77,#0A0616)',
-    paper:'linear-gradient(160deg,#FDFDFB,#EDEDEA)',
-    spectrum:'linear-gradient(160deg,#0B0F1A,#1B2438,#070A12)'
-  };
+  const map = {heritage:'#202020',clinic:'#F5F5F5'};
   return map[id]||map.heritage;
 }
 function themeCard(t, active){
+  const safe=ENTRY_THEME.tokens(t.id);
   const dark = t.mode==='dark';
   return `<div class="theme-card ${active?'on':''}">
     <div class="theme-shot" style="background:${themeSwatchCss(t.id)}">
       <div class="mini">
-        <div class="eyebrow" style="color:${dark?'rgba(255,255,255,.72)':'#5A4A3A'}">Serving our Neighbours in Love</div>
-        <h4 style="color:${dark?'#fff':'#1B1B1B'};font-family:${t.id==='editorial'?'Georgia,serif':'inherit'}">One Foundation.<br>One Operating System.</h4>
-        <div class="dots">${['#EF4444','#F59E0B','#22C55E','#06B6D4','#6366F1','#A855F7'].map(c=>`<i style="background:${c}"></i>`).join('')}</div>
-        <div class="cta" style="background:${t.accent};color:${dark?'#0B0F1A':'#fff'}">Proceed to My Console</div>
+        <div class="eyebrow" style="color:${safe.muted}">Serving our Neighbours in Love</div>
+        <h4 style="color:${safe.ink};font-family:inherit">One Foundation.<br>One Operating System.</h4>
+        <div class="dots">${['#EE0000','#202020','#FFFFFF','#737373'].map(c=>`<i style="background:${c}"></i>`).join('')}</div>
+        <div class="cta" style="background:${safe.fill};color:#FFFFFF">Proceed to My Console</div>
       </div>
     </div>
     <div class="theme-meta"><b>${esc(t.name)}</b><span>${esc(t.blurb)}</span></div>
     <div class="theme-actions">
       <button class="btn btn-xs btn-ghost" data-act="preview-theme" data-id="${t.id}">Preview</button>
-      <button class="btn btn-xs ${active?'btn-ghost':'btn-primary'}" data-act="set-landing-theme" data-id="${t.id}" ${active?'disabled':''}>${active?'In use':'Apply'}</button>
+      <span class="badge b-neutral">${active?'In use':'Preview before applying'}</span>
     </div>
   </div>`;
 }
 function settingsLanding(user, may){
-  const active = DB.db.settings.landingTheme || DEFAULT_THEME;
-  return `<div class="settings-block">
-    <h3>Landing page identity</h3>
-    <p class="small muted">Ten complete front-door designs. A theme changes the public landing page and the public portal only. It never changes permissions, patient data, workflows or the colours used inside a console.</p>
-    <div class="theme-grid" style="margin-top:14px">
-      ${LANDING_THEMES.map(t=>themeCard(t, t.id===active)).join('')}
-    </div>
-    <div class="divider"></div>
-    ${settingRow('Restore the default', 'Heritage navy. Available at any time, including if a theme is ever withdrawn.', `<button class="btn btn-sm btn-ghost" data-act="set-landing-theme" data-id="${DEFAULT_THEME}" ${active===DEFAULT_THEME?'disabled':''}>Restore default</button>`)}
-    ${settingRow('Preview before applying', 'A preview opens the full page in a frame without changing what anyone else sees.', `<button class="btn btn-sm btn-ghost" data-act="preview-theme" data-id="${active}">Preview current</button>`)}
-    ${settingRow('Who may change this', 'System configuration authority. Every change is recorded in the audit trail with the previous and new value.', `<span class="badge b-neutral">${esc(RBAC.has(user,'system.config')?'You may change it':'View only')}</span>`)}
-    <div class="divider"></div>
-    <div class="alert info">${ic('info',17)}<div><b>Workspace colour is a separate setting</b>
-      <span class="small">Console colours follow the department identity and your own accessibility preferences. A landing theme cannot override a status colour, a warning, or the contrast of any record.</span></div></div>
-  </div>`;
+  if(user.roleId!=='chief' || !may) return note('Only the Chief System Administrator may configure the public entry pages.');
+  const active=landingTheme().id;
+  return `<div class="settings-block"><h3>Official landing &amp; sign-in themes</h3>
+    <p class="small muted">Two identities from the official LOMAMO letterhead: emblem red, black, white and grey. Both entry pages share the Chief-owned <code>system.config.entryTheme</code>. Preview either page before applying; nothing is saved during preview.</p>
+    <div class="theme-grid">${ENTRY_THEMES.map(t=>themeCard(t,t.id===active)).join('')}</div>
+    <p class="small">Every text, badge and primary-action contrast pair is measured against the 4.5:1 gate. Console palettes and operational status colours stay independent.</p></div>`;
 }
