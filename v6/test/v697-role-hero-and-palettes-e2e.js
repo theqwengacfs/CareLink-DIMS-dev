@@ -106,7 +106,7 @@ ok('Each account type carries its own default intro/navigation palette across th
   palettes.roles >= 29 && palettes.colours === palettes.roles && palettes.dupes.length === 0,
   JSON.stringify({ roles: palettes.roles, colours: palettes.colours, dupes: palettes.dupes.slice(0, 4) }));
 ok('Pharmacy staff keep a separate colour identity from other clinical roles and the default scheme is the role signature',
-  palettes.pharmacyDistinct === true && palettes.signatureName === 'Role signature' && palettes.signatureNull === null,
+  palettes.pharmacyDistinct === true && palettes.signatureName === 'Account signature' && palettes.signatureNull === null,
   JSON.stringify(palettes));
 
 /* The test DOM only records setProperty calls, so keep a token map here. */

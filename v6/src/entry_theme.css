@@ -1031,3 +1031,15 @@ html .shell .topbar.cbar .tb-os-identity{
 @container (max-width:600px){
  #patient-section-content>.grid.g2,#patient-section-content>.grid.g4{grid-template-columns:minmax(0,1fr);}
 }
+
+/* The two account identity bands share the chosen contrast-safe palette across
+   light and dark themes. The marker has space for its outline on all sides. */
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand{
+  background:linear-gradient(145deg,var(--console-hero-1),var(--console-hero-2)) !important;
+  color:#fff;
+}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand .np-id :is(b,span,small,strong){color:#fff !important;}
+.np-id .np-role-name{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;padding:3px;white-space:normal;overflow:visible;}
+.np-id .np-role-name>span{min-width:0;white-space:normal;overflow:visible;overflow-wrap:anywhere;line-height:1.35;}
+.np-id .np-role-name .np-dot{display:block;width:12px;height:12px;flex:0 0 12px;border:2px solid #fff;box-shadow:0 0 0 1px #15263e;}
+@media print{html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand{background:#fff !important;color:#000 !important;}}

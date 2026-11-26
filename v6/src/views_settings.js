@@ -513,7 +513,7 @@ function studioHtml(user){
   const dots = `<div class="st-sw" role="group" aria-label="Accent colour">${STUDIO.accentPick.opts.map(o=>
     `<button class="st-dot ${o.v===''?'none':''} ${st.accentPick===o.v?'on':''}" ${o.v?`style="background:${o.v}"`:''} data-act="studio-set" data-key="accentPick" data-value="${esc(o.v)}" aria-pressed="${st.accentPick===o.v}" aria-label="${esc(o.l)}" title="${esc(o.l)}">${st.accentPick===o.v?'\u2713':''}</button>`).join('')}</div>`;
   const schemeChoices = `<div class="console-scheme-grid" role="group" aria-label="Console colour schemes">${CONSOLE_COLOR_SCHEMES.map(s=>{
-    const colors = consoleSchemeColors(s.id, deptPaletteFor(user));
+    const colors = consoleSchemeColors(s.id, accountSignaturePalette(user,deptPaletteFor(user)));
     const selected = st.colorScheme === s.id;
     return `<button type="button" class="console-scheme-choice ${selected?'is-selected':''}" data-act="studio-set" data-key="colorScheme" data-value="${s.id}" aria-pressed="${selected}" aria-label="${esc(s.name)} colour scheme">
       <span class="console-scheme-swatches" aria-hidden="true">${colors.map(c=>`<i style="--swatch:${c}"></i>`).join('')}</span>

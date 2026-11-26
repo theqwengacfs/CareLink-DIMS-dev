@@ -201,7 +201,7 @@ function deptPaletteFor(user){
 /* Personal multi-colour schemes tint navigation, workspace metrics and card edges,
    while leaving Foundation White surfaces and status colours untouched. */
 const CONSOLE_COLOR_SCHEMES = [
-  { id:'department', name:'Role signature', description:'A distinct palette for this role.', colors:null },
+  { id:'department', name:'Account signature', description:'A stable account-specific default palette; personal selections override it.', colors:null },
   { id:'sapphire', name:'Heritage Sapphire', description:'Classic blue with teal, amber and violet accents.', colors:['#1E3A8A','#2563EB','#0F766E','#A16207','#6D28D9','#166534'] },
   { id:'lake', name:'Lake & sky', description:'Lake teal, sky blue and clear indigo.', colors:['#0F766E','#0369A1','#1D4ED8','#0E7490','#854D0E','#6D28D9'] },
   { id:'forest', name:'Forest & fern', description:'Evergreen with green-teal, clay and blue highlights.', colors:['#14532D','#047857','#0F766E','#92400E','#1E40AF','#6D28D9'] },
@@ -214,6 +214,28 @@ function consoleSchemeColors(id, deptPalette=DEPT_PALETTES.exec){
   const scheme = CONSOLE_COLOR_SCHEMES.find(s=>s.id===id) || CONSOLE_COLOR_SCHEMES[0];
   if(scheme.colors) return scheme.colors;
   return [deptPalette.c1, deptPalette.c2, deptPalette.c3, '#1D4ED8', '#A16207', '#6D28D9'];
+}
+
+/* Stable visual signature for the account, not an authentication factor.
+   Explicit colour schemes remain personal choices; a hash cannot guarantee
+   visually unique colours for an unlimited number of accounts. */
+function accountSignaturePalette(user, fallback){
+  if(!user || user.id==null || String(user.id)==='') return fallback;
+  const key=String(user.id);
+  let hash=2166136261;
+  for(let i=0;i<key.length;i++) hash=Math.imul(hash ^ key.charCodeAt(i),16777619)>>>0;
+  const hue=(hash%36000)/100;
+  const saturation=0.48+((hash>>>16)%17)/100;
+  function color(h, light){
+    h=((h%360)+360)%360;
+    const chroma=(1-Math.abs(2*light-1))*saturation;
+    const x=chroma*(1-Math.abs((h/60)%2-1));
+    const sector=Math.floor(h/60);
+    const rgb=[[chroma,x,0],[x,chroma,0],[0,chroma,x],[0,x,chroma],[x,0,chroma],[chroma,0,x]][sector];
+    const m=light-chroma/2;
+    return '#'+rgb.map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('').toUpperCase();
+  }
+  return {...fallback,c1:color(hue,0.25),c2:color(hue+30+(hash>>>24)%25,0.31),c3:color(hue+95+(hash>>>20)%30,0.29)};
 }
 
 /* ---------------- Creative studio ----------------
@@ -606,7 +628,8 @@ const WTHEME = {
     const st = user? WTHEME.studio(user) : null;
     const dp = deptPaletteFor(user);
     const schemeId = (st && st.colorScheme) || STUDIO.colorScheme.def;
-    const schemeColors = consoleSchemeColors(schemeId, dp);
+    const signature = accountSignaturePalette(user, dp);
+    const schemeColors = consoleSchemeColors(schemeId, signature);
     const schemeAccent = (st && st.accentPick) || (schemeId !== 'department' ? schemeColors[0] : '');
     const vars = WTHEME.vars(theme, dept, schemeAccent);
     Object.keys(vars).forEach(k=>set(k, vars[k]));
