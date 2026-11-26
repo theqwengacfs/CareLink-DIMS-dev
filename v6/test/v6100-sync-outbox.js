@@ -77,6 +77,38 @@ function hosted(){
   await c.run('SYNC.push()');assert.equal(c.run('SYNC.loadOutbox().needsReview'),true);assert.equal(c.run('SYNC.patches().length'),1);
   assert.match(c.run('SYNC.message'),/outcome is unknown/);
  });
+ await check('held review checks scope remotely and only clears fully matching clean work after a second check',async()=>{
+  const c=hosted();c.run('SYNC.holdWork();SYNC.rebase()');let checks=0;
+  c.ctx.__verify=async(url,opts)=>{checks++;assert.equal(url,'api/state/verify-held');return {ok:true,body:{ok:true,rev:13,results:['matches_shared']}};};c.run('SYNC._json=__verify');
+  const inspected=await c.run('SYNC.verifyHeld()');assert.equal(inspected.ok,true);assert.equal(c.run('SYNC.heldOutbox()'),1);
+  const cleared=await c.run('SYNC.releaseConfirmedHeld()');assert.equal(cleared.ok,true);assert.equal(checks,2);assert.equal(c.run('SYNC.heldOutbox()'),0);
+ });
+ await check('a later mismatch or concurrent local edit prevents clearing after an earlier match',async()=>{
+  const c=hosted();c.run('SYNC.holdWork();SYNC.rebase()');const raw=c.ctx.localStorage.getItem('carelink.sync.outbox');let calls=0;
+  c.ctx.__verify=async()=>({ok:true,body:{ok:true,rev:13+calls,results:[++calls===1?'matches_shared':'needs_review']}});c.run('SYNC._json=__verify');
+  assert.equal((await c.run('SYNC.verifyHeld()')).ok,true);assert.equal((await c.run('SYNC.releaseConfirmedHeld()')).ok,false);
+  assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),raw);
+  c.ctx.__verify=async()=>{c.run(`DB.db.visits[0].notes='Synthetic concurrent edit'`);return {ok:true,body:{ok:true,rev:14,results:['matches_shared']}};};
+  assert.equal((await c.run('SYNC.releaseConfirmedHeld()')).ok,false);assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),raw);
+ });
+ await check('a session change during the shared check never clears held work',async()=>{
+  const c=hosted();c.run('SYNC.holdWork();SYNC.rebase()');const raw=c.ctx.localStorage.getItem('carelink.sync.outbox');
+  c.ctx.__verify=async()=>{c.run(`SYNC.sessionToken='synthetic-new-session'`);return {ok:true,body:{ok:true,rev:13,results:['matches_shared']}};};
+  c.run('SYNC._json=__verify');assert.equal((await c.run('SYNC.releaseConfirmedHeld()')).ok,false);
+  assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),raw);
+ });
+ await check('held review preserves unmatched, changed, dirty and foreign work',async()=>{
+  const c=hosted();c.run('SYNC.holdWork();SYNC.rebase()');const raw=c.ctx.localStorage.getItem('carelink.sync.outbox');
+  c.run(`SYNC._json=async()=>({ok:true,body:{ok:true,rev:13,results:['needs_review']}})`);
+  assert.equal((await c.run('SYNC.releaseConfirmedHeld()')).ok,false);assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),raw);
+  c.run(`DB.db.visits[0].notes='Synthetic new unsaved work'`);assert.equal((await c.run('SYNC.releaseConfirmedHeld()')).ok,false);
+  c.run(`AUTH.user.username='synthetic-other'`);assert.equal((await c.run('SYNC.verifyHeld()')).ok,false);assert.equal(c.ctx.localStorage.getItem('carelink.sync.outbox'),raw);
+ });
+ await check('the review interface does not render held record content or identifiers',async()=>{
+  const c=hosted();c.run(`SYNC.holdWork();openHeldWorkReview({ok:true,rev:13,results:['needs_review']})`);
+  const html=c.nodes.at(-1).innerHTML;assert.match(html,/Needs review/);assert(!html.includes('Synthetic held visit'));assert(!html.includes('synthetic-v1'));
+  c.run(`AUTH.user.username='synthetic-other';openHeldWorkReview()`);assert(!c.nodes.at(-1).innerHTML.includes('visits'));
+ });
  await check('storage failure warns rather than claiming durable held work',async()=>{
   const c=hosted();c.ctx.localStorage.setItem=()=>{throw Error('synthetic quota');};c.run(`SYNC._json=async()=>{throw Error('synthetic network outage')}`);
   await c.run('SYNC.push()');assert.equal(c.run('Store.durable'),false);assert.match(c.run('SYNC.message'),/may be lost on reload/);

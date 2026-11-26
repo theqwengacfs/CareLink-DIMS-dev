@@ -83,6 +83,16 @@ check('prior-cycle support, legacy PDCA and summary notes remain visible without
  assert.equal(run('PDCAX.schedule(DB.db.patients[0]).some(x=>x.completed)'),false);assert.equal(run('PAT.lastVisit(DB.db.patients[0])'),null);
  assert.match(run(`formEditor('home_visit','synthetic-p')`),/Home Visit #1/,'new-cycle home-visit cadence must not inherit previous visits');
 });
+check('overlapping and undated visits are not incorrectly attributed to a cycle history',()=>{
+ const oldCycles=run('JSON.stringify(DB.db.careCycles)'),oldVisits=run('JSON.stringify(DB.db.visits)');
+ run(`DB.db.careCycles=[{id:'synthetic-overlap-a',patientId:'synthetic-p',startedAt:'2027-01-01',dischargedAt:'2027-12-31'},
+  {id:'synthetic-overlap-b',patientId:'synthetic-p',startedAt:'2027-06-01',dischargedAt:'2028-01-01'}];
+  DB.db.visits=[{id:'ambiguous',patientId:'synthetic-p',date:'2027-07-01',notes:'Synthetic ambiguous visit'},
+    {id:'undated',patientId:'synthetic-p',notes:'Synthetic undated visit'},
+    {id:'assigned',patientId:'synthetic-p',cycleId:'synthetic-overlap-a',notes:'Synthetic explicitly linked visit'}];`);
+ const html=run('CARE_REVIEW.history(AUTH.user,DB.db.patients[0])');assert(!html.includes('Synthetic ambiguous visit'));assert(!html.includes('Synthetic undated visit'));assert(html.includes('Synthetic explicitly linked visit'));
+ ctx.__oldCycles=oldCycles;ctx.__oldVisits=oldVisits;run('DB.db.careCycles=JSON.parse(__oldCycles);DB.db.visits=JSON.parse(__oldVisits)');
+});
 check('revision exports use the selected immutable snapshot, not the latest mutable patient diagnosis',()=>{
  run(`DB.db.careReviews=[{id:'synthetic-review',patientId:'synthetic-p',cycleId:'synthetic-cycle',evaluatedAt:'2028-06-30T10:23:00.000Z',programmeDay:120,policyDays:120,status:'draft',version:2,
   fields:{...CARE_REVIEW.data('synthetic-p').fields,diagnoses:'Synthetic latest evaluation diagnosis',aimOutcome:'Synthetic actual measurable outcome'}}];

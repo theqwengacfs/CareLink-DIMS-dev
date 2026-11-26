@@ -4482,7 +4482,69 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, rev: state.rev, saved: state.saved, counts: verified.counts, quality: verified.quality, importId });
   }
 
+  /* A scoped, reconstructed source manifest, not a public or immutable export.
+     Record an access event before returning; do not put patient identifiers
+     in the broadly shared generic audit feed. */
+  if (route === 'care/cycle-file' && method === 'POST') {
+    const sess=getSession(state,req);
+    if(!sess) return sendJson(res,401,{ok:false,error:'Sign in required.'});
+    const body=await readJsonBody(req), patientId=String(body.patientId||'');
+    const visible=scopedDbForSession(state.db||{},state,sess);
+    const patient=(visible.patients||[]).find(p=>p && String(p.id)===patientId);
+    if(!CLINICAL_READ_ROLES.has(sess.roleId) || !patient) return sendJson(res,404,{ok:false,error:'Care-cycle file unavailable.'});
+    const cycles=(visible.careCycles||[]).filter(c=>c.patientId===patientId).map(c=>({id:c.id,startedAt:c.startedAt||'',dischargedAt:c.dischargedAt||'',status:c.status||''}));
+    const names=['visits','support','supportIssues','careReviews','careReviewRevisions','pdcas','careReferrals','careEvidence','documents','requests','encounters','programAdmissions'];
+    const groups=cycles.map(c=>({...c,counts:Object.fromEntries(names.map(n=>[n,0]))}));
+    const unassigned=Object.fromEntries(names.map(n=>[n,0]));
+    for(const name of names) for(const record of (Array.isArray(visible[name])?visible[name]:[])){
+      if(!record || record.patientId!==patientId) continue;
+      let group=null;
+      if(record.cycleId) group=groups.find(c=>c.id===record.cycleId)||null;
+      else {
+        const day=careRules.programDate(record.evaluatedAt||record.date||record.visitDate||record.completedAt||record.uploadedAt||record.createdAt||record.due);
+        const matching=day?groups.filter(c=>careRules.programDate(c.startedAt) && careRules.programDate(c.startedAt)<=day &&
+          (!c.dischargedAt || (careRules.programDate(c.dischargedAt) && day<=careRules.programDate(c.dischargedAt)))):[];
+        if(matching.length===1) group=matching[0];
+      }
+      if(group)group.counts[name]++;else unassigned[name]++;
+    }
+    state.cycleFileAccess=Array.isArray(state.cycleFileAccess)?state.cycleFileAccess:[];
+    state.cycleFileAccess.push({id:crypto.randomUUID(),patientId,actorId:sess.userId,roleId:sess.roleId,at:nowISO()});
+    // Bounded storage is disclosed; this is not the immutable audit archive.
+    if(state.cycleFileAccess.length>5000)state.cycleFileAccess.splice(0,state.cycleFileAccess.length-5000);
+    appendServerAudit(state,sess.userId,'care.cycle_file_opened','care-cycle-file','scoped',
+      'Scoped care-cycle source manifest opened; identifiers and clinical text are omitted.');
+    await saveCloudState(state);
+    return sendJson(res,200,{ok:true,rev:state.rev||0,cycles:groups,unassigned,sources:names,auditRetentionLimit:5000});
+  }
+
   /* 6. Shared Online Database State & Field-Level Patch Merge */
+  if (route === 'state/verify-held' && method === 'POST') {
+    const sess = getSession(state, req);
+    if (!sess) return sendJson(res, 401, {ok:false,error:'Sign in required to review held work.'});
+    const body = await readJsonBody(req);
+    const patches = body && body.patches;
+    if (!Array.isArray(patches) || !patches.length || patches.length > 100 || Buffer.byteLength(JSON.stringify(patches)) > 512 * 1024)
+      return sendJson(res, 400, {ok:false,error:'Review requires 1–100 bounded held changes.'});
+    // Compare only a narrow collection allowlist against the same currently
+    // scoped snapshot used by reads. No record content or existence oracle is
+    // returned: missing, out-of-scope, different and unsupported all look alike.
+    const allowed = new Set(['patients','visits','patientConditions','support','supportIssues','requests','concerns','encounters','referrals','clinicalRx','omahaPlans']);
+    const visible = scopedDbForSession(state.db || {}, state, sess);
+    const results = patches.map((p) => {
+      if (!p || !allowed.has(p.c) || typeof p.id !== 'string' || p.del || !p.set || typeof p.set !== 'object' || Array.isArray(p.set)) return 'needs_review';
+      const keys = Object.keys(p.set);
+      if (!keys.length || keys.some(k=>FORBIDDEN_KEYS.has(k))) return 'needs_review';
+      const current = (Array.isArray(visible[p.c]) ? visible[p.c] : []).find(r=>r && String(r.id) === p.id);
+      if (!current) return 'needs_review';
+      const matches = keys.every(k => p.set[k] === null
+        ? (!Object.hasOwn(current,k) || current[k] === null)
+        : Object.hasOwn(current,k) && JSON.stringify(current[k]) === JSON.stringify(p.set[k]));
+      return matches ? 'matches_shared' : 'needs_review';
+    });
+    return sendJson(res, 200, {ok:true,rev:state.rev || 0,results});
+  }
+
   if (route === 'state/collection' && method === 'GET') {
     const sess = getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to read the online database.' });

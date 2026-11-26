@@ -69,8 +69,17 @@ const CARE_REVIEW = (()=>{
     let cycles=(DB.db.careCycles||[]).filter(c=>c.patientId===p.id);
     if(!cycles.some(c=>c.id===R.cycleId(p))&&R.supported(p))cycles=cycles.concat([{id:R.cycleId(p),startedAt:R.cycleStart(p),
       dischargedAt:R.lastDischarge(p,DB.db),status:p.status==='discharged'?'discharged':'active',legacy:true,snapshot:W.snapshot(p)}]);
+    const allCycles=cycles.slice();
     if(priorOnly&&p.status!=='discharged')cycles=cycles.filter(c=>c.id!==R.cycleId(p));
-    const linked=(name,cycle)=>(DB.db[name]||[]).filter(r=>r.patientId===p.id&&R.recordCycle(r,p,DB.db)===cycle.id);
+    const linked=(name,cycle)=>(DB.db[name]||[]).filter(r=>{
+      if(r.patientId!==p.id)return false;
+      if(r.cycleId)return r.cycleId===cycle.id;
+      const day=R.programDate(r.evaluatedAt||r.date||r.visitDate||r.completedAt||r.uploadedAt||r.createdAt||r.due);
+      if(!day)return false;
+      const matches=allCycles.filter(c=>R.programDate(c.startedAt) && R.programDate(c.startedAt)<=day &&
+        (!c.dischargedAt || (R.programDate(c.dischargedAt) && day<=R.programDate(c.dischargedAt))));
+      return matches.length===1 && matches[0].id===cycle.id;
+    });
     const html=cycles.sort((a,b)=>String(b.startedAt).localeCompare(String(a.startedAt))).map(c=>{
       const s=c.snapshot||{},visits=linked('visits',c),support=linked('support',c).concat(linked('supportIssues',c));
       const reviews=linked('careReviews',c),legacy=linked('pdcas',c);
@@ -89,7 +98,8 @@ const CARE_REVIEW = (()=>{
     const referrals=(DB.db.careReferrals||[]).filter(r=>r.patientId===p.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
     return card('Support-cycle history & reassessment reports',`${html||'<p class="muted">No previous supported cycle recorded.</p>'}
       ${referrals.map(r=>`<div class="care-referral-row">${flag({...p,status:'active',assessmentKind:r.kind})}<span>${esc(fmtDateTime(r.evaluatedAt))} · ${esc(statusText(r.status))}</span>${button('care-referral-open','Open assessment report',`data-id="${esc(r.id)}"`)}</div>`).join('')}`,
-      {sub:'One patient identity. Every support cycle, prior PDCA, summary and office decision is retained.'});
+      {sub:'Visible history only; records may be unassigned or unavailable in your scope.',
+       actions:SYNC.sessionToken?button('care-cycle-manifest','Open scoped source manifest',`data-patient="${esc(p.id)}"`):''});
   }
   function panel(user,p){
     if(!W.canSee(user,p))return note('The care-review history is restricted to the authorized clinical team.');
@@ -363,6 +373,23 @@ const CARE_REVIEW = (()=>{
 })();
 
 Object.assign(ACTIONS,{
+  'care-cycle-manifest':async d=>{
+    const p=CARE_REVIEW.scoped(AUTH.user,d.patient);
+    if(!p || !SYNC.sessionToken || !SYNC.available())return toast('File unavailable','A live authorized clinical session is required.','warn');
+    let r;const token=SYNC.sessionToken, username=AUTH.user.username;
+    try{r=await SYNC._json('api/care/cycle-file',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({patientId:p.id})});}
+    catch(e){return toast('File unavailable','The source manifest could not be opened; no result is claimed.','err');}
+    if(SYNC.sessionToken!==token || AUTH.user?.username!==username)return;
+    if(!r?.ok || !r.body?.ok)return toast('File unavailable',esc(r?.body?.error||'The source manifest could not be opened.'),'warn');
+    const labels={visits:'Visits',support:'Support',supportIssues:'Support issues',careReviews:'Care reviews',careReviewRevisions:'Review revisions',pdcas:'Legacy PDCAs',careReferrals:'Reassessments',careEvidence:'Evidence references',documents:'Document references',requests:'Requests',encounters:'Encounters',programAdmissions:'Supported admissions'};
+    const counts=x=>r.body.sources.map(k=>`<span class="badge b-neutral nodot">${esc(labels[k]||k)}: ${num(x?.[k]||0)}</span>`).join(' ');
+    const groups=r.body.cycles.map(c=>`<section class="card" style="margin:12px 0"><div class="card-b"><b>${esc(c.startedAt||'Date not recorded')} → ${esc(c.dischargedAt||'Ongoing / undated')}</b> · ${esc(c.status||'Not recorded')}<p>${counts(c.counts)}</p></div></section>`).join('');
+    openModal({title:'Scoped care-cycle source manifest',sub:esc(p.code||''),wide:true,
+      body:`<div class="note"><span>This is a live count of selected records currently visible to your account, not a complete or immutable archive. Evidence and document references are not stored scans. A zero may mean unavailable in your scope, not that no record exists.</span></div>
+        ${groups||'<p>No recorded cycles were available in this account’s scope.</p>'}<h4>Unassigned / ambiguous cycle</h4><p>${counts(r.body.unassigned)}</p>
+        <p class="small muted">Dated records are grouped only when exactly one recorded cycle covers the date. Explicit cycle links are used when available; unknown or overlapping dates remain unassigned. This open was recorded by the server; its access-event retention is limited to ${num(r.body.auditRetentionLimit)} entries.</p>`,
+      footer:'<button class="btn btn-ghost" data-act="close-modal">Close</button>'});
+  },
   'care-dossier-open':d=>{
     const data=CARE_REVIEW.dossierData(d.id);if(!data)return;
     const dossier=(DB.db.intlPdcaDossiers||[]).find(x=>x.id===d.id);if(!dossier)return;

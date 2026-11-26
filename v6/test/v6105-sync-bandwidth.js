@@ -169,6 +169,19 @@ function hosted() {
     assert.equal(c.run('SYNC.kvBlocked()'),false);
     assert.match(c.run('LOGIN6.notice'),/online and healthy/);
   });
+  await check('entry diagnostic excludes delayed background startup and duplicate clicks',async()=>{
+    const c=hosted();c.run(`AUTH.user=null;SYNC.storeToken(null);APPX.host=null;APPX.screen='login';`);
+    let resolve;c.ctx.fetch=(url,init)=>{c.requests.push({url,init});return new Promise(r=>{resolve=r;});};
+    const retry=c.run(`ACTIONS['login-retry-kv']()`);await c.run(`ACTIONS['login-retry-kv']()`);await c.run('SYNC.start()');
+    assert.equal(c.requests.length,1);assert.match(c.requests[0].url,/kv-diagnostics/);
+    resolve(answer(quota,503));await retry;assert.equal(c.run('SYNC._entryRetryInProgress'),false);assert.match(c.run('LOGIN6.error'),/bandwidth quota/);
+  });
+  await check('delayed startup cannot load a workspace during a first-password gate',async()=>{
+    const c=hosted();let resolve;c.ctx.fetch=(url,init)=>{c.requests.push({url,init});return new Promise(r=>{resolve=r;});};
+    const starting=c.run('SYNC.start()');c.run('SYNC._passwordBeforeWorkspace=true');resolve(answer({ok:true,setup:true,rev:12}));await starting;
+    assert.equal(c.requests.length,1);assert.equal(await c.run('SYNC.pullFull()'),false);await c.run('SYNC.start()');
+    assert.equal(c.requests.length,1);assert.equal(c.run('Boolean(SYNC._pulling)'),false);
+  });
   await check('heartbeats keep local call reconciliation but send no idle/hidden renewals and at most one active renewal per minute',async()=>{
     const c=hosted();c.ctx.__beats=0;c.ctx.__calls=0;
     c.run(`SYNC.beat=async()=>{__beats++;return 1800;};CALLING.reconcile=async()=>{__calls++;};SESSION.start();`);

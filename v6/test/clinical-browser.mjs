@@ -98,6 +98,21 @@ try{
  const returned=f.state().db.patients.find(p=>p.id==='return');assert.equal(returned.status,'active');assert.equal(f.state().db.patients.length,patientCount);assert.equal(f.state().db.careCycles.filter(c=>c.patientId==='return').length,2);
  assert.notEqual(f.state().db.visits.find(v=>v.id==='fx-old-visit').cycleId,returned.careCycleId);assert.equal(f.state().db.careEvidence.find(e=>e.referralId===referral.id).verifiedBy,'fx-mcm');
  await refresh(cg);
+ const fileReply=cg.waitForResponse(r=>r.url().endsWith('/api/care/cycle-file')&&r.request().method()==='POST');
+ await cg.evaluate(()=>ACTIONS['care-cycle-manifest']({patient:'return'}));
+ assert.equal((await fileReply).status(),200);await cg.locator('.modal').filter({hasText:'Scoped care-cycle source manifest'}).waitFor();
+ assert.match(await cg.locator('.modal').innerText(),/not a complete or immutable archive/i);
+ assert.ok(f.state().cycleFileAccess.some(e=>e.patientId==='return'&&e.actorId==='fx-caregiver'));
+ await cg.evaluate(()=>{
+  closeAllModals();SYNC.rebase();APPX.dirty=false;
+  localStorage.setItem('carelink.sync.outbox',JSON.stringify({username:AUTH.user.username,needsReview:true,patches:[{c:'patients',id:'return',set:{status:'active'}}]}));
+  openSyncModal();
+ });
+ await cg.locator('[data-act="sync-review-held"]').click();await cg.locator('[data-act="sync-check-held"]').click();
+ await cg.locator('.modal').filter({hasText:'Review held work'}).getByText('Matches shared record').waitFor();
+ assert.equal((await cg.locator('.modal').innerText()).includes('Synthetic clinical case return'),false);
+ await cg.locator('[data-act="sync-release-held"]').click();await cg.locator('[data-act="confirm-yes"]').click();
+ await cg.waitForFunction(()=>SYNC.heldOutbox()===0);await cg.evaluate(()=>closeAllModals());
  const short=await newReview('short',30);await step(cg,short,'submit_review');await open(mcm,short);await step(mcm,short,'review_report',{comment:'Synthetic county MCM comments for scheduled review'});
  await step(mcm,short,'schedule_review',{nextReviewAt:new Date(Date.now()+86400000).toISOString().slice(0,16)});
  assert.equal(f.state().db.careReviews.find(r=>r.id===short).status,'scheduled');assert.equal(f.state().db.calendarEvents.length,1);

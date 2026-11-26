@@ -289,6 +289,9 @@ const SYNC = {
 
   /* ---- boot ----------------------------------------------------------- */
   async start(){
+    // Entry diagnostics and the password-before-workspace gate own their
+    // respective transitions; a delayed boot timer must not race either.
+    if(this._entryRetryInProgress || this._passwordBeforeWorkspace) return;
     this.loadToken();
     if(!this.available()){ this.state='device'; this.message='This copy runs from the device'; this.bump(); return; }
     /* Reuse a fresh host snapshot already loaded by boot() when unauthenticated
@@ -305,6 +308,7 @@ const SYNC = {
     this.state = 'probing'; this.bump();
     let health = null;
     try{ health = await this._json('api/health', { skipAuthHeader: true, timeoutMs: 8000 }); }catch(e){ health = null; }
+    if(this._entryRetryInProgress || this._passwordBeforeWorkspace) return;
     if(!health || !health.ok){
       this.state = this.available() ? 'error' : 'device';
       this.message = this.available()
@@ -453,7 +457,7 @@ const SYNC = {
   },
 
   async pullFull(opts={}){
-    if(this.kvBlocked() || this._clinicalBusy || this._pulling) return false;
+    if((this._passwordBeforeWorkspace && !opts.afterPasswordChange) || this.kvBlocked() || this._clinicalBusy || this._pulling) return false;
     // An already-started ordinary save (e.g. first-login audit) must settle
     // before adopting a snapshot. Do not turn that short overlap into a
     // permanently failed post-login / verified reference-master refresh.
@@ -843,6 +847,41 @@ const SYNC = {
     if(!box || !username || box.username !== username) return false;
     this.outbox = box; this.outbox.needsReview = true;
     return this.writeOutbox();
+  },
+
+  async verifyHeld(){
+    const box=this.loadOutbox();
+    const username=(typeof AUTH!=='undefined' && AUTH.user && AUTH.user.username)||null;
+    if(!this.sessionToken || !username || !box || box.username!==username) return {ok:false,error:'Sign in as the account that owns this held work.'};
+    if(this._heldReviewBusy || this._inflight || this._pulling || this._clinicalBusy || this.kvBlocked()) return {ok:false,error:'The shared source is busy or unavailable. No work was changed.'};
+    if(box.patches.length>100) return {ok:false,error:'This queue exceeds the current review limit. It remains retained; contact the authorized support team.'};
+    const original=JSON.stringify(box.patches), token=this.sessionToken;
+    this._heldReviewBusy=true;
+    try{
+      const r=await this._json('api/state/verify-held',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({patches:box.patches})});
+      const current=this.loadOutbox(), nowUser=(typeof AUTH!=='undefined' && AUTH.user && AUTH.user.username)||null;
+      if(!r?.ok || !r.body?.ok || !Array.isArray(r.body.results) || r.body.results.length!==box.patches.length ||
+         !r.body.results.every(v=>v==='matches_shared'||v==='needs_review') || !Number.isSafeInteger(r.body.rev) ||
+         this.sessionToken!==token || nowUser!==username || !current || current.username!==username || JSON.stringify(current.patches)!==original)
+        return {ok:false,error:'The check could not be completed for this unchanged queue. No held work was removed.'};
+      return {ok:true,rev:r.body.rev,results:r.body.results};
+    }catch(e){ return {ok:false,error:'The shared source could not verify the held work. No held work was removed.'}; }
+    finally{ this._heldReviewBusy=false; }
+  },
+  async releaseConfirmedHeld(){
+    const box=this.loadOutbox();
+    const username=(typeof AUTH!=='undefined' && AUTH.user && AUTH.user.username)||null;
+    if(!box || !username || box.username!==username || this.patches().length)
+      return {ok:false,error:'Finish or preserve current unsaved edits before clearing held work. Nothing was removed.'};
+    const original=JSON.stringify(box.patches), token=this.sessionToken;
+    const result=await this.verifyHeld();
+    const current=this.loadOutbox(), nowUser=(typeof AUTH!=='undefined' && AUTH.user && AUTH.user.username)||null;
+    if(!result.ok || result.results.some(v=>v!=='matches_shared') || this.sessionToken!==token || nowUser!==username || !current || current.username!==username ||
+       JSON.stringify(current.patches)!==original || this.patches().length)
+      return {ok:false,error:'Not every held change could be verified against the current authorized shared records, or local work changed. Nothing was removed.'};
+    if(!this.clearOutbox(box)) return {ok:false,error:'The confirmed queue could not be safely cleared. Do not retry it automatically.'};
+    this.state='connected';this.message='Held changes matched shared records at revision '+result.rev+'; the local queue was cleared.';this.bump();
+    return {ok:true,rev:result.rev};
   },
 
   /* The legacy queue is not an offline vault or an idempotent command log.
@@ -1343,12 +1382,33 @@ function openSyncModal(){
   }
   if(s.state==='error'){
     body += `<div class="alert crit" style="margin-top:12px">${ic('alert',16)}<div><b>${esc(s.message)}</b>
-      <span class="small">No shared save is claimed while the online source is unavailable. Reconnect and retry before treating a browser change as confirmed.</span></div></div>
-      <button class="btn btn-primary btn-sm" style="margin-top:10px" data-act="sync-retry">Retry now</button>`;
+      <span class="small">No shared save is claimed without confirmation. Do not clear browser data.</span></div></div>
+      <button class="btn btn-primary btn-sm" style="margin-top:10px" data-act="sync-retry">Retry connection</button>`;
   }
+  const box=s.loadOutbox();
+  if(box && AUTH.user && box.username===AUTH.user.username)
+    body += `<button class="btn btn-ghost btn-sm" style="margin-top:10px" data-act="sync-review-held">Review held work</button>`;
   openModal({title:'Shared online source', narrow:true, body,
     footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
       <button class="btn btn-ghost" data-act="go" data-v="mergejournal">Merge journal</button>`});
+}
+
+/* Held-work review deliberately displays no patient content or identifiers:
+   the server verifies only records currently in this account's read scope. */
+function openHeldWorkReview(result=null){
+  const box=SYNC.loadOutbox(), user=AUTH.user;
+  if(!user || !box || box.username!==user.username){
+    return openModal({title:'Held work review',narrow:true,body:'<p>Sign in as the account that owns the held work. No data was changed.</p>',footer:'<button class="btn btn-ghost" data-act="close-modal">Close</button>'});
+  }
+  const summary=box.patches.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p && typeof p.c==='string'?p.c:'Unknown')}</td><td>${result?.ok?(result.results[i]==='matches_shared'?'Matches shared record':'Needs review'):'Not checked'}</td></tr>`).join('');
+  const all=!!result?.ok && result.results.length===box.patches.length && result.results.every(v=>v==='matches_shared');
+  const message=result?.ok?`Shared revision ${esc(result.rev)}. A match verifies only the submitted fields against currently visible records, not authorship or completeness.`:result?.error||'Check the shared source before deciding what to do. Unmatched or restricted items remain held; no automatic replay occurs.';
+  const body=`<div class="note"><span>${esc(message)}</span></div><p class="small">This device stores held work without encryption. Record contents and identifiers are intentionally hidden here. Do not clear browser data. A shared match does not prove a historical version or clinical approval.</p>
+    <div class="table-wrap"><table><thead><tr><th>Item</th><th>Collection</th><th>Status</th></tr></thead><tbody>${summary}</tbody></table></div>
+    ${all?'<p class="small">All items matched. You may clear this local queue after current unsaved edits are resolved; the shared records are not changed.</p>':''}`;
+  openModal({title:'Review held work',wide:true,body,footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
+    <button class="btn btn-primary" data-act="sync-check-held">Check shared records</button>
+    ${all?'<button class="btn btn-ghost" data-act="sync-release-held">Clear confirmed local queue</button>':''}`});
 }
 
 /* Merge journal page: the audit view of automatic reconciliation. */

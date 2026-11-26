@@ -980,7 +980,11 @@ Object.assign(ACTIONS, {
     if (typeof SYNC !== 'undefined') await SYNC.start();
   },
   'login-retry-kv': async () => {
-    if (typeof SYNC !== 'undefined') { SYNC.deviceOnlyOverride = false; SYNC.resetKvBackoff(); }
+    if (typeof SYNC !== 'undefined') {
+      if(SYNC._entryRetryInProgress) return;
+      SYNC._entryRetryInProgress = true;
+      SYNC.deviceOnlyOverride = false; SYNC.resetKvBackoff();
+    }
     LOGIN6.busy = true; LOGIN6.error = ''; LOGIN6.notice = ''; render();
     try {
       const diag = (typeof SYNC !== 'undefined' && SYNC._json)
@@ -1004,6 +1008,8 @@ Object.assign(ACTIONS, {
       LOGIN6.error = (e && e.message) || 'Could not reach Cloud KV diagnostics.';
       toast('Cloud KV Unavailable', LOGIN6.error, 'err');
       render();
+    } finally {
+      if(typeof SYNC !== 'undefined') SYNC._entryRetryInProgress = false;
     }
   },
   'login-offline-device-mode': async () => {
@@ -1302,7 +1308,7 @@ Object.assign(FORMS, {
            it only with a fresh authorised snapshot after the password commits. */
         if(SYNC._passwordBeforeWorkspace){
           clearTimeout(SYNC._timer); APPX.dirty = false;
-          const pulled = await SYNC.pullFull({minRev:r.rev || 0});
+          const pulled = await SYNC.pullFull({minRev:r.rev || 0,afterPasswordChange:true});
           if(!pulled){
             await SYNC.logout(); AUTH.logout(); LOGIN6.mustChangeBusy = false;
             APPX.screen='login'; LOGIN6.error='Your private password was saved, but the workspace could not load. Sign in again with your new password.';
