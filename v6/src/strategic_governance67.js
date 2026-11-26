@@ -677,9 +677,9 @@ const CARELINK_GOVERNANCE = {
     } else {
       body = `<div class="gov67-charter-grid">
         ${this.CHARTER_SECTIONS.map(sec => `<article class="gov67-sec-card">
-          <div class="spread" style="gap:8px;align-items:flex-start">
+          <div class="gov67-sec-meta">
             <span class="badge ${sec.tone}">${esc(sec.badge)}</span>
-            <span class="xs mono muted">${esc(sec.visibility)}</span>
+            <span class="gov67-sec-visibility xs mono muted">${esc(sec.visibility)}</span>
           </div>
           <h3>${esc(sec.title)}</h3>
           <div class="xs muted" style="margin-bottom:6px"><b>Custodian:</b> ${esc(sec.owner)} · <b>Basis:</b> ${esc(sec.legalBasis)}</div>
