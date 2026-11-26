@@ -611,7 +611,7 @@ const MASTERX2 = {
 };
 
 Object.assign(ACTIONS, {
-  'master-tab': d => { MASTERX2._tab = d.tab||'summary'; render(); },
+  'master-tab': d => { MASTERX2._tab = d.tab||'summary'; render(); revealLanding(landingTarget(APPX.view)); },
   'set-programme-year': d => {
     const r = PYEAR.set(AUTH.user, d.month);
     if(!r.ok) return toast('Not changed', r.msg, 'err');

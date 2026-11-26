@@ -94,6 +94,16 @@ const DEVOTION_RULES=(()=>{
       if(command==='save'){
         if(base.status==='shared')return fail('Shared minutes are retained; record a correction through an approved amendment workflow.','devotion_shared_locked',409);
         for(const key of ['reference','prayerNotes','discussion','actions']){const val=String(payload[key]||'').trim();if(val.length>(key==='reference'?200:4000))return fail('A field is too long; nothing was saved.');record[key]=val;}
+        /* A reference is normalised and carried with its translation, so minutes
+           state which version was read and whether anyone checked it against the
+           printed text. Unknown shapes are kept as typed rather than rejected:
+           a devotion leader may write something this parser does not know. */
+        if(record.reference && typeof SCRIPTURE!=='undefined'){
+          const carry=SCRIPTURE.verifiedRecord(record.reference, payload.translation||record.translation||'kjv', user,
+            {db, at:now, verifiedBy: String(payload.verifiedBy||'').trim()||null});
+          record.scripture=carry;
+          record.translation=carry.translation||'';
+        }
       }else{
         if(base.status==='shared')return fail('The minutes have already been shared.','devotion_shared_locked',409);
         if(!base.reference||!base.prayerNotes)return fail('Record the Bible reference and prayer notes before sharing.');

@@ -345,7 +345,9 @@ function settingsSecurity(user, may){
     ${settingRow('Lock the session after inactivity','The person must enter their own password to continue.',
       toggleControl('security.sessionLock', s.sessionLock))}
     ${settingRow('Failed attempts before lockout','A lockout is recorded and shown to the auditor.',
-      `<input class="input" type="number" min="3" max="10" data-setting="security.loginAttempts" value="${s.loginAttempts}">`)}`
+      `<input class="input" type="number" min="3" max="10" data-setting="security.loginAttempts" value="${s.loginAttempts}">`)}
+    ${settingRow('Allow offline sign-in','A device that was explicitly told to remember an account can sign in without a network. The device holds its own separate credential, never the server digest.', toggleControl('security.offlineSignIn', s.offlineSignIn !== false))}
+    ${settingRow('Offline credential expires after','Days an offline credential survives without a successful online sign-in.', `<input class="input" type="number" min="1" max="60" data-setting="security.offlineSignInDays" value="${Number(s.offlineSignInDays) || 14}">`)}`
     : note('Only the Chief System Administrator may change security policy.'))}
     ${card('Controls verified in this build', `
       <div class="row" style="flex-wrap:wrap;gap:8px">

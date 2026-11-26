@@ -12,7 +12,7 @@ OUT = ROOT / "LOMAMO-CareLink-DIMS-v6.0.html"
 OUT_PUBLIC = ROOT.parent / "public" / "carelink-v6.html"
 
 CSS_ORDER = ["styles.css", "console51.css", "console6.css", "portal6.css", "audit6.css", "carelink63.css", "console_color_schemes.css", "admin_ops6.css", "care_review.css", "entry_theme.css"]
-JS_ORDER = ["data.js", "data6.js", "inventory_data.js", "care_rules.js", "care_workflow.js", "devotion_rules.js", "core.js", "access_rules.js", "media6.js", "media_portal.js", "reports.js", "care.js", "ai.js", "charts.js",
+JS_ORDER = ["data.js", "data6.js", "inventory_data.js", "ink.js", "ink_pad.js", "care_rules.js", "care_workflow.js", "pdca_review.js", "scripture.js", "devotion_rules.js", "announcements.js", "offline_signin.js", "core.js", "access_rules.js", "media6.js", "media_portal.js", "reports.js", "care.js", "ai.js", "charts.js",
             "forms.js", "pharmacy.js", "leave.js", "omaha.js", "schedule.js", "exportdocs.js", "dashboard.js", "files.js", "live.js", "themes.js",
             "ui.js", "navpane.js", "pager.js", "care6_flows.js",
             "views_entry.js", "views_patients.js", "views_ops.js", "views_admin.js",
@@ -45,7 +45,7 @@ def build():
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#202020">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.7) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.8) - LOMAMO Foundation Kenya Data & Information Management System">
 {pwa_head}<style>
 {css}
 </style>
@@ -63,7 +63,7 @@ window.BUILD_STAMP = "{stamp}";
 {js}
 </script>
 {pwa_install}
-<!-- Build {stamp} · CareLink C-DIMS v6.9.7 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build {stamp} · CareLink C-DIMS v6.9.8 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
 """

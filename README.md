@@ -264,6 +264,26 @@ quarter. Every printed report also names the person **and the department** that
 issued it. The label stays marked *(provisional)* until the Foundation confirms
 its official 52-week boundary rule. `v6/test/report-period-labels.js` covers it.
 
+### What the audit said was missing, and what was built
+
+The six requirements the verbatim prompt audit recorded as *not captured* are now
+built, each with its own suite; four carry a limitation that is stated in the same
+place as the claim, because an over-claim would be the same defect as a gap.
+
+| Requirement | What was built | Limitation stated plainly |
+|---|---|---|
+| **B5** public statistics from the central database, governed | `GET /api/public/statistics` with a basis, a named reviewer, a disclosure state and a **suppression floor of 5** per figure; the portal prints only released figures | none — a figure without a reviewer cannot reach the portal |
+| **D21** scoped announcements | audiences of everyone / county / department / area / role / people, resolved on read, with seen and acknowledged receipts | none |
+| **D19** stylus handwriting | pressure-aware `[x,y,pressure]` strokes, printed as SVG, always `verification:'unverified'` and captioned as a captured stroke | **recognition and grammar proofing are not built** |
+| **C1** offline sign-in | opt-in per account, PBKDF2-SHA256 ×210,000 over its own salt, expiring in 14 days, refused for locked/revoked accounts, `deviceOnlyOverride` so nothing is claimed as saved centrally | **no encrypted offline copy of the register** |
+| **D17** PDCA review engine | learns the fill pattern of the register's closed cycles, names the field, reason and basis for each finding, refuses below 40 cycles, never approves | **corpus is the demonstration register, not 120 real MCM-reviewed cycles** |
+| **A6** Bible verses in seven translations | `SCRIPTURE` reference parser and canonicaliser, seven translations with their licence state, translation stored with the devotion minutes | **copyrighted text is not reproduced**; references open at the publisher |
+
+New suites: `public-statistics-governance` (20), `scoped-announcements` (37),
+`stylus-handwriting` (38), `offline-signin` (30), `pdca-review-engine` (26),
+`scripture-registry` (36), `devotion-fairness` (12), `workspace-tab-reveal` (14) —
+all in `npm run test:all`.
+
 ### Where the prompt audit lives
 
 The Foundation's verbatim prompt set, and the per-line verdicts against the code,

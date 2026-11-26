@@ -1043,3 +1043,27 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand 
 .np-id .np-role-name>span{min-width:0;white-space:normal;overflow:visible;overflow-wrap:anywhere;line-height:1.35;}
 .np-id .np-role-name .np-dot{display:block;width:12px;height:12px;flex:0 0 12px;border:2px solid #fff;box-shadow:0 0 0 1px #15263e;}
 @media print{html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand{background:#fff !important;color:#000 !important;}}
+
+/* ---- Workspace transitions (B3) ----------------------------------------
+   Content fades and lifts a few pixels when a new workspace opens, which makes
+   the change of place legible without making anybody wait. It is deliberately
+   short, it never animates layout, and it is removed entirely for readers who
+   have asked their device for reduced motion. Nothing here delays a click: the
+   markup is already in place, only its first paint is offset. */
+@keyframes carelink-ws-in{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:none}
+}
+.workspace-view{animation:carelink-ws-in .18s ease-out both;}
+.modal .modal-b,.modal .modal-h{animation:carelink-ws-in .16s ease-out both;}
+.npane .np-i.on{transition:background .16s ease,border-color .16s ease,color .16s ease;}
+.tbl tbody tr:hover{background:color-mix(in srgb,var(--accent,#162F59) 4%,transparent);}
+@media (prefers-reduced-motion:reduce){
+  .workspace-view,.modal .modal-b,.modal .modal-h{animation:none !important;}
+  .npane .np-i.on,.tbl tbody tr{transition:none !important;}
+}
+/* A view transition is only worth using where the browser can run one without
+   a flash of the old page; the CSS above is the fallback everywhere else. */
+@media print{
+  .workspace-view{animation:none !important;}
+}

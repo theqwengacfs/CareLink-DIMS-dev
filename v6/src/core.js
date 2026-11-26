@@ -500,14 +500,14 @@ const AUTH = {
   online:false,
   mustChange:false,
 
-  async loginOnline(username, password, device){
+  async loginOnline(username, password, device, opts={}){
     const raw = String(username||'').trim();
     const name = raw;
     if(typeof SYNC === 'undefined' || !SYNC.available()){
       return {ok:false, code:'offline', error:'No network'};
     }
     let r;
-    try{ r = await SYNC.login(name, password, device); }
+    try{ r = await SYNC.login(name, password, device, opts); }
     catch(e){ return {ok:false, code:'offline', error:'The shared online source could not be reached. Sign-in was not completed locally.'}; }
     if(!r.ok) return r;
     const resolvedName = String(r.username||name).toLowerCase();

@@ -1,7 +1,7 @@
 /* The module order used by build.py. Tests import this so that adding a
    module cannot silently leave a console unrendered in the suite. */
 module.exports = [
-  'data.js','data6.js','inventory_data.js','care_rules.js', 'care_workflow.js', 'devotion_rules.js', 'core.js','access_rules.js','media6.js','media_portal.js','reports.js','care.js','ai.js','charts.js',
+  'data.js','data6.js','inventory_data.js','ink.js','ink_pad.js','care_rules.js', 'care_workflow.js', 'pdca_review.js', 'scripture.js', 'devotion_rules.js', 'announcements.js', 'offline_signin.js', 'core.js','access_rules.js','media6.js','media_portal.js','reports.js','care.js','ai.js','charts.js',
   'forms.js','pharmacy.js','leave.js','omaha.js','schedule.js','exportdocs.js','dashboard.js','files.js','live.js','themes.js',
   'ui.js','navpane.js','pager.js','care6_flows.js',
   'views_entry.js','views_patients.js','views_ops.js','views_admin.js',

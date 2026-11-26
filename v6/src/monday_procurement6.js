@@ -391,7 +391,16 @@ const MONDAY_PROC = {
     const meetings=DB.db.devotionMeetings||[],last=CARE_RULES.addDays(period.week,5);
     const rows=roster.assignments.filter(a=>a.date>=period.week&&a.date<last);
     const person=id=>id?(userById(id)?.name||'Account not available'):'Unassigned — director not uniquely available';
-    const links=ref=>[['NIV','NIV'],['KJV','KJV'],['NKJV','NKJV'],['ESV','ESV'],['NLT','NLT'],['NASB','NASB'],['CSB','CSB']].map(([label,version])=>`<a href="https://www.biblegateway.com/passage/?search=${encodeURIComponent(ref)}&amp;version=${version}" target="_blank" rel="noopener noreferrer">${label}</a>`).join(' · ');
+    /* Seven translations, taken from the scripture registry rather than typed
+       here, so the list cannot drift from what the Foundation actually asked for
+       (KJV, NKJV, NIV, ESV, ASV, WEB, Swahili). The links open the licensed
+       publisher's own page: this system shows the reference, not reproduced text,
+       for every translation whose licence does not permit copying. */
+    const links=ref=>{
+      const list=(typeof SCRIPTURE!=='undefined')?SCRIPTURE.available(DB.db):[];
+      const norm=(typeof SCRIPTURE!=='undefined')?(SCRIPTURE.parse(ref)||{}).reference||ref:ref;
+      return list.map(t=>`<a href="https://www.biblegateway.com/passage/?search=${encodeURIComponent(norm)}&amp;version=${encodeURIComponent(t.short)}" target="_blank" rel="noopener noreferrer" title="${esc(t.note||'')}">${esc(t.short)}</a>`).join(' · ');
+    };
     const renderDay=a=>{
       const m=meetings.find(r=>r.countyId===county&&r.date===a.date),isLeader=a.leaderId===user.id;
       const attrs=`data-county="${esc(county)}" data-date="${esc(a.date)}"`;
@@ -902,7 +911,11 @@ Object.assign(ACTIONS, {
     if(!a||a.leaderId!==AUTH.user.id||m?.status==='shared')return;
     openModal({title:'Provisional devotion minutes · '+d.date,sub:'Prepare verse and prayer notes; save privately before choosing Share.',
       body:`<form id="devotionForm">${CARE_REVIEW.hidden('kind','save')}${CARE_REVIEW.hidden('countyId',d.county)}${CARE_REVIEW.hidden('date',d.date)}${CARE_REVIEW.hidden('version',m?.version||0)}${CARE_REVIEW.hidden('requestId',CARE_REVIEW.token())}
-      ${field('Bible reference','reference','text',{value:m?.reference||'',required:true})}${field('Prayer and verse notes','prayerNotes','textarea',{value:m?.prayerNotes||'',required:true})}
+      ${field('Bible reference','reference','text',{value:m?.reference||'',required:true,placeholder:'Book chapter:verse, for example John 3:16'})}
+      <div class="field"><label>Translation to read from</label><select class="input" name="translation">${(typeof SCRIPTURE!=='undefined'?SCRIPTURE.available(DB.db):[]).map(t=>`<option value="${esc(t.id)}" ${(m?.translation||'niv')===t.id?'selected':''}>${esc(t.name)} (${esc(t.short)})${t.showText?'':" — reference only"}</option>`).join('')}</select>
+      <div class="hint">The seven translations the system offers. Where a publisher's licence does not allow copying, the reference opens at the publisher and the text is not stored here.</div></div>
+      ${field('Prayer and verse notes','prayerNotes','textarea',{value:m?.prayerNotes||'',required:true})}
+      ${m?.scripture?`<p class="small">Recorded as <b>${esc(m.scripture.reference||'')}</b> ${esc(m.scripture.translation||'')} · ${m.scripture.verification==='verified'?'checked against the printed text by '+esc(m.scripture.verifiedBy||'a reviewer'):'not yet checked against the printed text'}.</p>`:''}
       ${field('Discussion','discussion','textarea',{value:m?.discussion||''})}${field('Follow-up actions','actions','textarea',{value:m?.actions||''})}
       <p class="small">Do not include patient details. The provisional template is not the organization’s final approved format.</p></form>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="devotion-save">Save private preparation</button>`});
@@ -927,6 +940,7 @@ Object.assign(ACTIONS, {
   'devotion-save':async()=>{
     const form=document.querySelector('#devotionForm');if(!form||form.dataset?.saving||form.reportValidity&&!form.reportValidity())return;
     const fd=new FormData(form),kind=String(fd.get('kind')||''),payload={countyId:String(fd.get('countyId')),date:String(fd.get('date')),version:Number(fd.get('version'))};
+    if(kind==='save')payload.translation=String(fd.get('translation')||'niv');
     for(const key of kind==='save'?['reference','prayerNotes','discussion','actions']:kind==='assign'?['leaderId','reason']:['closingId'])payload[key]=String(fd.get(key)||'');
     if(form.dataset)form.dataset.saving='true';const r=await CARE_REVIEW.command(kind,payload,String(fd.get('requestId')),'devotion');if(form.dataset)delete form.dataset.saving;
     if(!r.ok)return toast('Not saved',r.msg,'err');closeModal(true);toast('Devotion saved',r.msg,'ok');render();

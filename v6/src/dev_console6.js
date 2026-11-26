@@ -1190,6 +1190,16 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.9.8', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Closed the six unbuilt requirements from the verbatim prompt audit: governed public statistics, scoped announcements, stylus handwriting capture, offline sign-in, the PDCA pattern review and the Bible reference registry.',
+      changes:['Public portal statistics now come from the central database through a governance gate (GET api/public/statistics): every figure carries its basis, reviewer and disclosure state, counts below five are suppressed, and the portal can print only figures a named reviewer has released',
+        'Announcements can be addressed to everyone, a county, a department, an area, a role or named people, with read and acknowledgement receipts; an audience a role cannot reach is refused rather than silently widened',
+        'Handwriting capture records pressure-aware strokes from a stylus, finger or mouse, and is always labelled a captured stroke, never a verified signature; typed names are captioned as typed',
+        'Offline sign-in is opt-in per account, created only after a successful online sign-in, stored as a PBKDF2-SHA256 record with its own salt and 210,000 iterations, and expires after the configured number of days without an online sign-in; an offline session never claims work is saved centrally',
+        'The PDCA review engine learns the fill pattern of the closed cycles in the register and reads a new cycle against it, naming the field, the reason and the basis; it is advisory only and never approves',
+        'A Bible reference registry reads references as people write them, offers seven translations with their permission state recorded, and shows the reference rather than copying text the licence does not allow',
+        'New suites: public-statistics-governance (20), scoped-announcements (37), stylus-handwriting (38), offline-signin (30), pdca-review-engine (26), scripture-registry (36), devotion-fairness (12) and workspace-tab-reveal (14)'],
+      highlights:['B5','D21','D19','C1','D17','A6','A5','B4'] },
     { tag:'v6.9.7', date:'2026-11-26', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Reconciled the verbatim Foundation prompt set against the code, corrected the report period labelling across every document family and added the issuing department to every report.',
       changes:['Every report family now states the period it actually covers: weekly reports by 52-week number and Monday-Friday span, monthly reports by month, leadership summaries by quarter',
@@ -1618,7 +1628,7 @@ const DEV_CONSOLE = {
 };
 
 Object.assign(ACTIONS, {
-  'dev-tab': d => { DEV_CONSOLE_STATE.tab = d.tab || 'telemetry'; render(); },
+  'dev-tab': d => { DEV_CONSOLE_STATE.tab = d.tab || 'telemetry'; render(); revealLanding(landingTarget(APPX.view)); },
   'dev-probe-cloud': () => DEV_CONSOLE.probeCloud(),
   'dev-open-reactivation': () => PROD_SETUP.openReactivationModal(false),
   'dev-open-recover-reactivation': () => PROD_SETUP.openReactivationModal(true),

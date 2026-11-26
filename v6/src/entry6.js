@@ -22,7 +22,12 @@ const ONB = {
 
 const LOGIN6 = {
   tab:'signin', error:'', notice:'', busy:false, mustChangeBusy:false, usernameDraft:'', results:null,
-  slide:0, demoFilter:'all'
+  slide:0, demoFilter:'all',
+  /* Set when the host reports the account is live on another browser; the form
+     turns it into one explicit takeover button instead of a wait. */
+  conflict:null, takeover:false,
+  /* Set when this session was opened from the device's own offline credential. */
+  offlineNotice:null
 };
 
 const LOGIN_TEAM_SLIDES = [
@@ -514,6 +519,25 @@ function renderLogin6(){
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       <p class="lg-note lg-device-note" id="lg-device-note"><span class="entry-security-badge">Secure access</span> Sign in from your browser with your own account. Access and activity are managed by the shared service.</p>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
+      ${(() => {
+        const typedName = String(LOGIN6.usernameDraft || '').trim();
+        const held = typedName ? OFFLINE_SIGNIN.availability(typedName, DB.db) : { ok:false, reason:'' };
+        return held.ok ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin:2px 0 8px">
+          <button class="btn btn-xs btn-ghost" type="button" data-act="login-offline-now">${ic('laptop',12)} Sign in offline with this device's credential</button>
+          <span class="xs muted">Valid for ${held.daysLeft} more day${held.daysLeft===1?'':'s'} · no network needed</span></div>` : '';
+      })()}
+      ${(() => {
+        /* Offline sign-in is offered only when this browser already holds a
+           credential for the account named above, or when the person is being
+           invited to create one. It is never offered speculatively. */
+        const typed = String(LOGIN6.usernameDraft || '').trim();
+        const avail = typed ? OFFLINE_SIGNIN.availability(typed, DB.db) : { ok: false };
+        if (avail.ok) {
+          return `<label class="lg-check" style="align-items:flex-start"><input type="checkbox" name="rememberDevice" value="1">
+            <span class="small">Remember this device, so I can sign in here without a network. Stored as a separate credential on this device only, and it expires after ${OFFLINE_SIGNIN.policy(DB.db).maxDays} days without an online sign-in.</span></label>`;
+        }
+        return '';
+      })()}
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
     <div class="lg-links">
@@ -657,6 +681,13 @@ function renderLogin6(){
           return `<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span><div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">${isKvUnavailable ? `<button class="btn btn-xs btn-primary" type="button" data-act="login-retry-kv">${ic('refresh',12)} Retry Cloud KV Connection</button>` : ''}${showOfflineBtn ? `<button class="btn btn-xs btn-ghost" type="button" data-act="login-offline-device-mode" style="background:#FFFFFF;color:#0F172A;border:1px solid #94A3B8;font-weight:700">${ic('laptop',12)} Open Offline Console on This Device</button>` : ''}${showResetBtn ? `<button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button>` : ''}</div></div></div>`;
         })():''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
+        ${LOGIN6.conflict?`<div class="alert warn lg6-alert" data-login-conflict>${ic('alert',15)}<div style="flex:1">
+          <b>This account is open on another browser</b>
+          <div class="xs">Only one browser may hold an account at a time. If that window is yours, take the account over here now — the other window is signed out immediately and anything it had typed but not yet saved is held for it.</div>
+          <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-xs btn-primary" type="button" data-act="login-takeover">${ic('logout',12)} Sign out the other browser and continue</button>
+            <button class="btn btn-xs btn-ghost" type="button" data-act="login-conflict-dismiss">Not me — cancel</button>
+          </div></div></div>`:''}
         <div class="lg-tabs" role="group" aria-label="Account access">
           ${tabBtn('signin','Sign in')}
           ${tabBtn('activate','Activate')}
@@ -1006,6 +1037,39 @@ Object.assign(ACTIONS, {
       render();
     }
   },
+  /* Takeover is a second, deliberate sign-in carrying the same credentials plus an
+     explicit flag. It never happens as a side effect of a retry. */
+  'login-takeover': async () => {
+    const c = LOGIN6.conflict;
+    if (!c) return;
+    LOGIN6.conflict = null;
+    LOGIN6.takeover = true;
+    LOGIN6.error = '';
+    const btn = $('[data-act="login-takeover"]');
+    if (btn) { btn.disabled = true; btn.setAttribute('aria-busy','true'); }
+    try {
+      /* Re-post exactly the credentials that were just accepted, adding only the
+         takeover flag. Nothing else about the sign-in changes. */
+      await FORMS.login6({ get: (k) => (k === 'username' ? c.username : k === 'password' ? c.password : '') });
+    } finally { LOGIN6.takeover = false; }
+  },
+  'login-conflict-dismiss': () => { LOGIN6.conflict = null; LOGIN6.error = ''; render(); },
+  /* Sign in from the device's own credential without waiting for a network call
+     to time out first. The password is still required. */
+  'login-offline-now': async () => {
+    const u = (($('#lg-u') || {}).value || LOGIN6.usernameDraft || '').trim();
+    const p = (($('#lg-p') || {}).value || '');
+    if(!u || !p) return toast('Enter your password','Type your password, then choose the offline sign-in button.','warn');
+    LOGIN6.forceOffline = true;
+    await FORMS.login6({ get: (k) => (k === 'username' ? u : k === 'password' ? p : '') });
+  },
+  'forget-offline-device': () => {
+    const u = String(LOGIN6.usernameDraft || '').trim();
+    if(!u) return toast('Nothing to forget','Type the account name first.','warn');
+    OFFLINE_SIGNIN.forget(u);
+    toast('Credential removed','This device will no longer offer an offline sign-in for that account.','ok');
+    render();
+  },
   'login-offline-device-mode': async () => {
     if (demoEntryBlocked()) {
       return toast('Offline Evaluation Locked', 'This installation is globally activated and requires the shared online KV store.', 'err');
@@ -1201,6 +1265,10 @@ Object.assign(FORMS, {
     const rawPass = d && typeof d.get === 'function' ? d.get('password') : '';
     const domPass = f && typeof f.querySelector === 'function' ? (f.querySelector('[name="password"]')||{}).value : '';
     const password = String(rawPass || domPass || '');
+    /* "Remember this device" is read from the submitted form; the takeover path
+       re-posts the same credentials and must not create a credential as a side
+       effect, so it says nothing here and nothing is remembered. */
+    const passwordRemembered = Boolean(d && typeof d.get === 'function' && d.get('rememberDevice'));
     LOGIN6.usernameDraft = username;
     if(!username || !password){
       LOGIN6.error = 'Enter both your username (or official email) and password.';
@@ -1208,6 +1276,26 @@ Object.assign(FORMS, {
     }
     LOGIN6.error=''; LOGIN6.notice=''; LOGIN6.busy=true; render();
     try{
+      /* An explicit offline sign-in, decided before anything is sent: if the
+         device holds a live credential for this account the person should not have
+         to fail an online attempt first when they already know there is no network. */
+      if(LOGIN6.forceOffline){
+        LOGIN6.forceOffline = false;
+        const off = await OFFLINE_SIGNIN.attempt(username, password, { db: DB.db });
+        LOGIN6.busy = false;
+        if(!off.ok){ LOGIN6.error = off.msg; render(); return; }
+        LOGIN6.offlineNotice = OFFLINE_SIGNIN.banner(off.daysLeft);
+        if(typeof SYNC !== 'undefined'){ SYNC.deviceOnlyOverride = true; SYNC.state = 'device'; SYNC.message = 'Offline session — records are held on this device'; SYNC.bump(); }
+        const u = DB.db.users.find(x => x.id === off.user.id) || off.user;
+        AUTH.user = u; AUTH.mustChange = false;
+        AUTH.session = { started: todayISO(), last: Date.now(), token: 'offline-' + Date.now() };
+        APPX.screen = 'app'; APPX.view = 'home'; APPX.params = {};
+        try{ sessionStorage.setItem('carelink.lastUser', username); }catch(_e){}
+        SESSION.last = Date.now();
+        applyTheme(); NAVH.reset(); NAVH.push('home',{}); render();
+        toast(LOGIN6.offlineNotice.title, LOGIN6.offlineNotice.body, 'warn');
+        return;
+      }
       const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
       if(!AUTH.user && typeof SYNC !== 'undefined'){
         clearTimeout(SYNC._timer);
@@ -1216,17 +1304,28 @@ Object.assign(FORMS, {
       }
       // Device admission is tied to the server-issued cookie and approval code,
       // not a label typed at sign-in. Do not require staff to name their device.
-      let res = await AUTH.loginOnline(username, password, CLIENT_UI.snapshot());
+      let res = await AUTH.loginOnline(username, password, CLIENT_UI.snapshot(), { takeover: Boolean(LOGIN6.takeover) });
       if(!res.ok && !hosted){
         /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
            feature.  A Vercel client never turns a failed server login into a
            device-local account or an automatic demo installation. */
         const hostUnprovisioned = !APPX.host || !APPX.host.setup;
         const isGloballyActive = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+        /* Offline sign-in comes first, and only for a device that was explicitly
+           told to remember this account. It verifies against its own credential, so
+           a failed server call never becomes a local account and a local digest is
+           never consulted for an account nobody remembered. */
+        if (isGloballyActive || (res.code === 'offline') || res.status === 0) {
+          const off = await OFFLINE_SIGNIN.attempt(username, password, { db: DB.db });
+          if (off.ok) {
+            res = { ok: true, offline: true, user: off.user, mustChange: false, daysLeft: off.daysLeft };
+            LOGIN6.offlineNotice = OFFLINE_SIGNIN.banner(off.daysLeft);
+          }
+        }
         const localCandidate = (DB.db && Array.isArray(DB.db.users))
           ? DB.db.users.find(x => x.username.toLowerCase()===username || String(x.email||'').toLowerCase()===username || ((username==='system.admin'||username==='chief.admin') && x.roleId==='chief'))
           : null;
-        if((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned){
+        if(!(res.ok && res.offline) && ((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned)){
           const local = AUTH.login(username, password);
           res = local.ok
             ? { ok:true, user:local.user, mustChange:Boolean(local.user.mustChange || local.user.mustChangePassword) }
@@ -1236,6 +1335,8 @@ Object.assign(FORMS, {
       LOGIN6.busy = false;
       if(res.ok){
         LOGIN6.usernameDraft = '';
+        LOGIN6.conflict = null;
+        LOGIN6.takeover = false;
         if(typeof ACCOUNT_SWITCHER !== 'undefined' && ACCOUNT_SWITCHER.rememberUsername && AUTH.user){
           ACCOUNT_SWITCHER.rememberUsername(AUTH.user.username);
         }
@@ -1252,8 +1353,40 @@ Object.assign(FORMS, {
         NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
         render();
         if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
+        /* The offline credential is created here - after the server has verified
+           the password while online - and nowhere else. */
+        if(!res.offline && AUTH.user && (passwordRemembered || OFFLINE_SIGNIN.recordFor(AUTH.user.username))){
+          if(passwordRemembered){
+            OFFLINE_SIGNIN.remember(AUTH.user, password, { db: DB.db }).then(r=>{
+              if(r.ok && typeof toast==='function') toast('Device remembered','You can sign in on this device without a network for the next '+OFFLINE_SIGNIN.policy(DB.db).maxDays+' days.','ok');
+              else if(!r.ok && typeof toast==='function') toast('Not remembered', r.msg || 'This browser refused to keep the credential.','warn');
+            }).catch(()=>{});
+          } else {
+            OFFLINE_SIGNIN.touch(AUTH.user.username);
+          }
+        }
+        /* One live client per account: if this sign-in retired an earlier window,
+           the person who just signed in should know the other window is closed,
+           rather than discovering it there later. */
+        if(res.offline && LOGIN6.offlineNotice && typeof toast==='function'){
+          toast(LOGIN6.offlineNotice.title, LOGIN6.offlineNotice.body, 'warn');
+        }
+        if(!res.offline) LOGIN6.offlineNotice = null;
+        if(res.supersededClient && typeof toast==='function'){
+          toast('Earlier window signed out',
+            'This account is only open here now. The previous browser window was signed out.', 'info');
+        }
+      } else if(res.code === 'session_conflict' && res.canTakeover){
+        /* The account is open on another browser. Say so once, plainly, and offer
+           the takeover rather than a waiting room: the person typing the password
+           may be the one who left the other window open, and fifteen minutes is a
+           long time to be told to come back. */
+        LOGIN6.error = res.error || 'This account is signed in on another browser.';
+        LOGIN6.conflict = { username, password, heldForSeconds: res.heldForSeconds };
+        render();
       } else {
         LOGIN6.error = res.error || res.msg || 'That username and password were not accepted.';
+        LOGIN6.conflict = null;
         render();
       }
     }catch(e){

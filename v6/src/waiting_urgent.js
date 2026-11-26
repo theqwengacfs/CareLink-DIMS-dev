@@ -417,7 +417,7 @@ const URGENT = {
 
 /* ---------------- actions & forms ---------------- */
 Object.assign(ACTIONS, {
-  'wl-tab': d => { WAIT_STATE.tab=d.tab||'list'; render(); },
+  'wl-tab': d => { WAIT_STATE.tab=d.tab||'list'; render(); revealLanding(landingTarget(APPX.view)); },
   'wl-add-open': () => {
     const areas = COUNTIES.flatMap(c=>c.areas).filter(a=>{
       const countyId = (COUNTIES.find(cc=>cc.areas.some(x=>x.id===a.id))||{}).id;
@@ -473,7 +473,7 @@ Object.assign(ACTIONS, {
     if(!r.ok) return toast('Not closed', r.msg, 'err');
     closeModal(true); toast('Entry closed', r.msg, 'ok'); render();
   },
-  'uc-tab': d => { URG_STATE.tab=d.tab||'register'; render(); },
+  'uc-tab': d => { URG_STATE.tab=d.tab||'register'; render(); revealLanding(landingTarget(APPX.view)); },
   'uc-add-open': () => {
     const rows = RBAC.has(AUTH.user,'patient.list')? repo.patientList(AUTH.user).slice(0,600) : [];
     openModal({ title:'Record an urgent case', sub:'NAME, WHAT, COSTS and the budget line - the URGCAS sheet\u2019s own columns.',

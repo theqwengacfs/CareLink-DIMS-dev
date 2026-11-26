@@ -131,26 +131,33 @@ const SESSION = {
       }
     }finally{ this._beating = false; }
   },
-  serverExpired(){ this.expire('server'); },
+  serverExpired(reason){ this.expire(reason || 'server'); },
   expire(reason){
     if(!AUTH.user) return;
     const who = AUTH.user.id;
     try{
       AUDIT.append({actor:who,action:'session.expired',entity:'session',entityId:who,
-        detail: reason==='inactivity' ? 'Ended after 900 seconds without activity' : 'Ended because the host session expired'});
+        detail: reason==='inactivity' ? 'Ended after 900 seconds without activity'
+          : reason==='superseded' ? 'Ended because this account signed in on another browser'
+          : 'Ended because the host session expired'});
       DB.save();
     }catch(e){}
     this.stop();
     closeAllModals(true);
     const box=$('#idleWarn'); if(box) box.remove();
-    if(typeof SYNC!=='undefined') SYNC.logout();
+    /* The host has already ended this session (that is why we are here), so do not
+       post a second sign-out; just forget the token locally. */
+    if(typeof SYNC!=='undefined') SYNC.storeToken(null);
     AI.history = [];
     try{ sessionStorage.removeItem('carelink.lastUser'); }catch(e){}
     AUTH.logout();
     NAVH.reset(); APPX.screen='login'; APPX.view='home'; APPX.params={}; APPX.dirty=false; APPX.aiOpen=false;
     try{ history.replaceState(null,'',location.pathname+'#/'); }catch(e){}
     render();
-    toast('Signed out','Your session ended. Sign in again to continue.','warn');
+    toast(reason==='superseded' ? 'Signed in elsewhere' : 'Signed out',
+      reason==='superseded'
+        ? 'This account signed in on another browser, so this window was signed out. Any unsaved work is held and will be offered again after you sign in.'
+        : 'Your session ended. Sign in again to continue.', 'warn');
   }
 };
 
@@ -204,7 +211,17 @@ async function boot(){
      BEFORE the first render() or network probe so clicking Sign-In or
      submitting a form works immediately even while /api/health is loading. */
   AUTH.listeners.push(()=>render());
-  window.addEventListener('hashchange', ()=>{ parseHash(); render();if(AUTH.user)revealWorkspace(APPX.view); });
+  window.addEventListener('hashchange', ()=>{ parseHash(); render(); const land=landingTarget(APPX.view); if(AUTH.user){ if(land) revealLanding(land); revealWorkspace(APPX.view, land); } });
+  /* Closing the tab, closing the window or navigating away gives up this
+     account's single-instance lease straight away, so the next sign-in does not
+     wait out a fifteen-minute idle window and a shared tablet is not left holding
+     an open session. `pagehide` fires on both close and the back/forward cache, and
+     `visibilitychange` covers a phone being backgrounded and then killed. */
+  window.addEventListener('pagehide', ()=>{ if(typeof SYNC!=='undefined' && AUTH.user) SYNC.releaseOnExit(); });
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState!=='hidden') return;
+    if(typeof SYNC!=='undefined' && AUTH.user && typeof SESSION!=='undefined' && SESSION.idleSeconds && SESSION.idleSeconds()>SESSION.END_AT) SYNC.releaseOnExit();
+  });
   document.addEventListener('click', onClick, false);
   document.addEventListener('submit', onSubmit, false);
   document.addEventListener('change', onChange, false);
@@ -291,7 +308,39 @@ function go(view, params={}){
     if(id) MESSAGING.markRead(AUTH.user, id);
   }
   render();
-  revealWorkspace(view);
+  const land = landingTarget(view);
+  if(land) revealLanding(land);
+  revealWorkspace(view, land);
+}
+
+/* Click-through into the workspace must land on the content, not on the banner
+   above it. Every view opens with a hero/banner, and on a narrow screen that
+   banner is most of the first screenful, so a reader who taps a nav item sees a
+   heading and no content until they scroll. The landing anchor is the first real
+   block below the hero, marked by the view itself; where a view marks nothing the
+   reveal falls back to the workspace heading it already used. */
+function landingTarget(view){
+  /* The console home is a greeting, not a task, so it keeps the top of the page. */
+  if(!view || view==='home' || view==='login' || view==='landing') return null;
+  const ws = document.getElementById && document.getElementById('workspaceView');
+  if(!ws || typeof ws.querySelector!=='function') return null;
+  const marked = ws.querySelector('[data-landing]:not(#workspaceView)');
+  if(marked && marked.id) return marked.id;
+  /* Otherwise every view lands on the workspace itself, which sits below the role
+     banner and the shortcut bar. That one anchor covers all 300-odd views, so a
+     newly added page cannot forget to opt in. */
+  return ws.id || null;
+}
+
+/* Reposition the scrollport and then correct once, on the next frame, in case the
+   browser re-anchored scrolling while the new markup was laid out. Both passes are
+   idempotent: on a short page the clamp leaves the scrollport at 0 and nothing moves. */
+function revealLanding(id){
+  if(!id) return;
+  const settle = ()=>{ try{ revealWorkspace(APPX.view,id); }catch(e){} };
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(settle);
+  else if(typeof setTimeout==='function') setTimeout(settle,0);
+  else settle();
 }
 
 /* The desktop pane shell itself scrolls; #content is not the scrollport.
@@ -531,7 +580,12 @@ function renderShell(){
   const groups = navModel(user);
   const role = roleObj(user.roleId)||{};
   const dept = deptObj(user.departmentId)||{accent:'#C8102E'};
-  const unread = DB.db.notifications.filter(n=>n.userId===user.id&&!n.read).length;
+  /* The bell counts two different things and says so: workflow notifications
+     addressed to this person, and scoped notices published to an audience that
+     includes them. A notice nobody has opened is unread even if every
+     notification row has been cleared. */
+  const unreadNotes = (()=>{ try{ return ANNOUNCEMENTS.unread(DB.db, user).length; }catch(_e){ return 0; } })();
+  const unread = DB.db.notifications.filter(n=>n.userId===user.id&&!n.read).length + unreadNotes;
   const crumb = viewCrumb();
   const here = v => APPX.view===v || (APPX.view==='patient'&&v==='patients')
                  || (APPX.view==='form'&&v==='forms') || (APPX.view==='careplan'&&v==='careplans')
@@ -577,7 +631,7 @@ function renderShell(){
         <button class="icon-btn tb-ai-icon no-print" data-act="toggle-ai" aria-label="Open ${esc(aiProf.title||'Console AI')}" title="${esc(aiProf.title||'Console AI')}">${ic('sparkles',18)}</button>
         <button class="icon-btn tb-theme no-print" data-act="wtheme-open" aria-label="Themes, Fonts & Visual Packs" title="Themes, Fonts & Visual Packs">${ic('palette',18)}</button>
         <button class="icon-btn no-print" data-act="${DEMO_PREVIEW.active?'demo-role-picker':'open-switch-account'}" aria-label="${DEMO_PREVIEW.active?'Switch read-only demo role':'Switch account'}" title="${DEMO_PREVIEW.active?'Explore another read-only synthetic role console':'Switch Account / Role Console'}">${ic('users',18)}</button>
-        <button class="icon-btn no-print" data-act="open-notifications" aria-label="Notifications" title="Notifications">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
+        <button class="icon-btn no-print" data-act="open-notifications" aria-label="Notifications${unreadNotes?' and '+unreadNotes+' unopened notice'+(unreadNotes===1?'':'s'):''}" title="Notifications &amp; notices${unreadNotes?' · '+unreadNotes+' unopened notice'+(unreadNotes===1?'':'s'):''}">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
         <button class="me-btn" data-act="toggle-user-menu" aria-label="Your account" title="${esc(user.name)} · ${esc(role.name||'')}">
           ${avatarFor(user.name, dept.accent, user.photo)}
           <span class="me-nm">${esc(user.name.replace(/^Demo - /,'').split(' ')[0])}</span>
@@ -602,7 +656,7 @@ function renderShell(){
       </nav>
       ${!Store.durable?`<div class="alert warn no-print" style="margin-bottom:16px">${ic('info',18)}<div><b>Preview session</b>
         <span class="small">This browser has blocked persistent storage, so changes are held for this session only. Download the file and open it directly in Chrome or Edge for a persistent installation.</span></div></div>`:''}
-      <div class="workspace-view" id="workspaceView" tabindex="-1">${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}</div>
+      <div class="workspace-view" id="workspaceView" tabindex="-1" data-landing>${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}</div>
       ${PAGER.bar(user, here)}</main>
     ${(typeof CALLING!=='undefined' && CALLING.incomingBanner) ? CALLING.incomingBanner() : ''}
   </div>`;
@@ -847,6 +901,23 @@ function onClick(e){
     if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(patient-tab|nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
   }
   finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
+}
+/* Keep the visible readout and the hidden field in step with the stroke store, so
+   what the form posts is exactly what the person can see they drew. */
+function updateMarks(id){
+  try{
+    const methodEl = document.querySelector && document.querySelector(`[data-ink-method="${id}"]`);
+    const countEl = document.querySelector && document.querySelector(`[data-ink-count="${id}"]`);
+    const emptyEl = document.querySelector && document.querySelector(`[data-ink-empty="${id}"]`);
+    if (methodEl) methodEl.textContent = INK.describeMethod(INK_PAD.padFor(id));
+    if (countEl) countEl.textContent = INK_PAD.points(id) + ' points';
+    if (emptyEl) emptyEl.style.display = INK_PAD.isEmpty(id) ? '' : 'none';
+    const hidden = document.querySelector && document.querySelector(`[data-ink-record="${id}"]`);
+    if (hidden){
+      const rec = INK_PAD.record(id, { by:(AUTH.user&&AUTH.user.name)||'', role:(AUTH.user&&(roleObj(AUTH.user.roleId)||{}).name)||'' });
+      hidden.value = rec ? JSON.stringify({ method:rec.method, points:rec.points, verification:rec.verification, capturedAt:rec.capturedAt }) : '';
+    }
+  }catch(_e){}
 }
 function onSubmit(e){
   if(DEMO_PREVIEW.active){ e.preventDefault(); if(typeof toast==='function') toast('Read-only board preview','Form submissions are disabled in the isolated synthetic preview.','info'); return; }
@@ -1430,6 +1501,49 @@ const ACTIONS = {
     el.innerHTML = ic(show ? 'eyeoff' : 'eye', 15);
     try{ inp.focus({preventScroll:true}); }catch(_e){}
   },
+  /* ---- stylus pad ------------------------------------------------------
+     Pointer events only: they cover a pen, a finger and a mouse in one path, so
+     the pad cannot behave differently depending on which one a tablet reports. */
+  'ink-draw': (d, el) => {
+    const id = (d && d.inkId) || '';
+    if (!id || !el) return;
+    const canvas = el;
+    if (el.__inkBound) return;
+    el.__inkBound = true;
+    const opts = { passive: false };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button > 0) return;
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch (_e) {}
+      INK_PAD.down(id, e, canvas);
+    }, opts);
+    el.addEventListener('pointermove', (e) => {
+      if (!INK_PAD.move(id, e, canvas)) return;
+      e.preventDefault();
+      INK_PAD.repaint(id, canvas);
+    }, opts);
+    const finish = (e) => { if (INK_PAD.up(id, e, canvas)) { updateMarks(id); } };
+    el.addEventListener('pointerup', finish, opts);
+    el.addEventListener('pointercancel', finish, opts);
+    el.addEventListener('pointerleave', (e) => { if (e.buttons) finish(e); }, opts);
+    /* A stylus hover tells us which input the tablet actually has, so the label
+       is right before the first stroke rather than after it. */
+    el.addEventListener('pointerover', (e) => {
+      const m = INK.methodOf({ strokes: [[]], kinds: [INK.kindOf(e)] });
+      const label = document.querySelector(`[data-ink-method="${id}"]`);
+      if (label && !INK_PAD.points(id)) label.textContent = INK.describeMethod(m);
+    });
+  },
+  'ink-clear': (d) => {
+    const id = (d && d.inkId) || '';
+    if (!id) return;
+    INK_PAD.reset(id);
+    const canvas = document.getElementById ? document.getElementById(id) : null;
+    if (canvas) INK_PAD.repaint(id, canvas);
+    const typed = document.getElementById ? document.getElementById(id + '-typed') : null;
+    if (typed) typed.value = '';
+    updateMarks(id);
+  },
   'quick-login': async (d)=>{
     if((typeof demoEntryBlocked === 'function' && demoEntryBlocked()) || (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated())){
       LOGIN6.tab = 'signin'; APPX.screen = 'login';
@@ -1687,7 +1801,18 @@ function workflowActionsUI(){ return {
   'pdca-review-comment':(d)=>{
     const x=(DB.db.pdcas||[]).find(y=>y.id===d.id);
     if(!x || !PDCAX.canReviewDiscussion(AUTH.user,x)) return toast('Not permitted','Only the scoped Medical Case Manager may review this caregiver PDCA.','err');
+    /* The review engine reads this cycle against what a finished cycle looks like
+       in this register. It is a second pair of eyes, not a substitute for the
+       reviewer's own judgement, and it is labelled that way on screen. */
+    const model = PDCA_REVIEW.train(DB.db);
+    const advice = PDCA_REVIEW.review(x, model);
+    const adviceHtml = advice.findings.length ? `<div class="alert warn" style="margin-bottom:12px">${ic('alert',15)}<div>
+        <b>Pattern check against ${model.closedCount} closed cycles</b>
+        <div class="small" style="margin-top:4px;white-space:pre-wrap">${esc(PDCA_REVIEW.summary(advice))}</div>
+        <div class="xs muted" style="margin-top:6px">${esc(advice.recommendation)} Each finding names the evidence behind it, so you can disagree with any of them.</div>
+      </div></div>` : '';
     openModal({title:'Review caregiver PDCA',sub:'Your clinical review and comment will open a formal, audited correction thread with this caregiver.',body:`
+      ${adviceHtml}
       <form data-form="pdca-review" id="pdcaReviewForm"><input type="hidden" name="pdcaId" value="${esc(x.id)}">
         <div class="field"><label>Review comment *</label><textarea class="input" name="comment" rows="5" minlength="8" maxlength="1200" required placeholder="Describe the review, required corrections, or follow-up questions."></textarea><div class="hint">8–1,200 characters. Do not include unnecessary identifiers or unrelated sensitive details.</div></div>
       </form>`,footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-pdca-review">Complete review &amp; open thread</button>`});
@@ -2681,16 +2806,110 @@ function systemActions(){ return {
     const ok=await AI.ollamaProbe();
     toast(ok?'Local model reachable':'Local model not reachable', ok?'Ollama responded at the configured endpoint.':'Start Ollama locally, or continue with the built-in rule-based assistant.','info');
   },
+  /* ---- scoped announcements (D21) ------------------------------------- */
+  'notice-new':()=>{
+    if(!RBAC.assert(AUTH.user,'org.manage',{},false) && !(typeof isGlobal === 'function' && isGlobal(AUTH.user)) &&
+       !['depthead','assistant','countyadmin','coordinator','mcm','hr','welfare','mediahead','auditor'].includes(AUTH.user.roleId)){
+      return toast('Not permitted','Publishing a notice needs a role that can address other staff. The attempt was logged.','err');
+    }
+    openModal({ title:'Publish a scoped notice', wide:true,
+      body:`<form id="noticeForm">
+        <div class="alert info"><b>Address the people who need it, not everybody.</b>
+          <span class="small">A notice goes only to the audience you choose. You can publish to everyone only if your role covers the whole organisation.</span></div>
+        <div class="grid g2">
+          <div class="field"><label>Title *</label><input class="input" name="title" maxlength="160" required placeholder="e.g. Pharmacy stock-take on Friday"></div>
+          <div class="field"><label>Severity</label><select class="input" name="severity">
+            ${Object.entries(ANNOUNCEMENTS.SEVERITY).map(([k,v])=>`<option value="${esc(k)}">${esc(v.label)}</option>`).join('')}
+          </select></div>
+        </div>
+        <div class="field"><label>Notice *</label><textarea class="input" name="body" rows="4" maxlength="4000" required placeholder="What has changed, what people must do, and by when."></textarea></div>
+        <div class="grid g2">
+          <div class="field"><label>Audience</label><select class="input" name="audience" data-notice-audience>
+            ${Object.entries(ANNOUNCEMENTS.AUDIENCES).map(([k,v])=>`<option value="${esc(k)}">${esc(v.label)}</option>`).join('')}
+          </select></div>
+          <div class="field" data-notice-detail="county"><label>County office</label><select class="input" name="countyId">
+            ${(DB.db.counties||[]).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
+        </div>
+        <div class="grid g2">
+          <div class="field" data-notice-detail="department" style="display:none"><label>Department</label><select class="input" name="departmentId">
+            ${(typeof DEPARTMENTS!=='undefined'?DEPARTMENTS:[]).map(d=>`<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('')}</select></div>
+          <div class="field" data-notice-detail="role" style="display:none"><label>Role</label><select class="input" name="roleId">
+            ${(typeof ROLES!=='undefined'?ROLES:[]).map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></div>
+        </div>
+        <div class="field" data-notice-detail="area" style="display:none"><label>Ministry area</label><select class="input" name="areaId">
+          ${(DB.db.areas||[]).map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(countyName(a.countyId))}</option>`).join('')}</select></div>
+        <label class="lg-check" style="margin:6px 0 12px;display:flex;gap:8px;align-items:flex-start">
+          <input type="checkbox" name="needsAcknowledgement" value="1">
+          <span class="small">Require each person to acknowledge that they have read it.</span></label>
+      </form>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-act="notice-publish">${ic('check',14)} Publish to the chosen audience</button>` });
+  },
+  'notice-publish':()=>{
+    const f=document.querySelector('#noticeForm');
+    if(!f) return;
+    const fd=new FormData(f);
+    const res=ANNOUNCEMENTS.publish(DB.db, AUTH.user, {
+      title:fd.get('title'), body:fd.get('body'), severity:fd.get('severity'),
+      audience:fd.get('audience'), countyId:fd.get('countyId'), departmentId:fd.get('departmentId'),
+      roleId:fd.get('roleId'), areaId:fd.get('areaId'),
+      needsAcknowledgement: Boolean(fd.get('needsAcknowledgement')),
+    });
+    if(!res.ok) return toast('Notice not published', res.msg, 'err');
+    AUDIT.append({ actor:AUTH.user.id, action:'notice.published', entity:'announcement', entityId:res.rec.id,
+      detail:`${res.rec.severity} notice to ${res.rec.audienceLabel} (${res.rec.resolvedCount} people)` });
+    DB.save(); closeModal(true); render();
+    toast('Notice published', `${res.rec.resolvedCount} ${res.rec.resolvedCount===1?'person':'people'} · ${res.rec.audienceLabel}.`, 'ok');
+  },
+  'notice-open':(d)=>{
+    const rec=(DB.db.announcements||[]).find(a=>a.id===d.id);
+    if(!rec) return;
+    ANNOUNCEMENTS.markSeen(DB.db, AUTH.user, rec.id);
+    const r=ANNOUNCEMENTS.receipt(DB.db, rec.id);
+    openModal({ title: rec.title, wide:true,
+      body:`<div class="alert ${ANNOUNCEMENTS.SEVERITY[rec.severity].tone}"><b>${esc(ANNOUNCEMENTS.SEVERITY[rec.severity].label)}</b>
+          <span class="small"> · ${esc(rec.audienceLabel)} · published ${fmtDateTime(rec.publishedAt)} by ${esc(rec.authorName)}</span></div>
+        <p class="small" style="white-space:pre-wrap">${esc(rec.body)}</p>
+        ${rec.authorId===AUTH.user.id ? `<div class="xs muted">Reached ${r.audience} ${r.audience===1?'person':'people'} · opened by ${r.seen}${rec.needsAcknowledgement?` · acknowledged by ${r.acknowledged}`:''}. This is a live count: the audience is re-evaluated each time it is read.</div>` : ''}`,
+      footer:`${rec.authorId===AUTH.user.id?`<button class="btn btn-ghost" data-act="notice-withdraw" data-id="${esc(rec.id)}">Withdraw</button>`:''}
+        ${rec.needsAcknowledgement && rec.authorId!==AUTH.user.id ? `<button class="btn btn-primary" data-act="notice-ack" data-id="${esc(rec.id)}">${ic('check',14)} I have read this</button>` : ''}
+        <button class="btn btn-ghost" data-act="close-modal">Close</button>` });
+  },
+  'notice-ack':(d)=>{
+    const res=ANNOUNCEMENTS.acknowledge(DB.db, AUTH.user, d.id);
+    if(!res.ok) return toast('Not recorded', res.msg, 'err');
+    AUDIT.append({ actor:AUTH.user.id, action:'notice.acknowledged', entity:'announcement', entityId:d.id, detail:res.rec.title });
+    DB.save(); closeModal(true); render();
+    toast('Acknowledgement recorded','Your name is now on the record for this notice.','ok');
+  },
+  'notice-withdraw':(d)=>{
+    const res=ANNOUNCEMENTS.withdraw(DB.db, AUTH.user, d.id, 'Withdrawn by the author');
+    if(!res.ok) return toast('Not withdrawn', res.msg, 'err');
+    AUDIT.append({ actor:AUTH.user.id, action:'notice.withdrawn', entity:'announcement', entityId:d.id, detail:res.rec.title });
+    DB.save(); closeModal(true); render();
+    toast('Notice withdrawn','It no longer appears for its audience. The record of it being sent is kept.','warn');
+  },
   'open-notifications':()=>{
+    const notes=(()=>{ try{ return ANNOUNCEMENTS.visibleTo(DB.db, AUTH.user); }catch(_e){ return []; } })();
     const ns=DB.db.notifications.filter(n=>n.userId===AUTH.user.id);
     ns.forEach(n=>n.read=true); DB.save();
-    openModal({title:'Notifications', body: ns.length? `<div class="col" style="gap:9px">${ns.slice(0,30).map(n=>`
+    const noticeCards = notes.length ? `<div class="col" style="gap:9px;margin-bottom:12px">
+      <div class="xs bold muted" style="text-transform:uppercase;letter-spacing:.06em">Scoped notices (${notes.length})</div>
+      ${notes.slice(0,20).map(a=>`<button class="row" style="gap:11px;padding:11px;border:1px solid var(--line);border-radius:10px;align-items:flex-start;width:100%;text-align:left;background:${a.seen&&a.seen[AUTH.user.id]?'transparent':'var(--surface-2)'}" data-act="notice-open" data-id="${esc(a.id)}">
+        <span style="color:${ANNOUNCEMENTS.SEVERITY[a.severity].tone==='crit'?'var(--crit)':ANNOUNCEMENTS.SEVERITY[a.severity].tone==='warn'?'var(--warn)':'var(--info)'};flex:0 0 18px">${ic(a.severity==='info'?'info':'alert',16)}</span>
+        <span style="flex:1"><span class="small bold">${esc(a.title)}</span>
+          <span class="xs muted" style="display:block">${esc(ANNOUNCEMENTS.SEVERITY[a.severity].label)} · ${esc(a.audienceLabel)} · ${esc(fmtDateTime(a.publishedAt))}</span>
+          ${a.needsAcknowledgement?`<span class="xs" style="display:block;color:var(--ink-3)">${a.acknowledged&&a.acknowledged[AUTH.user.id]?'Acknowledged':'Acknowledgement requested'}</span>`:''}
+        </span></button>`).join('')}
+      </div>` : '';
+    openModal({title:'Notifications', body: (noticeCards + (ns.length? `<div class="col" style="gap:9px">${ns.slice(0,30).map(n=>`
       <div class="row" style="gap:11px;padding:11px;border:1px solid var(--line);border-radius:10px;align-items:flex-start">
         <div style="color:${n.kind==='warn'?'var(--warn)':'var(--info)'};flex:0 0 18px">${ic(n.kind==='warn'?'alert':'info',16)}</div>
         <div style="flex:1"><div class="small bold">${esc(n.title)}</div><div class="xs muted">${esc(n.body)}</div>
         <div class="xs" style="margin-top:3px;opacity:.6">${fmtDateTime(n.at)}</div></div></div>`).join('')}</div>`
-      : emptyState('No notifications','Workflow updates assigned to you appear here.','bell'),
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>`});
+      : (notes.length? '' : emptyState('No notifications','Workflow updates and scoped notices addressed to you appear here.','bell')))),
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
+        <button class="btn btn-primary" data-act="notice-new">${ic('bell',14)} Publish a scoped notice</button>`});
     setTimeout(()=>render(),200);
   }
 };}

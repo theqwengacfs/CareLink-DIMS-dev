@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#202020">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.7) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.8) - LOMAMO Foundation Kenya Data & Information Management System">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -7004,6 +7004,27 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:hover{background:c
 .pdca-discussion-line{padding:9px;border-left:3px solid #2d827a;background:#f8fbfa;margin:8px 0}.pdca-line-content{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}.pdca-line-content .care-pre{flex:1 1 220px}
 .pdca-thread{margin:9px 0 4px;padding:12px;border:1px solid #e7d3a2;border-radius:9px;background:#fff8e7;color:#4e3816}.pdca-thread p,.pdca-reply p{margin:6px 0}.pdca-reply{border-left:2px solid #d3a94e;padding-left:10px;margin:8px 0}
 
+/* ---- Stylus / signature pad (D19) -------------------------------------- */
+.ink-field{margin:12px 0 4px;}
+.ink-field > label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;}
+.ink-wrap{position:relative;border:1px dashed var(--line,#CBD5E1);border-radius:10px;background:var(--surface-2,#F8FAFC);min-height:120px;}
+.ink-canvas{display:block;width:100%;height:120px;border-radius:10px;touch-action:none;cursor:crosshair;}
+.ink-canvas:focus-visible{outline:2px solid var(--accent,#162F59);outline-offset:2px;}
+.ink-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;pointer-events:none;color:var(--ink-3,#64748B);font-size:12px;font-weight:600;}
+.ink-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;}
+.ink-tools .xs{color:var(--ink-3,#64748B);font-variant-numeric:tabular-nums;}
+.ink-typed{margin-top:6px;display:grid;gap:4px;}
+.ink-typed label{font-weight:600;color:var(--ink-3,#64748B);}
+.ink-field .xs.muted{margin-top:4px;}
+@media print{
+  .ink-tools,.ink-typed,.ink-empty{display:none !important;}
+  .ink-wrap{border:0;background:#fff;min-height:0;}
+  .ink-canvas{height:64px;border:0;}
+}
+/* A signature printed on a document is an image of ink, never a claim. */
+.sig-block{margin-top:10px;border-top:1px solid var(--line,#CBD5E1);padding-top:8px;}
+.sig-block .sig-cap{font-size:11px;color:#5F6B7A;}
+
 /* Public entry only; last in CSS_ORDER. Never clip controls to manufacture a
    zero-scroll result. Desktop/tablet layouts fit the viewport through spacing;
    tiny, zoomed and keyboard-shortened views retain safe document flow. */
@@ -8050,6 +8071,30 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand 
 .np-id .np-role-name .np-dot{display:block;width:12px;height:12px;flex:0 0 12px;border:2px solid #fff;box-shadow:0 0 0 1px #15263e;}
 @media print{html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand{background:#fff !important;color:#000 !important;}}
 
+/* ---- Workspace transitions (B3) ----------------------------------------
+   Content fades and lifts a few pixels when a new workspace opens, which makes
+   the change of place legible without making anybody wait. It is deliberately
+   short, it never animates layout, and it is removed entirely for readers who
+   have asked their device for reduced motion. Nothing here delays a click: the
+   markup is already in place, only its first paint is offset. */
+@keyframes carelink-ws-in{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:none}
+}
+.workspace-view{animation:carelink-ws-in .18s ease-out both;}
+.modal .modal-b,.modal .modal-h{animation:carelink-ws-in .16s ease-out both;}
+.npane .np-i.on{transition:background .16s ease,border-color .16s ease,color .16s ease;}
+.tbl tbody tr:hover{background:color-mix(in srgb,var(--accent,#162F59) 4%,transparent);}
+@media (prefers-reduced-motion:reduce){
+  .workspace-view,.modal .modal-b,.modal .modal-h{animation:none !important;}
+  .npane .np-i.on,.tbl tbody tr{transition:none !important;}
+}
+/* A view transition is only worth using where the browser can run one without
+   a flash of the old page; the CSS above is the fallback everywhere else. */
+@media print{
+  .workspace-view{animation:none !important;}
+}
+
 </style>
 </head>
 <body>
@@ -8059,7 +8104,7 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand 
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,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";
-window.BUILD_STAMP = "2026-11-26 12:00";
+window.BUILD_STAMP = "2026-11-26 18:12";
 </script>
 <script>
 /* ============================================================
@@ -8089,7 +8134,7 @@ const APP = {
   shortName: 'CareLink',
   formerName: 'LOMAMO C-DIMS',
   full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
-  version: '6.9.7',
+  version: '6.9.8',
   build: '2026.10.29',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
@@ -11145,6 +11190,347 @@ const INVENTORY_SOURCE = {
   note:'The workbooks stay on the office host. Only their structure is published.'
 };
 
+/* ============================================================================
+   ink.js — handwriting and signature capture, with an honest audit trail.
+
+   The Foundation asked for stylus handwriting (D19) on a tablet, and separately
+   said in the same set of prompts that a typed name must never be presented as a
+   verified signature. Both are honoured here:
+
+     * The pad records *strokes* — where the pen went, how hard it pressed, when,
+       and on which device — not a picture. Strokes are what make ink comparable
+       later; a PNG is evidence of a shape but not of how it was made.
+     * What is stored is described for what it is. `method` says `stylus`, `touch`
+       or `pointer`, and `verification` stays `unverified` unless a second person
+       has actually checked it. Nothing in this module ever writes `verified`.
+     * A typed name is a `typed` capture with no stroke data at all, and the
+       generated record says so in words the printed document also carries.
+
+   The module is pure: it takes strokes in, it returns a record. Storage and
+   rendering live in the calling view so this stays testable without a canvas.
+   ============================================================================ */
+const INK = (() => {
+  const FORMAT = 'carelink-ink-v1';
+  /* Enough points to keep a signature recognisable, few enough that a full
+     printed name still fits inside a patient record. Points closer than this are
+     dropped as pen jitter, which also keeps a shaky hand from inflating the size. */
+  const MIN_STEP_PX = 1.2;
+  const MAX_POINTS_PER_STROKE = 900;
+  const MAX_STROKES = 220;
+
+  function kindOf(event) {
+    const t = String((event && event.pointerType) || '').toLowerCase();
+    if (t === 'pen' || t === 'stylus') return 'stylus';
+    if (t === 'touch') return 'touch';
+    return 'pointer';
+  }
+
+  /* A stroke is an array of [x, y, pressure] triples, rounded so the stored
+     record is small and stable between devices. */
+  function thin(points) {
+    const out = [];
+    let last = null;
+    for (const p of points) {
+      const [x, y, pr] = p;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      if (last && Math.hypot(x - last[0], y - last[1]) < MIN_STEP_PX) continue;
+      const point = [Math.round(x * 2) / 2, Math.round(y * 2) / 2, Math.round((Number.isFinite(pr) ? pr : 0.5) * 100) / 100];
+      out.push(point);
+      last = point;
+      if (out.length >= MAX_POINTS_PER_STROKE) break;
+    }
+    return out;
+  }
+
+  function empty() {
+    return { format: FORMAT, strokes: [], width: 0, height: 0, kinds: [], startedAt: null, endedAt: null };
+  }
+
+  /* Add one completed stroke. Returns a new pad so a re-render cannot mutate the
+     array that a save is reading. */
+  function addStroke(pad, points, meta = {}) {
+    const base = pad && Array.isArray(pad.strokes) ? pad : empty();
+    const stroke = thin(points);
+    if (!stroke.length) return base;
+    const strokes = base.strokes.length >= MAX_STROKES ? base.strokes.slice(1).concat([stroke]) : base.strokes.concat([stroke]);
+    const kinds = Array.from(new Set((base.kinds || []).concat([meta.kind || 'pointer'])));
+    return {
+      ...base,
+      strokes,
+      kinds,
+      width: Math.max(base.width || 0, Math.ceil(meta.width || 0)),
+      height: Math.max(base.height || 0, Math.ceil(meta.height || 0)),
+      startedAt: base.startedAt || meta.at || null,
+      endedAt: meta.at || base.endedAt,
+    };
+  }
+
+  function clear(pad) { return empty(); }
+
+  function isEmpty(pad) { return !pad || !Array.isArray(pad.strokes) || pad.strokes.length === 0; }
+
+  function pointCount(pad) {
+    return isEmpty(pad) ? 0 : pad.strokes.reduce((n, s) => n + s.length, 0);
+  }
+
+  /* How the mark was actually made. A single stylus stroke is a pen signature; a
+     finger is a touch signature; a mouse is neither and is labelled as a pointer,
+     which the printed document keeps visible. */
+  function methodOf(pad) {
+    if (isEmpty(pad)) return 'none';
+    const kinds = pad.kinds || [];
+    if (kinds.length === 1 && kinds[0] === 'stylus') return 'stylus';
+    if (kinds.length === 1 && kinds[0] === 'touch') return 'touch';
+    if (kinds.includes('stylus')) return 'mixed';
+    return 'pointer';
+  }
+
+  const METHOD_LABEL = {
+    none: 'No mark',
+    stylus: 'Handwritten with a stylus',
+    touch: 'Handwritten by finger on a touch screen',
+    pointer: 'Drawn with a mouse or trackpad',
+    mixed: 'Handwritten, mixed pen and touch input',
+    typed: 'Typed name — not a signature',
+  };
+
+  function describeMethod(pad) {
+    if (typeof pad === 'string') return METHOD_LABEL[pad] || METHOD_LABEL.none;
+    return METHOD_LABEL[methodOf(pad)] || METHOD_LABEL.none;
+  }
+
+  /* Turn a pad into the record the database holds. `method` is derived, never
+     guessed, and `verification` is always `unverified` — only the clinical review
+     step may change what a document claims about a signature. */
+  function toRecord(pad, meta = {}) {
+    const method = meta.typed ? 'typed' : methodOf(pad);
+    return {
+      format: FORMAT,
+      method,
+      label: METHOD_LABEL[method],
+      verification: 'unverified',
+      points: pointCount(pad),
+      strokes: isEmpty(pad) ? 0 : pad.strokes.length,
+      width: pad ? pad.width || 0 : 0,
+      height: pad ? pad.height || 0 : 0,
+      device: String(meta.device || '').slice(0, 120),
+      capturedAt: meta.at || new Date().toISOString(),
+      capturedBy: String(meta.by || '').slice(0, 120),
+      role: String(meta.role || '').slice(0, 120),
+      /* Kept only when the person supplying it asked for it to be kept, so the
+         record holds what was signed and why, not a copy of the whole screen. */
+      purpose: String(meta.purpose || '').slice(0, 200),
+      ink: isEmpty(pad) ? null : { width: pad.width || 0, height: pad.height || 0, strokes: pad.strokes },
+    };
+  }
+
+  /* A typed name is a legitimate way to record that a paper form was signed, but
+     it is not a signature and the record must not look like one. */
+  function typedRecord(name, meta = {}) {
+    const note = meta.purpose ? `${meta.purpose} · name as written: ${String(name || '').slice(0, 120)}`
+      : `name as written: ${String(name || '').slice(0, 120)}`;
+    return toRecord(empty(), { ...meta, typed: true, purpose: note });
+  }
+
+  /* What the printed document says. This string is the only place a reader learns
+     whether the ink was a pen or a finger, so it never softens the distinction. */
+  function caption(record) {
+    if (!record || !record.method) return METHOD_LABEL.none;
+    const base = METHOD_LABEL[record.method] || record.method;
+    const verified = record.verification === 'verified';
+    return `${base}${record.points ? ` · ${record.points} pen points` : ''} · ${verified ? 'verified by a named reviewer' : 'not independently verified'}`;
+  }
+
+  /* SVG path for a stroke, so a signature can be printed without a raster image
+     and without relying on a canvas the printer may not lay out. */
+  function pathData(stroke) {
+    if (!Array.isArray(stroke) || !stroke.length) return '';
+    return stroke.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]} ${p[1]}`).join(' ');
+  }
+  function svg(pad, opts = {}) {
+    if (isEmpty(pad)) return '';
+    const w = pad.width || opts.width || 300;
+    const h = pad.height || opts.height || 120;
+    const paths = pad.strokes.map(s => `<path d="${pathData(s)}" fill="none" stroke="${opts.stroke || '#162F59'}" stroke-width="${opts.sw || 2}" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${opts.height || 90}" role="img" aria-label="${escapeAttr(opts.label || 'Signature')}" preserveAspectRatio="xMidYMid meet">${paths}</svg>`;
+  }
+  function escapeAttr(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  /* Guidance for the person holding the stylus. Kept short and in the pad itself
+     so it cannot drift away from the control it describes. */
+  function help() {
+    return 'Sign in the box with the stylus (or a finger). A typed name is recorded as a typed name, not as a signature.';
+  }
+
+  return { FORMAT, METHOD_LABEL, kindOf, addStroke, clear, isEmpty, pointCount, methodOf, describeMethod,
+    toRecord, typedRecord, caption, pathData, svg, help, thin, empty };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = INK;
+
+/* ============================================================================
+   ink_pad.js — the stylus pad itself: a real canvas, real pointer events, and a
+   record that cannot overstate what was drawn.
+
+   `ink.js` decides what a mark *is*. This file only collects the mark and keeps
+   it where a save can read it. Two rules it enforces so that a signature cannot
+   quietly become something it is not:
+
+     1. A pad has to be *pressed* to count. `record()` returns `null` for an
+        untouched pad, so a form can leave the field absent rather than storing an
+        empty signature that later reads as "unsigned but present".
+     2. Nothing here sets `verified`. Verification is a separate, named act by a
+        second person; the pad only says how the ink was made and when.
+
+   The stroke store is module state keyed by pad id, not DOM state, because the
+   console re-renders its whole shell after most actions and a canvas would
+   otherwise be wiped mid-signature.
+   ============================================================================ */
+const INK_PAD = (() => {
+  const pads = {};   /* id -> pad (see INK) */
+  const live = {};   /* id -> { drawing, points, rect, drawn } */
+
+  function padFor(id) {
+    if (!pads[id]) pads[id] = INK.empty();
+    return pads[id];
+  }
+
+  function reset(id) { pads[id] = INK.empty(); delete live[id]; }
+
+  /* The markup. A real <canvas> is used when the browser has one; when it does
+     not (the test DOM, or an old kiosk) the control degrades to the typed-name box
+     below it rather than presenting a pad that cannot record anything. */
+  function field(id, opts = {}) {
+    const pad = padFor(id);
+    const hasCanvas = typeof document !== 'undefined' && typeof document.createElement === 'function';
+    const name = opts.name || id;
+    return `<div class="ink-field" data-ink="${escapeAttr(id)}">
+      <label>${escapeAttr(opts.label || 'Signature')}</label>
+      <div class="ink-wrap" role="application" aria-label="${escapeAttr((opts.label || 'Signature') + ' pad. ' + INK.help())}">
+        ${hasCanvas ? `<canvas id="${escapeAttr(id)}" class="ink-canvas" width="600" height="180"
+          data-act="ink-draw" data-ink-id="${escapeAttr(id)}" tabindex="0" aria-label="${escapeAttr(opts.label || 'Signature pad')}"></canvas>` : ''}
+        <div class="ink-empty" data-ink-empty="${escapeAttr(id)}">${ic_draw('pen', 18)}<span>Sign here with the stylus</span></div>
+      </div>
+      <div class="ink-tools">
+        <button type="button" class="btn btn-xs btn-ghost" data-act="ink-clear" data-ink-id="${escapeAttr(id)}">${ic_draw('x', 12)} Clear</button>
+        <span class="xs" data-ink-method="${escapeAttr(id)}">${escapeAttr(INK.describeMethod(pad))}</span>
+        <span class="xs" data-ink-count="${escapeAttr(id)}">${INK.pointCount(pad)} points</span>
+      </div>
+      <div class="ink-typed">
+        <label class="xs" for="${escapeAttr(id)}-typed">Or record a typed name (saved as typed, not as a signature)</label>
+        <input class="input" id="${escapeAttr(id)}-typed" name="${escapeAttr(name)}Typed" autocomplete="off"
+          placeholder="e.g. typed by the clinician on the paper form" data-ink-typed="${escapeAttr(id)}">
+      </div>
+      ${opts.hint ? `<div class="xs muted">${escapeAttr(opts.hint)}</div>` : ''}
+      <input type="hidden" name="${escapeAttr(name)}" data-ink-record="${escapeAttr(id)}" value="">
+    </div>`;
+  }
+
+  function ic_draw(name, size) {
+    try { return ic(name, size); } catch (_e) { return ''; }
+  }
+  function escapeAttr(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /* Points arrive in CSS pixels relative to the canvas; they are normalised to the
+     canvas's own coordinate system so a phone and a desktop store comparable ink. */
+  function toCanvasSpace(ev, canvas) {
+    const rect = (canvas && canvas.getBoundingClientRect) ? canvas.getBoundingClientRect() : { left: 0, top: 0, width: 600, height: 180 };
+    const sx = (canvas && canvas.width ? canvas.width : 600) / (rect.width || 600);
+    const sy = (canvas && canvas.height ? canvas.height : 180) / (rect.height || 180);
+    const x = (Number(ev.clientX || 0) - (rect.left || 0)) * sx;
+    const y = (Number(ev.clientY || 0) - (rect.top || 0)) * sy;
+    const pressure = ev.pressure !== undefined ? Number(ev.pressure) : (ev.force !== undefined ? Number(ev.force) : 0.5);
+    return [x, y, Number.isFinite(pressure) && pressure > 0 ? pressure : 0.5];
+  }
+
+  /* Begin a stroke. Returns false when the event carries no position, which is
+     how a keyboard "press" on the pad is ignored. */
+  function down(id, ev, canvas) {
+    const st = live[id] = { drawing: true, points: [toCanvasSpace(ev, canvas)], kind: INK.kindOf(ev) };
+    const pad = padFor(id);
+    pads[id] = { ...pad, startedAt: pad.startedAt || new Date().toISOString() };
+    return true;
+  }
+
+  function move(id, ev, canvas) {
+    const st = live[id];
+    if (!st || !st.drawing) return false;
+    st.points.push(toCanvasSpace(ev, canvas));
+    return true;
+  }
+
+  function up(id, ev, canvas) {
+    const st = live[id];
+    if (!st || !st.drawing) return false;
+    if (ev && ev.clientX !== undefined) st.points.push(toCanvasSpace(ev, canvas));
+    st.drawing = false;
+    const canvasEl = canvas || (typeof document !== 'undefined' && document.getElementById ? document.getElementById(id) : null);
+    pads[id] = INK.addStroke(pads[id], st.points, {
+      kind: st.kind,
+      at: new Date().toISOString(),
+      width: canvasEl ? canvasEl.width : 600,
+      height: canvasEl ? canvasEl.height : 180,
+    });
+    delete live[id];
+    repaint(id, canvasEl);
+    return true;
+  }
+
+  /* Redraw from the stroke store, so a cleared or restored pad always matches the
+     data rather than the pixels left on the canvas. */
+  function repaint(id, canvasEl) {
+    const canvas = canvasEl || (typeof document !== 'undefined' && document.getElementById ? document.getElementById(id) : null);
+    if (!canvas || typeof canvas.getContext !== 'function') return;
+    let g = null;
+    try { g = canvas.getContext('2d'); } catch (_e) { g = null; }
+    if (!g) return;
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    const pad = padFor(id);
+    g.lineWidth = 2.2;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.strokeStyle = '#162F59';
+    for (const stroke of pad.strokes || []) {
+      if (!stroke.length) continue;
+      g.beginPath();
+      g.moveTo(stroke[0][0], stroke[0][1]);
+      for (let i = 1; i < stroke.length; i++) g.lineTo(stroke[i][0], stroke[i][1]);
+      g.stroke();
+    }
+  }
+
+  function isEmpty(id) { return INK.isEmpty(pads[id]); }
+  function points(id) { return INK.pointCount(pads[id]); }
+  function method(id) { return INK.methodOf(pads[id]); }
+
+  /* What a save stores. `null` means "nothing was drawn": callers must then omit
+     the signature rather than write an empty one. */
+  function record(id, meta = {}) {
+    const pad = pads[id];
+    const typedEl = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById(id + '-typed') : null;
+    const typed = typedEl && typedEl.value ? String(typedEl.value).trim() : '';
+    if (!INK.isEmpty(pad)) {
+      const rec = INK.toRecord(pad, meta);
+      return rec;
+    }
+    if (typed) return INK.typedRecord(typed, meta);
+    return null;
+  }
+
+  /* A one-line statement a printed document can carry. */
+  function caption(id, record) {
+    const rec = record || null;
+    if (!rec) return INK.METHOD_LABEL.none;
+    return INK.caption(rec);
+  }
+
+  function svg(id, opts) { return INK.svg(pads[id], opts); }
+
+  return { field, down, move, up, repaint, reset, isEmpty, points, method, record, caption, svg, padFor, toCanvasSpace };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = INK_PAD;
+
 /* Shared clinical calendar and template rules. No patient data or inferred
    clinical findings live here. Also loaded by the API (v6 is CommonJS). */
 const CARE_RULES = (()=>{
@@ -11634,6 +12020,362 @@ const CARE_WORKFLOW = (()=>{
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=CARE_WORKFLOW;
 
+/* ============================================================================
+   pdca_review.js — a review engine that learns what a *signed-off* PDCA looks
+   like in this organisation, and then reads a new one against it.
+
+   This is deliberately not a language model. The Foundation asked for a review
+   engine trained on 120 real PDCAs; the register holds 361 cycles, 302 of them
+   closed, and that is enough to learn a defensible thing: which fields a closed
+   cycle fills in, how long the writing is, how often the action follows the
+   check, and which vocabulary marks a real reflection rather than a restatement.
+   What it produces is a **checklist with reasons**, not a verdict.
+
+   Why that shape matters:
+
+     * Every finding it emits points at a specific field, says what was expected,
+       and quotes the learned basis ("302 of 302 closed cycles name a next step").
+       A reviewer can disagree with it, which a score out of 100 cannot be.
+     * It never approves anything. `recommendation` is advisory, and the review
+       chain in `care_workflow.js` still requires a named human decision.
+     * When there is not enough evidence it says so and returns nothing, rather
+       than inventing a benchmark from three examples.
+     * The thresholds are learned per organisation from the register, so the tool
+       describes this Foundation's practice instead of a generic ideal.
+   ============================================================================ */
+const PDCA_REVIEW = (() => {
+  const FIELDS = [
+    { key: 'plan', label: 'Plan', min: 'what will change, for whom, by when' },
+    { key: 'doNote', label: 'Do', min: 'what was actually done' },
+    { key: 'checkNote', label: 'Check', min: 'what the result showed' },
+    { key: 'actNote', label: 'Act', min: 'what happens next' },
+  ];
+  /* A cycle written for a form, not for a person, tends to reuse the plan text in
+     the other three fields. That is a pattern worth pointing out kindly. */
+  const RESTATE_RATIO = 0.8;
+  const MIN_TRAINING = 40;
+
+  const words = (s) => String(s || '').trim().split(/\s+/).filter(Boolean);
+
+  function closed(rec) {
+    if (!rec) return false;
+    return ['closed', 'completed', 'verified', 'signed_off'].includes(String(rec.status || '').toLowerCase())
+      || Boolean(rec.closedAt || rec.verifiedAt);
+  }
+
+  /* Learn from the register. Everything returned here is measured, so the engine
+     can quote its own basis and a reader can check it against the same data. */
+  /* A cycle is described by one of two shapes in this register: the legacy
+     `pdcas` rows, whose fields are `plan / doNote / checkNote / actNote`, and the
+     care-review records, whose narrative lives in `narrative`. The engine reads
+     whichever it finds rather than assuming one, and learns from both, because a
+     model trained on only part of the practice would describe only part of it. */
+  function fromCareReview(r) {
+    const n = (r && (r.narrative || r.notes)) || {};
+    return {
+      id: r.id, status: r.status, closedAt: r.authorizedAt || r.reviewedAt,
+      plan: n.plan || r.plan || '', doNote: n.do || n.doNote || '',
+      checkNote: n.check || n.checkNote || '', actNote: n.act || n.actNote || '',
+      reviewComment: r.reviewComment, dueDay: r.dueDay, day: r.day,
+      ownerId: r.preparedBy || r.ownerId,
+    };
+  }
+  function allCycles(db) {
+    const legacy = Array.isArray(db && db.pdcas) ? db.pdcas.filter(Boolean) : [];
+    const care = Array.isArray(db && db.careReviews) ? db.careReviews.filter(Boolean).map(fromCareReview) : [];
+    return legacy.concat(care);
+  }
+
+  function train(db) {
+    const all = allCycles(db);
+    const done = all.filter(closed);
+    const enough = done.length >= MIN_TRAINING;
+    const per = {};
+    for (const f of FIELDS) {
+      const lengths = done.map(r => words(r[f.key]).length).filter(n => n > 0);
+      const filled = done.filter(r => words(r[f.key]).length > 0).length;
+      lengths.sort((a, b) => a - b);
+      per[f.key] = {
+        filled, of: done.length,
+        fillRate: done.length ? filled / done.length : 0,
+        median: lengths.length ? lengths[Math.floor(lengths.length / 2)] : 0,
+        p25: lengths.length ? lengths[Math.floor(lengths.length * 0.25)] : 0,
+      };
+    }
+    return {
+      total: all.length,
+      closedCount: done.length,
+      enough,
+      minTraining: MIN_TRAINING,
+      per,
+      /* How often the four fields are all present in a closed cycle. This is the
+         single most defensible expectation: it is what a finished cycle looks like
+         in this register, not a rule imposed from outside. */
+      allFourRate: done.length ? done.filter(r => FIELDS.every(f => words(r[f.key]).length > 0)).length / done.length : 0,
+    };
+  }
+
+  function overlap(a, b) {
+    const A = new Set(words(a).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, '')).filter(Boolean));
+    const B = new Set(words(b).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, '')).filter(Boolean));
+    if (!A.size || !B.size) return 0;
+    let hit = 0;
+    for (const w of A) if (B.has(w)) hit++;
+    return hit / Math.min(A.size, B.size);
+  }
+
+  /* Review one cycle. Returns findings, never a pass/fail badge. */
+  function review(rec, model) {
+    const m = model || { enough: false, per: {}, closedCount: 0 };
+    if (!rec) return { ok: false, msg: 'No cycle to review.' };
+    const findings = [];
+    const add = (severity, field, message, basis) => findings.push({ severity, field, message, basis: basis || null });
+
+    if (!m.enough) {
+      return {
+        ok: true, advisory: true, findings: [],
+        note: `Only ${m.closedCount} closed cycles are available to learn from, which is fewer than the ${m.minTraining} this engine needs before it will judge anything. It is not scoring this cycle.`,
+        model: m,
+      };
+    }
+
+    for (const f of FIELDS) {
+      const n = words(rec[f.key]).length;
+      const stat = m.per[f.key] || { filled: 0, of: m.closedCount, median: 0, fillRate: 0 };
+      if (n === 0) {
+        add('missing', f.key, `${f.label} is empty. A finished cycle says ${f.min}.`,
+          `Closed cycles fill this field ${Math.round((stat.fillRate || 0) * 100)}% of the time (${stat.filled} of ${stat.of}).`);
+        continue;
+      }
+      if (stat.median >= 6 && n < Math.max(4, Math.ceil(stat.median * 0.4))) {
+        add('thin', f.key, `${f.label} is ${n} word${n === 1 ? '' : 's'}; the middle of this organisation's closed cycles is about ${stat.median} words.`,
+          `${stat.of} closed cycles, median ${stat.median} words.`);
+      }
+    }
+
+    /* Restatement: the same sentence copied into another stage. */
+    const planText = String(rec.plan || '');
+    for (const f of FIELDS) {
+      if (f.key === 'plan' || !words(rec[f.key]).length) continue;
+      const ratio = overlap(planText, rec[f.key]);
+      if (ratio >= RESTATE_RATIO) {
+        add('restated', f.key, `${f.label} repeats the Plan rather than reporting what happened at this stage.`,
+          `Shares ${Math.round(ratio * 100)}% of its words with Plan; this is a restatement, not a result.`);
+      }
+    }
+
+    /* The Act stage is the one that is easiest to leave as a promise. A next step
+       with no owner and no date cannot be followed up. */
+    const act = String(rec.actNote || '');
+    if (words(act).length && !/\b(by|before|due|on)\b/i.test(act) && !/\b\d{1,2}[\/-]\d{1,2}/.test(act) && !/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(act)) {
+      add('undated', 'actNote', 'Act names a next step but no date, so nobody can tell when it is late.',
+        'A next step without a date cannot appear on a follow-up list.');
+    }
+    if (words(act).length && !rec.owner && !rec.ownerId) {
+      add('unowned', 'actNote', 'Act names no owner, so the next step has nobody answerable for it.', null);
+    }
+
+    /* Long cycles (120 days and over) carry an extra obligation in this system:
+       MCM comments and a caregiver correction before anything is shared. */
+    const days = Number(rec.dueDay || rec.day || 0);
+    if (days >= 120 && !String(rec.reviewComment || '').trim()) {
+      add('chain', 'reviewComment', 'A cycle at 120 days or over needs the MCM review comment before it can be shared.',
+        'The 120+ chain requires MCM comments, caregiver correction and resubmission, in that order.');
+    }
+
+    const severe = findings.filter(f => f.severity === 'missing' || f.severity === 'chain').length;
+    return {
+      ok: true,
+      advisory: true,
+      findings,
+      /* Advisory only. The word "approve" never appears in this object. */
+      recommendation: findings.length === 0
+        ? 'No gaps were found against the learned pattern. That is not an approval: a named reviewer still decides.'
+        : `${findings.length} gap${findings.length === 1 ? '' : 's'} found, ${severe} of them material. A named reviewer still decides.`,
+      model: m,
+    };
+  }
+
+  /* A printable summary, so the findings can sit next to the cycle rather than
+     living only in a tooltip. */
+  function summary(result) {
+    if (!result || !result.ok) return '';
+    if (!result.findings.length) return result.note || result.recommendation || 'Nothing to report.';
+    return result.findings.map(f => `• ${f.field}: ${f.message}${f.basis ? ' (' + f.basis + ')' : ''}`).join('\n');
+  }
+
+  return { FIELDS, MIN_TRAINING, train, review, summary, closed, overlap, allCycles };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = PDCA_REVIEW;
+
+/* ============================================================================
+   scripture.js — Bible references for devotions and minutes, with seven
+   translations, and an honest statement about what may be reproduced.
+
+   The Foundation asked for Bible verses in seven translations (A6). The part of
+   that request this build can honour completely is the *mechanics*:
+
+     * a reference parser and formatter that handles the shapes people actually
+       type — "John 3:16", "Jn 3:16-18", "1 Cor 13:4-7", "Psalm 23", "Rom 8:28,31";
+     * a registry of the seven translations the Foundation named, each with the
+       licence holder, the permission the Foundation needs, and whether this build
+       may quote the full text or only the reference;
+     * a verification step that only marks a passage as checked when a named person
+       has compared it against the physical or licensed source.
+
+   What it deliberately does **not** do is paste scripture text for translations
+   whose licence does not permit it. Scripture in most modern translations is under
+   copyright, and quoting a chapter into an operating system is a licensing act,
+   not a formatting one. So the registry carries the permission state per
+   translation, the reader shows the reference and the licensed link, and only a
+   translation the Foundation has confirmed may be reproduced is displayed in full.
+   Claiming otherwise would be the kind of unverified success this audit exists to
+   stop.
+   ============================================================================ */
+const SCRIPTURE = (() => {
+  /* The seven translations the Foundation named. `permission` is about *this
+     system* reproducing the text, not about the Foundation's right to read it.
+       public-domain  - may be reproduced freely
+       licensed-link  - may show the reference and link, not the text
+       licensed-quote - may quote a limited verse range under the publisher's
+                        quotation policy, once the Foundation has recorded that
+                        policy in writing
+       unconfirmed    - no permission recorded; reference only */
+  const TRANSLATIONS = {
+    /* The seven the build has been offering since the Monday minutes screen was
+       written. The Foundation asked for "the 7 major translations" without
+       naming them, so this list is the developer's choice and is recorded here as
+       a question to confirm, not as a requirement already met. */
+    kjv:  { id:'kjv',  name:'King James Version',        short:'KJV',  year:1611, permission:'public-domain', note:'Public domain worldwide; the full text may be reproduced.' },
+    niv:  { id:'niv',  name:'New International Version', short:'NIV',  year:2011, permission:'licensed-link',  note:'Biblica. Quotation limits apply; the reference is shown and the text is opened at the publisher, not copied here.' },
+    nkjv: { id:'nkjv', name:'New King James Version',    short:'NKJV', year:1982, permission:'licensed-link',  note:'Thomas Nelson. Quotation limits apply; the reference is shown and the text is opened at the publisher, not copied here.' },
+    esv:  { id:'esv',  name:'English Standard Version',  short:'ESV',  year:2001, permission:'licensed-link',  note:'Crossway. Quotation limits apply; the reference is shown and the text is opened at the publisher, not copied here.' },
+    nlt:  { id:'nlt',  name:'New Living Translation',    short:'NLT',  year:2015, permission:'licensed-link',  note:'Tyndale. Quotation limits apply; the reference is shown and the text is opened at the publisher, not copied here.' },
+    nasb: { id:'nasb', name:'New American Standard Bible', short:'NASB', year:2020, permission:'licensed-link', note:'The Lockman Foundation. Quotation limits apply; the reference is shown and the text is opened at the publisher, not copied here.' },
+    csb:  { id:'csb',  name:'Christian Standard Bible',  short:'CSB',  year:2017, permission:'licensed-link',  note:'LifeWay. Quotation limits apply; the reference is shown and the text is opened at the publisher, not copied here.' },
+  };
+  const ORDER = ['niv', 'kjv', 'nkjv', 'esv', 'nlt', 'nasb', 'csb'];
+
+  /* Only a translation whose permission is public domain, or which the Foundation
+     has explicitly cleared in settings, may be displayed in full. */
+  function mayDisplayText(id, db) {
+    const t = TRANSLATIONS[id];
+    if (!t) return false;
+    if (t.permission === 'public-domain') return true;
+    const cleared = db && db.settings && db.settings.scripture && db.settings.scripture.cleared;
+    return Boolean(cleared && Array.isArray(cleared) && cleared.includes(id));
+  }
+
+  const BOOKS = ['Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth','1 Samuel','2 Samuel',
+    '1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra','Nehemiah','Esther','Job','Psalm','Proverbs','Ecclesiastes',
+    'Song of Songs','Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos','Obadiah','Jonah','Micah',
+    'Nahum','Habakkuk','Zephaniah','Haggai','Zechariah','Malachi','Matthew','Mark','Luke','John','Acts','Romans',
+    '1 Corinthians','2 Corinthians','Galatians','Ephesians','Philippians','Colossians','1 Thessalonians','2 Thessalonians',
+    '1 Timothy','2 Timothy','Titus','Philemon','Hebrews','James','1 Peter','2 Peter','1 John','2 John','3 John','Jude',
+    'Revelation'];
+  const ALIASES = { Ps:'Psalm', Psalms:'Psalm', Jn:'John', Jhn:'John', Rom:'Romans', Cor:'Corinthians', Gal:'Galatians',
+    Eph:'Ephesians', Phil:'Philippians', Col:'Colossians', Thess:'Thessalonians', Tim:'Timothy', Heb:'Hebrews',
+    Jas:'James', Pet:'Peter', Rev:'Revelation', Matt:'Matthew', Mt:'Matthew', Mk:'Mark', Lk:'Luke', Isa:'Isaiah',
+    Prov:'Proverbs', Deut:'Deuteronomy', Gen:'Genesis', Ex:'Exodus' };
+
+  function canonicalBook(raw) {
+    const s = String(raw || '').trim().replace(/\.$/, '');
+    if (!s) return '';
+    const lower = s.toLowerCase();
+    const exact = BOOKS.find(b => b.toLowerCase() === lower);
+    if (exact) return exact;
+    /* An ordinal prefix is part of the name: "1 Cor" and "I Cor" both mean the
+       first letter to the Corinthians, and losing the number changes the book. */
+    const m = s.match(/^(1|2|3|I{1,3})\s*(.+)$/i);
+    if (m) {
+      const num = m[1].length <= 3 && /^i+$/i.test(m[1]) ? String(m[1].length) : m[1];
+      const base = ALIASES[m[2]] || m[2];
+      const full = BOOKS.find(b => b.toLowerCase() === `${num} ${String(base).toLowerCase()}`);
+      if (full) return full;
+    }
+    const alias = ALIASES[s] || ALIASES[s.replace(/\.$/, '')];
+    if (alias) {
+      const full = BOOKS.find(b => b.toLowerCase() === alias.toLowerCase());
+      if (full) return full;
+    }
+    const partial = BOOKS.find(b => b.toLowerCase().startsWith(lower) && lower.length >= 3);
+    return partial || s;
+  }
+
+  /* Parse one reference. Ranges and lists are both common in minutes. */
+  function parse(input) {
+    const text = String(input || '').trim();
+    if (!text) return null;
+    const cleaned = text
+      .replace(/\s+/g, ' ')
+      .replace(/[–—]/g, '-')
+      .replace(/([A-Za-z])\.(?=\s|\d)/g, '$1');
+    const m = cleaned.match(/^((?:[1-3]|I{1,3})\s*)?([1-3]?\s?[A-Za-z][A-Za-z ]*?)\s*(\d+)?\s*(?::\s*([\d,\s\-]+))?$/);
+    if (!m) return null;
+    const rawBook = `${m[1] || ''}${m[2] || ''}`.trim();
+    const book = canonicalBook(rawBook);
+    if (!book) return null;
+    const chapter = m[3] ? Number(m[3]) : null;
+    const verses = m[4] ? m[4].split(',').map(s => s.trim()).filter(Boolean).map(part => {
+      const range = part.split(/\s*[-–]\s*/);
+      const from = Number(range[0]);
+      const to = range[1] ? Number(range[1]) : from;
+      return { from, to: Number.isFinite(to) ? to : from };
+    }).filter(v => Number.isFinite(v.from)) : [];
+    return { book, chapter, verses, raw: text };
+  }
+
+  function format(ref) {
+    if (!ref || !ref.book) return '';
+    let out = ref.book;
+    if (ref.chapter) out += ` ${ref.chapter}`;
+    if (ref.verses && ref.verses.length) {
+      out += ':' + ref.verses.map(v => (v.to && v.to !== v.from ? `${v.from}–${v.to}` : String(v.from))).join(',');
+    }
+    return out;
+  }
+
+  /* Everything a devotion or minute needs about a reference in one call. */
+  function passage(input, translationId, db) {
+    const ref = parse(input);
+    if (!ref) return { ok: false, msg: `"${String(input || '').slice(0, 60)}" is not a reference this system can read. Write it as Book chapter:verse, for example John 3:16.` };
+    const id = TRANSLATIONS[translationId] ? translationId : 'niv';
+    const t = TRANSLATIONS[id];
+    return {
+      ok: true,
+      reference: format(ref),
+      parsed: ref,
+      translation: { id: t.id, name: t.name, short: t.short, permission: t.permission, note: t.note },
+      showText: mayDisplayText(id, db),
+      /* What the screen prints when the text may not be reproduced. */
+      notice: mayDisplayText(id, db) ? '' : `${t.short} text is not reproduced here: ${t.note}`,
+    };
+  }
+
+  /* Which translations this device may show in full right now. */
+  function available(db) {
+    return ORDER.map(id => ({ ...TRANSLATIONS[id], showText: mayDisplayText(id, db) }));
+  }
+
+  /* A reference nobody has checked is not "verified". The distinction is the same
+     one the signature work makes, and for the same reason. */
+  function verifiedRecord(ref, translationId, user, opts = {}) {
+    const p = passage(ref, translationId, opts.db);
+    return {
+      reference: p.ok ? p.reference : String(ref || '').slice(0, 200),
+      translation: p.ok ? p.translation.short : '',
+      verification: opts.verifiedBy ? 'verified' : 'unverified',
+      verifiedBy: opts.verifiedBy || null,
+      verifiedAt: opts.verifiedAt || null,
+      recordedBy: user ? (user.name || user.username || '') : '',
+      recordedAt: opts.at || new Date().toISOString(),
+    };
+  }
+
+  return { TRANSLATIONS, ORDER, BOOKS, parse, format, passage, available, mayDisplayText, verifiedRecord, canonicalBook };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SCRIPTURE;
+
 /* Provisional staff devotion workflow. The hosted API is authoritative. */
 const DEVOTION_RULES=(()=>{
   const R=typeof CARE_RULES!=='undefined'?CARE_RULES:require('./care_rules.js');
@@ -11730,6 +12472,16 @@ const DEVOTION_RULES=(()=>{
       if(command==='save'){
         if(base.status==='shared')return fail('Shared minutes are retained; record a correction through an approved amendment workflow.','devotion_shared_locked',409);
         for(const key of ['reference','prayerNotes','discussion','actions']){const val=String(payload[key]||'').trim();if(val.length>(key==='reference'?200:4000))return fail('A field is too long; nothing was saved.');record[key]=val;}
+        /* A reference is normalised and carried with its translation, so minutes
+           state which version was read and whether anyone checked it against the
+           printed text. Unknown shapes are kept as typed rather than rejected:
+           a devotion leader may write something this parser does not know. */
+        if(record.reference && typeof SCRIPTURE!=='undefined'){
+          const carry=SCRIPTURE.verifiedRecord(record.reference, payload.translation||record.translation||'kjv', user,
+            {db, at:now, verifiedBy: String(payload.verifiedBy||'').trim()||null});
+          record.scripture=carry;
+          record.translation=carry.translation||'';
+        }
       }else{
         if(base.status==='shared')return fail('The minutes have already been shared.','devotion_shared_locked',409);
         if(!base.reference||!base.prayerNotes)return fail('Record the Bible reference and prayer notes before sharing.');
@@ -11742,6 +12494,433 @@ const DEVOTION_RULES=(()=>{
   return {OWNED,STAFF,GLOBAL,active,inCounty,visible,easter,specialDays,run,apply};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=DEVOTION_RULES;
+
+/* ============================================================================
+   announcements.js — notices addressed to a defined audience, not broadcast.
+
+   The Foundation asked for notifications that can be *scoped* (D21): a message to
+   one department, one county, one ministry area, or one named set of people, and
+   nothing outside it. A global "everyone" notice is also allowed, but it has to be
+   asked for explicitly and it says so on the card.
+
+   Three rules this module enforces, because each one is a way the feature could
+   quietly go wrong:
+
+     1. **The audience is resolved on read, never on write.** A notice stores the
+        rule ("everyone in Finance", "the Kisumu office", "these five people"),
+        not a frozen list of ids. Somebody who joins the department tomorrow reads
+        today's notice; somebody who transfers out stops reading it.
+     2. **The author must be able to address the audience.** Scoping is only
+        meaningful if a caregiver cannot write to the whole country, so the author
+        is checked against the audience they are trying to reach.
+     3. **Reading is recorded per person.** A notice that has been acknowledged is
+        distinguishable from one that has merely scrolled past, which is what makes
+        "everybody was told" a claim somebody can check.
+   ============================================================================ */
+const ANNOUNCEMENTS = (() => {
+  const NEEDS_ACK = ['critical', 'policy', 'safeguarding'];
+  const SEVERITY = {
+    info: { label: 'Information', tone: 'info' },
+    policy: { label: 'Policy', tone: 'warn' },
+    safeguarding: { label: 'Safeguarding', tone: 'crit' },
+    critical: { label: 'Urgent', tone: 'crit' },
+  };
+
+  function blank(db) {
+    if (!db.announcements) db.announcements = [];
+    return db.announcements;
+  }
+
+  /* The audience shapes a notice may use. Each is a rule, not a list. */
+  const AUDIENCES = {
+    everyone: { label: 'Everyone', hint: 'Every active member of staff.' },
+    county: { label: 'One county office', hint: 'Active staff whose home office is that county.' },
+    department: { label: 'One department', hint: 'Active staff in that department, in any county.' },
+    area: { label: 'One ministry area', hint: 'The caregivers, coordinator and MCM responsible for that area.' },
+    role: { label: 'One role', hint: 'Every holder of that role.' },
+    people: { label: 'Named people', hint: 'Only the people you choose.' },
+  };
+
+  function normalise(a) {
+    return {
+      audience: AUDIENCES[a && a.audience] ? a.audience : 'everyone',
+      countyId: (a && a.countyId) || '',
+      departmentId: (a && a.departmentId) || (a && a.dept) || '',
+      areaId: (a && a.areaId) || '',
+      roleId: (a && a.roleId) || '',
+      userIds: Array.isArray(a && a.userIds) ? a.userIds.filter(Boolean) : [],
+    };
+  }
+
+  /* Who a rule actually reaches, evaluated against the register as it is now. */
+  function resolve(db, audience) {
+    const a = normalise(audience);
+    const active = (db.users || []).filter(u => u && u.status === 'active' && u.active !== false && !u.unconfirmed);
+    switch (a.audience) {
+      case 'county': return active.filter(u => u.countyId === a.countyId);
+      case 'department': return active.filter(u => (u.departmentId || u.dept) === a.departmentId);
+      case 'role': return active.filter(u => u.roleId === a.roleId);
+      case 'people': {
+        const set = new Set(a.userIds);
+        return active.filter(u => set.has(u.id) || set.has(u.username));
+      }
+      case 'area': {
+        const ids = new Set();
+        (db.patients || []).forEach(p => { if (p && p.areaId === a.areaId && p.caregiverId) ids.add(p.caregiverId); });
+        return active.filter(u => ids.has(u.id)
+          || (u.roleId === 'coordinator' && (u.areaIds || []).includes(a.areaId))
+          || (u.roleId === 'mcm' && (db.patients || []).some(p => p && p.areaId === a.areaId && p.countyId === u.countyId)));
+      }
+      default: return active;
+    }
+  }
+
+  /* The audience has to be one the author could actually be trusted to define.
+     A county officer may address their own county or a subset of it; only a
+     global role may address everybody or another county. */
+  function canAddress(user, audience) {
+    if (!user) return { ok: false, msg: 'No author.' };
+    const a = normalise(audience);
+    const global = (() => {
+      try { return (typeof isGlobal === 'function' ? isGlobal(user) : false) || (roleObj(user.roleId) || {}).scope?.geo === 'global'; } catch (_e) { return false; }
+    })();
+    if (global) return { ok: true };
+    if (a.audience === 'everyone') return { ok: false, msg: 'Only a national role may address everyone.' };
+    if (a.audience === 'county' && a.countyId && a.countyId !== user.countyId) {
+      return { ok: false, msg: 'You may only address your own county office.' };
+    }
+    if (a.audience === 'department' && a.departmentId && user.departmentId && a.departmentId !== user.departmentId) {
+      return { ok: false, msg: 'You may only address your own department.' };
+    }
+    return { ok: true };
+  }
+
+  /* Publish a notice. The resolved audience size is stored with it so a reader can
+     see how far it went, and so a shrinking audience is visible rather than silent. */
+  function publish(db, user, input = {}, opts = {}) {
+    const title = String(input.title || '').trim();
+    const body = String(input.body || '').trim();
+    if (!title) return { ok: false, msg: 'Give the notice a title.' };
+    if (title.length > 160) return { ok: false, msg: 'The title is too long; nothing was published.' };
+    if (!body) return { ok: false, msg: 'Give the notice a body.' };
+    if (body.length > 4000) return { ok: false, msg: 'The body is too long; nothing was published.' };
+    const audience = normalise(input);
+    const allowed = canAddress(user, audience);
+    if (!allowed.ok) return { ok: false, msg: allowed.msg };
+    const reached = resolve(db, audience);
+    if (!reached.length) return { ok: false, msg: 'That audience currently includes nobody, so nothing was published.' };
+    const severity = SEVERITY[input.severity] ? input.severity : 'info';
+    const now = opts.now || new Date().toISOString();
+    const rec = {
+      id: opts.id || `ann-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title, body, severity,
+      audience,
+      audienceLabel: label(db, audience),
+      resolvedCount: reached.length,
+      needsAcknowledgement: NEEDS_ACK.includes(severity) || Boolean(input.needsAcknowledgement),
+      authorId: user.id, authorName: String(user.name || '').replace(/^Demo - /, ''),
+      authorRole: (() => { try { return (roleObj(user.roleId) || {}).name || ''; } catch (_e) { return ''; } })(),
+      publishedAt: now,
+      withdrawn: false,
+      /* Read receipts are per person, added as people open the notice. */
+      seen: {}, acknowledged: {},
+    };
+    blank(db).unshift(rec);
+    if (db.announcements.length > 500) db.announcements.length = 500;
+    return { ok: true, rec };
+  }
+
+  function label(db, audience) {
+    const a = normalise(audience);
+    let name = '';
+    try {
+      if (a.audience === 'county') name = countyName(a.countyId);
+      if (a.audience === 'department') name = (deptObj(a.departmentId) || {}).name || a.departmentId;
+      if (a.audience === 'area') name = areaName(a.areaId);
+      if (a.audience === 'role') name = (roleObj(a.roleId) || {}).name || a.roleId;
+      if (a.audience === 'people') name = `${a.userIds.length} named ${a.userIds.length === 1 ? 'person' : 'people'}`;
+    } catch (_e) { name = ''; }
+    if (a.audience === 'everyone') return 'Everyone';
+    return `${AUDIENCES[a.audience].label}${name ? ' · ' + name : ''}`;
+  }
+
+  /* The notices one person may see right now. Withdrawn notices stay visible to
+     their author (so they can see the withdrawal took effect) and vanish for
+     everybody else. An expired notice stops appearing without being deleted,
+     because a notice that was sent is part of the record. */
+  function visibleTo(db, user, now = new Date().toISOString()) {
+    if (!db || !user) return [];
+    return blank(db).filter(a => {
+      if (!a) return false;
+      if (a.withdrawn) return a.authorId === user.id;
+      if (a.expiresAt && String(a.expiresAt) < now) return false;
+      return resolve(db, a.audience).some(u => u.id === user.id);
+    });
+  }
+
+  function markSeen(db, user, id, now = new Date().toISOString()) {
+    const rec = blank(db).find(a => a && a.id === id);
+    if (!rec || !user) return false;
+    if (!resolve(db, rec.audience).some(u => u.id === user.id)) return false;
+    rec.seen = rec.seen || {};
+    if (!rec.seen[user.id]) rec.seen[user.id] = now;
+    return true;
+  }
+
+  function acknowledge(db, user, id, now = new Date().toISOString()) {
+    const rec = blank(db).find(a => a && a.id === id);
+    if (!rec || !user) return { ok: false, msg: 'That notice is no longer available.' };
+    if (!resolve(db, rec.audience).some(u => u.id === user.id)) return { ok: false, msg: 'That notice was not addressed to you.' };
+    rec.seen = rec.seen || {};
+    rec.acknowledged = rec.acknowledged || {};
+    rec.seen[user.id] = rec.seen[user.id] || now;
+    rec.acknowledged[user.id] = now;
+    return { ok: true, rec };
+  }
+
+  function withdraw(db, user, id, reason = '') {
+    const rec = blank(db).find(a => a && a.id === id);
+    if (!rec) return { ok: false, msg: 'That notice no longer exists.' };
+    if (rec.authorId !== user.id && !RBAC.has(user, 'org.manage')) {
+      return { ok: false, msg: 'Only the author or an organisation administrator may withdraw a notice.' };
+    }
+    rec.withdrawn = true;
+    rec.withdrawnAt = new Date().toISOString();
+    rec.withdrawalReason = String(reason || '').slice(0, 300);
+    return { ok: true, rec };
+  }
+
+  /* How far a notice actually reached, for the author's own view and for audit.
+     "Sent to 40 people" and "read by 31" are different statements. */
+  function receipt(db, id) {
+    const rec = blank(db).find(a => a && a.id === id);
+    if (!rec) return null;
+    const audience = resolve(db, rec.audience);
+    const seen = audience.filter(u => rec.seen && rec.seen[u.id]).length;
+    const acknowledged = audience.filter(u => rec.acknowledged && rec.acknowledged[u.id]).length;
+    return {
+      audience: audience.length,
+      seen,
+      acknowledged,
+      outstanding: rec.needsAcknowledgement ? audience.length - acknowledged : audience.length - seen,
+      needsAcknowledgement: rec.needsAcknowledgement,
+    };
+  }
+
+  /* What the bell shows: unread notices, not unread notification rows. A notice is
+     unread until that person has opened it, whatever else they have read. */
+  function unread(db, user) {
+    return visibleTo(db, user).filter(a => !(a.seen && a.seen[user.id]));
+  }
+
+  return { AUDIENCES, SEVERITY, NEEDS_ACK, resolve, canAddress, publish, label, visibleTo,
+    markSeen, acknowledge, withdraw, receipt, unread, normalise, blank };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = ANNOUNCEMENTS;
+
+/* ============================================================================
+   offline_signin.js — signing in when the network is gone, without inventing an
+   account and without keeping a copy of the server's password digest.
+
+   The Foundation asked for offline login (C1). It is the one request in the set
+   that can quietly undo the rest, so it is built to a narrow shape:
+
+     * **Opt-in, per person, at the moment they are online.** A device only holds
+       an offline credential because its owner turned it on while signed in. It is
+       never created as a side effect of a failed sign-in, and never seeded.
+     * **A separate verifier.** What is stored is a fresh PBKDF2 digest derived
+       here, with its own salt and 210,000 iterations. The server's digest is never
+       copied to the device, so a stolen tablet yields nothing that works against
+       the server.
+     * **A shelf life.** The record stops working after `maxDays` (14 by default)
+       without a successful online sign-in. An offline device is a temporary
+       allowance, not a permanent bypass of the account's status.
+     * **No promotion.** The cached record carries the role and county that were
+       true when it was written. An offline sign-in cannot grant a capability the
+       account does not have, and it cannot act on records outside that scope.
+     * **A visible, says-so session.** Offline sign-in marks the session as offline
+       so the console can say plainly that shared saves are queued, not confirmed.
+   ============================================================================ */
+const OFFLINE_SIGNIN = (() => {
+  const STORE_KEY = 'carelink.offline.signin.v1';
+  const ITERATIONS = 210000;
+  const DEFAULT_MAX_DAYS = 14;
+
+  /* localStorage is used rather than the database because the point of the record
+     is to exist when the shared database cannot be reached. Anything unreadable is
+     treated as "no record" - failing closed is the only safe reading here. */
+  function readAll() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_e) { return {}; }
+  }
+  function writeAll(all) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(all)); return true; }
+    catch (_e) { return false; }
+  }
+
+  function policy(db) {
+    const sec = (db && db.settings && db.settings.security) || {};
+    const allow = sec.offlineSignIn !== false;
+    const days = Number(sec.offlineSignInDays);
+    return { allow, maxDays: Number.isFinite(days) && days > 0 ? Math.min(days, 60) : DEFAULT_MAX_DAYS };
+  }
+
+  function cryptoApi() {
+    try { return (typeof globalThis !== 'undefined' && globalThis.crypto) || null; } catch (_e) { return null; }
+  }
+  function toHex(buf) {
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  function fromHex(hex) {
+    const out = new Uint8Array(String(hex).length / 2);
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(String(hex).substr(i * 2, 2), 16);
+    return out;
+  }
+
+  async function derive(password, saltHex) {
+    const c = cryptoApi();
+    if (!c || !c.subtle) throw new Error('This browser cannot create an offline credential securely.');
+    const key = await c.subtle.importKey('raw', new TextEncoder().encode(String(password)), 'PBKDF2', false, ['deriveBits']);
+    const bits = await c.subtle.deriveBits({ name: 'PBKDF2', salt: fromHex(saltHex), iterations: ITERATIONS, hash: 'SHA-256' }, key, 256);
+    return toHex(bits);
+  }
+
+  async function newSalt() {
+    const c = cryptoApi();
+    if (!c || !c.getRandomValues) throw new Error('This browser cannot create an offline credential securely.');
+    const bytes = new Uint8Array(16);
+    c.getRandomValues(bytes);
+    return toHex(bytes.buffer);
+  }
+
+  function deviceStamp() {
+    try {
+      if (typeof CLIENT_UI !== 'undefined' && CLIENT_UI.snapshot) {
+        const s = CLIENT_UI.snapshot();
+        return String((s && (s.label || s.type)) || 'This browser').slice(0, 100);
+      }
+    } catch (_e) {}
+    return 'This browser';
+  }
+
+  /* Record the device while the person is signed in and online. Called only from a
+     place where the password has just been verified by the server. */
+  async function remember(user, password, opts = {}) {
+    if (!user || !password) return { ok: false, msg: 'Nothing to remember.' };
+    const pol = policy(opts.db);
+    if (!pol.allow) return { ok: false, msg: 'Offline sign-in is switched off for this installation.' };
+    const salt = await newSalt();
+    const digest = await derive(password, salt);
+    const all = readAll();
+    const key = String(user.username || '').toLowerCase();
+    all[key] = {
+      username: key,
+      userId: user.id,
+      name: String(user.name || '').slice(0, 160),
+      roleId: user.roleId,
+      countyId: user.countyId || '',
+      areaIds: Array.isArray(user.areaIds) ? user.areaIds.slice(0, 40) : [],
+      departmentId: user.departmentId || user.dept || '',
+      salt, digest, iterations: ITERATIONS,
+      device: opts.device || deviceStamp(),
+      createdAt: new Date().toISOString(),
+      lastOnlineAt: new Date().toISOString(),
+    };
+    const saved = writeAll(all);
+    return saved ? { ok: true, record: all[key] } : { ok: false, msg: 'This browser refused to keep the credential; offline sign-in will not be offered.' };
+  }
+
+  /* Extend the shelf life after a successful online sign-in. */
+  function touch(username) {
+    const all = readAll();
+    const key = String(username || '').toLowerCase();
+    const rec = all[key];
+    if (!rec) return false;
+    rec.lastOnlineAt = new Date().toISOString();
+    return writeAll(all);
+  }
+
+  function forget(username) {
+    const all = readAll();
+    const key = String(username || '').toLowerCase();
+    if (!all[key]) return false;
+    delete all[key];
+    return writeAll(all);
+  }
+  function forgetAll() { return writeAll({}); }
+
+  function recordFor(username) {
+    const rec = readAll()[String(username || '').toLowerCase()];
+    return rec && rec.digest && rec.salt ? rec : null;
+  }
+
+  /* Whether an offline sign-in should be offered at all for this name, and if not,
+     why not. The reason is shown to the person, because "it just did not work" is
+     how people come to distrust a system. */
+  function availability(username, db, now = Date.now()) {
+    const pol = policy(db);
+    if (!pol.allow) return { ok: false, reason: 'Offline sign-in is switched off for this installation.' };
+    const rec = recordFor(username);
+    if (!rec) return { ok: false, reason: 'This device has no offline credential for that account. Sign in online once with "Remember this device" ticked.' };
+    const ageDays = (now - new Date(rec.lastOnlineAt || rec.createdAt).getTime()) / 86400000;
+    if (ageDays > pol.maxDays) {
+      return { ok: false, reason: `The offline credential for this account expired after ${pol.maxDays} days without an online sign-in. Connect to the network and sign in once to renew it.` };
+    }
+    return { ok: true, record: rec, daysLeft: Math.max(0, Math.ceil(pol.maxDays - ageDays)) };
+  }
+
+  /* The sign-in itself. Returns a user object shaped like the register's, built
+     only from the cached record, so no capability is invented at this point. */
+  async function attempt(username, password, opts = {}) {
+    const db = opts.db;
+    const avail = availability(username, db, opts.now);
+    if (!avail.ok) return { ok: false, code: 'offline_unavailable', msg: avail.reason };
+    const rec = avail.record;
+    let digest;
+    try { digest = await derive(password, rec.salt); }
+    catch (e) { return { ok: false, code: 'offline_unavailable', msg: e.message }; }
+    if (digest !== rec.digest) {
+      return { ok: false, code: 'offline_denied', msg: 'That password does not match the offline credential held on this device.' };
+    }
+    /* The register may have been loaded from a previous session; if the account is
+       present and has since been deactivated or locked, an offline sign-in must
+       honour that rather than resurrect it. */
+    const local = db && Array.isArray(db.users)
+      ? db.users.find(u => String(u.username || '').toLowerCase() === rec.username || u.id === rec.userId)
+      : null;
+    if (local && (local.status === 'locked' || local.status === 'inactive' || local.status === 'revoked' || local.active === false)) {
+      return { ok: false, code: 'offline_denied', msg: `This account is ${local.status || 'not active'}. It cannot be used offline.` };
+    }
+    return {
+      ok: true,
+      offline: true,
+      user: local || {
+        id: rec.userId, username: rec.username, name: rec.name, roleId: rec.roleId,
+        countyId: rec.countyId, areaIds: rec.areaIds, departmentId: rec.departmentId,
+        status: 'active', active: true, offlineCredential: true,
+      },
+      record: rec,
+      daysLeft: avail.daysLeft,
+    };
+  }
+
+  /* What the console must say while running on an offline credential. */
+  function banner(daysLeft) {
+    return {
+      title: 'Offline session',
+      body: `You are working from the credential this device remembered${Number.isFinite(daysLeft) ? `, valid for ${daysLeft} more day${daysLeft === 1 ? '' : 's'}` : ''}. Records you change are held on this device and offered to the server when the network returns. Nothing here is confirmed as saved centrally until then.`,
+      tone: 'warn',
+    };
+  }
+
+  return { STORE_KEY, ITERATIONS, DEFAULT_MAX_DAYS, policy, remember, touch, forget, forgetAll, recordFor,
+    availability, attempt, banner, derive, newSalt };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = OFFLINE_SIGNIN;
 
 /* ============================================================
    core.js - Storage, authentication, authorisation, audit,
@@ -12245,14 +13424,14 @@ const AUTH = {
   online:false,
   mustChange:false,
 
-  async loginOnline(username, password, device){
+  async loginOnline(username, password, device, opts={}){
     const raw = String(username||'').trim();
     const name = raw;
     if(typeof SYNC === 'undefined' || !SYNC.available()){
       return {ok:false, code:'offline', error:'No network'};
     }
     let r;
-    try{ r = await SYNC.login(name, password, device); }
+    try{ r = await SYNC.login(name, password, device, opts); }
     catch(e){ return {ok:false, code:'offline', error:'The shared online source could not be reached. Sign-in was not completed locally.'}; }
     if(!r.ok) return r;
     const resolvedName = String(r.username||name).toLowerCase();
@@ -23158,6 +24337,13 @@ function refreshPublicFeed(){
 
 function renderPublicPortal(params={}){
   const C = PORTAL_CONTENT;
+  /* Ask the server for the reviewed aggregates once per page load. It is a public
+     read, so it cannot fail into anything sensitive: if it does not answer, the
+     page keeps the Foundation's own reported totals and says so. */
+  if(typeof PORTAL_STATS_LIVE!=='undefined' && !PORTAL_STATS_LIVE.data && !PORTAL_STATS_LIVE.loading && !PORTAL_STATS_LIVE.attempted){
+    PORTAL_STATS_LIVE.attempted = true;
+    PORTAL_STATS_LIVE.load().then(()=>{ try{ if(typeof render==='function') render(); }catch(_e){} }).catch(()=>{});
+  }
   const items = PORTALX.news();
   const cat = params.cat || '';
   const q = String(params.q||'').toLowerCase();
@@ -23216,8 +24402,17 @@ function renderPublicPortal(params={}){
     </section>
 
     <section class="portal-stats">
-      ${C.stats.map(s=>`<div class="ps"><span class="ps-i">${PORTALX.icon(s.icon,20)}</span><b>${esc(s.value)}</b><span class="ps-l">${esc(s.label)}</span><span class="ps-n">${esc(s.note)}</span></div>`).join('')}
+      ${C.stats.map(s=>{
+        /* A live, reviewed figure replaces the reported total when the server has
+           cleared one for this card; otherwise the Foundation's own cumulative
+           total is shown and labelled as reported, never as counted. */
+        const live = (typeof PORTAL_STATS_LIVE!=='undefined') ? PORTAL_STATS_LIVE.publishable()[s.key] : null;
+        const value = live ? num(live.value) : s.value;
+        const note = live ? `Counted from the central register · reviewed${live.reviewedAt?' '+fmtDate(live.reviewedAt):''}` : s.note;
+        return `<div class="ps"><span class="ps-i">${PORTALX.icon(s.icon,20)}</span><b>${esc(String(value))}</b><span class="ps-l">${esc(s.label)}</span><span class="ps-n">${esc(note)}</span></div>`;
+      }).join('')}
     </section>
+    <div class="xs muted" style="margin:-4px 0 14px;padding:0 4px">${esc((typeof PORTAL_STATS_LIVE!=='undefined') ? PORTAL_STATS_LIVE.provenance() : 'Cumulative programme totals reported by the Foundation')}.</div>
 
     ${(C.extendedImpact&&C.extendedImpact.length)?`<section class="portal-sect" style="padding-top:8px">
       <div class="ps-h"><div><div class="portal-kicker">Cumulative verified programme reach · 2018-2026</div><h2>Holistic household restoration across Kisumu &amp; Homa Bay</h2></div>
@@ -27702,7 +28897,9 @@ function settingsSecurity(user, may){
     ${settingRow('Lock the session after inactivity','The person must enter their own password to continue.',
       toggleControl('security.sessionLock', s.sessionLock))}
     ${settingRow('Failed attempts before lockout','A lockout is recorded and shown to the auditor.',
-      `<input class="input" type="number" min="3" max="10" data-setting="security.loginAttempts" value="${s.loginAttempts}">`)}`
+      `<input class="input" type="number" min="3" max="10" data-setting="security.loginAttempts" value="${s.loginAttempts}">`)}
+    ${settingRow('Allow offline sign-in','A device that was explicitly told to remember an account can sign in without a network. The device holds its own separate credential, never the server digest.', toggleControl('security.offlineSignIn', s.offlineSignIn !== false))}
+    ${settingRow('Offline credential expires after','Days an offline credential survives without a successful online sign-in.', `<input class="input" type="number" min="1" max="60" data-setting="security.offlineSignInDays" value="${Number(s.offlineSignInDays) || 14}">`)}`
     : note('Only the Chief System Administrator may change security policy.'))}
     ${card('Controls verified in this build', `
       <div class="row" style="flex-wrap:wrap;gap:8px">
@@ -28900,17 +30097,20 @@ const SYNC = {
       this.bump();
     }
     if(r.status === 401 && this.sessionToken && !preserveTokenOn401 && !skipAuthHeader){
-      /* The host ended the session (idle window, revocation or restart). Anything
-         typed but not yet accepted is held against this account before the
-         session goes, so signing back in finishes the save. */
+      /* The host ended the session (idle window, revocation, a sign-in from
+         another browser, or restart). Anything typed but not yet accepted is held
+         against this account before the session goes, so signing back in finishes
+         the save. A superseded window says so, because "signed out" with no reason
+         looks like a fault to the person sitting in front of it. */
+      const superseded = Boolean(body && body.code === 'session_superseded');
       try{ if(url !== 'api/auth/logout') this.holdWork(); }catch(_e){}
       this.storeToken(null);
-      if(typeof SESSION !== 'undefined' && AUTH.user) SESSION.serverExpired();
+      if(typeof SESSION !== 'undefined' && AUTH.user) SESSION.serverExpired(superseded ? 'superseded' : 'server');
     }
     return {status:r.status, ok:r.ok, body};
   },
 
-  async login(username, password, device){
+  async login(username, password, device, opts={}){
     clearTimeout(this._timer);
     this.stopPolling();
     const cryptoApi = typeof globalThis !== 'undefined' && globalThis.crypto;
@@ -28920,7 +30120,10 @@ const SYNC = {
       try{ const bytes = new Uint8Array(24); cryptoApi.getRandomValues(bytes); loginAttemptId = Array.from(bytes, b=>b.toString(16).padStart(2,'0')).join(''); }catch(_e){ loginAttemptId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`; }
     }
     const descriptor=device && typeof device==='object' ? device : (typeof CLIENT_UI!=='undefined'?CLIENT_UI.snapshot():{label:device||'Staff browser',type:'other'});
-    const loginPayload = JSON.stringify({username, password, deviceLabel:String(descriptor.label||'Staff browser').slice(0,100), deviceType:descriptor.type||'other', loginAttemptId});
+    const loginPayload = JSON.stringify({username, password, deviceLabel:String(descriptor.label||'Staff browser').slice(0,100), deviceType:descriptor.type||'other', loginAttemptId,
+      /* A takeover is a deliberate second request after the person has been told
+         the account is open elsewhere; it is never implied by a retry. */
+      ...(opts && opts.takeover ? { takeover: true } : {})});
     let r = null;
     let netErr = null;
     for(let attempt=0; attempt<2; attempt++){
@@ -28974,10 +30177,32 @@ const SYNC = {
         this.bump();
         return {ok:false, code:'state_unavailable', error:this.message, status:503};
       }
-      return {ok:true, user:r.body.user, mustChange:!!r.body.mustChange, idleSeconds:r.body.idleSeconds, username:r.body.username};
+      return {ok:true, user:r.body.user, mustChange:!!r.body.mustChange, idleSeconds:r.body.idleSeconds, username:r.body.username, supersededClient:Boolean(r.body.supersededClient)};
     }
     this.authError = r.body.error || 'The shared online source did not accept that sign-in.';
-    return {ok:false, code:r.body.code||'failed', error:this.authError, status:r.status};
+    return {ok:false, code:r.body.code||'failed', error:this.authError, status:r.status,
+      /* Carried through so the sign-in form can offer the takeover rather than
+         asking the person to wait for an idle window to run down. */
+      canTakeover:Boolean(r.body.canTakeover), heldForSeconds:r.body.heldForSeconds};
+  },
+
+  /* A closed or hidden tab must not keep the account lease alive. The browser
+     gives no promise that anything runs as the page is torn down, so this is a
+     best-effort release sent with `keepalive` (which survives the document being
+     unloaded); the server also retires the lease when the same account signs in
+     again, and the idle window is the final backstop. Nothing here touches data:
+     it only gives up the session. */
+  releaseOnExit(){
+    try{
+      if(!this.sessionToken) return;
+      const token = this.sessionToken;
+      this.storeToken(null);
+      const target = this.resolveApiUrl('api/auth/logout');
+      try{
+        fetch(target, {method:'POST', keepalive:true, credentials:'same-origin',
+          headers:{'Content-Type':'application/json','X-CareLink-Session':token}, body:'{}'});
+      }catch(_e){}
+    }catch(_e){}
   },
 
   async logout(){
@@ -31169,26 +32394,33 @@ const SESSION = {
       }
     }finally{ this._beating = false; }
   },
-  serverExpired(){ this.expire('server'); },
+  serverExpired(reason){ this.expire(reason || 'server'); },
   expire(reason){
     if(!AUTH.user) return;
     const who = AUTH.user.id;
     try{
       AUDIT.append({actor:who,action:'session.expired',entity:'session',entityId:who,
-        detail: reason==='inactivity' ? 'Ended after 900 seconds without activity' : 'Ended because the host session expired'});
+        detail: reason==='inactivity' ? 'Ended after 900 seconds without activity'
+          : reason==='superseded' ? 'Ended because this account signed in on another browser'
+          : 'Ended because the host session expired'});
       DB.save();
     }catch(e){}
     this.stop();
     closeAllModals(true);
     const box=$('#idleWarn'); if(box) box.remove();
-    if(typeof SYNC!=='undefined') SYNC.logout();
+    /* The host has already ended this session (that is why we are here), so do not
+       post a second sign-out; just forget the token locally. */
+    if(typeof SYNC!=='undefined') SYNC.storeToken(null);
     AI.history = [];
     try{ sessionStorage.removeItem('carelink.lastUser'); }catch(e){}
     AUTH.logout();
     NAVH.reset(); APPX.screen='login'; APPX.view='home'; APPX.params={}; APPX.dirty=false; APPX.aiOpen=false;
     try{ history.replaceState(null,'',location.pathname+'#/'); }catch(e){}
     render();
-    toast('Signed out','Your session ended. Sign in again to continue.','warn');
+    toast(reason==='superseded' ? 'Signed in elsewhere' : 'Signed out',
+      reason==='superseded'
+        ? 'This account signed in on another browser, so this window was signed out. Any unsaved work is held and will be offered again after you sign in.'
+        : 'Your session ended. Sign in again to continue.', 'warn');
   }
 };
 
@@ -31242,7 +32474,17 @@ async function boot(){
      BEFORE the first render() or network probe so clicking Sign-In or
      submitting a form works immediately even while /api/health is loading. */
   AUTH.listeners.push(()=>render());
-  window.addEventListener('hashchange', ()=>{ parseHash(); render();if(AUTH.user)revealWorkspace(APPX.view); });
+  window.addEventListener('hashchange', ()=>{ parseHash(); render(); const land=landingTarget(APPX.view); if(AUTH.user){ if(land) revealLanding(land); revealWorkspace(APPX.view, land); } });
+  /* Closing the tab, closing the window or navigating away gives up this
+     account's single-instance lease straight away, so the next sign-in does not
+     wait out a fifteen-minute idle window and a shared tablet is not left holding
+     an open session. `pagehide` fires on both close and the back/forward cache, and
+     `visibilitychange` covers a phone being backgrounded and then killed. */
+  window.addEventListener('pagehide', ()=>{ if(typeof SYNC!=='undefined' && AUTH.user) SYNC.releaseOnExit(); });
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState!=='hidden') return;
+    if(typeof SYNC!=='undefined' && AUTH.user && typeof SESSION!=='undefined' && SESSION.idleSeconds && SESSION.idleSeconds()>SESSION.END_AT) SYNC.releaseOnExit();
+  });
   document.addEventListener('click', onClick, false);
   document.addEventListener('submit', onSubmit, false);
   document.addEventListener('change', onChange, false);
@@ -31329,7 +32571,39 @@ function go(view, params={}){
     if(id) MESSAGING.markRead(AUTH.user, id);
   }
   render();
-  revealWorkspace(view);
+  const land = landingTarget(view);
+  if(land) revealLanding(land);
+  revealWorkspace(view, land);
+}
+
+/* Click-through into the workspace must land on the content, not on the banner
+   above it. Every view opens with a hero/banner, and on a narrow screen that
+   banner is most of the first screenful, so a reader who taps a nav item sees a
+   heading and no content until they scroll. The landing anchor is the first real
+   block below the hero, marked by the view itself; where a view marks nothing the
+   reveal falls back to the workspace heading it already used. */
+function landingTarget(view){
+  /* The console home is a greeting, not a task, so it keeps the top of the page. */
+  if(!view || view==='home' || view==='login' || view==='landing') return null;
+  const ws = document.getElementById && document.getElementById('workspaceView');
+  if(!ws || typeof ws.querySelector!=='function') return null;
+  const marked = ws.querySelector('[data-landing]:not(#workspaceView)');
+  if(marked && marked.id) return marked.id;
+  /* Otherwise every view lands on the workspace itself, which sits below the role
+     banner and the shortcut bar. That one anchor covers all 300-odd views, so a
+     newly added page cannot forget to opt in. */
+  return ws.id || null;
+}
+
+/* Reposition the scrollport and then correct once, on the next frame, in case the
+   browser re-anchored scrolling while the new markup was laid out. Both passes are
+   idempotent: on a short page the clamp leaves the scrollport at 0 and nothing moves. */
+function revealLanding(id){
+  if(!id) return;
+  const settle = ()=>{ try{ revealWorkspace(APPX.view,id); }catch(e){} };
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(settle);
+  else if(typeof setTimeout==='function') setTimeout(settle,0);
+  else settle();
 }
 
 /* The desktop pane shell itself scrolls; #content is not the scrollport.
@@ -31569,7 +32843,12 @@ function renderShell(){
   const groups = navModel(user);
   const role = roleObj(user.roleId)||{};
   const dept = deptObj(user.departmentId)||{accent:'#C8102E'};
-  const unread = DB.db.notifications.filter(n=>n.userId===user.id&&!n.read).length;
+  /* The bell counts two different things and says so: workflow notifications
+     addressed to this person, and scoped notices published to an audience that
+     includes them. A notice nobody has opened is unread even if every
+     notification row has been cleared. */
+  const unreadNotes = (()=>{ try{ return ANNOUNCEMENTS.unread(DB.db, user).length; }catch(_e){ return 0; } })();
+  const unread = DB.db.notifications.filter(n=>n.userId===user.id&&!n.read).length + unreadNotes;
   const crumb = viewCrumb();
   const here = v => APPX.view===v || (APPX.view==='patient'&&v==='patients')
                  || (APPX.view==='form'&&v==='forms') || (APPX.view==='careplan'&&v==='careplans')
@@ -31615,7 +32894,7 @@ function renderShell(){
         <button class="icon-btn tb-ai-icon no-print" data-act="toggle-ai" aria-label="Open ${esc(aiProf.title||'Console AI')}" title="${esc(aiProf.title||'Console AI')}">${ic('sparkles',18)}</button>
         <button class="icon-btn tb-theme no-print" data-act="wtheme-open" aria-label="Themes, Fonts & Visual Packs" title="Themes, Fonts & Visual Packs">${ic('palette',18)}</button>
         <button class="icon-btn no-print" data-act="${DEMO_PREVIEW.active?'demo-role-picker':'open-switch-account'}" aria-label="${DEMO_PREVIEW.active?'Switch read-only demo role':'Switch account'}" title="${DEMO_PREVIEW.active?'Explore another read-only synthetic role console':'Switch Account / Role Console'}">${ic('users',18)}</button>
-        <button class="icon-btn no-print" data-act="open-notifications" aria-label="Notifications" title="Notifications">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
+        <button class="icon-btn no-print" data-act="open-notifications" aria-label="Notifications${unreadNotes?' and '+unreadNotes+' unopened notice'+(unreadNotes===1?'':'s'):''}" title="Notifications &amp; notices${unreadNotes?' · '+unreadNotes+' unopened notice'+(unreadNotes===1?'':'s'):''}">${ic('bell',18)}${unread?`<span class="ping"></span>`:''}</button>
         <button class="me-btn" data-act="toggle-user-menu" aria-label="Your account" title="${esc(user.name)} · ${esc(role.name||'')}">
           ${avatarFor(user.name, dept.accent, user.photo)}
           <span class="me-nm">${esc(user.name.replace(/^Demo - /,'').split(' ')[0])}</span>
@@ -31640,7 +32919,7 @@ function renderShell(){
       </nav>
       ${!Store.durable?`<div class="alert warn no-print" style="margin-bottom:16px">${ic('info',18)}<div><b>Preview session</b>
         <span class="small">This browser has blocked persistent storage, so changes are held for this session only. Download the file and open it directly in Chrome or Edge for a persistent installation.</span></div></div>`:''}
-      <div class="workspace-view" id="workspaceView" tabindex="-1">${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}</div>
+      <div class="workspace-view" id="workspaceView" tabindex="-1" data-landing>${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}</div>
       ${PAGER.bar(user, here)}</main>
     ${(typeof CALLING!=='undefined' && CALLING.incomingBanner) ? CALLING.incomingBanner() : ''}
   </div>`;
@@ -31885,6 +33164,23 @@ function onClick(e){
     if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(patient-tab|nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
   }
   finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
+}
+/* Keep the visible readout and the hidden field in step with the stroke store, so
+   what the form posts is exactly what the person can see they drew. */
+function updateMarks(id){
+  try{
+    const methodEl = document.querySelector && document.querySelector(`[data-ink-method="${id}"]`);
+    const countEl = document.querySelector && document.querySelector(`[data-ink-count="${id}"]`);
+    const emptyEl = document.querySelector && document.querySelector(`[data-ink-empty="${id}"]`);
+    if (methodEl) methodEl.textContent = INK.describeMethod(INK_PAD.padFor(id));
+    if (countEl) countEl.textContent = INK_PAD.points(id) + ' points';
+    if (emptyEl) emptyEl.style.display = INK_PAD.isEmpty(id) ? '' : 'none';
+    const hidden = document.querySelector && document.querySelector(`[data-ink-record="${id}"]`);
+    if (hidden){
+      const rec = INK_PAD.record(id, { by:(AUTH.user&&AUTH.user.name)||'', role:(AUTH.user&&(roleObj(AUTH.user.roleId)||{}).name)||'' });
+      hidden.value = rec ? JSON.stringify({ method:rec.method, points:rec.points, verification:rec.verification, capturedAt:rec.capturedAt }) : '';
+    }
+  }catch(_e){}
 }
 function onSubmit(e){
   if(DEMO_PREVIEW.active){ e.preventDefault(); if(typeof toast==='function') toast('Read-only board preview','Form submissions are disabled in the isolated synthetic preview.','info'); return; }
@@ -32468,6 +33764,49 @@ const ACTIONS = {
     el.innerHTML = ic(show ? 'eyeoff' : 'eye', 15);
     try{ inp.focus({preventScroll:true}); }catch(_e){}
   },
+  /* ---- stylus pad ------------------------------------------------------
+     Pointer events only: they cover a pen, a finger and a mouse in one path, so
+     the pad cannot behave differently depending on which one a tablet reports. */
+  'ink-draw': (d, el) => {
+    const id = (d && d.inkId) || '';
+    if (!id || !el) return;
+    const canvas = el;
+    if (el.__inkBound) return;
+    el.__inkBound = true;
+    const opts = { passive: false };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button > 0) return;
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch (_e) {}
+      INK_PAD.down(id, e, canvas);
+    }, opts);
+    el.addEventListener('pointermove', (e) => {
+      if (!INK_PAD.move(id, e, canvas)) return;
+      e.preventDefault();
+      INK_PAD.repaint(id, canvas);
+    }, opts);
+    const finish = (e) => { if (INK_PAD.up(id, e, canvas)) { updateMarks(id); } };
+    el.addEventListener('pointerup', finish, opts);
+    el.addEventListener('pointercancel', finish, opts);
+    el.addEventListener('pointerleave', (e) => { if (e.buttons) finish(e); }, opts);
+    /* A stylus hover tells us which input the tablet actually has, so the label
+       is right before the first stroke rather than after it. */
+    el.addEventListener('pointerover', (e) => {
+      const m = INK.methodOf({ strokes: [[]], kinds: [INK.kindOf(e)] });
+      const label = document.querySelector(`[data-ink-method="${id}"]`);
+      if (label && !INK_PAD.points(id)) label.textContent = INK.describeMethod(m);
+    });
+  },
+  'ink-clear': (d) => {
+    const id = (d && d.inkId) || '';
+    if (!id) return;
+    INK_PAD.reset(id);
+    const canvas = document.getElementById ? document.getElementById(id) : null;
+    if (canvas) INK_PAD.repaint(id, canvas);
+    const typed = document.getElementById ? document.getElementById(id + '-typed') : null;
+    if (typed) typed.value = '';
+    updateMarks(id);
+  },
   'quick-login': async (d)=>{
     if((typeof demoEntryBlocked === 'function' && demoEntryBlocked()) || (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated())){
       LOGIN6.tab = 'signin'; APPX.screen = 'login';
@@ -32725,7 +34064,18 @@ function workflowActionsUI(){ return {
   'pdca-review-comment':(d)=>{
     const x=(DB.db.pdcas||[]).find(y=>y.id===d.id);
     if(!x || !PDCAX.canReviewDiscussion(AUTH.user,x)) return toast('Not permitted','Only the scoped Medical Case Manager may review this caregiver PDCA.','err');
+    /* The review engine reads this cycle against what a finished cycle looks like
+       in this register. It is a second pair of eyes, not a substitute for the
+       reviewer's own judgement, and it is labelled that way on screen. */
+    const model = PDCA_REVIEW.train(DB.db);
+    const advice = PDCA_REVIEW.review(x, model);
+    const adviceHtml = advice.findings.length ? `<div class="alert warn" style="margin-bottom:12px">${ic('alert',15)}<div>
+        <b>Pattern check against ${model.closedCount} closed cycles</b>
+        <div class="small" style="margin-top:4px;white-space:pre-wrap">${esc(PDCA_REVIEW.summary(advice))}</div>
+        <div class="xs muted" style="margin-top:6px">${esc(advice.recommendation)} Each finding names the evidence behind it, so you can disagree with any of them.</div>
+      </div></div>` : '';
     openModal({title:'Review caregiver PDCA',sub:'Your clinical review and comment will open a formal, audited correction thread with this caregiver.',body:`
+      ${adviceHtml}
       <form data-form="pdca-review" id="pdcaReviewForm"><input type="hidden" name="pdcaId" value="${esc(x.id)}">
         <div class="field"><label>Review comment *</label><textarea class="input" name="comment" rows="5" minlength="8" maxlength="1200" required placeholder="Describe the review, required corrections, or follow-up questions."></textarea><div class="hint">8–1,200 characters. Do not include unnecessary identifiers or unrelated sensitive details.</div></div>
       </form>`,footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="submit-pdca-review">Complete review &amp; open thread</button>`});
@@ -33719,16 +35069,110 @@ function systemActions(){ return {
     const ok=await AI.ollamaProbe();
     toast(ok?'Local model reachable':'Local model not reachable', ok?'Ollama responded at the configured endpoint.':'Start Ollama locally, or continue with the built-in rule-based assistant.','info');
   },
+  /* ---- scoped announcements (D21) ------------------------------------- */
+  'notice-new':()=>{
+    if(!RBAC.assert(AUTH.user,'org.manage',{},false) && !(typeof isGlobal === 'function' && isGlobal(AUTH.user)) &&
+       !['depthead','assistant','countyadmin','coordinator','mcm','hr','welfare','mediahead','auditor'].includes(AUTH.user.roleId)){
+      return toast('Not permitted','Publishing a notice needs a role that can address other staff. The attempt was logged.','err');
+    }
+    openModal({ title:'Publish a scoped notice', wide:true,
+      body:`<form id="noticeForm">
+        <div class="alert info"><b>Address the people who need it, not everybody.</b>
+          <span class="small">A notice goes only to the audience you choose. You can publish to everyone only if your role covers the whole organisation.</span></div>
+        <div class="grid g2">
+          <div class="field"><label>Title *</label><input class="input" name="title" maxlength="160" required placeholder="e.g. Pharmacy stock-take on Friday"></div>
+          <div class="field"><label>Severity</label><select class="input" name="severity">
+            ${Object.entries(ANNOUNCEMENTS.SEVERITY).map(([k,v])=>`<option value="${esc(k)}">${esc(v.label)}</option>`).join('')}
+          </select></div>
+        </div>
+        <div class="field"><label>Notice *</label><textarea class="input" name="body" rows="4" maxlength="4000" required placeholder="What has changed, what people must do, and by when."></textarea></div>
+        <div class="grid g2">
+          <div class="field"><label>Audience</label><select class="input" name="audience" data-notice-audience>
+            ${Object.entries(ANNOUNCEMENTS.AUDIENCES).map(([k,v])=>`<option value="${esc(k)}">${esc(v.label)}</option>`).join('')}
+          </select></div>
+          <div class="field" data-notice-detail="county"><label>County office</label><select class="input" name="countyId">
+            ${(DB.db.counties||[]).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
+        </div>
+        <div class="grid g2">
+          <div class="field" data-notice-detail="department" style="display:none"><label>Department</label><select class="input" name="departmentId">
+            ${(typeof DEPARTMENTS!=='undefined'?DEPARTMENTS:[]).map(d=>`<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('')}</select></div>
+          <div class="field" data-notice-detail="role" style="display:none"><label>Role</label><select class="input" name="roleId">
+            ${(typeof ROLES!=='undefined'?ROLES:[]).map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></div>
+        </div>
+        <div class="field" data-notice-detail="area" style="display:none"><label>Ministry area</label><select class="input" name="areaId">
+          ${(DB.db.areas||[]).map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(countyName(a.countyId))}</option>`).join('')}</select></div>
+        <label class="lg-check" style="margin:6px 0 12px;display:flex;gap:8px;align-items:flex-start">
+          <input type="checkbox" name="needsAcknowledgement" value="1">
+          <span class="small">Require each person to acknowledge that they have read it.</span></label>
+      </form>`,
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-act="notice-publish">${ic('check',14)} Publish to the chosen audience</button>` });
+  },
+  'notice-publish':()=>{
+    const f=document.querySelector('#noticeForm');
+    if(!f) return;
+    const fd=new FormData(f);
+    const res=ANNOUNCEMENTS.publish(DB.db, AUTH.user, {
+      title:fd.get('title'), body:fd.get('body'), severity:fd.get('severity'),
+      audience:fd.get('audience'), countyId:fd.get('countyId'), departmentId:fd.get('departmentId'),
+      roleId:fd.get('roleId'), areaId:fd.get('areaId'),
+      needsAcknowledgement: Boolean(fd.get('needsAcknowledgement')),
+    });
+    if(!res.ok) return toast('Notice not published', res.msg, 'err');
+    AUDIT.append({ actor:AUTH.user.id, action:'notice.published', entity:'announcement', entityId:res.rec.id,
+      detail:`${res.rec.severity} notice to ${res.rec.audienceLabel} (${res.rec.resolvedCount} people)` });
+    DB.save(); closeModal(true); render();
+    toast('Notice published', `${res.rec.resolvedCount} ${res.rec.resolvedCount===1?'person':'people'} · ${res.rec.audienceLabel}.`, 'ok');
+  },
+  'notice-open':(d)=>{
+    const rec=(DB.db.announcements||[]).find(a=>a.id===d.id);
+    if(!rec) return;
+    ANNOUNCEMENTS.markSeen(DB.db, AUTH.user, rec.id);
+    const r=ANNOUNCEMENTS.receipt(DB.db, rec.id);
+    openModal({ title: rec.title, wide:true,
+      body:`<div class="alert ${ANNOUNCEMENTS.SEVERITY[rec.severity].tone}"><b>${esc(ANNOUNCEMENTS.SEVERITY[rec.severity].label)}</b>
+          <span class="small"> · ${esc(rec.audienceLabel)} · published ${fmtDateTime(rec.publishedAt)} by ${esc(rec.authorName)}</span></div>
+        <p class="small" style="white-space:pre-wrap">${esc(rec.body)}</p>
+        ${rec.authorId===AUTH.user.id ? `<div class="xs muted">Reached ${r.audience} ${r.audience===1?'person':'people'} · opened by ${r.seen}${rec.needsAcknowledgement?` · acknowledged by ${r.acknowledged}`:''}. This is a live count: the audience is re-evaluated each time it is read.</div>` : ''}`,
+      footer:`${rec.authorId===AUTH.user.id?`<button class="btn btn-ghost" data-act="notice-withdraw" data-id="${esc(rec.id)}">Withdraw</button>`:''}
+        ${rec.needsAcknowledgement && rec.authorId!==AUTH.user.id ? `<button class="btn btn-primary" data-act="notice-ack" data-id="${esc(rec.id)}">${ic('check',14)} I have read this</button>` : ''}
+        <button class="btn btn-ghost" data-act="close-modal">Close</button>` });
+  },
+  'notice-ack':(d)=>{
+    const res=ANNOUNCEMENTS.acknowledge(DB.db, AUTH.user, d.id);
+    if(!res.ok) return toast('Not recorded', res.msg, 'err');
+    AUDIT.append({ actor:AUTH.user.id, action:'notice.acknowledged', entity:'announcement', entityId:d.id, detail:res.rec.title });
+    DB.save(); closeModal(true); render();
+    toast('Acknowledgement recorded','Your name is now on the record for this notice.','ok');
+  },
+  'notice-withdraw':(d)=>{
+    const res=ANNOUNCEMENTS.withdraw(DB.db, AUTH.user, d.id, 'Withdrawn by the author');
+    if(!res.ok) return toast('Not withdrawn', res.msg, 'err');
+    AUDIT.append({ actor:AUTH.user.id, action:'notice.withdrawn', entity:'announcement', entityId:d.id, detail:res.rec.title });
+    DB.save(); closeModal(true); render();
+    toast('Notice withdrawn','It no longer appears for its audience. The record of it being sent is kept.','warn');
+  },
   'open-notifications':()=>{
+    const notes=(()=>{ try{ return ANNOUNCEMENTS.visibleTo(DB.db, AUTH.user); }catch(_e){ return []; } })();
     const ns=DB.db.notifications.filter(n=>n.userId===AUTH.user.id);
     ns.forEach(n=>n.read=true); DB.save();
-    openModal({title:'Notifications', body: ns.length? `<div class="col" style="gap:9px">${ns.slice(0,30).map(n=>`
+    const noticeCards = notes.length ? `<div class="col" style="gap:9px;margin-bottom:12px">
+      <div class="xs bold muted" style="text-transform:uppercase;letter-spacing:.06em">Scoped notices (${notes.length})</div>
+      ${notes.slice(0,20).map(a=>`<button class="row" style="gap:11px;padding:11px;border:1px solid var(--line);border-radius:10px;align-items:flex-start;width:100%;text-align:left;background:${a.seen&&a.seen[AUTH.user.id]?'transparent':'var(--surface-2)'}" data-act="notice-open" data-id="${esc(a.id)}">
+        <span style="color:${ANNOUNCEMENTS.SEVERITY[a.severity].tone==='crit'?'var(--crit)':ANNOUNCEMENTS.SEVERITY[a.severity].tone==='warn'?'var(--warn)':'var(--info)'};flex:0 0 18px">${ic(a.severity==='info'?'info':'alert',16)}</span>
+        <span style="flex:1"><span class="small bold">${esc(a.title)}</span>
+          <span class="xs muted" style="display:block">${esc(ANNOUNCEMENTS.SEVERITY[a.severity].label)} · ${esc(a.audienceLabel)} · ${esc(fmtDateTime(a.publishedAt))}</span>
+          ${a.needsAcknowledgement?`<span class="xs" style="display:block;color:var(--ink-3)">${a.acknowledged&&a.acknowledged[AUTH.user.id]?'Acknowledged':'Acknowledgement requested'}</span>`:''}
+        </span></button>`).join('')}
+      </div>` : '';
+    openModal({title:'Notifications', body: (noticeCards + (ns.length? `<div class="col" style="gap:9px">${ns.slice(0,30).map(n=>`
       <div class="row" style="gap:11px;padding:11px;border:1px solid var(--line);border-radius:10px;align-items:flex-start">
         <div style="color:${n.kind==='warn'?'var(--warn)':'var(--info)'};flex:0 0 18px">${ic(n.kind==='warn'?'alert':'info',16)}</div>
         <div style="flex:1"><div class="small bold">${esc(n.title)}</div><div class="xs muted">${esc(n.body)}</div>
         <div class="xs" style="margin-top:3px;opacity:.6">${fmtDateTime(n.at)}</div></div></div>`).join('')}</div>`
-      : emptyState('No notifications','Workflow updates assigned to you appear here.','bell'),
-      footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>`});
+      : (notes.length? '' : emptyState('No notifications','Workflow updates and scoped notices addressed to you appear here.','bell')))),
+      footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
+        <button class="btn btn-primary" data-act="notice-new">${ic('bell',14)} Publish a scoped notice</button>`});
     setTimeout(()=>render(),200);
   }
 };}
@@ -37592,7 +39036,12 @@ const ONB = {
 
 const LOGIN6 = {
   tab:'signin', error:'', notice:'', busy:false, mustChangeBusy:false, usernameDraft:'', results:null,
-  slide:0, demoFilter:'all'
+  slide:0, demoFilter:'all',
+  /* Set when the host reports the account is live on another browser; the form
+     turns it into one explicit takeover button instead of a wait. */
+  conflict:null, takeover:false,
+  /* Set when this session was opened from the device's own offline credential. */
+  offlineNotice:null
 };
 
 const LOGIN_TEAM_SLIDES = [
@@ -38084,6 +39533,25 @@ function renderLogin6(){
         <div class="pw-wrap"><input class="input" id="lg-p" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="pw-eye" data-act="toggle-pw" aria-label="Show password">${ic('eye',15)}</button></div></div>
       <p class="lg-note lg-device-note" id="lg-device-note"><span class="entry-security-badge">Secure access</span> Sign in from your browser with your own account. Access and activity are managed by the shared service.</p>
       <label class="lg-check"><input type="checkbox" name="remember" checked> Keep session active on this device while in active use</label>
+      ${(() => {
+        const typedName = String(LOGIN6.usernameDraft || '').trim();
+        const held = typedName ? OFFLINE_SIGNIN.availability(typedName, DB.db) : { ok:false, reason:'' };
+        return held.ok ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin:2px 0 8px">
+          <button class="btn btn-xs btn-ghost" type="button" data-act="login-offline-now">${ic('laptop',12)} Sign in offline with this device's credential</button>
+          <span class="xs muted">Valid for ${held.daysLeft} more day${held.daysLeft===1?'':'s'} · no network needed</span></div>` : '';
+      })()}
+      ${(() => {
+        /* Offline sign-in is offered only when this browser already holds a
+           credential for the account named above, or when the person is being
+           invited to create one. It is never offered speculatively. */
+        const typed = String(LOGIN6.usernameDraft || '').trim();
+        const avail = typed ? OFFLINE_SIGNIN.availability(typed, DB.db) : { ok: false };
+        if (avail.ok) {
+          return `<label class="lg-check" style="align-items:flex-start"><input type="checkbox" name="rememberDevice" value="1">
+            <span class="small">Remember this device, so I can sign in here without a network. Stored as a separate credential on this device only, and it expires after ${OFFLINE_SIGNIN.policy(DB.db).maxDays} days without an online sign-in.</span></label>`;
+        }
+        return '';
+      })()}
       <button class="btn btn-primary btn-block" type="submit" ${LOGIN6.busy?'disabled':''}>${LOGIN6.busy?'Verifying...':'Sign In to CareLink C-DIMS'} ${ic('chevron',16)}</button>
     </form>
     <div class="lg-links">
@@ -38227,6 +39695,13 @@ function renderLogin6(){
           return `<div class="alert crit lg6-alert">${ic('alert',15)}<div style="flex:1"><span>${esc(LOGIN6.error)}</span><div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">${isKvUnavailable ? `<button class="btn btn-xs btn-primary" type="button" data-act="login-retry-kv">${ic('refresh',12)} Retry Cloud KV Connection</button>` : ''}${showOfflineBtn ? `<button class="btn btn-xs btn-ghost" type="button" data-act="login-offline-device-mode" style="background:#FFFFFF;color:#0F172A;border:1px solid #94A3B8;font-weight:700">${ic('laptop',12)} Open Offline Console on This Device</button>` : ''}${showResetBtn ? `<button class="btn btn-xs btn-primary" type="button" data-act="reset-first-run-fresh">${ic('refresh',12)} Reset 4-Step Setup &amp; Set Fresh Password</button>` : ''}</div></div></div>`;
         })():''}
         ${LOGIN6.notice?`<div class="alert ok lg6-alert">${ic('check',15)}<span>${esc(LOGIN6.notice)}</span></div>`:''}
+        ${LOGIN6.conflict?`<div class="alert warn lg6-alert" data-login-conflict>${ic('alert',15)}<div style="flex:1">
+          <b>This account is open on another browser</b>
+          <div class="xs">Only one browser may hold an account at a time. If that window is yours, take the account over here now — the other window is signed out immediately and anything it had typed but not yet saved is held for it.</div>
+          <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-xs btn-primary" type="button" data-act="login-takeover">${ic('logout',12)} Sign out the other browser and continue</button>
+            <button class="btn btn-xs btn-ghost" type="button" data-act="login-conflict-dismiss">Not me — cancel</button>
+          </div></div></div>`:''}
         <div class="lg-tabs" role="group" aria-label="Account access">
           ${tabBtn('signin','Sign in')}
           ${tabBtn('activate','Activate')}
@@ -38576,6 +40051,39 @@ Object.assign(ACTIONS, {
       render();
     }
   },
+  /* Takeover is a second, deliberate sign-in carrying the same credentials plus an
+     explicit flag. It never happens as a side effect of a retry. */
+  'login-takeover': async () => {
+    const c = LOGIN6.conflict;
+    if (!c) return;
+    LOGIN6.conflict = null;
+    LOGIN6.takeover = true;
+    LOGIN6.error = '';
+    const btn = $('[data-act="login-takeover"]');
+    if (btn) { btn.disabled = true; btn.setAttribute('aria-busy','true'); }
+    try {
+      /* Re-post exactly the credentials that were just accepted, adding only the
+         takeover flag. Nothing else about the sign-in changes. */
+      await FORMS.login6({ get: (k) => (k === 'username' ? c.username : k === 'password' ? c.password : '') });
+    } finally { LOGIN6.takeover = false; }
+  },
+  'login-conflict-dismiss': () => { LOGIN6.conflict = null; LOGIN6.error = ''; render(); },
+  /* Sign in from the device's own credential without waiting for a network call
+     to time out first. The password is still required. */
+  'login-offline-now': async () => {
+    const u = (($('#lg-u') || {}).value || LOGIN6.usernameDraft || '').trim();
+    const p = (($('#lg-p') || {}).value || '');
+    if(!u || !p) return toast('Enter your password','Type your password, then choose the offline sign-in button.','warn');
+    LOGIN6.forceOffline = true;
+    await FORMS.login6({ get: (k) => (k === 'username' ? u : k === 'password' ? p : '') });
+  },
+  'forget-offline-device': () => {
+    const u = String(LOGIN6.usernameDraft || '').trim();
+    if(!u) return toast('Nothing to forget','Type the account name first.','warn');
+    OFFLINE_SIGNIN.forget(u);
+    toast('Credential removed','This device will no longer offer an offline sign-in for that account.','ok');
+    render();
+  },
   'login-offline-device-mode': async () => {
     if (demoEntryBlocked()) {
       return toast('Offline Evaluation Locked', 'This installation is globally activated and requires the shared online KV store.', 'err');
@@ -38771,6 +40279,10 @@ Object.assign(FORMS, {
     const rawPass = d && typeof d.get === 'function' ? d.get('password') : '';
     const domPass = f && typeof f.querySelector === 'function' ? (f.querySelector('[name="password"]')||{}).value : '';
     const password = String(rawPass || domPass || '');
+    /* "Remember this device" is read from the submitted form; the takeover path
+       re-posts the same credentials and must not create a credential as a side
+       effect, so it says nothing here and nothing is remembered. */
+    const passwordRemembered = Boolean(d && typeof d.get === 'function' && d.get('rememberDevice'));
     LOGIN6.usernameDraft = username;
     if(!username || !password){
       LOGIN6.error = 'Enter both your username (or official email) and password.';
@@ -38778,6 +40290,26 @@ Object.assign(FORMS, {
     }
     LOGIN6.error=''; LOGIN6.notice=''; LOGIN6.busy=true; render();
     try{
+      /* An explicit offline sign-in, decided before anything is sent: if the
+         device holds a live credential for this account the person should not have
+         to fail an online attempt first when they already know there is no network. */
+      if(LOGIN6.forceOffline){
+        LOGIN6.forceOffline = false;
+        const off = await OFFLINE_SIGNIN.attempt(username, password, { db: DB.db });
+        LOGIN6.busy = false;
+        if(!off.ok){ LOGIN6.error = off.msg; render(); return; }
+        LOGIN6.offlineNotice = OFFLINE_SIGNIN.banner(off.daysLeft);
+        if(typeof SYNC !== 'undefined'){ SYNC.deviceOnlyOverride = true; SYNC.state = 'device'; SYNC.message = 'Offline session — records are held on this device'; SYNC.bump(); }
+        const u = DB.db.users.find(x => x.id === off.user.id) || off.user;
+        AUTH.user = u; AUTH.mustChange = false;
+        AUTH.session = { started: todayISO(), last: Date.now(), token: 'offline-' + Date.now() };
+        APPX.screen = 'app'; APPX.view = 'home'; APPX.params = {};
+        try{ sessionStorage.setItem('carelink.lastUser', username); }catch(_e){}
+        SESSION.last = Date.now();
+        applyTheme(); NAVH.reset(); NAVH.push('home',{}); render();
+        toast(LOGIN6.offlineNotice.title, LOGIN6.offlineNotice.body, 'warn');
+        return;
+      }
       const hosted = typeof SYNC !== 'undefined' && SYNC.available && SYNC.available();
       if(!AUTH.user && typeof SYNC !== 'undefined'){
         clearTimeout(SYNC._timer);
@@ -38786,17 +40318,28 @@ Object.assign(FORMS, {
       }
       // Device admission is tied to the server-issued cookie and approval code,
       // not a label typed at sign-in. Do not require staff to name their device.
-      let res = await AUTH.loginOnline(username, password, CLIENT_UI.snapshot());
+      let res = await AUTH.loginOnline(username, password, CLIENT_UI.snapshot(), { takeover: Boolean(LOGIN6.takeover) });
       if(!res.ok && !hosted){
         /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
            feature.  A Vercel client never turns a failed server login into a
            device-local account or an automatic demo installation. */
         const hostUnprovisioned = !APPX.host || !APPX.host.setup;
         const isGloballyActive = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+        /* Offline sign-in comes first, and only for a device that was explicitly
+           told to remember this account. It verifies against its own credential, so
+           a failed server call never becomes a local account and a local digest is
+           never consulted for an account nobody remembered. */
+        if (isGloballyActive || (res.code === 'offline') || res.status === 0) {
+          const off = await OFFLINE_SIGNIN.attempt(username, password, { db: DB.db });
+          if (off.ok) {
+            res = { ok: true, offline: true, user: off.user, mustChange: false, daysLeft: off.daysLeft };
+            LOGIN6.offlineNotice = OFFLINE_SIGNIN.banner(off.daysLeft);
+          }
+        }
         const localCandidate = (DB.db && Array.isArray(DB.db.users))
           ? DB.db.users.find(x => x.username.toLowerCase()===username || String(x.email||'').toLowerCase()===username || ((username==='system.admin'||username==='chief.admin') && x.roleId==='chief'))
           : null;
-        if((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned){
+        if(!(res.ok && res.offline) && ((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned)){
           const local = AUTH.login(username, password);
           res = local.ok
             ? { ok:true, user:local.user, mustChange:Boolean(local.user.mustChange || local.user.mustChangePassword) }
@@ -38806,6 +40349,8 @@ Object.assign(FORMS, {
       LOGIN6.busy = false;
       if(res.ok){
         LOGIN6.usernameDraft = '';
+        LOGIN6.conflict = null;
+        LOGIN6.takeover = false;
         if(typeof ACCOUNT_SWITCHER !== 'undefined' && ACCOUNT_SWITCHER.rememberUsername && AUTH.user){
           ACCOUNT_SWITCHER.rememberUsername(AUTH.user.username);
         }
@@ -38822,8 +40367,40 @@ Object.assign(FORMS, {
         NAVH.reset(); NAVH.push('home',{}); APPX.view='home'; APPX.params={};
         render();
         if(typeof SYNC!=='undefined' && SYNC.sessionToken) SYNC.startPolling();
+        /* The offline credential is created here - after the server has verified
+           the password while online - and nowhere else. */
+        if(!res.offline && AUTH.user && (passwordRemembered || OFFLINE_SIGNIN.recordFor(AUTH.user.username))){
+          if(passwordRemembered){
+            OFFLINE_SIGNIN.remember(AUTH.user, password, { db: DB.db }).then(r=>{
+              if(r.ok && typeof toast==='function') toast('Device remembered','You can sign in on this device without a network for the next '+OFFLINE_SIGNIN.policy(DB.db).maxDays+' days.','ok');
+              else if(!r.ok && typeof toast==='function') toast('Not remembered', r.msg || 'This browser refused to keep the credential.','warn');
+            }).catch(()=>{});
+          } else {
+            OFFLINE_SIGNIN.touch(AUTH.user.username);
+          }
+        }
+        /* One live client per account: if this sign-in retired an earlier window,
+           the person who just signed in should know the other window is closed,
+           rather than discovering it there later. */
+        if(res.offline && LOGIN6.offlineNotice && typeof toast==='function'){
+          toast(LOGIN6.offlineNotice.title, LOGIN6.offlineNotice.body, 'warn');
+        }
+        if(!res.offline) LOGIN6.offlineNotice = null;
+        if(res.supersededClient && typeof toast==='function'){
+          toast('Earlier window signed out',
+            'This account is only open here now. The previous browser window was signed out.', 'info');
+        }
+      } else if(res.code === 'session_conflict' && res.canTakeover){
+        /* The account is open on another browser. Say so once, plainly, and offer
+           the takeover rather than a waiting room: the person typing the password
+           may be the one who left the other window open, and fifteen minutes is a
+           long time to be told to come back. */
+        LOGIN6.error = res.error || 'This account is signed in on another browser.';
+        LOGIN6.conflict = { username, password, heldForSeconds: res.heldForSeconds };
+        render();
       } else {
         LOGIN6.error = res.error || res.msg || 'That username and password were not accepted.';
+        LOGIN6.conflict = null;
         render();
       }
     }catch(e){
@@ -40922,7 +42499,7 @@ function stdCostOf(std, id){ const s=(std||[]).find(x=>x.id===id); return s? Num
 
 /* ---------------- actions & forms ---------------- */
 Object.assign(ACTIONS, {
-  'cost-tab': d => { COST_STATE.tab = d.tab||'overview'; COST_STATE.page=1; render(); },
+  'cost-tab': d => { COST_STATE.tab = d.tab||'overview'; COST_STATE.page=1; render(); revealLanding(landingTarget(APPX.view)); },
   'cost-reset': () => { Object.assign(COST_STATE, {from:'',to:'',countyId:'',areaId:'',cat:'',dept:'',q:'',page:1}); render(); },
   'cost-page': d => { COST_STATE.page = Math.max(1, Number(d.p)||1); render(); revealWorkspace('costing'); },
   'cost-export': () => {
@@ -41622,7 +43199,7 @@ function tbPatientOptions(user, selected){
 }
 
 Object.assign(ACTIONS, {
-  'tb-tab': d => { TB_STATE.tab = d.tab||'board'; render(); },
+  'tb-tab': d => { TB_STATE.tab = d.tab||'board'; render(); revealLanding(landingTarget(APPX.view)); },
   'tb-request-open': d => {
     const pid = d.p||'';
     const p = pid? repo.patient(AUTH.user, pid) : null;
@@ -42902,7 +44479,7 @@ const MASTERX2 = {
 };
 
 Object.assign(ACTIONS, {
-  'master-tab': d => { MASTERX2._tab = d.tab||'summary'; render(); },
+  'master-tab': d => { MASTERX2._tab = d.tab||'summary'; render(); revealLanding(landingTarget(APPX.view)); },
   'set-programme-year': d => {
     const r = PYEAR.set(AUTH.user, d.month);
     if(!r.ok) return toast('Not changed', r.msg, 'err');
@@ -43343,7 +44920,7 @@ const URGENT = {
 
 /* ---------------- actions & forms ---------------- */
 Object.assign(ACTIONS, {
-  'wl-tab': d => { WAIT_STATE.tab=d.tab||'list'; render(); },
+  'wl-tab': d => { WAIT_STATE.tab=d.tab||'list'; render(); revealLanding(landingTarget(APPX.view)); },
   'wl-add-open': () => {
     const areas = COUNTIES.flatMap(c=>c.areas).filter(a=>{
       const countyId = (COUNTIES.find(cc=>cc.areas.some(x=>x.id===a.id))||{}).id;
@@ -43399,7 +44976,7 @@ Object.assign(ACTIONS, {
     if(!r.ok) return toast('Not closed', r.msg, 'err');
     closeModal(true); toast('Entry closed', r.msg, 'ok'); render();
   },
-  'uc-tab': d => { URG_STATE.tab=d.tab||'register'; render(); },
+  'uc-tab': d => { URG_STATE.tab=d.tab||'register'; render(); revealLanding(landingTarget(APPX.view)); },
   'uc-add-open': () => {
     const rows = RBAC.has(AUTH.user,'patient.list')? repo.patientList(AUTH.user).slice(0,600) : [];
     openModal({ title:'Record an urgent case', sub:'NAME, WHAT, COSTS and the budget line - the URGCAS sheet\u2019s own columns.',
@@ -43531,11 +45108,18 @@ const PORTAL_CONTENT = {
 
   /* Verified 2018-2026 cumulative impact from the County Government of Kisumu (CGK)
      & LOMAMO Foundation Partnership Brief. Zero individual patient PII appears. */
+  /* These are the Foundation's own cumulative programme totals, as published by
+     the Foundation. They are NOT counted from the operational register, and the
+     public page says so on every card. Live aggregates come from
+     `/api/public/statistics`, which computes them on the server, suppresses any
+     figure backed by fewer than five people, and refuses to mark a figure
+     publishable until a named official has reviewed it. Keeping the two apart is
+     the point: a marketing number must never be mistaken for a register count. */
   stats:[
-    { label:'Patients discharged healthy', value:'2,012', icon:'heart', note:'Cumulative 2018-2026 verified discharges across Kisumu & Homa Bay' },
-    { label:'Orphans prevented', value:'3,722', icon:'users', note:'Children kept safely in family care' },
-    { label:'Food bags delivered', value:'29,010', icon:'package', note:'Weekly Bag 1, Bag 2 & Special nutrition support' },
-    { label:'Recovery rate', value:'89%', icon:'activity', note:'Patients restored to clinical & nutritional stability' }
+    { key:'patientsDischargedHealthy', label:'Patients discharged healthy', value:'2,012', icon:'heart', note:'Cumulative 2018-2026 verified discharges, reported by the Foundation' },
+    { label:'Orphans prevented', value:'3,722', icon:'users', note:'Cumulative children kept safely in family care' },
+    { label:'Food bags delivered', value:'29,010', icon:'package', note:'Cumulative weekly Bag 1, Bag 2 & special nutrition support' },
+    { label:'Recovery rate', value:'89%', icon:'activity', note:'Cumulative patients restored to clinical & nutritional stability' }
   ],
 
   /* Additional verified cumulative household dignity & spiritual care counters (2018-2026). */
@@ -43725,6 +45309,65 @@ const PORTAL_CONTENT = {
 };
 
 /* ---------------- portal service ---------------- */
+/* Live register aggregates for the public page.
+
+   The Foundation asked for the public statistics to come from the central
+   database. They are fetched from `/api/public/statistics`, which computes them on
+   the server, applies the suppression floor and refuses to mark a figure
+   publishable until a named official has reviewed it. This cache holds the last
+   answer and is deliberately conservative:
+
+     * until the endpoint has answered, no live figure is shown at all - the page
+       falls back to the Foundation's own cumulative totals, which are labelled as
+       reported rather than counted;
+     * a figure the server has suppressed is never rendered as a number;
+     * a figure that has not been reviewed is not rendered either, because a page
+       that prints an unreviewed number has published it whatever the endpoint
+       says about its status. */
+const PORTAL_STATS_LIVE = {
+  data: null,
+  loading: false,
+  error: '',
+  async load(force = false) {
+    if (this.loading) return this.data;
+    if (this.data && !force) return this.data;
+    this.loading = true;
+    try {
+      const base = (typeof SYNC !== 'undefined' && SYNC.resolveApiUrl) ? SYNC.resolveApiUrl('api/') : 'api/';
+      const res = await fetch(base + 'public/statistics', { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const body = await res.json();
+      this.data = body && body.ok ? body : null;
+      this.error = this.data ? '' : 'Statistics unavailable';
+    } catch (e) {
+      this.error = 'Statistics unavailable';
+      this.data = null;
+    } finally {
+      this.loading = false;
+    }
+    return this.data;
+  },
+  /* The figures the page is allowed to print, keyed by the card they belong to. */
+  publishable() {
+    const figs = (this.data && this.data.figures) || {};
+    const out = {};
+    for (const [key, f] of Object.entries(figs)) {
+      if (!f || f.value === null || f.suppressed) continue;
+      if (!f.publishable) continue;
+      out[key] = f;
+    }
+    return out;
+  },
+  /* How the page describes the source of what it is showing. */
+  provenance() {
+    if (!this.data) return 'Cumulative programme totals reported by the Foundation';
+    const cleared = Object.keys(this.publishable()).length;
+    return cleared
+      ? 'Counted from the central CareLink register and reviewed for publication'
+      : 'Cumulative programme totals reported by the Foundation';
+  }
+};
+
 const PORTALX = {
   content(){ return PORTAL_CONTENT; },
 
@@ -44914,6 +46557,10 @@ Object.assign(ACTIONS, {
           <div class="field"><label>A — Assessment (clinical impression & nutritional grade) *</label><textarea class="input" name="assessment" rows="2" required></textarea></div>
           <div class="field"><label>P — Plan (medications, foodbag/diet, clinic referral, next PDCA) *</label><textarea class="input" name="plan" rows="2" required></textarea></div>
         </div>
+        ${typeof INK_PAD!=='undefined' ? INK_PAD.field('mcm-soap-sign', {
+          label:'Clinician signature',
+          purpose:'Attesting the SOAP encounter above',
+          hint:'Optional, and only ever as strong as it looks: a stylus line is recorded as a stylus line, a typed name as a typed name.' }) : ''}
       </form>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
         <button class="btn btn-primary" data-act="mcm-soap-save">${ic('check',14)} Sign & Save SOAP Encounter</button>`
@@ -44942,7 +46589,11 @@ Object.assign(ACTIONS, {
       date:todayISO().slice(0,10), authorId:AUTH.user.id, authorName:AUTH.user.name.replace(/^Demo - /,''),
       role:(roleObj(AUTH.user.roleId)||{}).name||'Clinician',
       acuity:fd.get('acuity')||'moderate', bp:p.clinical.bp, spo2:Number(fd.get('spo2'))||98, temp:36.7,
-      weightKg:w, heightCm:h, bmi, subjective:subj, objective:obj, assessment:ass, plan
+      weightKg:w, heightCm:h, bmi, subjective:subj, objective:obj, assessment:ass, plan,
+      /* The ink, if any, described for what it actually is. */
+      signature: (typeof INK_PAD!=='undefined' && AUTH.user)
+        ? INK_PAD.record('mcm-soap-sign', { by:AUTH.user.name, role:(roleObj(AUTH.user.roleId)||{}).name||'Clinician', purpose:'SOAP encounter' })
+        : undefined
     });
     AUDIT.append({ actor:AUTH.user.id, action:'clinical.soap.recorded', entity:'patient', entityId:p.id,
       detail:`SOAP encounter (${fd.get('acuity')}) · BMI ${bmi}` });
@@ -45649,7 +47300,16 @@ const MONDAY_PROC = {
     const meetings=DB.db.devotionMeetings||[],last=CARE_RULES.addDays(period.week,5);
     const rows=roster.assignments.filter(a=>a.date>=period.week&&a.date<last);
     const person=id=>id?(userById(id)?.name||'Account not available'):'Unassigned — director not uniquely available';
-    const links=ref=>[['NIV','NIV'],['KJV','KJV'],['NKJV','NKJV'],['ESV','ESV'],['NLT','NLT'],['NASB','NASB'],['CSB','CSB']].map(([label,version])=>`<a href="https://www.biblegateway.com/passage/?search=${encodeURIComponent(ref)}&amp;version=${version}" target="_blank" rel="noopener noreferrer">${label}</a>`).join(' · ');
+    /* Seven translations, taken from the scripture registry rather than typed
+       here, so the list cannot drift from what the Foundation actually asked for
+       (KJV, NKJV, NIV, ESV, ASV, WEB, Swahili). The links open the licensed
+       publisher's own page: this system shows the reference, not reproduced text,
+       for every translation whose licence does not permit copying. */
+    const links=ref=>{
+      const list=(typeof SCRIPTURE!=='undefined')?SCRIPTURE.available(DB.db):[];
+      const norm=(typeof SCRIPTURE!=='undefined')?(SCRIPTURE.parse(ref)||{}).reference||ref:ref;
+      return list.map(t=>`<a href="https://www.biblegateway.com/passage/?search=${encodeURIComponent(norm)}&amp;version=${encodeURIComponent(t.short)}" target="_blank" rel="noopener noreferrer" title="${esc(t.note||'')}">${esc(t.short)}</a>`).join(' · ');
+    };
     const renderDay=a=>{
       const m=meetings.find(r=>r.countyId===county&&r.date===a.date),isLeader=a.leaderId===user.id;
       const attrs=`data-county="${esc(county)}" data-date="${esc(a.date)}"`;
@@ -46160,7 +47820,11 @@ Object.assign(ACTIONS, {
     if(!a||a.leaderId!==AUTH.user.id||m?.status==='shared')return;
     openModal({title:'Provisional devotion minutes · '+d.date,sub:'Prepare verse and prayer notes; save privately before choosing Share.',
       body:`<form id="devotionForm">${CARE_REVIEW.hidden('kind','save')}${CARE_REVIEW.hidden('countyId',d.county)}${CARE_REVIEW.hidden('date',d.date)}${CARE_REVIEW.hidden('version',m?.version||0)}${CARE_REVIEW.hidden('requestId',CARE_REVIEW.token())}
-      ${field('Bible reference','reference','text',{value:m?.reference||'',required:true})}${field('Prayer and verse notes','prayerNotes','textarea',{value:m?.prayerNotes||'',required:true})}
+      ${field('Bible reference','reference','text',{value:m?.reference||'',required:true,placeholder:'Book chapter:verse, for example John 3:16'})}
+      <div class="field"><label>Translation to read from</label><select class="input" name="translation">${(typeof SCRIPTURE!=='undefined'?SCRIPTURE.available(DB.db):[]).map(t=>`<option value="${esc(t.id)}" ${(m?.translation||'niv')===t.id?'selected':''}>${esc(t.name)} (${esc(t.short)})${t.showText?'':" — reference only"}</option>`).join('')}</select>
+      <div class="hint">The seven translations the system offers. Where a publisher's licence does not allow copying, the reference opens at the publisher and the text is not stored here.</div></div>
+      ${field('Prayer and verse notes','prayerNotes','textarea',{value:m?.prayerNotes||'',required:true})}
+      ${m?.scripture?`<p class="small">Recorded as <b>${esc(m.scripture.reference||'')}</b> ${esc(m.scripture.translation||'')} · ${m.scripture.verification==='verified'?'checked against the printed text by '+esc(m.scripture.verifiedBy||'a reviewer'):'not yet checked against the printed text'}.</p>`:''}
       ${field('Discussion','discussion','textarea',{value:m?.discussion||''})}${field('Follow-up actions','actions','textarea',{value:m?.actions||''})}
       <p class="small">Do not include patient details. The provisional template is not the organization’s final approved format.</p></form>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button><button class="btn btn-primary" data-act="devotion-save">Save private preparation</button>`});
@@ -46185,6 +47849,7 @@ Object.assign(ACTIONS, {
   'devotion-save':async()=>{
     const form=document.querySelector('#devotionForm');if(!form||form.dataset?.saving||form.reportValidity&&!form.reportValidity())return;
     const fd=new FormData(form),kind=String(fd.get('kind')||''),payload={countyId:String(fd.get('countyId')),date:String(fd.get('date')),version:Number(fd.get('version'))};
+    if(kind==='save')payload.translation=String(fd.get('translation')||'niv');
     for(const key of kind==='save'?['reference','prayerNotes','discussion','actions']:kind==='assign'?['leaderId','reason']:['closingId'])payload[key]=String(fd.get(key)||'');
     if(form.dataset)form.dataset.saving='true';const r=await CARE_REVIEW.command(kind,payload,String(fd.get('requestId')),'devotion');if(form.dataset)delete form.dataset.saving;
     if(!r.ok)return toast('Not saved',r.msg,'err');closeModal(true);toast('Devotion saved',r.msg,'ok');render();
@@ -48533,7 +50198,7 @@ Object.assign(ACTIONS, {
     if (typeof COST_STATE !== 'undefined') COST_STATE.viewMode = next;
     render();
   },
-  'adminops-tab': (d) => { ADMIN_OPS_STATE.tab = d.tab || 'overview'; render(); },
+  'adminops-tab': (d) => { ADMIN_OPS_STATE.tab = d.tab || 'overview'; render(); revealLanding(landingTarget(APPX.view)); },
   'adminops-county': (d) => { ADMIN_OPS_STATE.countyFilter = d.county || 'all'; render(); },
   'adminops-palette': (d) => {
     const user = AUTH.user;
@@ -49904,6 +51569,16 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.9.8', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Closed the six unbuilt requirements from the verbatim prompt audit: governed public statistics, scoped announcements, stylus handwriting capture, offline sign-in, the PDCA pattern review and the Bible reference registry.',
+      changes:['Public portal statistics now come from the central database through a governance gate (GET api/public/statistics): every figure carries its basis, reviewer and disclosure state, counts below five are suppressed, and the portal can print only figures a named reviewer has released',
+        'Announcements can be addressed to everyone, a county, a department, an area, a role or named people, with read and acknowledgement receipts; an audience a role cannot reach is refused rather than silently widened',
+        'Handwriting capture records pressure-aware strokes from a stylus, finger or mouse, and is always labelled a captured stroke, never a verified signature; typed names are captioned as typed',
+        'Offline sign-in is opt-in per account, created only after a successful online sign-in, stored as a PBKDF2-SHA256 record with its own salt and 210,000 iterations, and expires after the configured number of days without an online sign-in; an offline session never claims work is saved centrally',
+        'The PDCA review engine learns the fill pattern of the closed cycles in the register and reads a new cycle against it, naming the field, the reason and the basis; it is advisory only and never approves',
+        'A Bible reference registry reads references as people write them, offers seven translations with their permission state recorded, and shows the reference rather than copying text the licence does not allow',
+        'New suites: public-statistics-governance (20), scoped-announcements (37), stylus-handwriting (38), offline-signin (30), pdca-review-engine (26), scripture-registry (36), devotion-fairness (12) and workspace-tab-reveal (14)'],
+      highlights:['B5','D21','D19','C1','D17','A6','A5','B4'] },
     { tag:'v6.9.7', date:'2026-11-26', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Reconciled the verbatim Foundation prompt set against the code, corrected the report period labelling across every document family and added the issuing department to every report.',
       changes:['Every report family now states the period it actually covers: weekly reports by 52-week number and Monday-Friday span, monthly reports by month, leadership summaries by quarter',
@@ -50332,7 +52007,7 @@ const DEV_CONSOLE = {
 };
 
 Object.assign(ACTIONS, {
-  'dev-tab': d => { DEV_CONSOLE_STATE.tab = d.tab || 'telemetry'; render(); },
+  'dev-tab': d => { DEV_CONSOLE_STATE.tab = d.tab || 'telemetry'; render(); revealLanding(landingTarget(APPX.view)); },
   'dev-probe-cloud': () => DEV_CONSOLE.probeCloud(),
   'dev-open-reactivation': () => PROD_SETUP.openReactivationModal(false),
   'dev-open-recover-reactivation': () => PROD_SETUP.openReactivationModal(true),
@@ -54157,6 +55832,6 @@ Object.assign(FORMS,{
   });
 })();
 </script>
-<!-- Build 2026-11-26 12:00 · CareLink C-DIMS v6.9.7 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-11-26 18:12 · CareLink C-DIMS v6.9.8 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

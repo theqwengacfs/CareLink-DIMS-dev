@@ -982,7 +982,7 @@ function stdCostOf(std, id){ const s=(std||[]).find(x=>x.id===id); return s? Num
 
 /* ---------------- actions & forms ---------------- */
 Object.assign(ACTIONS, {
-  'cost-tab': d => { COST_STATE.tab = d.tab||'overview'; COST_STATE.page=1; render(); },
+  'cost-tab': d => { COST_STATE.tab = d.tab||'overview'; COST_STATE.page=1; render(); revealLanding(landingTarget(APPX.view)); },
   'cost-reset': () => { Object.assign(COST_STATE, {from:'',to:'',countyId:'',areaId:'',cat:'',dept:'',q:'',page:1}); render(); },
   'cost-page': d => { COST_STATE.page = Math.max(1, Number(d.p)||1); render(); revealWorkspace('costing'); },
   'cost-export': () => {

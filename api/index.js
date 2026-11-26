@@ -61,7 +61,12 @@ async function commitCloudSnapshot(value, { timeoutMs = 10000 } = {}) {
 }
 
 const PBKDF2_ROUNDS = 160000;
-const IDLE_SECONDS = 1800;
+/* Fifteen minutes of real inactivity ends a session. The screen used to end at
+   900 seconds while the server kept accepting the token for 1800, so a tab left
+   open looked signed in long after the person had walked away. Both ends now use
+   the same number, and the client reconciles against the server on the next beat
+   so a client whose screen timed out cannot keep spending the old token. */
+const IDLE_SECONDS = 900;
 
 /* Vercel instances are disposable and may serve different requests on every
    invocation.  KV is therefore not an optional cache: it is the only online
@@ -820,6 +825,17 @@ async function runKvCommand(args, timeoutMs = 10000, op = 'write') {
 }
 
 const SESSION_LEASE_SECONDS = IDLE_SECONDS + 60;
+/* A second sign-in for the same account normally *takes over*: the person typing
+   the right password on a new browser is the account holder, and leaving the old
+   window signed in is the bigger risk. The exception is a duplicate submission -
+   a double-tapped button or a retried request arriving milliseconds after the
+   first - which must not bounce two live windows against each other. Anything
+   inside this window is treated as that duplicate and refused, so exactly one
+   attempt of a simultaneous pair can ever win. */
+const LOGIN_DUPLICATE_GRACE_MS = (() => {
+  const n = Number(process.env.CARELINK_LOGIN_GRACE_MS);
+  return Number.isFinite(n) && n >= 0 ? n : 5000;
+})();
 const SESSION_LEASE_RENEW_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('EXPIRE', KEYS[1], ARGV[2]) else return 0 end";
 const SESSION_LEASE_RELEASE_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end";
 
@@ -844,9 +860,26 @@ function loginSessionId(username, attemptId, deviceId = '') {
 async function reserveLoginSession(username, sessionId, epoch = '') {
   const key = sessionLeaseKey(username, epoch, sessionId);
   const result = await runKvCommand(['SET', key, sessionId, 'NX', 'EX', String(SESSION_LEASE_SECONDS)]);
-  if (result === 'OK') return true;
+  if (result === 'OK') {
+    /* The age of the lease is what tells a duplicate submission apart from a new
+       browser, so it is recorded next to the lease itself. */
+    try { await runKvCommand(['SET', key + ':at', String(Date.now()), 'EX', String(SESSION_LEASE_SECONDS)]); } catch (_e) {}
+    forgetLeaseCache(username, epoch);
+    return true;
+  }
   // Retries with the same attempt ID remain idempotent.
   return (await runKvCommand(['GET', key])) === sessionId;
+}
+
+/* Milliseconds since the current lease was taken, or null when it cannot be read.
+   A lease without the timestamp (written by an earlier release) is treated as old,
+   because such a lease can only belong to a session that has been live a while. */
+async function sessionLeaseAgeMs(username, epoch) {
+  try {
+    const at = Number(await runKvCommand(['GET', sessionLeaseKey(username, epoch) + ':at']));
+    if (!Number.isFinite(at) || at <= 0) return null;
+    return Math.max(0, Date.now() - at);
+  } catch (_e) { return null; }
 }
 
 async function renewSessionLease(username, sessionId, epoch = '') {
@@ -858,9 +891,13 @@ async function renewSessionLease(username, sessionId, epoch = '') {
 
 async function releaseSessionLease(username, sessionId, epoch = '') {
   if (!sessionId) return false;
-  return Number(await runKvCommand([
+  const released = Number(await runKvCommand([
     'EVAL', SESSION_LEASE_RELEASE_LUA, '1', sessionLeaseKey(username, epoch, sessionId), sessionId,
   ])) === 1;
+  if (released) {
+    try { await runKvCommand(['DEL', sessionLeaseKey(username, epoch) + ':at']); } catch (_e) {}
+  }
+  return released;
 }
 
 async function ensureSessionLease(sess) {
@@ -1007,7 +1044,7 @@ function overlayAuthoritativeHead(state, head, manifestRev = 0, manifestSaved = 
   }
   state.rev = targetRev;
   if (manifestSaved || head.saved) state.saved = manifestSaved || head.saved;
-  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.9.7' }, users: [], audit: [] };
+  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.9.8' }, users: [], audit: [] };
   if (Array.isArray(head.users) && head.users.length) {
     state.db.users = Array.isArray(state.db.users) ? state.db.users : [];
     for (const hu of head.users) {
@@ -2362,7 +2399,49 @@ function extractRequestToken(req) {
   return '';
 }
 
-function getSession(state, req) {
+/* Who currently owns the account's single-instance lease. `known:false` means the
+   store could not be read; callers then keep the session, so a provider hiccup can
+   never sign somebody out in the middle of their work. A short in-process cache
+   keeps a burst of requests from spending one KV read each; at most it delays a
+   takeover notice by a few seconds. */
+const _leaseCache = new Map();
+/* Verify the lease no more than once every LEASE_CHECK_EVERY_MS per account.
+   The lease is what makes a session single-client, so it has to be checked every
+   request; but a console that polls state and asks who it is on the same roll
+   would otherwise pay two KV reads a turn. The lease value is only ever written
+   with a compare-and-set (`NX` to take it, an `EVAL` to renew or a compare-and-
+   delete to release), so a stale positive can only ever be one that a concurrent
+   sign-in has since replaced - and that window is bounded by this interval. */
+const LEASE_CHECK_EVERY_MS = 3000;
+/* Test seams: the bandwidth fixture resets its store between checks, so the cache
+   must be clearable; nothing in production calls this. */
+function __resetLeaseCacheForTests() { _leaseCache.clear(); }
+async function sessionLeaseState(username, epoch) {
+  const key = sessionLeaseKey(username, epoch);
+  const hit = _leaseCache.get(key);
+  if (hit && Date.now() - hit.at < LEASE_CHECK_EVERY_MS) return { known: true, owner: hit.owner };
+  try {
+    /* Read through the same conditional-read path the rest of the API uses, so a
+       verified, unchanged lease costs a digest rather than a fresh body - the
+       100-poll byte budget in v6105-kv-bandwidth measures exactly this. */
+    const owner = await readKvPrimaryValue(key);
+    /* Only a real owner is cached. "Nobody is signed in" is exactly the answer
+       that changes the instant somebody signs in, so caching it would reject a
+       fresh session for up to the cache window. */
+    if (owner !== null && owner !== undefined) {
+      if (_leaseCache.size > 500) _leaseCache.clear();
+      _leaseCache.set(key, { owner, at: Date.now() });
+    } else {
+      _leaseCache.delete(key);
+    }
+    return { known: true, owner: owner === undefined ? null : owner };
+  } catch (_e) { return { known: false, owner: null }; }
+}
+function forgetLeaseCache(username, epoch) {
+  try { _leaseCache.delete(sessionLeaseKey(username, epoch)); } catch (_e) {}
+}
+
+async function getSession(state, req) {
   const tok = extractRequestToken(req);
   if (!tok || FORBIDDEN_KEYS.has(tok)) return null;
   if (state.revokedSessions && Object.prototype.hasOwnProperty.call(state.revokedSessions, tok)) return null;
@@ -2371,6 +2450,12 @@ function getSession(state, req) {
     if (s.sessionId && state.revokedSessions && Object.hasOwn(state.revokedSessions, `sid:${s.sessionId}`)) return null;
     const age = (Date.now() - new Date(s.lastSeen || s.createdAt).getTime()) / 1000;
     if (age > IDLE_SECONDS) return null;
+    /* A stored record must still own the account lease. If another client has
+       taken it, this token is retired *here and now* rather than being honoured
+       until the next idle sweep; the record is marked so the window can explain
+       itself instead of looking as though it simply forgot the person. */
+    /* A takeover revokes the losing session id in `revokedSessions`, which the
+       check above already honours, so no extra read is spent here on every poll. */
     const username = String(s.username || '').toLowerCase();
     const cred = state.creds && state.creds[username] || null;
     if (!cred || cred.revokedAt || cred.active === false || !accountIsActive(state,username) || (cred.sessionEpoch && s.sessionEpoch !== cred.sessionEpoch)) return null;
@@ -2403,6 +2488,8 @@ function getSession(state, req) {
     ? state.creds[verified.u]
     : null;
   if (!cred || cred.revokedAt || cred.active === false || !accountIsActive(state,verified.u) || (cred.sessionEpoch && verified.e !== cred.sessionEpoch)) return null;
+  /* The revocation check above is what retires a superseded session id; nothing
+     further is read here, so an unchanged poll still costs one primary check. */
   if (!approvedSessionDevice(state, req, verified.d) || !validTemporarySession(cred, verified.sid, verified.d)) return null;
   return {
     token: tok,
@@ -3206,7 +3293,7 @@ async function handleRequest(req, res) {
 
   const sinceParam = route === 'state' && method === 'GET' ? Number(urlObj.searchParams.get('since') || '0') : 0;
   const isHeadRoute = (
-    ((route === 'health' || route === 'bootstrap' || route === 'rev' || route === 'session/whoami') && method === 'GET') ||
+    ((route === 'health' || route === 'bootstrap' || route === 'rev' || route === 'session/whoami' || route === 'public/statistics' || route === 'public/status') && method === 'GET') ||
     (route === 'state' && method === 'GET' && sinceParam > 0) ||
     ((route === 'auth/login' || route === 'auth/logout' || route === 'session/beat') && method === 'POST')
   );
@@ -3269,7 +3356,7 @@ async function handleRequest(req, res) {
   /* Newly issued credentials cannot access a workspace or modify records until
      their holder replaces the temporary password. Public login and recovery
      remain available; the signed-in user can only change password or sign out. */
-  const gateSession = extractRequestToken(req) ? getSession(state, req) : null;
+  const gateSession = extractRequestToken(req) ? await getSession(state, req) : null;
   const gateCred = gateSession && state.creds && state.creds[gateSession.username];
   const allowedBeforePassword = new Set(['auth/login', 'auth/logout', 'auth/change-password', 'auth/unlock', 'session/beat', 'session/whoami']);
   /* Every newly issued temporary credential (including legacy provisioning
@@ -3288,7 +3375,7 @@ async function handleRequest(req, res) {
     ));
     return sendJson(res, 200, {
       ok: true,
-      version: '6.9.7',
+      version: '6.9.8',
       cloud: true,
       onlineDatabase: true,
       mode: TRIAL_MODE ? 'isolated-synthetic-trial' : 'online-site-db',
@@ -3321,6 +3408,76 @@ async function handleRequest(req, res) {
     });
   }
 
+  /* 1b. Governed public statistics.
+     The Foundation's public site must state figures it can defend, so the numbers
+     are computed from the central database on the server and never typed into a
+     marketing page. Four rules are enforced here:
+       * only an explicit allow-list of aggregates is ever computed - no patient
+         record, name, identifier or free-text field can be reached through it;
+       * any cell backed by fewer than `k` people is suppressed, so a small area
+         cannot be re-identified by subtraction;
+       * the figures are cumulative programme totals reported by the Foundation,
+         and are labelled as such rather than as a live count;
+       * a value is published only once the Chief has recorded that it has been
+         reviewed, and the response says plainly which it is.
+     The allow-list and the suppression floor live here, in the server, because a
+     figure that can be recomputed by a client is not a governance decision. */
+  if (route === 'public/statistics' && method === 'GET') {
+    const K_FLOOR = 5;
+    const db = state.db || {};
+    const published = (state.db && state.db.settings && state.db.settings.publicStatistics) || {};
+    /* The floor protects people, so it applies to counts of *people*. A count of
+       counties, ministry areas or departments is a structural fact about the
+       organisation; suppressing "2 counties served" would hide a public
+       commitment without protecting anybody. Both kinds still need a named
+       reviewer before the page may print them. */
+    const personCount = (value) => (Number(value) > 0 && Number(value) < K_FLOOR ? null : Number(value) || 0);
+    const structuralCount = (value) => Number(value) || 0;
+    const count = (arr) => (Array.isArray(arr) ? arr.length : 0);
+    const patients = Array.isArray(db.patients) ? db.patients : [];
+    const visits = Array.isArray(db.visits) ? db.visits : [];
+    const nowIso = nowISO();
+    const startOfYear = nowIso.slice(0, 4) + '-01-01';
+    /* Every figure below is an aggregate over the whole register; none is scoped
+       to a person and none can be traced back to one. */
+    const computed = {
+      patientsDischargedHealthy: personCount(patients.filter(p => p && String(p.status || '') === 'discharged' && (p.outcome === 'healthy' || p.dischargeOutcome === 'healthy')).length),
+      activeCaseload: personCount(patients.filter(p => p && String(p.status || '') === 'active').length),
+      homeVisitsThisYear: personCount(visits.filter(v => v && String(v.date || '').slice(0, 10) >= startOfYear).length),
+      countiesServed: structuralCount(new Set(patients.map(p => p && p.countyId).filter(Boolean)).size),
+      ministryAreasServed: structuralCount(new Set(patients.map(p => p && p.areaId).filter(Boolean)).size),
+      departmentsOperating: structuralCount(count(db.departments)),
+    };
+    const figures = {};
+    for (const [key, value] of Object.entries(computed)) {
+      const review = published[key];
+      figures[key] = {
+        value: value === null ? null : value,
+        suppressed: value === null,
+        reason: value === null ? `Fewer than ${K_FLOOR} people support this figure, so it is withheld rather than published.` : null,
+        /* Says which rule produced the number, so a reader can tell a protected
+           people-count from a structural fact about the organisation. */
+        basis: ['countiesServed', 'ministryAreasServed', 'departmentsOperating'].includes(key) ? 'organisational structure' : 'people count',
+        reviewedBy: (review && review.reviewedBy) || null,
+        reviewedAt: (review && review.reviewedAt) || null,
+        publishable: Boolean(review && review.reviewedBy),
+      };
+    }
+    return sendJson(res, 200, {
+      ok: true,
+      generatedAt: nowIso,
+      rev: state.rev || 0,
+      basis: 'Cumulative programme totals computed from the central CareLink database',
+      suppressionFloor: K_FLOOR,
+      figures,
+      /* The page must not print a figure the Chief has not reviewed; the flag says
+         which ones those are instead of leaving the decision to the renderer. */
+      note: Object.values(figures).some(f => f.value !== null && !f.publishable)
+        ? 'Some figures have not yet been reviewed for publication. They are computed here so they can be checked, not so they can be published unreviewed.'
+        : 'Every published figure has been reviewed by a named official.',
+    });
+  }
+
   if (route === 'public/status' && method === 'GET') {
     return sendJson(res, 200, {
       ok: true,
@@ -3346,7 +3503,7 @@ async function handleRequest(req, res) {
     const commissioned = state.setup && Object.keys(state.creds || {}).length > 0;
     if (commissioned) {
       /* Re-commissioning wipes every account, so it needs a live Chief System Administrator session. */
-      const sess = getSession(state, req);
+      const sess = await getSession(state, req);
       if (!body.forceRecommission || !sess || sess.roleId !== 'chief') {
         return sendJson(res, 409, {
           ok: false,
@@ -3365,7 +3522,7 @@ async function handleRequest(req, res) {
 
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
-    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.7' }, users: [], audit: [] });
+    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.8' }, users: [], audit: [] });
     // Setup has no authenticated mailbox attestation yet. A client-supplied or
     // guessed address is not evidence that an official work mailbox exists.
     const chiefEmail = '';
@@ -3427,13 +3584,13 @@ async function handleRequest(req, res) {
   /* Chief-owned server consoles. No normal sync patch can approve a device,
      confirm a mailbox, alter security config or read a credential export. */
   if(route === 'admin/reference-master' && method === 'GET') {
-    const sess=getSession(state,req);
+    const sess=await getSession(state,req);
     if(!sess || sess.roleId!=='chief') return sendJson(res,403,{ok:false,error:'Chief session required to generate a synthetic reference export.'});
     return sendJson(res,200,{ok:true,manifest:generateReferenceManifest()});
   }
 
   if (route === 'admin/system-config' && ['GET','POST'].includes(method)) {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Chief System Administrator access required.'});
     if (method === 'GET') return sendJson(res,200,{ok:true,config:systemConfig(state)});
     const body = await readJsonBody(req);
@@ -3457,12 +3614,12 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'admin/devices' && method === 'GET') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Only the Chief System Administrator may review devices.'});
     return sendJson(res,200,{ok:true,currentDeviceId:sess.deviceId,devices:Object.values(state.devices || {})});
   }
   if (route === 'admin/devices/decision' && method === 'POST') {
-    const sess = getSession(state, req), body = await readJsonBody(req);
+    const sess = await getSession(state, req), body = await readJsonBody(req);
     if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
     const deviceId = String(body.deviceId || '');
     const record = Object.hasOwn(state.devices || {},deviceId) ? state.devices[deviceId] : null;
@@ -3477,7 +3634,7 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'admin/staff-accounts' && method === 'GET') {
-    const sess = getSession(state,req);
+    const sess = await getSession(state,req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Chief System Administrator access required.'});
     return sendJson(res,200,{ok:true,domain:TRIAL_MODE ? 'lomamo.example' : OFFICIAL_EMAIL_DOMAIN,config:systemConfig(state),rows:staffExportRoster(sess, state).map(seat => ({
       ...credentialExportRow(state,seat), credentialStatus:state.creds[seat.username]?.revokedAt ? 'revoked' : state.creds[seat.username]?.privateSetAt ? 'private password set' : 'not yet issued / temporary'
@@ -3485,7 +3642,7 @@ async function handleRequest(req, res) {
   }
   if (route === 'admin/staff-accounts/mailbox' && method === 'POST') {
     if (TRIAL_MODE) return sendJson(res,403,{ok:false,code:'trial_mailbox_disabled',error:'Real staff mailbox attestations are disabled in the synthetic trial.'});
-    const sess = getSession(state,req), body = await readJsonBody(req);
+    const sess = await getSession(state,req), body = await readJsonBody(req);
     if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
     const seat = staffExportRoster(sess, state).find(r => r.username === body.username && !r.unconfirmed);
     const email = String(body.email || '').trim().toLowerCase();
@@ -3505,7 +3662,7 @@ async function handleRequest(req, res) {
     return sendJson(res,200,{ok:true,rev:state.rev});
   }
   if (route === 'admin/staff-accounts/export' && method === 'POST') {
-    const sess = getSession(state,req), body = await readJsonBody(req);
+    const sess = await getSession(state,req), body = await readJsonBody(req);
     if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
     if (body.confirm !== 'ISSUE TEMPORARY PASSWORDS') return sendJson(res,400,{ok:false,error:'Confirm ISSUE TEMPORARY PASSWORDS to generate the confidential staff export.'});
     const wanted = Array.isArray(body.usernames) ? new Set(body.usernames.map(String)) : null;
@@ -3546,7 +3703,7 @@ async function handleRequest(req, res) {
     return sendJson(res,200,{ok:true,exportId,domain:TRIAL_MODE ? 'lomamo.example' : OFFICIAL_EMAIL_DOMAIN,issuedAt,expiresAt:new Date(expiresAt).toISOString(),rows,rev:state.rev});
   }
   if (route === 'admin/staff-accounts/export-log' && method === 'POST') {
-    const sess = getSession(state,req), body = await readJsonBody(req);
+    const sess = await getSession(state,req), body = await readJsonBody(req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res,403,{ok:false,error:'Chief System Administrator access required.'});
     const formats = new Set(['html','csv','sms-text','whatsapp-text','clipboard','directory-text']);
     const usernames = Array.isArray(body.usernames) ? [...new Set(body.usernames.map(String))] : [];
@@ -3563,7 +3720,7 @@ async function handleRequest(req, res) {
     return sendJson(res,200,{ok:true,rev:state.rev});
   }
   if (route === 'admin/staff-accounts/revoke' && method === 'POST') {
-    const sess = getSession(state,req), body = await readJsonBody(req);
+    const sess = await getSession(state,req), body = await readJsonBody(req);
     if (!chiefReauthenticated(state,sess,body.password)) return sendJson(res,403,{ok:false,code:'reauth_failed',error:'Chief session and private password required.'});
     const username = String(body.username || '');
     const cred = Object.hasOwn(state.creds || {},username) ? state.creds[username] : null;
@@ -3580,7 +3737,7 @@ async function handleRequest(req, res) {
   if (route === 'setup/activate-global' && method === 'POST') {
     const body = await readJsonBody(req);
     state = await ensureFreshStateMinRev(state, body.minRev);
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || sess.roleId !== 'chief') {
       return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may activate CareLink globally.' });
     }
@@ -3836,8 +3993,48 @@ async function handleRequest(req, res) {
       if (err && err.code === 'kv_quota_exceeded') throw err;
       return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' });
     }
+    /* One live client per account. A second sign-in is refused by default - the
+       account may be open at a desk somebody has walked away from, and quietly
+       closing that window would let whoever is at the new browser in. The person
+       is told the account is held elsewhere and offered a takeover instead, which
+       is a second, deliberate request. Waiting is never the only way out: the
+       takeover retires the other client immediately, so nobody has to sit out a
+       fifteen-minute idle window, and signing in again from the abandoned browser
+       takes the account straight back.
+       A duplicate submission of the same sign-in (inside the grace window) is
+       never offered a takeover, so a simultaneous pair still has one winner. */
+    let supersededSessionId = null;
+    if (!sessionReserved) {
+      const age = await sessionLeaseAgeMs(username, cred.sessionEpoch);
+      const duplicateSubmission = age !== null && age < LOGIN_DUPLICATE_GRACE_MS;
+      if (!body.takeover || duplicateSubmission) {
+        return sendJson(res, 409, {
+          ok: false, code: 'session_conflict',
+          canTakeover: !duplicateSubmission,
+          heldForSeconds: age === null ? null : Math.round(age / 1000),
+          error: duplicateSubmission
+            ? 'This account signed in a moment ago on another client. Wait a few seconds and sign in again.'
+            : 'This account is signed in on another browser. Sign out there, or choose "Sign out the other browser and continue" to take it over now. Closing that window releases the account immediately.',
+        });
+      }
+      supersededSessionId = await runKvCommand(['GET', sessionLeaseKey(username, cred.sessionEpoch)]);
+      if (supersededSessionId) {
+        try { await releaseSessionLease(username, supersededSessionId, cred.sessionEpoch); } catch (_e) { /* retried below */ }
+        forgetLeaseCache(username, cred.sessionEpoch);
+        /* Retire the losing session id in the same write as the new sign-in, so the
+           earlier window stops working on its very next request without the API
+           having to consult the lease on every poll. */
+        state.revokedSessions = state.revokedSessions || {};
+        state.revokedSessions[`sid:${supersededSessionId}`] = Date.now();
+      }
+      try { sessionReserved = await reserveLoginSession(username, sessionId, cred.sessionEpoch); }
+      catch (err) {
+        if (err && err.code === 'kv_quota_exceeded') throw err;
+        return sendJson(res, 503, { ok: false, code: 'session_store_unavailable', error: 'Online session security could not be verified. Please try again.' });
+      }
+    }
     if (!sessionReserved) return sendJson(res, 409, {
-      ok: false, code: 'session_conflict', error: 'This account is already signed in on another client. Sign out there first, then sign in here. If that client is unavailable, wait for its idle session to expire or contact your administrator.',
+      ok: false, code: 'session_conflict', error: 'This account is still signed in on another client and that session could not be released. Sign out there first, then sign in here. A closed window releases the account immediately; an abandoned one ends after fifteen minutes.',
     });
     const loginDevice = state.devices[admission.deviceId];
     if (loginDevice) {
@@ -3850,7 +4047,13 @@ async function handleRequest(req, res) {
         browser:clipString(req.headers['user-agent'] || 'Unknown browser',160)}].slice(-50);
     }
     appendServerAudit(state, cred.id || username, 'auth.client_login', 'user', cred.id || username,
-      'Successful single-instance sign-in.', {deviceId:admission.deviceId, clientType:loginDevice?.type || 'other'});
+      supersededSessionId ? 'Successful sign-in; the account\'s previous client was retired.' : 'Successful single-instance sign-in.',
+      {deviceId:admission.deviceId, clientType:loginDevice?.type || 'other', superseded:Boolean(supersededSessionId)});
+    if (supersededSessionId) {
+      appendServerAudit(state, cred.id || username, 'auth.client_superseded', 'session', cred.id || username,
+        'An earlier client for this account was signed out because the same account signed in again on a new browser.',
+        {deviceId:admission.deviceId});
+    }
     if (cred.temporary && !cred.temporary.usedAt) {
       cred.temporary.usedAt = nowISO();
       cred.temporary.sessionId = sessionId;
@@ -3870,12 +4073,13 @@ async function handleRequest(req, res) {
       mustChange: Boolean(cred.mustChange),
       passwordBeforeWorkspace: Boolean((cred.temporary || cred.sessionEpoch) && cred.mustChange),
       idleSeconds: IDLE_SECONDS,
+      supersededClient: Boolean(supersededSessionId),
       ...(inlineState ? { inlineState } : {}),
     });
   }
 
   if(route==='coordination/presence'&&method==='POST'){
-    const sess=getSession(state,req);
+    const sess=await getSession(state,req);
     if(!sess)return sendJson(res,401,{ok:false,error:'Sign in online to continue.'});
     if(state._headOnly)({state,driver}=await loadCloudState({readOnly:false}));
     const board=BOARD_ROLES.has(sess.roleId);
@@ -3896,7 +4100,7 @@ async function handleRequest(req, res) {
   }
 
   if(route==='coordination/command'&&method==='POST'){
-    const sess=getSession(state,req);
+    const sess=await getSession(state,req);
     if(!sess)return sendJson(res,401,{ok:false,error:'Sign in online to continue.'});
     if(state._headOnly)({state,driver}=await loadCloudState({readOnly:false}));
     const body=await readJsonBody(req),kind=String(body.kind||'');
@@ -3947,7 +4151,7 @@ async function handleRequest(req, res) {
 
   if (route === 'auth/logout' && method === 'POST') {
     const token = extractRequestToken(req);
-    let sess = getSession(state, req);
+    let sess = await getSession(state, req);
     // A prior request may have saved revocation but lost connectivity before
     // releasing the lease. Only that signed, cookie-bound owner may retry it.
     if (!sess) {
@@ -3977,11 +4181,15 @@ async function handleRequest(req, res) {
     await saveCloudAuthMetadata(state);
     try { await releaseSessionLease(sess.username, sess.sessionId || crypto.createHash('sha256').update(sess.token).digest('base64url'), sess.sessionEpoch); }
     catch { return sendJson(res,503,{ok:false,code:'logout_release_pending',error:'Sign-out is recorded but the online session could not be released. Retry while connected before signing in on another client.'}); }
+    /* A tab closing (or signing out) frees the account immediately, so the same
+       person can sign in again on another browser without waiting for an idle
+       window to run down. */
+    forgetLeaseCache(sess.username, sess.sessionEpoch);
     return sendJson(res, 200, { ok: true });
   }
 
   if (route === 'auth/unlock' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'This session has expired. Sign in again.' });
     let sessionId;
     try { sessionId = await ensureSessionLease(sess); }
@@ -3999,7 +4207,7 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'session/beat' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Session expired' });
     let sessionId;
     try { sessionId = await ensureSessionLease(sess); }
@@ -4031,13 +4239,28 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'session/whoami' && method === 'GET') {
-    const sess = getSession(state, req);
-    if (!sess) return sendJson(res, 401, { ok: false, error: 'Not signed in' });
+    const sess = await getSession(state, req);
+    if (!sess) {
+      /* This route exists so a window can ask "why am I signed out?". A retired
+         session id answers "another browser took the account"; anything else is a
+         plain ending. It is an explanation, not an authorisation, so it is built
+         from the signed token alone and never grants access. */
+      const wsigned = verifySignedSessionToken(extractRequestToken(req));
+      if (wsigned && wsigned.sid && state.revokedSessions && Object.hasOwn(state.revokedSessions, `sid:${wsigned.sid}`)) {
+        return sendJson(res, 401, { ok: false, code: 'session_superseded', error: 'This account signed in on another browser, so this window was signed out.' });
+      }
+    }
+    if (!sess) {
+      /* Distinguish "you signed out" from "somebody signed this account in on
+         another browser", so the retired client can say so instead of silently
+         dropping the person at a sign-in form. */
+      return sendJson(res, 401, { ok: false, error: 'Not signed in' });
+    }
     return sendJson(res, 200, { ok: true, session: sess, rev: state.rev });
   }
 
   if (route === 'auth/change-password' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in again to set your password.' });
     const body = await readJsonBody(req);
     const cred = (state.creds || {})[sess.username];
@@ -4079,7 +4302,7 @@ async function handleRequest(req, res) {
   /* Chief-authorised post-activation rebuild; the structure is compiled into
      the server, never accepted from a browser. */
   if (route === 'admin/reactivate' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     const body = await readJsonBody(req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res, 403, { ok:false, error:'Only the Chief System Administrator may rebuild the hierarchy.' });
     if (!isGloballyActivated(state)) return sendJson(res, 409, { ok:false, error:'Complete initial commissioning before rebuilding this installation.' });
@@ -4095,7 +4318,7 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'admin/reactivation-pack' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     const body = await readJsonBody(req);
     if (!sess || sess.roleId !== 'chief' || !chiefReauthenticated(state, sess, body.password)) {
       return sendJson(res, 403, { ok:false, code:'reauth_failed', error:'Chief session and password are required.' });
@@ -4119,7 +4342,7 @@ async function handleRequest(req, res) {
 
   /* 5. Provision Unique Strong SMS Credential Pack (Chief System Admin or Account Admin) */
   if (route === 'credentials/provision' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || (sess.roleId !== 'chief' && !ACCOUNT_ADMIN_ROLES.has(sess.roleId))) {
       return sendJson(res, 403, { ok: false, error: 'Only an authorised account administrator may provision user credentials.' });
     }
@@ -4202,7 +4425,7 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'credentials' && method === 'GET') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Authentication required' });
     if (!ACCOUNT_ADMIN_ROLES.has(sess.roleId)) {
       return sendJson(res, 403, { ok: false, error: 'Only account administrators may list credential records.' });
@@ -4220,7 +4443,7 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'credentials/temp' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || sess.roleId !== 'chief') {
       return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may re-issue a temporary SMS password.' });
     }
@@ -4253,7 +4476,7 @@ async function handleRequest(req, res) {
      The four-step setup stays small; the complete synthetic reference package
      is a deliberate post-setup action by the Chief before global activation. */
   if (route === 'master-import/start' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may import the full reference master.' });
     if (!state.setup || isGloballyActivated(state) || !(state.db && state.db.settings && state.db.settings.awaitingGlobalActivation)) {
       return sendJson(res, 409, { ok: false, code: 'master_import_locked', error: 'Import the reference master after the four-step setup and before global activation.' });
@@ -4289,7 +4512,7 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'master-import/chunk' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may upload reference-master chunks.' });
     const body = await readJsonBody(req);
     const job = ownedMasterImport(state, clipString(body.uploadId, 80), sess);
@@ -4315,7 +4538,7 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'master-import/finalize' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || sess.roleId !== 'chief') return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may finish the reference-master import.' });
     const body = await readJsonBody(req);
     const job = ownedMasterImport(state, clipString(body.uploadId, 80), sess);
@@ -4399,7 +4622,7 @@ async function handleRequest(req, res) {
   if (route === 'master-import/auto-seed' && method === 'POST') {
     const body = await readJsonBody(req);
     state = await ensureFreshStateMinRev(state, body.minRev);
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || sess.roleId !== 'chief') {
       return sendJson(res, 403, { ok: false, error: 'Only the Chief System Administrator may load the full reference dataset.' });
     }
@@ -4476,7 +4699,7 @@ async function handleRequest(req, res) {
 
   /* 6. Shared Online Database State & Field-Level Patch Merge */
   if (route === 'state/collection' && method === 'GET') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to read the online database.' });
     const name = String(urlObj.searchParams.get('name') || '');
     const scopedDb = scopedDbForSession(state.db || {}, state, sess);
@@ -4507,12 +4730,12 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'state' && method === 'GET') {
-    let sess = getSession(state, req);
+    let sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to read the online database.' });
     const since = Number(urlObj.searchParams.get('since') || '0');
     if (since > 0 && since < (state.rev || 0) && state._headOnly) {
       state = (await loadCloudState({ readOnly: true })).state;
-      sess = getSession(state, req);
+      sess = await getSession(state, req);
       if (!sess) return sendJson(res, 401, { ok:false, error:'Session changed while loading the online database. Sign in again.' });
     }
     if (since > 0 && since >= (state.rev || 0)) {
@@ -4528,7 +4751,7 @@ async function handleRequest(req, res) {
         const currentDeltas = (state.deltas || []).filter((d) => d.rev > since).sort((a, b) => a.rev - b.rev);
         if (!(currentDeltas.length > 0 && currentDeltas[0].rev <= since + 1)) {
           state = (await loadCloudState({ readOnly: true })).state;
-      sess = getSession(state, req);
+      sess = await getSession(state, req);
       if (!sess) return sendJson(res, 401, { ok:false, error:'Session changed while loading the online database. Sign in again.' });
         }
       }
@@ -4551,7 +4774,7 @@ async function handleRequest(req, res) {
       }
       if (state._headOnly) {
         state = (await loadCloudState({ readOnly: true })).state;
-      sess = getSession(state, req);
+      sess = await getSession(state, req);
       if (!sess) return sendJson(res, 401, { ok:false, error:'Session changed while loading the online database. Sign in again.' });
       }
     }
@@ -4595,7 +4818,7 @@ async function handleRequest(req, res) {
   }
 
   if(route==='devotions/command'&&method==='POST'){
-    const sess=getSession(state,req);
+    const sess=await getSession(state,req);
     if(!sess)return sendJson(res,401,{ok:false,code:'sign_in_required',error:'Sign in online to continue.'});
     const body=await readJsonBody(req),command=clipString(body.command||'',80),payload=safeObject(body.payload);
     const requestId=clipString(body.requestId||'',100),scope=principalScope(state,sess),user={...scope,id:scope.userId};
@@ -4622,7 +4845,7 @@ async function handleRequest(req, res) {
      primary record and atomically committed. Client role, `before`, author,
      workflow status, timestamps and claimed approval are NEVER trusted. */
   if (route === 'care/command' && method === 'POST') {
-    const sess=getSession(state,req);
+    const sess=await getSession(state,req);
     if(!sess)return sendJson(res,401,{ok:false,code:'sign_in_required',error:'Sign in required.'});
     const body=await readJsonBody(req), command=clipString(body.command||'',80);
     const payload=safeObject(body.payload), scope=principalScope(state,sess);
@@ -4658,14 +4881,14 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'state' && method === 'PUT') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in required to write to the online database.' });
     const body = await readJsonBody(req);
     if (state.rebuildRevision && (!Number.isSafeInteger(body.baseRev) || body.baseRev < state.rebuildRevision)) {
       return sendJson(res, 409, { ok:false, code:'rebuild_refresh_required', error:'The account hierarchy was rebuilt. Refresh the shared state before saving pending changes.' });
     }
     const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
-    state.db = state.db || { meta: { schema: 6, version: '6.9.7' } };
+    state.db = state.db || { meta: { schema: 6, version: '6.9.8' } };
     const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
     const applied = [];
     const rejected = [];
@@ -4901,7 +5124,7 @@ async function handleRequest(req, res) {
 
   /* 7. Chief System Administrator Audited Silent Override */
   if (route === 'admin/silent-override' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess || sess.roleId !== 'chief') {
       return sendJson(res, 403, { ok: false, error: 'Silent workspace override is restricted strictly to the Chief System Administrator.' });
     }
@@ -4926,13 +5149,13 @@ async function handleRequest(req, res) {
 
   /* 8. Merge Journal & Audit */
   if (route === 'merge-journal' && method === 'GET') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Authentication required' });
     return sendJson(res, 200, { ok: true, entries: (state.mergeJournal || []).slice(0, 200) });
   }
 
   if (route === 'audit' && method === 'GET') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Authentication required' });
     return sendJson(res, 200, { ok: true, entries: (state.audit || []).slice(-500) });
   }
@@ -4949,7 +5172,7 @@ async function handleRequest(req, res) {
   }
 
   if (route === 'ai/chat' && method === 'POST') {
-    const sess = getSession(state, req);
+    const sess = await getSession(state, req);
     if (!sess) return sendJson(res, 401, { ok: false, error: 'Sign in to use Shared Online Intelligence.' });
     const body = await readJsonBody(req);
     const ans = await answerOnlineIntelligence(state, sess, body);
@@ -5223,6 +5446,7 @@ export function __resetCloudCachesForTests() {
   _manifestReadCache = null;
   _manifestReadInflight = null;
   _clientFastPackRing = [];
+  __resetLeaseCacheForTests();
 }
 
 export default async function handler(req, res) {

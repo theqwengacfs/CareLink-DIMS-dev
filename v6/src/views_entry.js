@@ -113,6 +113,13 @@ function refreshPublicFeed(){
 
 function renderPublicPortal(params={}){
   const C = PORTAL_CONTENT;
+  /* Ask the server for the reviewed aggregates once per page load. It is a public
+     read, so it cannot fail into anything sensitive: if it does not answer, the
+     page keeps the Foundation's own reported totals and says so. */
+  if(typeof PORTAL_STATS_LIVE!=='undefined' && !PORTAL_STATS_LIVE.data && !PORTAL_STATS_LIVE.loading && !PORTAL_STATS_LIVE.attempted){
+    PORTAL_STATS_LIVE.attempted = true;
+    PORTAL_STATS_LIVE.load().then(()=>{ try{ if(typeof render==='function') render(); }catch(_e){} }).catch(()=>{});
+  }
   const items = PORTALX.news();
   const cat = params.cat || '';
   const q = String(params.q||'').toLowerCase();
@@ -171,8 +178,17 @@ function renderPublicPortal(params={}){
     </section>
 
     <section class="portal-stats">
-      ${C.stats.map(s=>`<div class="ps"><span class="ps-i">${PORTALX.icon(s.icon,20)}</span><b>${esc(s.value)}</b><span class="ps-l">${esc(s.label)}</span><span class="ps-n">${esc(s.note)}</span></div>`).join('')}
+      ${C.stats.map(s=>{
+        /* A live, reviewed figure replaces the reported total when the server has
+           cleared one for this card; otherwise the Foundation's own cumulative
+           total is shown and labelled as reported, never as counted. */
+        const live = (typeof PORTAL_STATS_LIVE!=='undefined') ? PORTAL_STATS_LIVE.publishable()[s.key] : null;
+        const value = live ? num(live.value) : s.value;
+        const note = live ? `Counted from the central register · reviewed${live.reviewedAt?' '+fmtDate(live.reviewedAt):''}` : s.note;
+        return `<div class="ps"><span class="ps-i">${PORTALX.icon(s.icon,20)}</span><b>${esc(String(value))}</b><span class="ps-l">${esc(s.label)}</span><span class="ps-n">${esc(note)}</span></div>`;
+      }).join('')}
     </section>
+    <div class="xs muted" style="margin:-4px 0 14px;padding:0 4px">${esc((typeof PORTAL_STATS_LIVE!=='undefined') ? PORTAL_STATS_LIVE.provenance() : 'Cumulative programme totals reported by the Foundation')}.</div>
 
     ${(C.extendedImpact&&C.extendedImpact.length)?`<section class="portal-sect" style="padding-top:8px">
       <div class="ps-h"><div><div class="portal-kicker">Cumulative verified programme reach · 2018-2026</div><h2>Holistic household restoration across Kisumu &amp; Homa Bay</h2></div>

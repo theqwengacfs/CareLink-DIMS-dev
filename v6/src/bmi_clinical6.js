@@ -1145,6 +1145,10 @@ Object.assign(ACTIONS, {
           <div class="field"><label>A — Assessment (clinical impression & nutritional grade) *</label><textarea class="input" name="assessment" rows="2" required></textarea></div>
           <div class="field"><label>P — Plan (medications, foodbag/diet, clinic referral, next PDCA) *</label><textarea class="input" name="plan" rows="2" required></textarea></div>
         </div>
+        ${typeof INK_PAD!=='undefined' ? INK_PAD.field('mcm-soap-sign', {
+          label:'Clinician signature',
+          purpose:'Attesting the SOAP encounter above',
+          hint:'Optional, and only ever as strong as it looks: a stylus line is recorded as a stylus line, a typed name as a typed name.' }) : ''}
       </form>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Cancel</button>
         <button class="btn btn-primary" data-act="mcm-soap-save">${ic('check',14)} Sign & Save SOAP Encounter</button>`
@@ -1173,7 +1177,11 @@ Object.assign(ACTIONS, {
       date:todayISO().slice(0,10), authorId:AUTH.user.id, authorName:AUTH.user.name.replace(/^Demo - /,''),
       role:(roleObj(AUTH.user.roleId)||{}).name||'Clinician',
       acuity:fd.get('acuity')||'moderate', bp:p.clinical.bp, spo2:Number(fd.get('spo2'))||98, temp:36.7,
-      weightKg:w, heightCm:h, bmi, subjective:subj, objective:obj, assessment:ass, plan
+      weightKg:w, heightCm:h, bmi, subjective:subj, objective:obj, assessment:ass, plan,
+      /* The ink, if any, described for what it actually is. */
+      signature: (typeof INK_PAD!=='undefined' && AUTH.user)
+        ? INK_PAD.record('mcm-soap-sign', { by:AUTH.user.name, role:(roleObj(AUTH.user.roleId)||{}).name||'Clinician', purpose:'SOAP encounter' })
+        : undefined
     });
     AUDIT.append({ actor:AUTH.user.id, action:'clinical.soap.recorded', entity:'patient', entityId:p.id,
       detail:`SOAP encounter (${fd.get('acuity')}) · BMI ${bmi}` });

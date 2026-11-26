@@ -666,7 +666,7 @@ function tbPatientOptions(user, selected){
 }
 
 Object.assign(ACTIONS, {
-  'tb-tab': d => { TB_STATE.tab = d.tab||'board'; render(); },
+  'tb-tab': d => { TB_STATE.tab = d.tab||'board'; render(); revealLanding(landingTarget(APPX.view)); },
   'tb-request-open': d => {
     const pid = d.p||'';
     const p = pid? repo.patient(AUTH.user, pid) : null;

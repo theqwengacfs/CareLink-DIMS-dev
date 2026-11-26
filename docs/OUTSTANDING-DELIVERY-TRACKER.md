@@ -3,15 +3,19 @@
 > **Prompt source now available.** The verbatim prompt set was supplied on
 > 26 November 2026. See [audit/PROMPT-SOURCE-OF-TRUTH.md](audit/PROMPT-SOURCE-OF-TRUTH.md)
 > for provenance and [audit/PROMPT-AUDIT-001.md](audit/PROMPT-AUDIT-001.md) for the
-> per-line reconciliation against revision `347122a` (~68 requirements: 3 captured,
-> 44 partial, 6 not captured, 10 blocked or needing an external decision, 4 unverified).
+> per-line reconciliation. **Regraded in v6.9.8:** 58 requirement rows now stand at
+> **14 captured** (four of them with a stated limitation), **37 partial**,
+> **1 not captured**, **10 blocked or needing an external decision** and
+> **4 unverified**. The last not-captured row is D9, which needs the approved
+> 8-of-11 department mapping.
 
 This tracker records known outstanding work; it is **not** proof of completion, clinical approval or production readiness. It is based on repository documentation and the partial 18-part cross-system audit in [draft PR #75](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/75), [audit at reviewed revision `231adc77`](https://github.com/theqwengacfs/CareLink-DIMS-dev/blob/231adc77f6265fc3a4815a262bfeefe4d4995646/docs/CROSS_SYSTEM_IMPROVEMENTS_WORK_IN_PROGRESS.md). The original prompts from other sessions were not available for a word-for-word comparison. Re-check the PR and original instructions before closing any item; another branch or a preview deployment is not evidence that a feature is on production.
 
 ## Safety and release rules
 
 - Do not deploy draft PR #75 as a completed upgrade. Its held-work review, quality waiver safeguard, report printing, cycle manifest and other changes are partial and not merged into main at the time this tracker was written.
-- Hosted offline clinical login is not approved or enabled. The legacy outbox is unencrypted and can lose refused work or falsely acknowledge partially rejected work. Do not rely on it for secure or durable clinical work. Do not clear browser storage, reset/recommission the shared installation, seed production, or delete held work as a shortcut.
+- **Offline sign-in is built but is not an offline clinical data store.** `v6/src/offline_signin.js` lets an opted-in account sign in on a device it has already signed in on, with its own PBKDF2 record (210,000 iterations, per-record salt) that expires after 14 days by default and is refused for locked, inactive or revoked accounts. An offline session is marked `deviceOnlyOverride`, so nothing typed in it is claimed as saved centrally, and there is still **no encrypted offline copy of the register**. Until that exists and is reviewed, offline clinical work must not be relied on as durable.
+- The legacy outbox is unencrypted and can lose refused work or falsely acknowledge partially rejected work. Do not rely on it for secure or durable clinical work. Do not clear browser storage, reset/recommission the shared installation, seed production, or delete held work as a shortcut.
 - Every clinical/data-access change requires server-side authorization and scope, synthetic security and regression tests, plus clinical/privacy review as appropriate. Never infer approval, consent, signatures, paper delivery or historical facts from a UI action.
 - Do not publish real patient information, private organizational documents or credentials in this public repository. Real-data verification uses an approved private process.
 - Release only individually reviewed, tested and authorized changes; keep unmet items open. A passing build or Vercel preview is not clinical, security, privacy or physical-device acceptance.

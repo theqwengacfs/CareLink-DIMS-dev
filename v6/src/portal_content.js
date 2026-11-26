@@ -74,11 +74,18 @@ const PORTAL_CONTENT = {
 
   /* Verified 2018-2026 cumulative impact from the County Government of Kisumu (CGK)
      & LOMAMO Foundation Partnership Brief. Zero individual patient PII appears. */
+  /* These are the Foundation's own cumulative programme totals, as published by
+     the Foundation. They are NOT counted from the operational register, and the
+     public page says so on every card. Live aggregates come from
+     `/api/public/statistics`, which computes them on the server, suppresses any
+     figure backed by fewer than five people, and refuses to mark a figure
+     publishable until a named official has reviewed it. Keeping the two apart is
+     the point: a marketing number must never be mistaken for a register count. */
   stats:[
-    { label:'Patients discharged healthy', value:'2,012', icon:'heart', note:'Cumulative 2018-2026 verified discharges across Kisumu & Homa Bay' },
-    { label:'Orphans prevented', value:'3,722', icon:'users', note:'Children kept safely in family care' },
-    { label:'Food bags delivered', value:'29,010', icon:'package', note:'Weekly Bag 1, Bag 2 & Special nutrition support' },
-    { label:'Recovery rate', value:'89%', icon:'activity', note:'Patients restored to clinical & nutritional stability' }
+    { key:'patientsDischargedHealthy', label:'Patients discharged healthy', value:'2,012', icon:'heart', note:'Cumulative 2018-2026 verified discharges, reported by the Foundation' },
+    { label:'Orphans prevented', value:'3,722', icon:'users', note:'Cumulative children kept safely in family care' },
+    { label:'Food bags delivered', value:'29,010', icon:'package', note:'Cumulative weekly Bag 1, Bag 2 & special nutrition support' },
+    { label:'Recovery rate', value:'89%', icon:'activity', note:'Cumulative patients restored to clinical & nutritional stability' }
   ],
 
   /* Additional verified cumulative household dignity & spiritual care counters (2018-2026). */
@@ -268,6 +275,65 @@ const PORTAL_CONTENT = {
 };
 
 /* ---------------- portal service ---------------- */
+/* Live register aggregates for the public page.
+
+   The Foundation asked for the public statistics to come from the central
+   database. They are fetched from `/api/public/statistics`, which computes them on
+   the server, applies the suppression floor and refuses to mark a figure
+   publishable until a named official has reviewed it. This cache holds the last
+   answer and is deliberately conservative:
+
+     * until the endpoint has answered, no live figure is shown at all - the page
+       falls back to the Foundation's own cumulative totals, which are labelled as
+       reported rather than counted;
+     * a figure the server has suppressed is never rendered as a number;
+     * a figure that has not been reviewed is not rendered either, because a page
+       that prints an unreviewed number has published it whatever the endpoint
+       says about its status. */
+const PORTAL_STATS_LIVE = {
+  data: null,
+  loading: false,
+  error: '',
+  async load(force = false) {
+    if (this.loading) return this.data;
+    if (this.data && !force) return this.data;
+    this.loading = true;
+    try {
+      const base = (typeof SYNC !== 'undefined' && SYNC.resolveApiUrl) ? SYNC.resolveApiUrl('api/') : 'api/';
+      const res = await fetch(base + 'public/statistics', { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const body = await res.json();
+      this.data = body && body.ok ? body : null;
+      this.error = this.data ? '' : 'Statistics unavailable';
+    } catch (e) {
+      this.error = 'Statistics unavailable';
+      this.data = null;
+    } finally {
+      this.loading = false;
+    }
+    return this.data;
+  },
+  /* The figures the page is allowed to print, keyed by the card they belong to. */
+  publishable() {
+    const figs = (this.data && this.data.figures) || {};
+    const out = {};
+    for (const [key, f] of Object.entries(figs)) {
+      if (!f || f.value === null || f.suppressed) continue;
+      if (!f.publishable) continue;
+      out[key] = f;
+    }
+    return out;
+  },
+  /* How the page describes the source of what it is showing. */
+  provenance() {
+    if (!this.data) return 'Cumulative programme totals reported by the Foundation';
+    const cleared = Object.keys(this.publishable()).length;
+    return cleared
+      ? 'Counted from the central CareLink register and reviewed for publication'
+      : 'Cumulative programme totals reported by the Foundation';
+  }
+};
+
 const PORTALX = {
   content(){ return PORTAL_CONTENT; },
 

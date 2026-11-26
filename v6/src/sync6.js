@@ -168,17 +168,20 @@ const SYNC = {
       this.bump();
     }
     if(r.status === 401 && this.sessionToken && !preserveTokenOn401 && !skipAuthHeader){
-      /* The host ended the session (idle window, revocation or restart). Anything
-         typed but not yet accepted is held against this account before the
-         session goes, so signing back in finishes the save. */
+      /* The host ended the session (idle window, revocation, a sign-in from
+         another browser, or restart). Anything typed but not yet accepted is held
+         against this account before the session goes, so signing back in finishes
+         the save. A superseded window says so, because "signed out" with no reason
+         looks like a fault to the person sitting in front of it. */
+      const superseded = Boolean(body && body.code === 'session_superseded');
       try{ if(url !== 'api/auth/logout') this.holdWork(); }catch(_e){}
       this.storeToken(null);
-      if(typeof SESSION !== 'undefined' && AUTH.user) SESSION.serverExpired();
+      if(typeof SESSION !== 'undefined' && AUTH.user) SESSION.serverExpired(superseded ? 'superseded' : 'server');
     }
     return {status:r.status, ok:r.ok, body};
   },
 
-  async login(username, password, device){
+  async login(username, password, device, opts={}){
     clearTimeout(this._timer);
     this.stopPolling();
     const cryptoApi = typeof globalThis !== 'undefined' && globalThis.crypto;
@@ -188,7 +191,10 @@ const SYNC = {
       try{ const bytes = new Uint8Array(24); cryptoApi.getRandomValues(bytes); loginAttemptId = Array.from(bytes, b=>b.toString(16).padStart(2,'0')).join(''); }catch(_e){ loginAttemptId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`; }
     }
     const descriptor=device && typeof device==='object' ? device : (typeof CLIENT_UI!=='undefined'?CLIENT_UI.snapshot():{label:device||'Staff browser',type:'other'});
-    const loginPayload = JSON.stringify({username, password, deviceLabel:String(descriptor.label||'Staff browser').slice(0,100), deviceType:descriptor.type||'other', loginAttemptId});
+    const loginPayload = JSON.stringify({username, password, deviceLabel:String(descriptor.label||'Staff browser').slice(0,100), deviceType:descriptor.type||'other', loginAttemptId,
+      /* A takeover is a deliberate second request after the person has been told
+         the account is open elsewhere; it is never implied by a retry. */
+      ...(opts && opts.takeover ? { takeover: true } : {})});
     let r = null;
     let netErr = null;
     for(let attempt=0; attempt<2; attempt++){
@@ -242,10 +248,32 @@ const SYNC = {
         this.bump();
         return {ok:false, code:'state_unavailable', error:this.message, status:503};
       }
-      return {ok:true, user:r.body.user, mustChange:!!r.body.mustChange, idleSeconds:r.body.idleSeconds, username:r.body.username};
+      return {ok:true, user:r.body.user, mustChange:!!r.body.mustChange, idleSeconds:r.body.idleSeconds, username:r.body.username, supersededClient:Boolean(r.body.supersededClient)};
     }
     this.authError = r.body.error || 'The shared online source did not accept that sign-in.';
-    return {ok:false, code:r.body.code||'failed', error:this.authError, status:r.status};
+    return {ok:false, code:r.body.code||'failed', error:this.authError, status:r.status,
+      /* Carried through so the sign-in form can offer the takeover rather than
+         asking the person to wait for an idle window to run down. */
+      canTakeover:Boolean(r.body.canTakeover), heldForSeconds:r.body.heldForSeconds};
+  },
+
+  /* A closed or hidden tab must not keep the account lease alive. The browser
+     gives no promise that anything runs as the page is torn down, so this is a
+     best-effort release sent with `keepalive` (which survives the document being
+     unloaded); the server also retires the lease when the same account signs in
+     again, and the idle window is the final backstop. Nothing here touches data:
+     it only gives up the session. */
+  releaseOnExit(){
+    try{
+      if(!this.sessionToken) return;
+      const token = this.sessionToken;
+      this.storeToken(null);
+      const target = this.resolveApiUrl('api/auth/logout');
+      try{
+        fetch(target, {method:'POST', keepalive:true, credentials:'same-origin',
+          headers:{'Content-Type':'application/json','X-CareLink-Session':token}, body:'{}'});
+      }catch(_e){}
+    }catch(_e){}
   },
 
   async logout(){
