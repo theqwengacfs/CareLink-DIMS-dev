@@ -10,9 +10,9 @@ const SRC = path.join(V6_ROOT, 'src');
 const OUT_V6 = path.join(V6_ROOT, 'LOMAMO-CareLink-DIMS-v6.0.html');
 const OUT_PUBLIC = path.join(REPO_ROOT, 'public', 'carelink-v6.html');
 
-export const CSS_ORDER = ['styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css', 'carelink63.css', 'console_color_schemes.css', 'admin_ops6.css'];
+export const CSS_ORDER = ['styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css', 'carelink63.css', 'console_color_schemes.css', 'admin_ops6.css', 'care_review.css', 'entry_theme.css'];
 export const JS_ORDER = [
-  'data.js', 'data6.js', 'inventory_data.js', 'core.js', 'access_rules.js', 'media6.js', 'media_portal.js', 'reports.js', 'care.js', 'ai.js', 'charts.js',
+  'data.js', 'data6.js', 'inventory_data.js', 'ink.js', 'ink_pad.js', 'care_rules.js', 'care_workflow.js', 'pdca_review.js', 'scripture.js', 'devotion_rules.js', 'announcements.js', 'offline_signin.js', 'core.js', 'access_rules.js', 'media6.js', 'media_portal.js', 'reports.js', 'care.js', 'ai.js', 'charts.js',
   'forms.js', 'pharmacy.js', 'leave.js', 'omaha.js', 'schedule.js', 'exportdocs.js', 'dashboard.js', 'files.js', 'live.js', 'themes.js',
   'ui.js', 'navpane.js', 'pager.js', 'care6_flows.js',
   'views_entry.js', 'views_patients.js', 'views_ops.js', 'views_admin.js',
@@ -20,8 +20,8 @@ export const JS_ORDER = [
   'views_extra.js', 'office_actions.js', 'app.js',
   'pmi.js', 'recognition.js', 'workplace.js', 'insight6.js', 'indicators6.js', 'hub6.js', 'entry6.js',
   'org_teams.js', 'household.js', 'costing.js', 'tb_dispensing.js', 'master_registry.js', 'master_analysis.js', 'waiting_urgent.js', 'portal_content.js',
-  'bmi_clinical6.js', 'discharge_hardcopy6.js', 'monday_procurement6.js', 'handover_partners6.js',
-  'admin_workflows6.js', 'dev_console6.js', 'workflow_engine6.js', 'visual_audit.js', 'strategic_governance67.js', 'role_consoles68.js'
+  'bmi_clinical6.js', 'discharge_hardcopy6.js', 'monday_procurement6.js', 'handover_partners6.js', 'care_review_ui.js',
+  'admin_workflows6.js', 'dev_console6.js', 'workflow_engine6.js', 'visual_audit.js', 'strategic_governance67.js', 'role_consoles68.js', 'security6.js'
 ];
 
 export function buildCareLinkBundle() {
@@ -41,7 +41,7 @@ export function buildCareLinkBundle() {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#202020">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.6) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.9.8) - LOMAMO Foundation Kenya Data & Information Management System">
 ${fs.readFileSync(path.join(V6_ROOT, 'pwa-head.html'), 'utf8')}<style>
 ${css}
 </style>
@@ -59,7 +59,7 @@ window.BUILD_STAMP = "${stamp}";
 ${js}
 </script>
 ${fs.readFileSync(path.join(V6_ROOT, 'pwa-install.html'), 'utf8').trimEnd()}
-<!-- Build ${stamp} · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build ${stamp} · CareLink C-DIMS v6.9.8 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
 `;

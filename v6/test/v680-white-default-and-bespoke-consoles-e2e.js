@@ -46,24 +46,24 @@ const { makeCtx } = require('./dom');
     };
   })())`));
 
-  ok('APP.version is 6.9.6', themeAudit.appVersion === '6.9.6', themeAudit.appVersion);
-  ok('Global Landing Default is LOMAMO Red (deep red with dimensional topology)',
-    themeAudit.defaultLandingId === 'heritage' &&
-    themeAudit.firstLanding.id === 'heritage' &&
-    themeAudit.firstLanding.mode === 'dark' &&
-    themeAudit.resolvedLanding.id === 'heritage' &&
-    themeAudit.landingHtml.includes('data-theme="heritage" data-mode="dark"') &&
-    themeAudit.landingHtml.includes('linearGradient id="beamGrad"') &&
-    themeAudit.landingHtml.includes('fill="#3A0000"') &&
-    themeAudit.landingHtml.includes('stop-color="#F44336"') &&
-    !themeAudit.landingHtml.includes('stop-color="#F5C451"'));
+  ok('APP.version is 6.9.8', themeAudit.appVersion === '6.9.8', themeAudit.appVersion);
+  ok('Global Landing Default is the white-led LOMAMO letterhead with the restored workflow graphic',
+    themeAudit.defaultLandingId === 'clinic' &&
+    themeAudit.firstLanding.id === 'clinic' &&
+    themeAudit.firstLanding.mode === 'light' &&
+    themeAudit.resolvedLanding.id === 'clinic' &&
+    themeAudit.landingHtml.includes('data-theme="clinic" data-mode="light"') &&
+    themeAudit.landingHtml.includes('class="ld-scene-svg" role="img"') &&
+    themeAudit.landingHtml.includes('CareLink system workflow') &&
+    (themeAudit.landingHtml.match(/data-workflow-node=/g)||[]).length === 8 &&
+    themeAudit.landingHtml.includes('--entry-relief-surface:#232323'));
 
-  const signInCss = fs.readFileSync(path.join(REPO, 'v6', 'src', 'console6.css'), 'utf8');
-  ok('Sign-In uses charcoal, neutral and red brand colours with a readable white console card',
-    themeAudit.loginHtml.includes('class="lg6"') &&
-    /\.lg6-brand,html\[data-wmode="dark"\] \.lg6-brand\{background:#242424/.test(signInCss) &&
-    /\.lg6-panel,html\[data-wmode="dark"\] \.lg6-panel\{\s*background:#F5F5F4/.test(signInCss) &&
-    /\.lg6-card\{[\s\S]*?background:#FFFFFF/.test(signInCss));
+  const signInCss = fs.readFileSync(path.join(REPO, 'v6', 'src', 'entry_theme.css'), 'utf8');
+  ok('Sign-In separates charcoal branding and warm-tinted surroundings from a readable white console card',
+    themeAudit.loginHtml.includes('class="lg6" data-theme="clinic"') &&
+    /\.lg6\[data-theme\] \.lg6-brand\{[\s\S]*?background:#202020/.test(signInCss) &&
+    /\.lg6\[data-theme\] \.lg6-panel\{[\s\S]*?background:#F7F5F2/.test(signInCss) &&
+    /\.lg6\[data-theme\] \.lg6-card\{[\s\S]*?background:#FFFFFF/.test(signInCss));
 
   const epochAudit = JSON.parse(run(`JSON.stringify((() => {
     const u = DB.db.users.find(x => x.username === 'director');
@@ -82,21 +82,25 @@ const { makeCtx } = require('./dom');
       keptTextScale: DB.db.personalPrefs[u.id].textScale,
       explicitChoice: (() => {
         DB.db.settings.uiEpoch = 690;
-        DB.db.settings.landingTheme = 'canopy';
+        DB.db.settings.landingTheme = 'heritage';
         DB.db.settings.landingThemeExplicit = true;
         DB.migrate();
+        return landingTheme().id;
+      })(),
+      retiredChoice: (() => {
+        DB.db.settings.landingTheme = 'canopy';
         return landingTheme().id;
       })()
     };
   })())`));
-  ok('Legacy pre-691 cloud/browser preferences migrate to LOMAMO Red while preserving Foundation White workspace and accessibility textScale',
+  ok('Legacy pre-691 cloud/browser preferences migrate to the light letterhead while preserving Foundation White workspace and accessibility textScale',
     epochAudit.uiEpoch === 691 &&
-    epochAudit.landingAfter === 'heritage' &&
+    epochAudit.landingAfter === 'clinic' &&
     epochAudit.resolvedWtheme === 'foundation' &&
     epochAudit.studioAfter.bannerStyle === 'glass' &&
     epochAudit.studioAfter.kpiStyle === 'tinted' &&
     epochAudit.keptTextScale === 110 &&
-    epochAudit.explicitChoice === 'canopy',
+    epochAudit.explicitChoice === 'heritage' && epochAudit.retiredChoice === 'clinic',
     JSON.stringify(epochAudit));
   ok('Global Workspace Default is Luminous Foundation White across surface, bar & sidebar chrome',
     themeAudit.wtDefault === 'foundation' &&

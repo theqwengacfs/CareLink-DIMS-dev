@@ -208,8 +208,8 @@ test('synthetic contact details remain identifiable and email aliases are not de
     users.filter(u=>u.p && !/^0700\d{6}$/.test(u.p)).map(u=>u.p).slice(0,3).join(', '));
   ok('staff numbers are unique', new Set(users.map(u=>u.p).filter(Boolean)).size===users.filter(u=>u.p).length);
   ok('mock staff mailboxes use the explicitly requested LOMAMO Foundation address domain',
-    users.every(u=>!u.e || /@lomamofoundation\.org$/i.test(u.e)),
-    users.filter(u=>u.e && !/@lomamofoundation\.org$/i.test(u.e)).map(u=>u.e).slice(0,3).join(', '));
+    users.every(u=>!u.e || /@lomamo\.example$/i.test(u.e)),
+    users.filter(u=>u.e && !/@lomamo\.example$/i.test(u.e)).map(u=>u.e).slice(0,3).join(', '));
   const mailIntegration = fs.readFileSync(path.join(SRC,'..','..','api','index.js'),'utf8') +
     fs.readFileSync(path.join(SRC,'dev_console6.js'),'utf8');
   ok('mock email labels are not wired to outbound email delivery', !/(nodemailer|sendgrid|mailgun|sendMail|smtp\.connect)/i.test(mailIntegration));

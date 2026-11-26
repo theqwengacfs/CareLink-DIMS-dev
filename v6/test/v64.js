@@ -81,9 +81,10 @@ test('4. Complete Discharge Protocol, Returning-Patient Watchlist & Hard-Copy Sc
     const p = DB.db.patients.find(x=>x.status==='discharged') || DB.db.patients[0];
     return PAT_DISCHARGE.renderSheet(p.id, AUTH.user);
   })()`));
-  ok('Discharge protocol includes SHA/NHIF status & last payment date', /SHA|NHIF/i.test(discHtml));
-  ok('Discharge protocol includes Spiritual Growth (Believer / Converted)', /Believer/i.test(discHtml) && /Converted/i.test(discHtml));
-  ok('Discharge protocol includes Orphans Prevented & Signatures', /Orphans prevented/i.test(discHtml) && /Signature/i.test(discHtml));
+  const protocolInputs=String(run(`PAT_DISCHARGE.referralFieldsHTML(DB.db.patients.find(x=>x.status==='discharged')||DB.db.patients[0])`));
+  ok('Separate discharge protocol retains SHA/NHIF source-input fields', /SHA|NHIF/i.test(protocolInputs) && /shaLastPaymentDate/.test(protocolInputs));
+  ok('Belief / conversion source fields remain separate from the supplied clinical PDCA format', /Believer/i.test(protocolInputs) && /Converted/i.test(protocolInputs) && !/Spiritual Growth|Converted during LOMAMO/i.test(discHtml));
+  ok('Discharge retains explicitly recorded household-impact inputs and blank physical-signature lines, not inferred signed consent', /Orphans prevented/i.test(protocolInputs) && /PHYSICAL SIGNATURES/i.test(discHtml) && /do not replace physical signatures/i.test(discHtml));
   const watchAlert = String(run(`(()=>{
     DISCHARGE_HARDCOPY.ensureStore();
     const fp = DB.db.patients.find(x=>x.dischargeAdvisory && x.dischargeAdvisory.flagged)
@@ -192,9 +193,9 @@ test('9. Paper Forms Open filter, Blank Sheet preview, Trial Report skip-logic &
     hvFields.includes('multivitaminDate') && hvFields.includes('caregiver2Signature') && hvFields.includes('bmi') && hvFields.includes('foodBagCode'));
   const bagOpts = J(`FORMSX.fields('home_visit').find(f=>f.k==='foodBagDelivered').o`);
   const bagCodes = J(`FORMSX.fields('home_visit').find(f=>f.k==='foodBagCode').o`);
-  ok('Home Visit food bag options preserve Normal/Couple/Family/Special + BG1/BG2/SPB codes',
+  ok('Home Visit preserves household bag types with independent BG1/BG2 per trial amendment',
     bagOpts.includes('Normal bag') && bagOpts.includes('Couple bag') && bagOpts.includes('Family bag') && bagOpts.includes('Special bag') &&
-    bagCodes.includes('BG1') && bagCodes.includes('BG2') && bagCodes.includes('SPB'));
+    bagCodes.includes('BG1') && bagCodes.includes('BG2') && !bagCodes.includes('SPB'));
   const edHtml = String(run(`formEditor('home_visit', DB.db.patients[0].id, null)`));
   ok('formEditor renders Trial Report 3-visit weight banner & live BMI badge container',
     edHtml.includes('CareLink Trial Report Alignment') && edHtml.includes('ff_bmi_badge'));

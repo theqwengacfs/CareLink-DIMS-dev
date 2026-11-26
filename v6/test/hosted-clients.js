@@ -133,17 +133,19 @@ const setupHealth = {
       SYNC._json = async (url, opts) => {
         if(url === 'api/setup/activate-global'){
           __activationRequest = JSON.parse(opts.body);
-          return { ok:true, status:200, body:{ ok:true, rev:12,
-            issued:__activationRequest.accounts.map(a => ({ username:a.username, password:a.password, mustChange:true })), preserved:[] } };
+          __serverIssued=__activationRequest.accounts.map((a,index)=>({username:a.username,password:'Fixture#Generated'+index+'!Xy',expiresAt:'2026-11-29T00:00:00Z',mustChange:true}));
+          return { ok:true, status:200, body:{ ok:true, rev:12, issued:__serverIssued, preserved:[] } };
         }
         if(url === 'api/health') return { ok:true, status:200, body:{ ok:true, setup:true, commissioned:true,
           demoMode:false, globallyActivated:true, demoDisabled:true, rev:12, storageDriver:'cloud-kv-redis' } };
         throw new Error('unexpected request '+url);
       };`);
     const pack = await c.run(`PROD_SETUP.activateSystemGlobally({})`);
-    check('hosted global activation sends the generated staff credentials to the online vault',
+    check('hosted activation sends roster metadata only and uses server-generated passwords in the confidential pack',
       pack && pack.count > 0 && c.run(`__activationRequest.accounts.length === ${pack.count} &&
-        __activationRequest.accounts.every(a => a.username && a.password) && APPX.host.globallyActivated === true`));
+        __activationRequest.accounts.every(a => a.username && !Object.hasOwn(a,'password') && !Object.hasOwn(a,'tempPassword')) &&
+        PROD_SETUP.lastPack.rows.every(row=>__serverIssued.some(issued=>issued.username===row.username && issued.password===row.tempPassword && issued.expiresAt===row.expiresAt)) &&
+        APPX.host.globallyActivated === true`));
   }
 
   {

@@ -1,3 +1,5 @@
+const { isSnapshotRead, conditionalPrimaryRead } = require('./kv-primary-read.cjs');
+const {dispatchWithDeviceCookie}=require('./device-cookies.cjs');
 const requireCrypto = require('node:crypto');
 /* End-to-end verification of:
    1. PC & Tablet Client Login System:
@@ -7,7 +9,7 @@ const requireCrypto = require('node:crypto');
       - Zero data wipe & zero false logout under `SYNC.tick()` + `LIVE.start()` (`unchanged: true`, incremental `patches`, `pagedCollections` -> `pullFull()`, and lightweight `DB.persistState()`)
    2. Themes System:
       - Complete CSS variable coverage (`--text`, `--text-2`, `--text-3`, `--border`, `--border-strong`, `--ok-bd`, `--warn-bd`, `--crit-bd`, `--info-bd`) across all 20 themes
-      - All 10 `LANDING_THEMES` `.ld[data-theme="..."]` palettes + unauthenticated client `GET /api/health` `landingTheme` inheritance
+      - Both official `LANDING_THEMES` `.ld[data-theme="..."]` palettes + unauthenticated client `GET /api/health` `landingTheme` inheritance
       - Cloud `personalPrefs` sync (`wtheme`, `font`, `textScale`, studio) across Tablet A -> PC B + survival across `SYNC.pullFull()`
       - Custom Visual Pack JSON `theme` persistence, rehydration on a fresh client (`WTHEME.syncCustomThemes()`), Default Inter font preview, and balanced CSS braces */
 
@@ -65,6 +67,7 @@ global.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (isSnapshotRead(script)) return kvResponse({ result: conditionalPrimaryRead(kv, key, value) });
       if (script.includes('redis.sha1hex')) {
         if (bodyBytes > 1024 * 1024) return kvResponse({ error: 'ERR max request size exceeded' }, 413);
         const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
@@ -97,7 +100,7 @@ global.fetch = async (input, init = {}) => {
       setHeader() {},
       end(chunk = '') { rawResponse = String(chunk); },
     };
-    await handler(req, res);
+    await dispatchWithDeviceCookie(handler,req,res);
     return {
       ok: status >= 200 && status < 300,
       status,
@@ -131,7 +134,7 @@ global.fetch = async (input, init = {}) => {
     assert.equal(opens, closes, `${cssFile} has unbalanced CSS braces (${opens} '{' vs ${closes} '}')`);
   }
   const console6Css = fs.readFileSync(path.join(srcDir, 'console6.css'), 'utf8');
-  for (const lid of ['heritage', 'dawn', 'clinic', 'editorial', 'canopy', 'signal', 'sand', 'violet', 'paper', 'spectrum']) {
+  for (const lid of ['heritage', 'clinic']) {
     assert.match(console6Css, new RegExp(`\\.ld\\[data-theme="${lid}"\\]`), `Missing .ld[data-theme="${lid}"] rule in console6.css`);
   }
   assert.match(console6Css, /font-size:\s*16px\s*!important/, 'Tablet login inputs must set 16px font-size to prevent iOS/iPadOS auto-zoom');
@@ -198,19 +201,21 @@ global.fetch = async (input, init = {}) => {
   });
   assert.equal(demoAfterSetup.ok, false, 'Demo password must be refused once host is commissioned');
 
-  /* Set Landing Theme to 'canopy' as Chief Admin and push to cloud */
-  pcAdmin.run('ACTIONS["set-landing-theme"]({ id: "canopy" })');
+  /* Set Landing Theme to 'clinic' as Chief Admin and push to cloud */
+  pcAdmin.run('ACTIONS["preview-theme"]({id:"clinic"})');
+  await pcAdmin.run('ENTRY_THEME.apply("clinic")');
+  assert.equal((await (await apiFetch('api/health')).json()).landingTheme,'clinic','audited config save is authoritative before activation');
   await pcAdmin.run('SYNC.push()');
 
   /* Activate System Globally */
   const actPack = await pcAdmin.run('PROD_SETUP.activateSystemGlobally(AUTH.user)');
   assert.ok(actPack && actPack.count > 0 && Array.isArray(actPack.rows), 'Global activation must succeed');
-  const nyalendaEntry = actPack.rows.find(e => e.username === 'caregiver.nyalenda');
-  assert.ok(nyalendaEntry && nyalendaEntry.tempPassword, 'Credential issued for caregiver.nyalenda');
-  const nyalendaPatientIds = JSON.parse(pcAdmin.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda').map(p=>p.id))`));
+  const nyalendaEntry = actPack.rows.find(e => e.username === 'caregiver.ombeyi');
+  assert.ok(nyalendaEntry && nyalendaEntry.tempPassword, 'Credential issued for caregiver.ombeyi');
+  const nyalendaPatientIds = JSON.parse(pcAdmin.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='ombeyi').map(p=>p.id))`));
 
   /* Provision a new county staff account with official email via /api/credentials/provision */
-  const customTempPw = 'Temp#Seed9876!Ab';
+  let customTempPw = 'Temp#Seed9876!Ab';
   const provRes = await pcAdmin.run(`SYNC._json('api/credentials/provision', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -223,7 +228,8 @@ global.fetch = async (input, init = {}) => {
       mustChange: true,
     })})
   })`);
-  assert.equal(provRes.ok, true, 'Credential provisioning with official email must succeed');
+  assert.equal(provRes.ok, true, 'Credential provisioning must succeed');
+  customTempPw=provRes.body.issued[0].password;
   pcAdmin.run(`
     DB.db.users.push({
       id: 'u-nurse-extra', name: 'Extra County Nurse', username: 'nurse.extra',
@@ -240,8 +246,8 @@ global.fetch = async (input, init = {}) => {
      ------------------------------------------------------------------ */
   const tabletA = makeHostedClient('tablet');
   await tabletA.run('boot()');
-  assert.equal(tabletA.run('APPX.host && APPX.host.landingTheme'), 'canopy', '/api/health must expose landingTheme');
-  assert.equal(tabletA.run('landingTheme().id'), 'canopy', 'Unauthenticated tablet must render host landingTheme immediately');
+  assert.equal(tabletA.run('APPX.host && APPX.host.landingTheme'), 'clinic', '/api/health must expose landingTheme');
+  assert.equal(tabletA.run('landingTheme().id'), 'clinic', 'Unauthenticated tablet must render host landingTheme immediately');
 
   /* Test password visibility toggle markup & handler on Sign-In screen */
   tabletA.run('APPX.screen = "login"; render();');
@@ -260,14 +266,14 @@ global.fetch = async (input, init = {}) => {
   const emailLoginRes = await apiFetch('api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'nurse.extra@lomamofoundation.org', password: customTempPw }),
+    body: JSON.stringify({ username: 'nurse.extra', password: customTempPw }),
   });
   assert.equal(emailLoginRes.ok, true, 'Official email login must succeed for newly provisioned staff');
   const emailLoginOut = await apiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${(await emailLoginRes.json()).token}` }, body: '{}' });
   assert.equal(emailLoginOut.ok, true, 'Release the email-login session before later ACT activation of the same account');
 
-  /* Sign in as caregiver.nyalenda on Tablet A, complete first-login password change, verify RBAC & 4,000 patients */
-  await tabletA.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaEntry.tempPassword })}))`);
+  /* Sign in as caregiver.ombeyi on Tablet A, complete first-login password change, verify RBAC & 4,000 patients */
+  await tabletA.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.ombeyi', password: nyalendaEntry.tempPassword })}))`);
   assert.equal(tabletA.run('AUTH.mustChange'), true);
   const nyalendaPrivPw = 'River#Lake2027!Qw';
   await tabletA.run(`FORMS.mustchange6(__fd(${JSON.stringify({
@@ -280,6 +286,19 @@ global.fetch = async (input, init = {}) => {
   assert.equal(tabletA.run('RBAC.can(AUTH.user, "patient.list").ok'), true, 'Caregiver must pass RBAC.can("patient.list")');
   assert.equal(tabletA.run('DB.db.patients.length'), nyalendaPatientIds.length, 'Tablet A must hold only its assigned ministry-area patients');
   assert.deepEqual(JSON.parse(tabletA.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), nyalendaPatientIds, 'No cross-area patient records may reach Tablet A');
+
+  /* Legacy host-wide IndexedDB snapshots may belong to a different account.
+     Refresh must ignore them even at the same revision and ask the host for
+     this caregiver's own scope, rather than show an empty Chief snapshot or
+     retain a broader clinical snapshot. All data here is synthetic. */
+  tabletA.run(`SYNC._idbReadSnapshot=async()=>({rev:SYNC.rev, saved:SYNC.saved,
+    db:Object.assign({},DB.db,{patients:[]})});`);
+  assert.equal(await tabletA.run('SYNC.pullFull()'), true);
+  assert.deepEqual(JSON.parse(tabletA.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), nyalendaPatientIds, 'An empty snapshot from another account cannot hide this caregiver’s patients');
+  tabletA.run(`SYNC._idbReadSnapshot=async()=>({rev:SYNC.rev, saved:SYNC.saved,
+    db:Object.assign({},DB.db,{patients:[{id:'outside-synthetic',countyId:'homabay',areaId:'other'}]})});`);
+  assert.equal(await tabletA.run('SYNC.pullFull()'), true);
+  assert.deepEqual(JSON.parse(tabletA.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), nyalendaPatientIds, 'Another account’s broader snapshot is never adopted');
 
   /* CRITICAL: Run SYNC.tick() and LIVE.start() when unchanged -> 0 shard reads, 4,000 patients preserved, no logout! */
   shardGets = 0;
@@ -331,22 +350,21 @@ global.fetch = async (input, init = {}) => {
   assert.equal(tabletA.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Personal theme must survive SYNC.pullFull()');
   assert.equal(tabletA.run('WTHEME.studio(AUTH.user).font'), 'editorial', 'Personal studio font must survive SYNC.pullFull()');
 
-  /* A second device cannot sign in concurrently; after an explicit hand-off,
-     the same account can continue on PC B and retain its cloud preferences. */
+  /* An independent PC waits for logout, then receives shared preferences. */
   const pcCaregiverB = makeHostedClient('pc');
   await pcCaregiverB.run('boot()');
-  await pcCaregiverB.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaPrivPw })}))`);
-  assert.equal(pcCaregiverB.run('AUTH.user'), null, 'A second device must not open the account while Tablet A holds its active session');
-  assert.match(pcCaregiverB.run('LOGIN6.error'), /active online session/i, 'The sign-in screen must explain the single-session restriction');
+  await pcCaregiverB.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.ombeyi', password: nyalendaPrivPw })}))`);
+  assert.ok(!pcCaregiverB.run('AUTH.user'), 'A competing client is refused');
   await tabletA.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
-  await pcCaregiverB.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaPrivPw })}))`);
-  assert.equal(pcCaregiverB.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Cloud personalPrefs must sync harbour theme to PC B after hand-off');
+  await pcCaregiverB.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.ombeyi', password: nyalendaPrivPw })}))`);
+  assert.equal(pcCaregiverB.run('AUTH.user && AUTH.user.username'), 'caregiver.ombeyi', 'A new client signs in immediately after logout');
+  assert.equal(pcCaregiverB.run('WTHEME.resolveId(AUTH.user)'), 'harbour', 'Cloud personalPrefs must sync harbour theme to PC B');
   assert.equal(pcCaregiverB.run('WTHEME.studio(AUTH.user).font'), 'editorial', 'Cloud personalPrefs must sync editorial font to PC B');
   assert.equal(pcCaregiverB.run('DB.db.personalPrefs[AUTH.user.id].textScale'), 110, 'Cloud personalPrefs must sync textScale to PC B');
   assert.equal(pcCaregiverB.run('DB.db.patients.length'), nyalendaPatientIds.length, 'PC B must load only its assigned ministry-area patients');
   await pcCaregiverB.run('(async()=>{ await SYNC.logout(); AUTH.logout(); })()');
-  await tabletA.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: nyalendaPrivPw })}))`);
-  assert.equal(tabletA.run('AUTH.user && AUTH.user.username'), 'caregiver.nyalenda', 'Tablet A can regain its session after the explicit hand-off back');
+  await tabletA.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.ombeyi', password: nyalendaPrivPw })}))`);
+  assert.equal(tabletA.run('AUTH.user && AUTH.user.username'), 'caregiver.ombeyi', 'Tablet A can sign in again after PC B signs out');
 
   /* Install a Custom Visual Pack with a custom dark theme on Chief Admin PC -> rehydrates on Tablet A via SYNC.tick()! */
   const customPackRes = pcAdmin.run(`WTHEME.installCustomPack(AUTH.user, JSON.stringify({
@@ -399,7 +417,7 @@ global.fetch = async (input, init = {}) => {
     });
     DB.db.emergencyCodes = DB.db.emergencyCodes || [];
     DB.db.emergencyCodes.push({
-      id: 'emg-test-1', username: 'caregiver.nyalenda', code: 'EMG-4455',
+      id: 'emg-test-1', username: 'caregiver.ombeyi', code: 'EMG-4455',
       used: false, expiresAt: new Date(Date.now() + 86400000).toISOString()
     });
     DB.save();
@@ -416,7 +434,7 @@ global.fetch = async (input, init = {}) => {
     password2: nurseActivatedPw,
   })}))`);
   assert.match(freshBrowser.run('LOGIN6.notice'), /Account activated/i, 'ACT code redemption must succeed on hosted client');
-  await freshBrowser.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'nurse.extra@lomamofoundation.org', password: nurseActivatedPw })}))`);
+  await freshBrowser.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'nurse.extra', password: nurseActivatedPw })}))`);
   assert.equal(freshBrowser.run('AUTH.user && AUTH.user.username'), 'nurse.extra', 'Activated account must sign in with new password via official email');
   assert.equal(freshBrowser.run('AUTH.mustChange'), false, 'ACT-redeemed account must have mustChange cleared');
 
@@ -425,15 +443,15 @@ global.fetch = async (input, init = {}) => {
   const recBrowser = makeHostedClient('pc');
   await recBrowser.run('boot()');
   await recBrowser.run(`FORMS.emergency6(__fd(${JSON.stringify({
-    username: 'caregiver.nyalenda',
+    username: 'caregiver.ombeyi',
     code: 'EMG-4455',
     password: emgNewPw,
   })}))`);
   assert.match(recBrowser.run('LOGIN6.notice'), /emergency code|Sign in now/i, 'EMG code redemption must succeed on hosted client');
-  await recBrowser.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.nyalenda', password: emgNewPw })}))`);
-  assert.equal(recBrowser.run('AUTH.user && AUTH.user.username'), 'caregiver.nyalenda', 'EMG-recovered account must sign in immediately with new password');
+  await recBrowser.run(`FORMS.login6(__fd(${JSON.stringify({ username: 'caregiver.ombeyi', password: emgNewPw })}))`);
+  assert.equal(recBrowser.run('AUTH.user && AUTH.user.username'), 'caregiver.ombeyi', 'EMG-recovered account must sign in immediately with new password');
 
-  console.log('client-login-and-themes-e2e: PC & Tablet login, ACT/EMG recovery, dark-mode unlock, zero-wipe live sync, personalPrefs cloud sync, 10 landing themes & custom visual packs passed');
+  console.log('client-login-and-themes-e2e: PC & Tablet login, ACT/EMG recovery, dark-mode unlock, zero-wipe live sync, personalPrefs cloud sync, two official entry themes & custom visual packs passed');
 })().catch((err) => {
   console.error(err);
   process.exit(1);

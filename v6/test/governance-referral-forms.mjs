@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {BOARD_ROLES,boardSnapshot,executiveMember,referralVisible} from '../../api/coordination-policy.mjs';
+const require=createRequire(import.meta.url);const {makeCtx}=require('./dom');
+const {run,nodes}=makeCtx({setTimeout:()=>0,clearTimeout(){}});
+run('DB.load();DB.seedDemo();AUTH.user=DB.db.users.find(u=>u.roleId==="caregiver");');
+assert.equal(run('REFERRAL_PARTNERS.length'),13);
+assert.equal(run('REFERRAL_PARTNERS.includes("Ongo Ogosa Health Centre")'),true);
+assert.equal(run('BOARD_ROLE_IDS.length'),7);
+const names=JSON.parse(run('JSON.stringify(OFFICIAL_ROSTER.map(u=>u.username))'));assert.equal(new Set(names).size,names.length);
+assert.equal(run('formFieldVisible("atHome=Yes&arvList=Other",{atHome:"Yes",arvList:["Abacavir (ABC)","Other"]})'),true);
+assert.equal(run('formFieldVisible("atHome=Yes&hasWound=Yes",{atHome:"No",hasWound:"Yes"})'),false);
+const absent={visitDate:'2026-11-23',caregiverName:'Synthetic caregiver',atHome:'No',absenceReason:'Unknown',foodBagLeft:'No food bag left',caregiverRecommendation:'Synthetic follow-up'};
+assert.equal(run(`FORMSX.validate('home_visit',${JSON.stringify(absent)}).ok`),true);
+const bad={...absent,foodBagLeft:'Food bag left',foodBagDelivered:'Family bag',foodBagCode:'SPB'};
+assert.equal(run(`FORMSX.validate('home_visit',${JSON.stringify(bad)}).ok`),false);
+run('ACTIONS["record-visit"]({patient:repo.patientList(AUTH.user)[0].id})');
+assert.match(nodes.at(-1).innerHTML,/id="formDoc"/);assert.ok(!nodes.at(-1).innerHTML.includes('id="visitForm"'));
+for(const roleId of BOARD_ROLES){const snapshot=boardSnapshot({patients:[{name:'SYNTHETIC SECRET',countyId:'kisumu',status:'active'}],users:[],presence:{},transactions:[{amount:100,patientName:'SYNTHETIC SECRET'}]},{roleId,countyId:'kisumu',userId:'synthetic-user'});assert.deepEqual(snapshot.patients,[]);assert.deepEqual(snapshot.transactions,[]);assert.ok(!JSON.stringify(snapshot).includes('SYNTHETIC SECRET'));}
+assert.equal(executiveMember({users:[{username:'synthetic',status:'active'}]},{username:'synthetic',roleId:'caregiver'}),false);
+assert.equal(referralVisible({countyId:'kisumu',referredByUsername:'synthetic-other'},{username:'synthetic',roleId:'ccc.clinician'},{}),false);
+console.log('Governance/referral/forms: 13 named partners, 7 separate oversight role types, unique seats, read-only aggregate scope, conditional forms and canonical home-visit routing passed.');

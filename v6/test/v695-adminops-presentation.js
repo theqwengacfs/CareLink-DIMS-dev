@@ -68,7 +68,7 @@ ok('Zero-transaction state remains legible, budgeted and palette-aware',
 const studio = run(`studioHtml(AUTH.user)`);
 const schemeCss = fs.readFileSync(path.join(SRC, 'console_color_schemes.css'), 'utf8');
 ok('Theme Studio offers eight visual console schemes with labelled six-colour swatches',
-  ['Role signature','Heritage Sapphire','Lake &amp; sky','Forest &amp; fern','Orchid &amp; plum','Harvest &amp; clay','Graphite &amp; teal','Citrus &amp; ink'].every(name=>studio.includes(name)) &&
+  ['Account signature','Heritage Sapphire','Lake &amp; sky','Forest &amp; fern','Orchid &amp; plum','Harvest &amp; clay','Graphite &amp; teal','Citrus &amp; ink'].every(name=>studio.includes(name)) &&
   (studio.match(/class=\"console-scheme-choice/g)||[]).length===8 && studio.includes('aria-pressed=\"true\"'));
 run(`WTHEME.setStudio(AUTH.user,'colorScheme','orchid'); WTHEME.apply(AUTH.user);`);
 ok('A selected scheme persists across rendering and retains Foundation White surfaces',
@@ -102,7 +102,7 @@ ok('The Vite/Vercel/Lovable bundle includes the workspace palette and Admin Ops 
   publicBundle.includes('.console-scheme-choice'));
 
 const originalDb = run('DB.db'); ctx.__restoreDb = originalDb;
-run(`DB.db=DB.blank(); DB.db.settings.globallyActivated=true;
+const directoryRequest=run(`DB.db=DB.blank(); DB.db.settings.globallyActivated=true;
   DB.db.users=[
     {id:'chief1',name:'Chief Example',username:'chief.admin',email:'chief.admin@lomamo.example',roleId:'chief',status:'active',demo:false},
     {id:'staff1',name:'Field Example',username:'field.staff',email:'field.staff@lomamo.example',roleId:'caregiver',status:'active',demo:false},
@@ -110,11 +110,16 @@ run(`DB.db=DB.blank(); DB.db.settings.globallyActivated=true;
   ]; AUTH.user={id:'chief1',username:'chief.admin',roleId:'chief'};
   download=(filename,content,mime)=>{globalThis.__directory={filename,content,mime};};
   PROD_SETUP.downloadRoleDirectory();`);
-const directory = run('globalThis.__directory');
-ok('Chief can download post-activation text directory with active official role identities but no passwords or demo identities',
-  directory && directory.filename.endsWith('.txt') && directory.content.includes('chief.admin@lomamo.example') &&
-  directory.content.includes('field.staff') && directory.content.toLowerCase().includes('caregiver') &&
-  !directory.content.includes('synthetic') && !/TempSetup|LOMAMO2026|Password:/i.test(directory.content));
-run('DB.db=globalThis.__restoreDb || DB.db');
-console.log(`\n${pass}/${pass + fail} CareLink workspace presentation checks passed`);
-if (fail) process.exit(1);
+Promise.resolve(directoryRequest).then(()=>{
+  const directory = run('globalThis.__directory');
+  const actualDirectorName=run("OFFICIAL_ROSTER.find(seat=>seat.username==='director').name");
+  ok('Chief directory uses actual roster labels, preserves unconfirmed seats and excludes invented people, unattested mail and passwords',
+    directory && directory.filename.endsWith('.txt') && directory.content.includes(actualDirectorName) &&
+    directory.content.includes('chief.admin') && directory.content.includes('[unconfirmed seat]') &&
+    directory.content.toLowerCase().includes('caregiver') && !directory.content.includes('field.staff') &&
+    !directory.content.includes('@lomamo.example') && !directory.content.includes('synthetic@example.invalid') &&
+    !/TempSetup|LOMAMO2026|Password:/i.test(directory.content));
+  run('DB.db=globalThis.__restoreDb || DB.db');
+  console.log(`\n${pass}/${pass + fail} CareLink workspace presentation checks passed`);
+  if (fail) process.exitCode=1;
+}).catch(error=>{console.error(error);process.exitCode=1;});

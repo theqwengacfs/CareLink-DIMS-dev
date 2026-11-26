@@ -217,9 +217,12 @@ test('6. Standard Foundation Daylight default on Samsung A11+ 5G / Wi-Fi Tablet 
     const railOnHome = NAVP.effectiveRail(u, 'home');
     globalThis.navigator = prevNav;
 
-    /* Desktop Console Home starts expanded; scrolling or clicking features on #content folds automatically to widescreen */
+    /* A fresh first-login Home starts expanded. Actual navigation is tested
+       separately: go() now correctly ends a held expansion on every route. */
     AUTH.login('caregiver.manyatta', 'LOMAMO2026');
-    go('home', {});
+    APPX.view='home'; APPX.params={};
+    NAVP._tempOpen=false; NAVP._workspaceEngaged=false;
+    render();
     const desktopHomeInitialRail = NAVP.effectiveRail(AUTH.user, 'home');
     const domTargets = {};
     const mkMock = () => {
@@ -339,8 +342,10 @@ test('8. 4-Step Live Host Setup -> Official Login -> Must-Change Password -> Act
 
   /* Step D: Chief Admin clicks Activate System Globally -> generates WhatsApp sheet for all organogram accounts */
   const actRes = await JA(`PROD_SETUP.activateSystemGlobally({ emailDomain:'lomamo.org', portalUrl:'https://carelink.lomamo.org' })`);
-  ok('Activate System Globally generates credentials for all organogram staff accounts + WhatsApp text sheet',
-    actRes.ok === true && actRes.count >= 50 && /WhatsApp|Temporary Password|lomamofoundation\.org/i.test(actRes.whatsappText));
+  const issuable = J(`OFFICIAL_ROSTER.filter(r=>!r.unconfirmed && r.roleId!=='chief').map(r=>r.username)`);
+  ok('Activation issues only confirmed actual-roster staff, never the Chief or unconfirmed seats',
+    actRes.ok === true && actRes.count === issuable.length && actRes.rows.every(r=>issuable.includes(r.username)) &&
+    /Temporary Password/i.test(actRes.whatsappText), `issued=${actRes.count}, confirmed non-Chief seats=${issuable.length}`);
   ok('System is now permanently marked Globally Activated', run('PROD_SETUP.isGloballyActivated()') === true);
 
   /* Step E: Verify ALL demo & setup UI is permanently removed from Landing & Sign-In */
@@ -383,7 +388,8 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
   const vm = require('vm');
   const html = fs.readFileSync(path.join(REPO, 'public', 'carelink-v6.html'), 'utf8');
   const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
-  ok('public/carelink-v6.html embeds app assets, application code and PWA installer scripts', scripts.length === 3);
+  ok('public/carelink-v6.html embeds retired-host guard, assets, application code and PWA installer',
+    scripts.length === 4 && scripts[0][1].includes('theqwengacfs.github.io') && scripts[1][1].includes('window.LOGO') && scripts[2][1].includes('const APPX'));
 
   const store = new Map();
   const el = (tag = 'div') => ({
@@ -423,21 +429,19 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
   };
   bctx.window = bctx; bctx.globalThis = bctx; bctx.self = bctx;
   vm.createContext(bctx);
-  vm.runInContext(scripts[0][1], bctx, { filename: 'carelink-assets.js' });
-  vm.runInContext(scripts[1][1], bctx, { filename: 'carelink-bundle.js' });
-  vm.runInContext(scripts[2][1], bctx, { filename: 'carelink-pwa.js' });
+  scripts.forEach((script,index)=>vm.runInContext(script[1], bctx, { filename: `carelink-inline-${index}.js` }));
   for (const l of winListeners) { if (l.ev === 'DOMContentLoaded') await l.fn(); }
 
   const landingHtml = root.innerHTML;
   const appVer = vm.runInContext(`APP.version`, bctx);
-  ok('APP.version is 6.9.6 across CareLink OS', appVer === '6.9.6', `got=${appVer}`);
-  ok('Compiled bundle opens in LOMAMO Red with the layered depth topology graphic',
-    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="heritage" data-mode="dark"') && landingHtml.includes('linearGradient id="beamGrad"') && landingHtml.includes('v6.9.6') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
+  ok('APP.version is 6.9.8 across CareLink OS', appVer === '6.9.8', `got=${appVer}`);
+  ok('Compiled bundle opens in the white-led LOMAMO letterhead with the restored workflow graphic',
+    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="clinic" data-mode="light"') && landingHtml.includes('class="ld-scene-svg" role="img"') && (landingHtml.match(/data-workflow-node=/g)||[]).length === 8 && landingHtml.includes('--entry-relief-footer:#171717') && landingHtml.includes('v6.9.8') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'login'; render();`, bctx);
   const loginHtml = root.innerHTML;
-  ok('Compiled single-script bundle renders Sign-In page cleanly showing v6.9.6 · Schema 6',
-    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes('CareLink C-DIMS v6.9.6 · Schema 6') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
+  ok('Compiled single-script bundle renders Sign-In page cleanly showing v6.9.8 · Schema 6',
+    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes('CareLink C-DIMS v6.9.8 · Schema 6') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'architecture'; render();`, bctx);
   const archHtml = root.innerHTML;
@@ -497,16 +501,19 @@ test('12. 10-Pillar Overhaul: Monday AI Engine & Secretary Desk, Upright Baselin
       has120Title: html120.includes('Patient PDCA 120-Day Report') && html120.includes('ESTIMATED DATE OF DISCHARGE'),
       hasDisTitle: htmlDis.includes('Patient PDCA Discharge Summary Report') && htmlDis.includes('CONFIRMED DATE OF DISCHARGE'),
       hasStages: ['cdims-stage-dx','cdims-stage-p','cdims-stage-d','cdims-stage-rx','cdims-stage-c','cdims-stage-a'].every(c => html120.includes(c) && htmlDis.includes(c)),
-      mergeFieldsReady: Boolean(d120.patient_name && d120.aim && Array.isArray(d120.challenges) && Array.isArray(d120.interventions) && Array.isArray(d120.treatments) && Array.isArray(d120.check_findings) && Array.isArray(d120.act_actions))
+      mergeFieldsReady: Boolean(d120.patient_name && CARE_RULES.FIELDS.every(([key])=>typeof d120.fields[key]==='string') && Array.isArray(d120.challenges) && Array.isArray(d120.interventions) && Array.isArray(d120.treatments) && Array.isArray(d120.check_findings) && Array.isArray(d120.act_actions)),
+      noInventedEvaluation: d120.status==='blank_template' && !d120.evaluatedAt && !d120.aim && !d120.fields.adherence && !d120.fields.labsStatus,
+      balancedSpreads: (html120.match(/class="care-template-page"/g)||[]).length===2
     };
   })()`);
-  ok('Official CareLink C-DIMS PDCA Template renders both 120-Day Report and Discharge Summary Report with all Dx/P/D/Rx/C/A stages & merge fields',
-    pdcaAudit.has120Title && pdcaAudit.hasDisTitle && pdcaAudit.hasStages && pdcaAudit.mergeFieldsReady, JSON.stringify(pdcaAudit));
+  ok('Source-mapped PDCA fields use balanced two-spread layout in both modes and editable merge fields without fabricating an evaluation',
+    pdcaAudit.has120Title && pdcaAudit.hasDisTitle && pdcaAudit.hasStages && pdcaAudit.mergeFieldsReady && pdcaAudit.noInventedEvaluation && pdcaAudit.balancedSpreads, JSON.stringify(pdcaAudit));
   const pdcaRegHtml = String(run(`renderPdca(AUTH.user)`));
   as('chief.admin');
   const intlHtml = String(run(`HANDOVER_PARTNERS.renderIntlMedical(AUTH.user, {})`));
-  ok('PDCA Follow-Up workspace & 120+d International Medical Review wire directly to Official C-DIMS PDCA Report & Word export',
-    pdcaRegHtml.includes('Official CareLink C-DIMS PDCA Register') && pdcaRegHtml.includes('export-pdca-word') && intlHtml.includes('export-pdca-word'));
+  ok('PDCA workspace opens editable evaluations/history while international exports require an explicitly shared authorized revision',
+    pdcaRegHtml.includes('Official CareLink C-DIMS PDCA Register') && pdcaRegHtml.includes('care-review-new') && pdcaRegHtml.includes('Open care reviews & history') &&
+    intlHtml.includes('No authorized shared reports') && !intlHtml.includes('export-pdca-word') && !intlHtml.includes('care-dossier-docx'));
 
   /* Pillar 4: System Administrator Version Control Module inside Development Console */
   as('chief.admin');

@@ -3,7 +3,7 @@
    history, files, or HTTP endpoints. Run on a trusted computer. */
 import readline from 'node:readline';
 import { Writable } from 'node:stream';
-import { ownerListChiefs, ownerRecoverChief } from '../api/index.js';
+import { ownerListChiefs, ownerListPendingDevices, ownerRecoverChief } from '../api/index.js';
 
 if (!process.stdin.isTTY || !process.stdout.isTTY) {
   console.error('Run this tool interactively in a private terminal.');
@@ -54,13 +54,32 @@ try {
   }
   const username = chiefs[selected].username;
   console.log(`Selected username: ${safeDisplay(username)}. Keep it to sign in.`);
+  const pendingDevices = await ownerListPendingDevices(username);
+  let deviceId = null;
+  if (pendingDevices.length) {
+    console.log('\nPending browsers associated with this Chief account:');
+    for (const device of pendingDevices) {
+      console.log(`  ${safeDisplay(device.id)} — ${safeDisplay(device.label)} (${safeDisplay(device.type)}), first seen ${safeDisplay(device.firstSeen)}`);
+    }
+    console.log('Labels are untrusted. Approve only your own browser after matching its displayed device code.');
+    const answer = (await ask('Paste the full pending device ID to approve, or press Enter for password-only recovery: ')).trim();
+    if (answer) {
+      if (!pendingDevices.some(device => device.id === answer)) throw new Error('The exact pending device ID was not listed for this Chief. No changes were made.');
+      deviceId = answer;
+    }
+  } else {
+    console.log('No pending Chief browser to approve. Password recovery does not disable device enforcement.');
+    console.log('If the next sign-in says device pending, keep its cookies, note its code, and rerun this tool to approve that exact browser.');
+  }
   const password = await ask('Choose NEW Chief password (hidden): ', true);
   const repeat = await ask('Repeat NEW Chief password (hidden): ', true);
   if (password !== repeat) throw new Error('Passwords did not match. No changes were made.');
-  const confirm = await ask('Type RECOVER to reset this Chief password: ');
+  const confirm = await ask(deviceId
+    ? `Type RECOVER to reset this Chief password AND approve device ${safeDisplay(deviceId)}: `
+    : 'Type RECOVER to reset this Chief password (no device approval): ');
   if (confirm !== 'RECOVER') throw new Error('Cancelled. No changes were made.');
   console.log('Saving securely. A large database may take several minutes; please keep this window open.');
-  const result = await ownerRecoverChief({ username, password, onProgress: (done, total) => {
+  const result = await ownerRecoverChief({ username, password, deviceId, onProgress: (done, total) => {
     console.log(`Uploaded ${done} of ${total} secure database parts.`);
   } });
   console.log(`Recovery saved for ${result.username}. Sign in with the new password you chose.`);

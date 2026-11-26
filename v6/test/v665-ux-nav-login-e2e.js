@@ -1,3 +1,5 @@
+const { isSnapshotRead, conditionalPrimaryRead, encodeRespFixture } = require('./kv-primary-read.cjs');
+const {dispatchWithDeviceCookie}=require('./device-cookies.cjs');
 const requireCrypto = require('node:crypto');
 /* ============================================================================
    v665-ux-nav-login-e2e.js — End-to-End Verification for CareLink v6.6.5:
@@ -58,6 +60,7 @@ global.fetch = async (input, init = {}) => {
     }
     if (url.pathname === '/' && init.method === 'POST') {
       const cmd = JSON.parse(rawBody);
+      if (cmd[0] === 'EVAL' && isSnapshotRead(cmd[1])) return kvResponse({result:conditionalPrimaryRead(secondaryKv,cmd[3],cmd[4])});
       if (cmd[0] === 'EVAL' && cmd[1] === "return redis.call('GET', KEYS[1])") return kvResponse({result:secondaryKv.get(cmd[3]) ?? null});
     }
   }
@@ -97,6 +100,7 @@ global.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (isSnapshotRead(script)) return kvResponse({ result: conditionalPrimaryRead(kv, key, value) });
       if (script.includes('redis.sha1hex')) {
         if (Buffer.byteLength(rawBody) > 1024 * 1024) return kvResponse({error:'ERR max request size exceeded'}, 413);
         const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
@@ -144,13 +148,13 @@ function ok(name, cond, detail = '') {
     defaults.wtDefault === 'foundation' && defaults.devWtheme === 'foundation' &&
     defaults.foundation && defaults.foundation.name === 'Foundation White' &&
     defaults.foundation.mode === 'light' && defaults.foundation.t.surface === '#FFFFFF');
-  const console6CssRaw = fs.readFileSync(path.join(REPO, 'v6', 'src', 'console6.css'), 'utf8');
-  ok('Default landing theme is LOMAMO Red with layered topology depth',
-    defaults.landingDefault && defaults.landingDefault.id === 'heritage' &&
-    defaults.landingDefault.name === 'LOMAMO Red' &&
-    defaults.landingDefault.mode === 'dark' &&
-    defaults.landingDefault.accent === '#ED0000' &&
-    /\.ld\[data-theme="heritage"\][\s\S]*?linear-gradient/.test(console6CssRaw));
+  const entryCssRaw = fs.readFileSync(path.join(REPO, 'v6', 'src', 'entry_theme.css'), 'utf8');
+  ok('Default landing theme is the white-led LOMAMO letterhead with charcoal workflow relief',
+    defaults.landingDefault && defaults.landingDefault.id === 'clinic' &&
+    defaults.landingDefault.name === 'LOMAMO Letterhead Light' &&
+    defaults.landingDefault.mode === 'light' &&
+    defaults.landingDefault.accent === '#EE0000' &&
+    /\.ld\[data-front="1"\] \.ld-workflow-node text/.test(entryCssRaw));
   ok('45 workspace themes (including 10 new themes) pass 100% of contrast audits',
     defaults.wthemeCount === 45 && defaults.auditFails === 0,
     `count=${defaults.wthemeCount}, auditFails=${defaults.auditFails}`);
@@ -254,7 +258,7 @@ function ok(name, cond, detail = '') {
       setHeader() {},
       end(chunk = '') { rawResponse = String(chunk); },
     };
-    await handler(req, res);
+    await dispatchWithDeviceCookie(handler,req,res);
     return {
       ok: status >= 200 && status < 300,
       status,
@@ -300,9 +304,9 @@ function ok(name, cond, detail = '') {
     pcAdmin.run('DB.db.patients.length') === 4000 && kv.size >= 2, `kvKeys=${[...kv.keys()].join(',')}`);
 
   const actPack = await pcAdmin.run('PROD_SETUP.activateSystemGlobally(AUTH.user)');
-  const cgCred = actPack.rows.find(e => e.username === 'caregiver.nyalenda');
+  const cgCred = actPack.rows.find(e => e.username === 'caregiver.ombeyi');
   ok('Global activation issues staff credentials across all active accounts', Boolean(cgCred && cgCred.tempPassword));
-  const expectedNyalendaPatientIds = JSON.parse(pcAdmin.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda').map(p=>p.id))`));
+  const expectedNyalendaPatientIds = JSON.parse(pcAdmin.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='ombeyi').map(p=>p.id))`));
 
   /* 4a. Verify /api/auth/login reads ONLY manifest head (0 shard GETs!) */
   shardGets = 0;
@@ -314,6 +318,9 @@ function ok(name, cond, detail = '') {
   const authBody = await authOnly.json();
   ok('POST /api/auth/login authenticates from sharded manifest head with ZERO shard reads',
     authOnly.ok === true && Boolean(authBody.token) && shardGets === 0, `shardGets=${shardGets}`);
+  const personalize=await rawApiFetch('api/auth/change-password',{method:'POST',headers:{'x-carelink-session':authBody.token,'Content-Type':'application/json'},body:JSON.stringify({current:cgCred.tempPassword,password:'Fast#Private2027!Qw'})});
+  ok('Fast-login fixture replaces its single-use password before workspace access',personalize.ok);
+  cgCred.tempPassword='Fast#Private2027!Qw';
   const authOnlyLogout = await rawApiFetch('api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${authBody.token}` }, body: '{}' });
   ok('Direct API login lease releases cleanly before testing a fresh client', authOnlyLogout.status === 200);
 
@@ -395,7 +402,7 @@ function ok(name, cond, detail = '') {
   const quotaHealth = await rawApiFetch('api/health');
   const quotaBody = await quotaHealth.json();
   ok('Upstash daily quota refusal surfaces exact actionable quota diagnostic message',
-    quotaHealth.status === 503 && quotaBody.code === 'kv_unavailable' &&
+    quotaHealth.status === 503 && quotaBody.code === 'kv_quota_exceeded' && quotaBody.retryAfterSeconds === 300 &&
     /Upstash database quota|max daily request limit exceeded/i.test(quotaBody.error),
     JSON.stringify(quotaBody));
 
@@ -454,6 +461,10 @@ function ok(name, cond, detail = '') {
     if ((init.method || '').toUpperCase() === 'POST' && (url.pathname === '/' || url.pathname === '')) {
       if (/upstash-redis-js/i.test(ua)) sawRootPostWithUa = true;
       const cmd = JSON.parse(String(init.body || '[]'));
+      if (cmd[0] === 'EVAL' && isSnapshotRead(cmd[1])) {
+        const result = conditionalPrimaryRead(liveMap,cmd[3],cmd[4]);
+        return { ok:true, status:200, text:async()=>JSON.stringify({result}), json:async()=>({result}) };
+      }
       if (cmd[0] === 'GET' || (cmd[0] === 'EVAL' && cmd[1] === "return redis.call('GET', KEYS[1])")) {
         const k = cmd[0] === 'GET' ? cmd[1] : cmd[3];
         const val = liveMap.has(k) ? liveMap.get(k) : null;
@@ -536,11 +547,29 @@ function ok(name, cond, detail = '') {
           const pw = cmd.length >= 3 ? cmd[2] : cmd[1];
           if (pw === 'tcp-secret') sock.write('+OK\r\n');
           else sock.write('-WRONGPASS invalid username-password pair\r\n');
+        } else if (op === 'EVAL' && isSnapshotRead(cmd[1])) {
+          tcpGetCount++;
+          sock.write(encodeRespFixture(conditionalPrimaryRead(tcpStore,cmd[3],cmd[4])));
         } else if (op === 'EVAL' && cmd[1] === "return redis.call('GET', KEYS[1])") {
           tcpGetCount++;
           const value = tcpStore.get(cmd[3]);
           if (value == null) sock.write('$-1\r\n');
           else { const buf = Buffer.from(String(value)); sock.write(`$${buf.length}\r\n`); sock.write(buf); sock.write('\r\n'); }
+        } else if (op === 'EVAL') {
+          // Emulate the actual atomic CAS, not '+OK' (which is not a Redis
+          // integer result and must be treated as a failed conditional save).
+          const script=cmd[1],key=cmd[3],expected=cmd[4],next=cmd[5];
+          let result=0;
+          if(script.includes('redis.sha1hex')){
+            const previous=tcpStore.get(key);
+            const digest=previous===undefined?'missing':requireCrypto.createHash('sha1').update(String(previous)).digest('hex');
+            result=digest===expected?1:(previous===next?2:0);
+            if(result===1){tcpStore.set(key,next);tcpSetCount++;}
+          }else if(tcpStore.get(key)===expected){
+            if(script.includes('DEL')) tcpStore.delete(key);
+            result=1;
+          }
+          sock.write(`:${result}\r\n`);
         } else if (op === 'GET') {
           tcpGetCount++;
           const k = cmd[1];

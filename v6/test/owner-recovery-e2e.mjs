@@ -1,3 +1,5 @@
+import { isSnapshotRead, conditionalPrimaryRead } from './kv-primary-read.cjs';
+import { dispatchWithDeviceCookie } from './device-cookies.cjs';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
@@ -28,6 +30,7 @@ globalThis.fetch = async (input, init={}) => {
   }
   if (op==='EVAL') {
     const [script, n, key, ...args] = a;
+    if (isSnapshotRead(script)) return reply({result:conditionalPrimaryRead(kv,key,args[0])});
     if (script === "return redis.call('GET', KEYS[1])") return reply({result:kv.get(key) ?? null});
     if (script.includes('redis.sha1hex')) {
       if (pauseCommit) { const pause = pauseCommit; pauseCommit = null; await pause(); }
@@ -49,7 +52,7 @@ const {default:handler,ownerListChiefs,ownerRecoverChief}=await import('../../ap
 async function api(route, method='GET', body={}, token='') {
   const req={url:`/api/${route}`, method, headers:{host:'carelink.test',...(token?{'x-carelink-session':token}:{})},body,on(){}};
   let status, raw=''; const res={set statusCode(v){status=v},get statusCode(){return status},setHeader(){},end(s){raw=s||''}};
-  await handler(req,res); return {status,body:JSON.parse(raw)};
+  await dispatchWithDeviceCookie(handler,req,res); return {status,body:JSON.parse(raw)};
 }
 await assert.rejects(ownerListChiefs(),/No commissioned/);
 const old='Chief#Secure2027', fresh='Private#Safe2028';

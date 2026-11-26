@@ -234,8 +234,8 @@ test('7. Unified Online Site Database & Shared Online Intelligence zero-localhos
 test('8. LOMAMO official email domain and single confidential account document', () => {
   asRole('chief');
   ok('New first-run default domain is lomamofoundation.org', run(`PROD_SETUP.defaultEmailDomain()`) === 'lomamofoundation.org');
-  ok('Seeded official mock accounts use the LOMAMO Foundation domain',
-    run(`DB.db.users.filter(u=>u.email).every(u=>u.email.toLowerCase().endsWith('@lomamofoundation.org'))`) === true);
+  ok('Preview contacts stay on the reserved synthetic mail domain',
+    run(`DB.db.users.filter(u=>u.email).every(u=>u.email.toLowerCase().endsWith('@lomamo.example'))`) === true);
   const captured = JSON.parse(run(`(()=>{
     let saved=null; download=(...args)=>{saved=args;return true};
     PROD_SETUP.lastPack={generatedAt:'2026-10-23',chiefUsername:AUTH.user.username,siteUrl:'https://carelink.example',count:1,rows:[{
@@ -247,7 +247,7 @@ test('8. LOMAMO official email domain and single confidential account document',
   ok('Chief credential export is one self-contained HTML document with escaped values and the issued password',
     captured[0].endsWith('.html') && captured[2].startsWith('text/html') && captured[1].includes('Sample &amp; Holder') &&
     captured[1].includes('OneTime#42') && captured[1].includes('CONFIDENTIAL — ACCOUNT PASSWORDS') &&
-    captured[1].includes('work immediately'));
+    captured[1].includes('Every holder must choose a private password before opening a workspace') && !captured[1].includes('personal password is optional'));
   asRole('finance', 'kisumu');
   const blockedExport = JSON.parse(run(`(()=>{
     let saved=null; download=(...args)=>{saved=args;return true};
@@ -258,9 +258,11 @@ test('8. LOMAMO official email domain and single confidential account document',
   run('AUTH.logout()');
   ok('Signing out clears the one-time credential pack from memory', run('PROD_SETUP.lastPack === null && PROD_SETUP.lastWhatsappSheet === \'\'') === true);
   run(`AUTH.login('chief.admin','LOMAMO2026')`);
-  ok('Legacy lorem/example email domain fallbacks have been removed from application and API sources',
-    !['v6/src/core.js','v6/src/data.js','v6/src/data6.js','v6/src/dev_console6.js','v6/src/entry6.js','v6/src/views_admin.js','api/index.js']
-      .some(f=>fs.readFileSync(path.join(REPO,f),'utf8').includes('lomamo.example')));
+  const apiSource=fs.readFileSync(path.join(REPO,'api/index.js'),'utf8');
+  const setupSource=fs.readFileSync(path.join(REPO,'v6/src/dev_console6.js'),'utf8');
+  ok('Official work mail requires explicit server attestation; commissioning never invents a mailbox',
+    apiSource.includes('MAILBOX CONFIRMED') && apiSource.includes('state.mailboxes') &&
+    setupSource.includes("admin.email = hosted ? ''") && !setupSource.includes("actor.email = actor.email"));
   return true;
 });
 

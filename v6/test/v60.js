@@ -400,13 +400,13 @@ test('PC & Tablet front-door parity, 10-area active dataset, 1-click Hospital Ca
 
   /* 2. All 13 community/teamwork photos embedded & Sign-In screen showcase directly below H1 */
   const photoCount = run(`Object.keys(CARELINK_PHOTOS).length`);
-  /* 13 teamwork photographs (media6.js) + 10 LOMAMO programme photographs for
+  /* 13 teamwork photographs (media6.js) + 9 LOMAMO programme photographs for
      the public portal (media_portal.js). No identifiable beneficiary appears in
      any of them: patient photography needs recorded consent. */
   const teamworkKeys = run(`['analytics_screen','puzzle_hands','united_hands','boardroom_team','field_table','gears_table','charts_overhead','roundtable_forms','puzzle_vector','team_blocks','gears_circle','devices_table','hands_compact'].filter(k=>!CARELINK_PHOTOS[k]).length`);
-  const portalKeys = run(`['field_home_visit','foodbag_nutrition','hospital_escort','tb_adherence','children_school','chv_meeting','lake_kisumu','monday_meeting','stock_room','field_transport'].filter(k=>!CARELINK_PHOTOS[k]).length`);
+  const portalKeys = run(`['field_home_visit','foodbag_nutrition','hospital_escort','tb_adherence','chv_meeting','lake_kisumu','monday_meeting','stock_room','field_transport'].filter(k=>!CARELINK_PHOTOS[k]).length`);
   ok('All 13 community & teamwork photographs are embedded in media6.js', teamworkKeys === 0 && photoCount >= 13, 'missing '+teamworkKeys+' of the teamwork set, '+photoCount+' embedded in total');
-  ok('All 10 LOMAMO public-portal programme photographs are embedded', portalKeys === 0, 'missing '+portalKeys);
+  ok('All 9 LOMAMO public-portal programme photographs are embedded', portalKeys === 0, 'missing '+portalKeys);
   const loginHtml = run(`renderLogin6()`);
   ok('Sign-In page shows Cross-Departmental Teamwork showcase under One Foundation. One Operating System.',
     /One Operating System[\s\S]{0,260}lg6-showcase[\s\S]{0,400}data:image\/jpeg;base64/.test(loginHtml));

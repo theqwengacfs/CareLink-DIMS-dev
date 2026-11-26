@@ -75,7 +75,7 @@ test('Administration\'s own staff list is loaded, seat by seat', ()=>{
   ok('Wycliff Otieno Odhiambo is the Kisumu hospital focal person', named.hospital==='Wycliff Otieno Odhiambo', named.hospital);
   ok('Washington Ayub Odero heads the Hospital Department', run(`DB.db.users.find(u=>u.username==='mcm.kisumu').name`)==='Washington Ayub Odero');
   ok('The three Homa Bay ministry coordinators have correctly scoped seats', run(`['coord.makongeni','coord.shauriyako','coord.sofia'].every((u,i)=>{const x=DB.db.users.find(x=>x.username===u);return x && x.countyId==='homabay' && x.areaIds[0]===['makongeni','shauriyako','sofia'][i]})`));
-  ok('Director has the requested mock alias and Homa Bay reports to the director', run(`DB.db.users.find(u=>u.username==='director').email`)==='martinchama@lomamofoundation.org' && run(`DB.db.users.find(u=>u.username==='coord.homabay').reportsTo`)==='u-director');
+  ok('Director has the requested mock alias and Homa Bay reports to the director', run(`DB.db.users.find(u=>u.username==='director').email`)==='director@lomamo.example' && run(`DB.db.users.find(u=>u.username==='coord.homabay').reportsTo`)==='u-director');
   ok('Susan Mildred is the hospital deputy', named.hospitalDeputy==='Susan Mildred', named.hospitalDeputy);
   ok('Ashar Omondi heads Staff Welfare', named.welfare==='Ashar Omondi', named.welfare);
   ok('John Shikuku Omollo deputises in Vehicle & Transport', named.fleetDeputy==='John Shikuku Omollo', named.fleetDeputy);
@@ -539,7 +539,7 @@ test('the public portal carries the LOMAMO programme content', ()=>{
   const html = run(`String(renderPublicPortal({}))`);
   ok('the portal renders', html.length>8000, String(html.length));
   ok('the mission is quoted', /orphan prevention/i.test(html));
-  ok('the four pillars are shown', /Patient visits/.test(html) && /Hospital &amp; home-based healthcare/.test(html) && /Education/.test(html) && /Community partnerships/.test(html));
+  ok('the four care pillars are shown without a schooling programme', /Patient visits/.test(html) && /Hospital &amp; home-based healthcare/.test(html) && /Nutrition &amp; household care/.test(html) && /Community partnerships/.test(html) && !/Keeping children in school/.test(html));
   ok('the team in Kenya is shown', /Martin Chamah/.test(html) && /Moses Nyanjong Otieno/.test(html) && /Washington Ayub Odero/.test(html));
   ok('the board and advisors are shown', /Pamela McClanahan/.test(html) && /Desmond Marshall/.test(html));
   ok('the published finances are shown', /230,639|\$230,639/.test(html) && /83-3329252/.test(html));

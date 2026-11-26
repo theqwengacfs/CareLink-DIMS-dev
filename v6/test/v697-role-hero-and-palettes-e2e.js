@@ -47,8 +47,8 @@ const shell = JSON.parse(run(`JSON.stringify((() => {
        navigation pane (right of it on desktop, below it on phones), leads the
        content, and comes before the console toolbar in the markup. */
     if (paneAt >= 0 && !(bannerAt >= 0 && bannerAt > paneAt)) res.afterNav.push(u.username);
-    if (barAt >= 0 && !(bannerAt >= 0 && bannerAt < barAt)) res.beforeBar.push(u.username);
-    if (contentAt >= 0 && !(bannerAt >= 0 && bannerAt < contentAt)) res.beforeContent.push(u.username);
+    if (barAt >= 0 && !(bannerAt >= 0 && bannerAt > barAt)) res.beforeBar.push(u.username);
+    if (contentAt >= 0 && !(bannerAt >= 0 && bannerAt > contentAt)) res.beforeContent.push(u.username);
     if (!res.order) res.order = html.slice(0, 40);
   });
   /* Layout controls belong to the console home, not to inner clinical views. */
@@ -61,7 +61,7 @@ const shell = JSON.parse(run(`JSON.stringify((() => {
   return res;
 })())`));
 
-ok('Every signed-in console renders exactly one role introduction banner in the workspace column, after the navigation pane and ahead of the toolbar',
+ok('Every signed-in console renders exactly one role introduction banner in the workspace column, inside the scrollable workspace below the toolbar',
   shell.banners.length === 0 && shell.heroes.length === 0 && shell.afterNav.length === 0 &&
   shell.beforeBar.length === 0 && shell.beforeContent.length === 0,
   JSON.stringify({ banners: shell.banners, heroes: shell.heroes, afterNav: shell.afterNav.slice(0, 4),
@@ -106,7 +106,7 @@ ok('Each account type carries its own default intro/navigation palette across th
   palettes.roles >= 29 && palettes.colours === palettes.roles && palettes.dupes.length === 0,
   JSON.stringify({ roles: palettes.roles, colours: palettes.colours, dupes: palettes.dupes.slice(0, 4) }));
 ok('Pharmacy staff keep a separate colour identity from other clinical roles and the default scheme is the role signature',
-  palettes.pharmacyDistinct === true && palettes.signatureName === 'Role signature' && palettes.signatureNull === null,
+  palettes.pharmacyDistinct === true && palettes.signatureName === 'Account signature' && palettes.signatureNull === null,
   JSON.stringify(palettes));
 
 /* The test DOM only records setProperty calls, so keep a token map here. */
@@ -149,16 +149,13 @@ ok('Banner is keyboard focusable, has a print guard and never widens the page',
   css.includes('.shell-role-banner .ws67-hero{overflow-x:clip;') &&
   css.includes('.shell-role-banner .ws67-hero-copy{max-width:100%;overflow-wrap:anywhere;}'),
   'banner rules incomplete');
-/* The workspace column scrolls as a unit: banner first (glides away), console
-   bar second (holds at the top), content third. The pane is never overlaid. */
-const desktop = css.slice(css.indexOf('@media(min-width:1000px){\n  .app.shell.has-pane{'), css.indexOf('@media(max-width:760px){\n  .shell-role-banner{padding'));
-ok('Desktop shell keeps one scrolling workspace column: banner in flow, console bar holding, pane untouched',
-  /grid-template-rows:auto auto auto !important/.test(desktop) &&
-  /\.app\.shell\.has-pane > \.shell-role-banner\{grid-column:2 !important;grid-row:1 !important/.test(desktop) &&
-  /\.app\.shell\.has-pane > \.cbar\{grid-column:2 !important;grid-row:2 !important;position:sticky/.test(desktop) &&
-  /\.app\.shell\.has-pane > \.npane\{[\s\S]*?grid-row:1 \/ 4 !important/.test(desktop) &&
-  !/\.app\.shell\.has-pane > \.shell-role-banner\{[^}]*position:(fixed|sticky)/.test(desktop),
-  'desktop shell rules changed');
+/* The toolbar has a separate track; only the main workspace scrolls. */
+const viewportCss=fs.readFileSync(path.join(__dirname,'../src/entry_theme.css'),'utf8');
+ok('Desktop shell separates toolbar and scrolling content so context headings cannot slide underneath it',
+  viewportCss.includes('grid-template-rows:max-content minmax(0,1fr) !important;') &&
+  viewportCss.includes('grid-row:1 !important;position:static !important;') &&
+  viewportCss.includes('overflow-y:auto !important;overflow-x:hidden !important;box-sizing:border-box;'),
+  'desktop shell scrollport rules changed');
 
 /* 4b. Every department console, reviewed one by one ----------------------
    The block above proves each account type carries its own signature. This
@@ -234,8 +231,8 @@ ok('Credential packs are labelled by what they contain (pending-only vs official
   devConsole.includes("kind === 'official-rebuild'") &&
   devConsole.includes("kind === 'recovered-rebuild'") &&
   devConsole.includes('including any other Chief accounts, are replaced or deactivated') &&
-  devConsole.includes('Official email alias'));
-ok('Issued credentials carry the actual server email alias so the private document matches sign-in',
+  devConsole.includes('Confirmed work mailbox') && !devConsole.includes('<th>Official email alias</th>'));
+ok('Issued credentials carry the confirmed server mailbox so the private document matches sign-in',
   apiIndex.includes('email: state.creds[uname].email') &&
   devConsole.includes('email: cp.email ||'));
 

@@ -1,3 +1,5 @@
+import { isSnapshotRead, conditionalPrimaryRead } from './kv-primary-read.cjs';
+import { dispatchWithDeviceCookie } from './device-cookies.cjs';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
@@ -20,6 +22,7 @@ globalThis.fetch = async (input, init={}) => {
   }
   if (op==='EVAL') {
     const [script, n, key, ...args] = a;
+    if (isSnapshotRead(script)) return reply({result:conditionalPrimaryRead(kv,key,args[0])});
     if (script === "return redis.call('GET', KEYS[1])") return reply({result:kv.get(key) ?? null});
     if (script.includes('redis.sha1hex')) {
       if (pauseCommit) { const pause = pauseCommit; pauseCommit = null; await pause(); }
@@ -42,7 +45,7 @@ async function api(route, method='GET', body={}, token='') {
   const req={url:`/api/${route}`, method, headers:{host:'carelink.test',...(token?{'x-carelink-session':token}:{})},body,on(){}};
   let status, raw='';
   const res={set statusCode(v){status=v}, get statusCode(){return status}, setHeader(){},end(s){raw=s||''}};
-  await handler(req,res); return {status,body:JSON.parse(raw)};
+  await dispatchWithDeviceCookie(handler,req,res); return {status,body:JSON.parse(raw)};
 }
 const chiefPass='Chief#Secure2027';
 let r=await api('setup','POST',{admin:{username:'chief.admin',password:chiefPass,name:'Chief'},db:{meta:{schema:6},settings:{},users:[],patients:[{id:'patient-1',countyId:'kisumu',name:'demo'}],employees:[{id:'old-employee',userId:'u-director',username:'director',name:'Old Name'}],pendingActivations:[{id:'old-chief-code',username:'chief.admin',code:'ACT-CHIEF'},{id:'old-obsolete-code',username:'obsolete',code:'ACT-OLD'}],audit:[]}});
@@ -52,15 +55,22 @@ r=await api('setup/activate-global','POST',{users:[
   {id:'u-director',username:'director',name:'Old Director',roleId:'director',countyId:'kisumu',status:'active',active:true},
   {id:'u-obsolete',username:'obsolete',name:'Old Account',roleId:'me',countyId:'kisumu',status:'active',active:true},
 ],accounts:[
-  {id:'u-director',username:'director',name:'Old Director',roleId:'director',countyId:'kisumu',password:'OldDirector#2026'},
-  {id:'u-obsolete',username:'obsolete',name:'Old Account',roleId:'me',countyId:'kisumu',password:'OldObsolete#2026'},
+  {id:'u-director',username:'director',name:'Old Director',roleId:'director',countyId:'kisumu',password:'OldPrivate#2026A!'},
+  {id:'u-obsolete',username:'obsolete',name:'Old Account',roleId:'me',countyId:'kisumu',password:'OldHarbour#2026B!'},
 ]},chief);assert.equal(r.status,200,JSON.stringify(r.body));
-r=await api('auth/login','POST',{username:'director',password:'OldDirector#2026'});assert.equal(r.status,200);const oldDirector=r.body.token;
-r=await api('auth/login','POST',{username:'obsolete',password:'OldObsolete#2026'});assert.equal(r.status,200);const obsolete=r.body.token;
+const firstIssued=new Map(r.body.issued.map(row=>[row.username,row.password]));
+async function firstPrivate(username,password){
+  const login=await api('auth/login','POST',{username,password:firstIssued.get(username)});
+  assert.equal(login.status,200,JSON.stringify(login.body));
+  const change=await api('auth/change-password','POST',{current:firstIssued.get(username),password},login.body.token);
+  assert.equal(change.status,200,JSON.stringify(change.body));return login;
+}
+r=await firstPrivate('director','OldPrivate#2026A!');assert.equal(r.status,200);const oldDirector=r.body.token;
+r=await firstPrivate('obsolete','OldHarbour#2026B!');assert.equal(r.status,200);const obsolete=r.body.token;
 r=await api('credentials/provision','POST',{accounts:[{id:'u-custom-test',username:'custom.test',email:'officer.alias@lomamofoundation.org',name:'Test Officer',roleId:'finance',countyId:'kisumu'}]},chief);
 assert.equal(r.status,200,JSON.stringify(r.body));
-assert.equal(r.body.issued[0].email,'officer.alias@lomamofoundation.org','pack must show the actual server-issued login email');
-let emailLogin=await api('auth/login','POST',{username:r.body.issued[0].email,password:r.body.issued[0].password});
+assert.equal(r.body.issued[0].email,'','provisioning cannot claim an unconfirmed mailbox');
+let emailLogin=await api('auth/login','POST',{username:r.body.issued[0].username,password:r.body.issued[0].password});
 assert.equal(emailLogin.status,200,JSON.stringify(emailLogin.body));
 await api('auth/logout','POST',{},emailLogin.body.token);
 
@@ -95,7 +105,7 @@ assert.deepEqual(stored.db.pendingActivations.map(e=>e.username),['chief.admin']
 assert.equal((await api('session/whoami','GET',{},chief)).status,200,'Chief session preserved');
 assert.equal((await api('session/whoami','GET',{},oldDirector)).status,401,'old signed session revoked');
 assert.equal((await api('session/whoami','GET',{},obsolete)).status,401,'removed account cannot use signed fallback');
-assert.equal((await api('auth/login','POST',{username:'obsolete',password:'OldObsolete#2026'})).status,401);
+assert.equal((await api('auth/login','POST',{username:'obsolete',password:'OldHarbour#2026B!'})).status,401);
 assert.equal((await api('state','PUT',{baseRev:stored.rebuildRevision-1,patches:[]},chief)).body.code,'rebuild_refresh_required');
 const repeated=await api('admin/reactivate','POST',{confirm:'REBUILD',password:chiefPass},chief);
 assert.equal(repeated.status,409);assert.equal(repeated.body.code,'reactivation_pack_pending');
@@ -109,41 +119,31 @@ assert.equal(rows.some(x=>x.username==='president'),false,'unconfirmed seats do 
 assert.equal(stored.db.users.find(u=>u.username==='president').active,false);
 assert.equal(stored.db.users.find(u=>u.username==='obsolete').active,false);
 assert.ok(!JSON.stringify(stored).includes(rows[0].tempPassword),'no cleartext pack in KV');
-for (const row of rows) {
+for (const row of rows.filter(r=>r.username!=='director')) {
   const login=await api('auth/login','POST',{username:row.username,password:row.tempPassword});
   assert.equal(login.status,200,`issued credential failed: ${row.username}`);
   assert.equal(login.body.user.roleId,row.roleId);
-  assert.equal(login.body.passwordBeforeWorkspace,false,'re-issued accounts start work immediately, without a forced password change');
+  assert.equal(login.body.passwordBeforeWorkspace,true,'re-issued credentials require private replacement');
+  assert.equal((await api('state','GET',{},login.body.token)).status,403);
+  assert.equal((await api('auth/change-password','POST',{current:row.tempPassword,password:'Personal#2027!'+crypto.createHash('sha256').update(row.username).digest('hex').slice(0,8)},login.body.token)).status,200);
   assert.equal((await api('auth/logout','POST',{},login.body.token)).status,200);
 }
 const director=rows.find(x=>x.username==='director');
-assert.equal(director.email,'martinchama@lomamofoundation.org');
-assert.ok(rows.every(r=>/@lomamofoundation\.org$/.test(r.email)),'every issued alias is on the official domain');
-assert.equal(stored.db.users.filter(u=>!u.archivedByRebuild&&u.roleId!=='chief').every(u=>u.mustChange===false),true,'rebuilt seats do not force a password change');
-const aliasLogin=await api('auth/login','POST',{username:director.email,password:rows.find(x=>x.username==='director').tempPassword});
-assert.equal(aliasLogin.status,200,'issued email alias signs in');
-assert.equal(aliasLogin.body.passwordBeforeWorkspace,false);
-assert.equal((await api('auth/logout','POST',{},aliasLogin.body.token)).status,200);
-/* The alias must reach the workspace straight away, not a change-password gate. */
-const stateRead=await api('state','GET',{},aliasLogin.body.token);
-assert.equal(stateRead.status,401,'signed-out session cannot read state');
-assert.equal((await api('auth/login','POST',{username:'director',password:'OldDirector#2026'})).status,401);
-/* An older credential pack printed the retired domain; that spelling still signs in. */
-assert.match(director.email,/@lomamofoundation\.org$/);
-r=await api('auth/login','POST',{username:director.email.replace('@lomamofoundation.org','@lomamo.npo'),password:director.tempPassword});
-assert.equal(r.status,200,JSON.stringify(r.body));
-assert.equal((await api('auth/logout','POST',{},r.body.token)).status,200);
-r=await api('auth/login','POST',{username:director.email,password:director.tempPassword});
-assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.mustChange,false);
-assert.equal(r.body.passwordBeforeWorkspace,false,'no forced first-login change on re-issued accounts');
+assert.equal(director.email,'','no roster name is treated as mailbox confirmation');
+assert.ok(rows.every(r=>!r.email),'no addresses exported without mailbox attestation');
+assert.equal(stored.db.users.filter(u=>!u.archivedByRebuild&&u.roleId!=='chief'&&!u.unconfirmed).every(u=>u.mustChange===true),true,'rebuilt named seats force a private password');
+assert.equal((await api('auth/login','POST',{username:'director',password:'OldPrivate#2026A!'})).status,401);
+r=await api('auth/login','POST',{username:'director',password:director.tempPassword});
+assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.mustChange,true);
+assert.equal(r.body.passwordBeforeWorkspace,true);
 const token=r.body.token;
-/* The issued password opens the workspace immediately. */
+/* The issued temporary password cannot open the workspace before replacement. */
 const workspace=await api('state','GET',{},token);
-assert.equal(workspace.status,200);
-/* Changing it later is optional, and still rotates the credential cleanly. */
+assert.equal(workspace.status,403);
+/* Replacing it rotates the credential and invalidates the old session. */
 r=await api('auth/change-password','POST',{current:director.tempPassword,password:'Private#New2027!'},token);assert.equal(r.status,200,JSON.stringify(r.body));
-/* One live session per account: the change happens in-session, so sign out first. */
-assert.equal((await api('auth/login','POST',{username:'director',password:'Private#New2027!'})).status,409,'a second device cannot take the account over');
+/* Password replacement retains the current lease until explicit logout. */
+assert.equal((await api('auth/login','POST',{username:'director',password:'Private#New2027!'})).status,409);
 assert.equal((await api('auth/logout','POST',{},token)).status,200);
 assert.equal((await api('auth/login','POST',{username:'director',password:director.tempPassword})).status,401,'the pack password stops working once replaced');
 r=await api('auth/login','POST',{username:'director',password:'Private#New2027!'});assert.equal(r.status,200,JSON.stringify(r.body));
@@ -171,4 +171,4 @@ const damaged=await api('state','GET',{},chief);
 assert.equal(damaged.status,503,JSON.stringify(damaged.body));
 assert.equal(damaged.body.code,'kv_invalid_state');
 assert.equal(kv.get('carelink_cloud_v66'),fakeManifest,'damaged post-rebuild state must not be replaced with an older snapshot');
-console.log(`reactivation-e2e: CAS conflict, lost response recovery, ${rows.length} unique passwords, no forced change, optional later change, old-session invalidation and shard rollback protection passed`);
+console.log(`reactivation-e2e: CAS conflict, lost response recovery, ${rows.length} unique passwords, single-use mandatory private change, old-session invalidation and shard rollback protection passed`);

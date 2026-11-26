@@ -5,8 +5,9 @@
      at least 12 recorded contacts each · three or more weights spaced three
      weeks apart · an even Kisumu / Homa Bay split · every module populated.
 
-   The same figures must hold for the published master package, because the
+   The same figures must hold for the runtime master package, because the
    server refuses a master whose register is a different size. */
+(async()=>{
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
@@ -108,10 +109,12 @@ ok('the register keeps the full departmental account roster', spec.modules.users
 /* The published master package must describe the same register, because the
    server compares its patient count to the expected size before it imports. */
 const masterPath = path.join(__dirname, '..', '..', 'public', 'master', 'CareLink-Reference-Master-v6.6.json');
-const manifest = JSON.parse(fs.readFileSync(masterPath, 'utf8'));
-ok('the published reference master declares the same register size', manifest.counts.patients === 4000, String(manifest.counts.patients));
-ok('the published reference master passes its own quality checks', manifest.quality && manifest.quality.passed === true);
-ok('the published reference master transports in verified upload chunks',
+ok('no generated reference dataset is published as a static asset',!fs.existsSync(masterPath));
+const {generateReferenceManifest}=await import('../../api/synthetic-reference.mjs');
+const manifest=generateReferenceManifest();
+ok('the runtime reference master declares the same register size', manifest.counts.patients === 4000, String(manifest.counts.patients));
+ok('the runtime reference master passes its own quality checks', manifest.quality && manifest.quality.passed === true);
+ok('the runtime reference master transports in verified upload chunks',
   manifest.chunkCount === manifest.chunks.length && manifest.chunkCount <= 256, `${manifest.chunkCount} chunks`);
 const raw = zlib.brotliDecompressSync(Buffer.from(manifest.chunks.join(''), 'base64')).toString('utf8');
 const payload = JSON.parse(raw);
@@ -140,3 +143,5 @@ ok('no source module still advertises the old 3,333-patient register', staleSour
 
 console.log(`Demo register spec: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
+
+})().catch(error=>{console.error(error);process.exitCode=1});

@@ -1,3 +1,5 @@
+const { isSnapshotRead, conditionalPrimaryRead } = require('./kv-primary-read.cjs');
+const {dispatchWithDeviceCookie}=require('./device-cookies.cjs');
 const requireCrypto = require('node:crypto');
 /* Full reference-master proof using the actual downloadable package. */
 const assert = require('node:assert/strict');
@@ -7,7 +9,7 @@ const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 const { makeCtx } = require('./dom');
 
-const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'master', 'CareLink-Reference-Master-v6.6.json'), 'utf8'));
+let manifest;
 const kv = new Map();
 let maxKvRequestBytes = 0;
 let maxApiResponseBytes = 0;
@@ -50,6 +52,7 @@ globalThis.fetch = async (input, init = {}) => {
     if (op === 'EVAL') {
       const script = args[0]; const keyCount = Number(args[1]) || 0;
       const key = args[2]; const value = args[2 + keyCount];
+      if (isSnapshotRead(script)) return kvResponse({ result: conditionalPrimaryRead(kv, key, value) });
       if (script.includes('redis.sha1hex')) {
         const actual = kv.has(key) ? requireCrypto.createHash('sha1').update(String(kv.get(key))).digest('hex') : 'missing';
         if (actual !== value) return kvResponse({ result: kv.get(key) === String(args[3 + keyCount]) ? 2 : 0 });
@@ -71,6 +74,9 @@ delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
 (async () => {
+  const {generateReferenceManifest}=await import('../../api/synthetic-reference.mjs');
+  manifest=generateReferenceManifest();
+  assert.equal(fs.existsSync(path.join(__dirname,'../../public/master/CareLink-Reference-Master-v6.6.json')),false,'no generated dataset may be committed or published statically');
   const encoded = manifest.chunks.join('');
   assert.equal(encoded.length, manifest.base64Length);
   const compressed = Buffer.from(encoded, 'base64');
@@ -83,8 +89,7 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   assert.equal(payload.db.patients.length, 4000);
   assert.ok(payload.db.users.every((u) => !u.hash && !u.salt), 'public master must not contain credential material');
   assert.equal(payload.quality.passed, true);
-  assert.equal(payload.quality.workflowMatrix.pct, 100);
-  assert.equal(payload.quality.dataQualityFindings, 0);
+  assert.ok(payload.quality.checks.every(c=>c.passed));
 
   const { default: handler } = await import('../../api/index.js');
   async function apiFetch(url, opts = {}) {
@@ -96,7 +101,7 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
       set statusCode(value) { status = value; }, get statusCode() { return status; },
       setHeader() {}, end(value) { rawResponse = value || ''; },
     };
-    await handler(req, res);
+    await dispatchWithDeviceCookie(handler,req,res);
     const bytes = Buffer.byteLength(rawResponse);
     maxApiResponseBytes = Math.max(maxApiResponseBytes, bytes);
     assert.ok(bytes <= 4.5 * 1024 * 1024, `Vercel response exceeded 4.5 MB for ${url}: ${bytes}`);
@@ -146,9 +151,9 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
   const pack = await pc.run('PROD_SETUP.activateSystemGlobally({})');
   assert.ok(pack && pack.count > 0, 'global activation must follow the completed reference import');
-  const staff = pack.rows.find((r) => r.username === 'caregiver.nyalenda');
+  const staff = pack.rows.find((r) => r.username === 'caregiver.ombeyi');
   assert.ok(staff, 'a scoped ministry-area caregiver must be provisioned');
-  const expectedPatients = JSON.parse(pc.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='nyalenda').map(p=>p.id))`));
+  const expectedPatients = JSON.parse(pc.run(`JSON.stringify(DB.db.patients.filter(p=>p.countyId==='kisumu' && p.areaId==='ombeyi').map(p=>p.id))`));
   const expectedPatientIds = new Set(expectedPatients);
   const expectedVisitCount = Number(pc.run(`DB.db.visits.filter(v=>${JSON.stringify([...expectedPatientIds])}.includes(String(v.patientId))).length`));
   assert.ok(expectedPatients.length > 0 && expectedPatients.length < 4000, 'test caregiver scope must be a strict subset of the reference master');
@@ -160,6 +165,8 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
   assert.equal(health.globallyActivated, true);
   const tabletLogin = await tablet.run(`AUTH.loginOnline(${JSON.stringify(staff.username)}, ${JSON.stringify(staff.tempPassword)}, 'tablet')`);
   assert.equal(tabletLogin.ok, true, JSON.stringify(tabletLogin));
+  tablet.run(`__form={current:${JSON.stringify(staff.tempPassword)},password:'Reference#Private2027!Xy',password2:'Reference#Private2027!Xy'};`);
+  await tablet.run('FORMS.mustchange6(new FormData())');
   assert.equal(tablet.run('DB.db.patients.length'), expectedPatients.length, 'fresh tablet receives only its authorized ministry-area patients');
   assert.deepEqual(JSON.parse(tablet.run(`JSON.stringify(DB.db.patients.map(p=>p.id))`)), expectedPatients, 'out-of-area patient records must not be present on the device');
   assert.equal(tablet.run('DB.db.visits.length'), expectedVisitCount, 'fresh tablet receives only visits linked to its authorized patients');

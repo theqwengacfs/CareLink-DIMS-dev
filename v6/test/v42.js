@@ -9,14 +9,14 @@ const ok=(name,cond,detail='')=>{ if(cond){pass++;} else {fail++; console.log('F
 const T=c=>run(c);
 
 /* ---------- Landing themes ---------- */
-ok('Ten landing themes exist', T('LANDING_THEMES.length')===10, String(T('LANDING_THEMES.length')));
-ok('Every theme has a unique id', new Set(T('LANDING_THEMES.map(t=>t.id)')).size===10);
+ok('Two official landing themes exist', T('LANDING_THEMES.length')===2, String(T('LANDING_THEMES.length')));
+ok('Every theme has a unique id', new Set(T('LANDING_THEMES.map(t=>t.id)')).size===2);
 ok('Every theme carries a name and a blurb', T('LANDING_THEMES.every(t=>t.name&&t.blurb)'));
 ok('Both light and dark themes are offered', T("LANDING_THEMES.some(t=>t.mode==='light') && LANDING_THEMES.some(t=>t.mode==='dark')"));
-ok('The LOMAMO Red default is used when nothing is set', (()=>{ T("DB.db.settings.landingTheme=undefined"); return T("landingTheme().id")==='heritage'; })());
-ok('An unknown theme falls back to LOMAMO Red instead of failing', (()=>{ T("DB.db.settings.landingTheme='not-a-theme'"); return T("landingTheme().id")==='heritage'; })());
-T("DB.db.settings.landingTheme='spectrum'");
-ok('A chosen theme is applied to the landing page', T("renderLanding()").includes('data-theme="spectrum"'));
+ok('The light letterhead default is used when nothing is set', (()=>{ T("DB.db.settings.landingTheme=undefined"); return T("landingTheme().id")==='clinic'; })());
+ok('An unknown theme falls back to the light letterhead instead of failing', (()=>{ T("DB.db.settings.landingTheme='not-a-theme'"); return T("landingTheme().id")==='clinic'; })());
+T("DB.db.settings.landingTheme='heritage'; DB.db.settings.landingThemeExplicit=true");
+ok('A chosen theme is applied to the landing page', T("renderLanding()").includes('data-theme="heritage"'));
 ok('The landing page still offers the staff action', /Proceed to My (LOMAMO )?C(-DIMS|areLink) Console/.test(T("renderLanding()")));
 ok('The landing page offers the public portal', T("renderLanding()").includes('goto-public'));
 T("DB.db.settings.landingTheme='clinic'");

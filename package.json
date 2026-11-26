@@ -1,8 +1,8 @@
 {
   "name": "lomamo-carelink-dims-v6",
   "private": true,
-  "version": "6.9.6",
-  "description": "CareLink C-DIMS v6.9.6 · LOMAMO Foundation Unified Operating System",
+  "version": "6.9.8",
+  "description": "CareLink C-DIMS v6.9.8 \u00b7 LOMAMO Foundation Unified Operating System",
   "type": "module",
   "scripts": {
     "predev": "node tools/sync-lovable.mjs",
@@ -11,7 +11,23 @@
     "build": "tsc && vite build",
     "build:reference-master": "node v6/tools/build_reference_master.js",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "test:all": "node v6/test/lint.js && node v6/test/smoke.js && node v6/test/wiring.js && node v6/test/views.js && node v6/test/v60.js && node v6/test/v61.js && node v6/test/v62.js && node v6/test/v63.js && node v6/test/v64.js && node v6/test/v65.js && node v6/test/v66.js && node v6/test/api-security.mjs && node v6/test/reactivation-e2e.mjs && node v6/test/owner-recovery-e2e.mjs && node v6/test/one-live-source.js && node v6/test/hosted-clients.js && node v6/test/hosted-e2e.js && node v6/test/reference-master-e2e.js && node v6/test/kv-recovery-and-autofeed.js && node v6/test/client-login-and-themes-e2e.js && node v6/test/v665-ux-nav-login-e2e.js && node v6/test/v670-strategic-governance-workspaces-e2e.js && node v6/test/v680-white-default-and-bespoke-consoles-e2e.js && node v6/test/v695-adminops-presentation.js && node v6/test/v696-board-demo.js && node v6/test/v697-role-hero-and-palettes-e2e.js && node v6/test/v698-team-calling-e2e.js && node v6/test/v699-demo-register-spec.js && node v6/test/v6100-sync-outbox.js && node v6/test/v6101-pwa-hardening.js && node v6/test/v6102-weekly-indicators.js && node v6/test/pwa-offline.js && node v6/test/meetings.js"
+    "test:all": "node v6/test/document-safety.js && node v6/test/account-identity.js && node v6/test/patient-executive-recognition.js && node v6/test/chart-security-and-layout.js && node v6/test/signin-viewport.js && node v6/test/route-tabs-and-scrollport.js && node v6/test/cross-account-audit.js && node v6/test/report-layout-provenance.js && node v6/test/word-branding.js && node v6/test/workspace-header-regression.js && node v6/test/governance-referral-forms.mjs && node v6/test/landing-workflow-polish.js && node v6/test/device-print-controls.js && npm run test:workspace-identity && npm run test:monday-review && npm run test:workspace-spacing && npm run test:foundation-scope && npm run test:returning-patient && npm run test:privacy-verifier && npm run test:clinical && npm run test:trial && node v6/test/lint.js && node v6/test/smoke.js && node v6/test/wiring.js && node v6/test/views.js && node v6/test/v60.js && node v6/test/v61.js && node v6/test/v62.js && node v6/test/v63.js && node v6/test/v64.js && node v6/test/v65.js && node v6/test/v66.js && node v6/test/api-security.mjs && node v6/test/v6103-entry-security.mjs && npm run test:kv-bandwidth && node v6/test/v6103-entry-ui.js && node v6/test/workspace-navigation-audit.js && node v6/test/canonical-host.js && node v6/test/v6104-entry-refresh.js && node v6/test/editorial-refresh.mjs && node v6/test/seed-programme-day.mjs && node v6/test/v6103-synthetic.mjs && node v6/test/reactivation-e2e.mjs && node v6/test/owner-recovery-e2e.mjs && node v6/test/one-live-source.js && node v6/test/hosted-clients.js && node v6/test/hosted-e2e.js && node v6/test/reference-master-e2e.js && node v6/test/kv-recovery-and-autofeed.js && node v6/test/client-login-and-themes-e2e.js && node v6/test/v665-ux-nav-login-e2e.js && node v6/test/v670-strategic-governance-workspaces-e2e.js && node v6/test/v680-white-default-and-bespoke-consoles-e2e.js && node v6/test/v695-adminops-presentation.js && node v6/test/v696-board-demo.js && node v6/test/v697-role-hero-and-palettes-e2e.js && node v6/test/v698-team-calling-e2e.js && node v6/test/v699-demo-register-spec.js && node v6/test/v6100-sync-outbox.js && node v6/test/v6101-pwa-hardening.js && node v6/test/v6102-weekly-indicators.js && node v6/test/report-period-labels.js && node v6/test/session-and-single-client.js && node v6/test/public-statistics-governance.js && node v6/test/scoped-announcements.js && node v6/test/stylus-handwriting.js && node v6/test/pwa-offline.js && node v6/test/meetings.js && node v6/test/offline-signin.js && node v6/test/pdca-review-engine.js && node v6/test/scripture-registry.js && node v6/test/devotion-fairness.js && node v6/test/workspace-tab-reveal.js",
+    "test:trial": "node v6/test/isolated-trial.mjs",
+    "test:clinical": "node v6/test/clinical-workflow.js && node v6/test/clinical-api.mjs && node v6/test/clinical-sync.js && node v6/test/clinical-ui.js",
+    "test:phase1": "node v6/test/v6103-entry-security.mjs && node v6/test/v6103-entry-ui.js && node v6/test/workspace-navigation-audit.js && node v6/test/canonical-host.js && node v6/test/v6103-synthetic.mjs",
+    "test:browser:phase1": "node v6/test/v6103-entry-browser.mjs",
+    "test:browser:trial": "node v6/test/isolated-trial-browser.mjs",
+    "test:browser:charts-and-policy": "node v6/test/chart-layout-browser.mjs && node v6/test/policy-layout-browser.mjs",
+    "test:privacy-verifier": "python3 -m unittest discover -s v6/test -p test_privacy_verifier.py -v",
+    "privacy:check": "python3 v6/tools/verify_no_patient_data.py",
+    "privacy:repository": "python3 v6/tools/verify_no_patient_data.py --repository-only",
+    "test:entry-refresh": "node v6/test/v6104-entry-refresh.js",
+    "test:kv-bandwidth": "node v6/test/v6105-kv-bandwidth.mjs && node v6/test/v6105-sync-bandwidth.js",
+    "test:returning-patient": "node v6/test/returning-patient-layout.js",
+    "test:foundation-scope": "node v6/test/foundation-scope-and-colour.js",
+    "test:workspace-spacing": "node v6/test/workspace-breathing-room.js",
+    "test:monday-review": "node v6/test/monday-weekly-review.js && node v6/test/monday-physical-api.mjs && node v6/test/devotions-ui.js && node v6/test/devotions-api.mjs",
+    "test:workspace-identity": "node v6/test/workspace-identity-bands.js"
   },
   "dependencies": {
     "react": "^18.3.1",
