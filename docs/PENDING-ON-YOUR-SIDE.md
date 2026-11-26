@@ -43,7 +43,7 @@
 
 | # | To confirm | Why |
 |---|---|---|
-| 12a | Whether the **4,000-patient demonstration register** is meant to be loaded on the live host at `care-link-dims-dev-three` | It is a live, globally activated installation with **36 accounts** and no patient rows loaded (rev 361 as of v6.9.9; v6.10.0 is interface-only and does not change it). The register is imported deliberately, never seeded automatically — so this waits on your instruction. |
+| 12a | Whether the **4,000-patient demonstration register** is meant to be loaded on the live host at `care-link-dims-dev-three` | It is a live, globally activated installation with **36 accounts** and no patient rows loaded (rev 373 as of v6.10.0, confirmed live; the register figure is unchanged). The register is imported deliberately, never seeded automatically — so this waits on your instruction. |
 | 12b | Name a **reviewer** for the public statistics (`settings.publicStatistics.<figure>.reviewedBy`) | Until a figure carries a named official's review, the portal keeps showing the labelled cumulative totals and prints no live number. That is by design (B5). |
 
 ## 4. Verification that needs an approved private process
