@@ -297,24 +297,27 @@ function go(view, params={}){
 /* The desktop pane shell itself scrolls; #content is not the scrollport.
    Reveal the selected workspace in its own scrollport, below the toolbar;
    older layouts without that scrollport use the shell/window fallback. */
-function revealWorkspace(view){
+function revealWorkspace(view,targetId=null){
   const content = document.querySelector && document.querySelector('#content');
   const shell = document.querySelector && document.querySelector('.app.shell.has-pane');
   if(!content || !content.getBoundingClientRect){ if(window.scrollTo) window.scrollTo(0,0); return; }
-  if(content.setAttribute)content.setAttribute('tabindex','-1');
-  if(content.focus)content.focus({preventScroll:true});
+  const requested=targetId && document.getElementById ? document.getElementById(targetId) : null;
+  const focusTarget=requested || content;
+  if(focusTarget.setAttribute)focusTarget.setAttribute('tabindex','-1');
+  if(focusTarget.focus)focusTarget.focus({preventScroll:true});
   if(typeof getComputedStyle==='function'&&/auto|scroll/.test(getComputedStyle(content).overflowY)&&typeof content.scrollTo==='function'){
-    const target=document.getElementById&&document.getElementById('workspaceView');
+    const target=requested || (document.getElementById&&document.getElementById('workspaceView'));
     const top=target?.getBoundingClientRect?content.scrollTop+target.getBoundingClientRect().top-content.getBoundingClientRect().top:0;
     content.scrollTo({top:Math.max(0,top-16),behavior:'auto'});return;
   }
+  const target=requested || content;
   const bar = document.querySelector('.topbar.cbar');
   const sticky = bar && typeof getComputedStyle==='function' && getComputedStyle(bar).position==='sticky' ? bar.getBoundingClientRect().height : 0;
   if(shell && typeof shell.scrollTo==='function' && typeof getComputedStyle==='function' && /auto|scroll/.test(getComputedStyle(shell).overflowY)){
-    const top = shell.scrollTop + content.getBoundingClientRect().top - shell.getBoundingClientRect().top - sticky;
+    const top = shell.scrollTop + target.getBoundingClientRect().top - shell.getBoundingClientRect().top - sticky;
     shell.scrollTo({top:Math.max(0,top),behavior:'auto'});
   }else if(window.scrollTo){
-    const top = (window.scrollY||0) + content.getBoundingClientRect().top - sticky;
+    const top = (window.scrollY||0) + target.getBoundingClientRect().top - sticky;
     window.scrollTo({top:Math.max(0,top),behavior:'auto'});
   }
 }
@@ -841,7 +844,7 @@ function onClick(e){
   }
   const priorContent=document.querySelector('#content');
   try{ fn(el.dataset, el);
-    if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
+    if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(patient-tab|nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
   }
   finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
 }
@@ -1473,7 +1476,7 @@ const ACTIONS = {
     AUDIT.append({actor:AUTH.user?.id||'system',action:'system.bootstrap',entity:'system',entityId:'org',detail:'Organisational structure confirmed'});
     DB.save(); go('home'); toast('Installation ready','Organisational structure confirmed. Create accounts through the approval workflow.','ok');
   },
-  'patient-tab':(d)=>{ go('patient',{id:d.id,tab:d.tab}); },
+  'patient-tab':(d)=>{ go('patient',{id:d.id,tab:d.tab}); revealWorkspace('patient','patient-section-content'); },
   'open-patient':(d)=>{
     const p = repo.patient(AUTH.user,d.id);
     if(!p) return toast('Access denied','This patient is outside your authorised scope. The attempt was logged.','err');

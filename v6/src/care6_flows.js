@@ -1283,7 +1283,7 @@ const ROLE_CTX = {
         requests:'Hospital Referral Oversight', drafts:'Department Clinical Drafts', settings:'Clinical Dept Settings'
       },
       liaison: {
-        home:'Hospital Focal Desk Home', smartflow:'Hospital Escort Smart Workflow', monday:`${cShort} Inpatient Monday Update`,
+        home:'Hospital Focal Desk Home', smartflow:'Hospital Escort Smart Workflow', monday:'Hospital Department Update',
         liaison:'JOOTRH & Facility Queue', requests:'Hospital Visits & Clinic Feedback', recon:'Hospital Receipt Reconciliation',
         patients:'Hospitalised Beneficiaries', drafts:'Hospital Liaison Drafts', calendar:'Outpatient Clinic Bookings',
         messages:'Caregiver & MCM Liaison Inbox', settings:'Hospital Desk Preferences'

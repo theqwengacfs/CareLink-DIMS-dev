@@ -7971,6 +7971,73 @@ html .shell .topbar.cbar .tb-os-identity{
 .monday-assessment-group>summary::-webkit-details-marker{display:none}
 .monday-assessment-group>summary:focus-visible{outline:3px solid #bc2444;outline-offset:-3px}
 
+/* Patient identity and metadata remain legible in narrow workspace columns. */
+.patient-identity,.patient-identity-copy{min-width:0;max-width:100%;}
+.patient-identity-copy{flex:1 1 180px;overflow-wrap:anywhere;}
+.patient-identity-name,.patient-identity-chips{flex-wrap:wrap;}
+.patient-identity-name h2{min-width:0;overflow-wrap:anywhere;}
+.patient-identity-chips .chip{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+.patient-metadata-card{container-type:inline-size;min-width:0;}
+.patient-metadata{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+.patient-metadata dt,.patient-metadata dd{min-width:0;white-space:normal;overflow-wrap:anywhere;}
+@container (max-width:480px){
+ .patient-metadata{grid-template-columns:minmax(0,1fr);gap:4px;}
+ .patient-metadata dt{font-weight:700;margin-top:8px;}
+ .patient-metadata dd{text-align:left;margin-bottom:3px;}
+}
+#patient-section-content{min-width:0;scroll-margin-top:16px;}
+#patient-section-content:focus{outline:none;}
+
+/* Matrix rows adapt to their container, not only to the device viewport. */
+.exec-action-matrix{container-type:inline-size;min-width:0;}
+.exec-action-matrix .tbl-wrap{max-width:100%;}
+.exec-action-matrix table.tbl{min-width:0;table-layout:fixed;}
+.exec-action-matrix th,.exec-action-matrix td{white-space:normal;overflow-wrap:anywhere;}
+.exec-action-matrix th:first-child{width:36%;}
+.exec-action-matrix th:nth-child(2){width:20%;}
+.exec-action-matrix th:nth-child(3){width:15%;}
+.exec-action-matrix th:nth-child(4){width:14%;}
+.exec-action-matrix th:last-child{width:15%;}
+.exec-action-matrix .badge,.exec-action-matrix .btn{max-width:100%;white-space:normal;}
+@container (max-width:640px){
+ .exec-action-matrix table.tbl{display:block;}
+ .exec-action-matrix table.tbl thead{display:none;}
+ .exec-action-matrix table.tbl tbody{display:block;}
+ .exec-action-matrix table.tbl tbody tr{display:block;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;padding:4px 2px;background:var(--surface);}
+ .exec-action-matrix table.tbl td{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 12px;border:0;text-align:right;}
+ .exec-action-matrix table.tbl td::before{content:attr(data-label);flex:0 0 38%;text-align:left;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+ .exec-action-matrix table.tbl td:empty{display:none;}
+ .exec-action-matrix table.tbl td.act{justify-content:flex-end;}
+ .exec-action-matrix table.tbl td.act::before{content:"";}
+}
+
+/* Recognition is a readable list; score interpretation is explained in text. */
+.coins-hero-crest .muted{color:#DCE9F3 !important;}
+.coins-hero-crest h3,.coins-hero-crest .coins-wallet-pill{color:#F8FAFC;}
+.coins-standings{display:grid;gap:10px;container-type:inline-size;min-width:0;}
+.coins-standings .lb-row{display:grid;grid-template-columns:38px 36px minmax(110px,1fr) minmax(70px,180px) auto auto auto;align-items:center;gap:10px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);}
+.coins-standings .lb-row.lb-me{background:color-mix(in srgb,var(--accent) 9%,var(--surface));border-color:var(--accent);}
+.coins-standings .lb-id{display:flex;flex-direction:column;min-width:0;gap:3px;overflow-wrap:anywhere;}
+.coins-standings .lb-id span{font-size:11.5px;color:var(--muted);}
+.coins-standings .lb-rank{font-weight:800;color:var(--accent-fg,var(--ink));text-align:center;}
+.coins-standings .lb-bar{height:7px;overflow:hidden;border-radius:999px;background:var(--surface-2);}
+.coins-standings .lb-bar>span{display:block;height:100%;background:var(--accent);border-radius:inherit;}
+.coins-standings .lb-pct{white-space:nowrap;}
+@container (max-width:600px){
+ .coins-standings .lb-row{grid-template-columns:32px 36px minmax(0,1fr) auto;gap:8px;}
+ .coins-standings .lb-bar{grid-column:3/4;grid-row:2;}
+ .coins-standings .lb-pct{grid-column:4;grid-row:2;}
+ .coins-standings .lb-row>.badge{grid-column:3;grid-row:3;justify-self:start;}
+ .coins-standings .lb-coin-pill{grid-column:4;grid-row:3;justify-self:end;}
+}
+.patient-record-header .card-b>.spread>.row{min-width:0;max-width:100%;}
+.patient-record-header .card-b .btn{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+.patient-metadata .badge{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+#patient-section-content{container-type:inline-size;}
+@container (max-width:600px){
+ #patient-section-content>.grid.g2,#patient-section-content>.grid.g4{grid-template-columns:minmax(0,1fr);}
+}
+
 </style>
 </head>
 <body>
@@ -7980,7 +8047,7 @@ html .shell .topbar.cbar .tb-os-identity{
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,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";
-window.BUILD_STAMP = "2026-11-26 08:34";
+window.BUILD_STAMP = "2026-11-26 09:21";
 </script>
 <script>
 /* ============================================================
@@ -8275,7 +8342,7 @@ const ROLES = [
     scope:{ geo:'county', records:'county' },
     perms:['patient.list','patient.view.basic','patient.view.clinical','patient.assess.create','visit.create','visit.view','pdca.create','pdca.review','media.upload','report.departmental','ai.use', 'condition.view', 'condition.record', 'condition.confirm', 'condition.sensitive', 'care.view', 'care.log', 'care.incident'] },
 
-  { id:'mediahead', name:'Media & Information Governance Head', dept:'media', accent:'#7C3AED', consoleTitle:'Media & Governance',
+  { id:'mediahead', name:'Media & Information Governance Head', dept:'media', accent:'#7C3AED', consoleTitle:'Media & Information Governance',
     scope:{ geo:'global', records:'global', crossCounty:true },
     perms:['media.view','media.consent.manage','media.publish','media.library.manage','policy.manage','kb.manage',
       'patient.list','patient.view.basic','report.departmental','ai.use','system.backup','system.audit'] },
@@ -10711,7 +10778,7 @@ function usageScore(user, db){
   const openPdca = c.openPdcaByOwner[user.id] || 0;
   const parts = [
     { k:'Records registered', w:30, v: mineLen ? Math.min(1, mineLen/Math.max(20, mineLen*0.85)) : 0, note:mineLen+' patients in scope' },
-    { k:'Field documentation', w:25, v: mineLen ? documented/mineLen : 0, note:documented+' of '+mineLen+' verified' },
+    { k:'Field documentation', w:25, v: mineLen ? documented/mineLen : 0, note:documented+' of '+mineLen+' marked verified' },
     { k:'Activity recorded', w:20, v: Math.min(1, visitLen/Math.max(12, mineLen*0.35||1)), note:visitLen+' visits' },
     { k:'Identity completeness', w:15, v: mineLen ? withId/mineLen : 0, note:withId+' national IDs captured' },
     { k:'Follow-up discipline', w:10, v: mineLen ? Math.max(0, 1 - openPdca/Math.max(1,mineLen)) : 0, note:openPdca+' open PDCA' }
@@ -22455,7 +22522,7 @@ const ROLE_CTX = {
         requests:'Hospital Referral Oversight', drafts:'Department Clinical Drafts', settings:'Clinical Dept Settings'
       },
       liaison: {
-        home:'Hospital Focal Desk Home', smartflow:'Hospital Escort Smart Workflow', monday:`${cShort} Inpatient Monday Update`,
+        home:'Hospital Focal Desk Home', smartflow:'Hospital Escort Smart Workflow', monday:'Hospital Department Update',
         liaison:'JOOTRH & Facility Queue', requests:'Hospital Visits & Clinic Feedback', recon:'Hospital Receipt Reconciliation',
         patients:'Hospitalised Beneficiaries', drafts:'Hospital Liaison Drafts', calendar:'Outpatient Clinic Bookings',
         messages:'Caregiver & MCM Liaison Inbox', settings:'Hospital Desk Preferences'
@@ -24050,14 +24117,14 @@ function renderPatient(user, params){
     ['discharge', p.status==='discharged' ? 'Discharge summary' : 'Care & discharge summary']
   ].filter(([k])=>k!=='clinical'||clinical);
 
-  const header = `<div class="card" style="margin-bottom:16px"><div class="card-b">
-    <div class="spread" style="align-items:flex-start;flex-wrap:wrap">
-      <div class="row" style="gap:14px;align-items:flex-start">
+  const header = `<div class="card patient-record-header" style="margin-bottom:16px"><div class="card-b">
+    <div class="spread" style="align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div class="row patient-identity" style="gap:14px;align-items:flex-start">
         <div class="avatar-img" style="width:52px;height:52px;font-size:16px">${initials(p.name)}</div>
-        <div>
-          <div class="row" style="gap:9px"><h2 style="font-size:20px">${esc(p.name)}</h2>${pBadge(p.status)}${CARE_REVIEW.flag(p)}</div>
+        <div class="patient-identity-copy">
+          <div class="row patient-identity-name" style="gap:9px"><h2 style="font-size:20px">${esc(p.name)}</h2>${pBadge(p.status)}${CARE_REVIEW.flag(p)}</div>
           <div class="small muted" style="margin-top:3px">${esc(p.code)} · ${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))} · ${p.sex==='F'?'Female':p.sex==='M'?'Male':'Sex not recorded'}, ${p.age!=null&&p.age!==''?esc(p.age)+'y':'Age not recorded'}</div>
-          <div class="row" style="margin-top:9px;gap:8px">
+          <div class="row patient-identity-chips" style="margin-top:9px;gap:8px">
             <span class="chip">${ic('clock',13)} ${days} days in programme</span>
             <span class="chip">${ic('activity',13)} ${lastVisit? 'Last visit '+fmtDate(lastVisit.date):'No visit recorded'}</span>
             <span class="chip">${ic('userplus',13)} ${esc(userName(p.caregiverId).replace(/^Demo - /,''))}</span>
@@ -24086,12 +24153,16 @@ function renderPatient(user, params){
     : '';
 
   const list = repo.patientList(user,{}).map(x=>({id:x.id,label:x.name}));
-  return `<div class="spread" style="margin-bottom:12px;flex-wrap:wrap;gap:8px"><button class="btn btn-xs btn-ghost" data-act="go" data-v="patients">${ic("back",12)} Patient register</button>${PAGER.record(list,p.id,'patient','id',`data-tab="${esc(tab)}"`,'Patient')}</div>`+header+body+PAGER.tabs(tabs,tab,'patient-tab',`data-id="${p.id}"`);
+  return `<div class="spread" style="margin-bottom:12px;flex-wrap:wrap;gap:8px"><button class="btn btn-xs btn-ghost" data-act="go" data-v="patients">${ic("back",12)} Patient register</button>${PAGER.record(list,p.id,'patient','id',`data-tab="${esc(tab)}"`,'Patient')}</div>`+header+`<section id="patient-section-content" aria-label="${esc((tabs.find(([k])=>k===tab)||['','Patient'])[1])} section">${body}</section>`+PAGER.tabs(tabs,tab,'patient-tab',`data-id="${p.id}"`);
 }
 function patientOverview(user,p){
   const days=PAT.days(p), lv=PAT.lastVisit(p), req=PAT.openRequest(p);
   const pVisits = DB.visitsFor ? DB.visitsFor(p.id) : DB.db.visits.filter(v=>v.patientId===p.id);
   const milestone = days>=180?'180+':days>=120?'120+':days>=100?'100+':days>=60?'60+':'Under 60';
+  const gps=p.gps;
+  const hasGps=gps && gps.lat!=null && gps.lat!=='' && gps.lon!=null && gps.lon!=='' && Number.isFinite(Number(gps.lat)) && Number.isFinite(Number(gps.lon));
+  const accuracy=gps && gps.accuracyM!=null && gps.accuracyM!=='' && Number.isFinite(Number(gps.accuracyM)) && Number(gps.accuracyM)>=0 ? ` (±${esc(gps.accuracyM)}m)` : '';
+  const gpsLabel=hasGps?`${Number(gps.lat).toFixed(5)}, ${Number(gps.lon).toFixed(5)}${accuracy}`:'Not shared';
   return `<div class="grid g4" style="margin-bottom:16px">
       ${kpi('Days in programme', days, `Milestone band ${milestone}`,'',"clock")}
       ${kpi('Visits recorded', pVisits.length, lv?`Last ${fmtDate(lv.date)}`:'-','info','activity')}
@@ -24099,16 +24170,16 @@ function patientOverview(user,p){
       ${kpi('Hospital request', req?titleCase(req.status):'None', req?req.no:'No open request', req?'warn':'','hospital')}
     </div>
     <div class="grid g2">
-      ${card('Beneficiary Enrolment, Anthropometry & Geolocation Metadata', `<dl class="dl">
+      ${card('Beneficiary Enrolment, Anthropometry & Geolocation Metadata', `<dl class="dl patient-metadata">
         <dt>Beneficiary code</dt><dd class="mono">${esc(p.code)}</dd>
         <dt>National ID / Birth Cert</dt><dd class="mono">${esc(p.nationalId||'-')}</dd>
-        <dt>Verified telephone</dt><dd class="mono"><b>${esc(p.phone||'-')}</b></dd>
+        <dt>Telephone</dt><dd class="mono"><b>${esc(p.phone||'-')}</b></dd>
         <dt>SHA / Health cover</dt><dd class="mono">${esc(p.sha||'-')}</dd>
-        <dt>Weight · Height · BMI · MUAC</dt><dd class="mono"><b>${p.clinical?.weightKg||'-'} kg</b> · <b>${p.clinical?.heightCm||'-'} cm</b> · BMI <b>${p.clinical?.bmi||'-'}</b>${p.clinical?.muacCm?` · MUAC <b>${p.clinical.muacCm} cm</b>`:''}</dd>
+        <dt>Weight · Height · BMI · MUAC</dt><dd class="mono"><b>${esc(p.clinical?.weightKg??'-')} kg</b> · <b>${esc(p.clinical?.heightCm??'-')} cm</b> · BMI <b>${esc(p.clinical?.bmi??'-')}</b>${p.clinical?.muacCm!=null?` · MUAC <b>${esc(p.clinical.muacCm)} cm</b>`:''}</dd>
         <dt>Ministry area &amp; county</dt><dd>${esc(areaName(p.areaId))} · ${esc(countyName(p.countyId))}</dd>
         <dt>Village &amp; ward</dt><dd>${esc(p.location?.village||p.village||'-')}${p.location?.ward?' · '+esc(p.location.ward):''}</dd>
-        <dt>Field landmark</dt><dd>${esc(p.location?.landmark||'Recorded on household intake sheet')}</dd>
-        <dt>Household GPS coordinates</dt><dd class="mono">${p.gps?`${(+p.gps.lat).toFixed(5)}, ${(+p.gps.lon).toFixed(5)} (±${p.gps.accuracyM||8}m)`:'Not shared'}</dd>
+        <dt>Field landmark</dt><dd>${esc(p.location?.landmark||'Not recorded')}</dd>
+        <dt>Household GPS coordinates</dt><dd class="mono">${gpsLabel}</dd>
         <dt>Intake date</dt><dd>${fmtDate(p.intake)}</dd>
         <dt>Referral facility</dt><dd>${esc(DB.db.referralEntities.find(e=>e.id===p.referralEntityId)?.name||'Not recorded')}</dd>
         <dt>Assigned caregiver</dt><dd>${esc(userName(p.caregiverId).replace(/^Demo - /,''))}</dd>
@@ -24116,7 +24187,7 @@ function patientOverview(user,p){
         <dt>Informed consent</dt><dd>${badge(titleCase(p.consent?.status||'not requested'), p.consent?.status==='granted'?'b-ok':'b-warn')}</dd>
         ${masterRegistryRows(p)}
       </dl>`,
-        {foot:'<span>100% beneficiary metadata completeness: verified identity, telephone, anthropometry, household GPS coordinates and Administration master workbook columns.</span>'})}
+        {cls:'patient-metadata-card', foot:'<span>Values reflect the current record. Missing fields are shown as not recorded; this display does not certify completeness or verification.</span>'})}
       ${card('Discharge readiness', `<div class="row" style="gap:10px;margin-bottom:12px">${badge(milestone+' day band', days>=180?'b-crit':days>=120?'b-warn':'b-neutral','nodot')}</div>
         <p class="small muted">${days>=180?'This patient has passed 180 days. An approved discharge evaluation with supporting evidence is required - duration alone does not discharge a patient.' : days>=120?'Extension review required. Record the documented reason for continued enrolment.' : 'Within the planned programme duration.'}</p>
         ${p.dischargeRecommendation?`<div class="alert info" style="margin-top:10px">${ic('info',17)}<div><b>Recommendation on file</b><span class="small">${esc(p.dischargeRecommendation.reason||'')} - ${esc(userName(p.dischargeRecommendation.by))}, ${fmtDate(p.dischargeRecommendation.at)}</span></div></div>`:''}
@@ -31205,24 +31276,27 @@ function go(view, params={}){
 /* The desktop pane shell itself scrolls; #content is not the scrollport.
    Reveal the selected workspace in its own scrollport, below the toolbar;
    older layouts without that scrollport use the shell/window fallback. */
-function revealWorkspace(view){
+function revealWorkspace(view,targetId=null){
   const content = document.querySelector && document.querySelector('#content');
   const shell = document.querySelector && document.querySelector('.app.shell.has-pane');
   if(!content || !content.getBoundingClientRect){ if(window.scrollTo) window.scrollTo(0,0); return; }
-  if(content.setAttribute)content.setAttribute('tabindex','-1');
-  if(content.focus)content.focus({preventScroll:true});
+  const requested=targetId && document.getElementById ? document.getElementById(targetId) : null;
+  const focusTarget=requested || content;
+  if(focusTarget.setAttribute)focusTarget.setAttribute('tabindex','-1');
+  if(focusTarget.focus)focusTarget.focus({preventScroll:true});
   if(typeof getComputedStyle==='function'&&/auto|scroll/.test(getComputedStyle(content).overflowY)&&typeof content.scrollTo==='function'){
-    const target=document.getElementById&&document.getElementById('workspaceView');
+    const target=requested || (document.getElementById&&document.getElementById('workspaceView'));
     const top=target?.getBoundingClientRect?content.scrollTop+target.getBoundingClientRect().top-content.getBoundingClientRect().top:0;
     content.scrollTo({top:Math.max(0,top-16),behavior:'auto'});return;
   }
+  const target=requested || content;
   const bar = document.querySelector('.topbar.cbar');
   const sticky = bar && typeof getComputedStyle==='function' && getComputedStyle(bar).position==='sticky' ? bar.getBoundingClientRect().height : 0;
   if(shell && typeof shell.scrollTo==='function' && typeof getComputedStyle==='function' && /auto|scroll/.test(getComputedStyle(shell).overflowY)){
-    const top = shell.scrollTop + content.getBoundingClientRect().top - shell.getBoundingClientRect().top - sticky;
+    const top = shell.scrollTop + target.getBoundingClientRect().top - shell.getBoundingClientRect().top - sticky;
     shell.scrollTo({top:Math.max(0,top),behavior:'auto'});
   }else if(window.scrollTo){
-    const top = (window.scrollY||0) + content.getBoundingClientRect().top - sticky;
+    const top = (window.scrollY||0) + target.getBoundingClientRect().top - sticky;
     window.scrollTo({top:Math.max(0,top),behavior:'auto'});
   }
 }
@@ -31749,7 +31823,7 @@ function onClick(e){
   }
   const priorContent=document.querySelector('#content');
   try{ fn(el.dataset, el);
-    if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
+    if(AUTH.user&&!modalStack.length&&priorContent!==document.querySelector('#content')&&!/^(patient-tab|nav-group|nav-rail|nav-autofold|nav-open|nav-close|toggle-nav|set-pref|wtheme)/.test(act))revealWorkspace(APPX.view);
   }
   finally{ if(COMMITTING.test(act)) setTimeout(()=>{ el.classList.remove('is-busy'); el.removeAttribute('aria-busy'); }, 350); }
 }
@@ -32381,7 +32455,7 @@ const ACTIONS = {
     AUDIT.append({actor:AUTH.user?.id||'system',action:'system.bootstrap',entity:'system',entityId:'org',detail:'Organisational structure confirmed'});
     DB.save(); go('home'); toast('Installation ready','Organisational structure confirmed. Create accounts through the approval workflow.','ok');
   },
-  'patient-tab':(d)=>{ go('patient',{id:d.id,tab:d.tab}); },
+  'patient-tab':(d)=>{ go('patient',{id:d.id,tab:d.tab}); revealWorkspace('patient','patient-section-content'); },
   'open-patient':(d)=>{
     const p = repo.patient(AUTH.user,d.id);
     if(!p) return toast('Access denied','This patient is outside your authorised scope. The attempt was logged.','err');
@@ -34478,11 +34552,11 @@ const PERKS = [
 ];
 
 const BADGE_DETAIL = {
-  Platinum:{ tone:'ok', blurb:'Above 90%: the console is complete and current. Coins at the highest rate; early access to new modules.' },
-  Gold:    { tone:'warn', blurb:'75-89%: strong use. Full library borrowing rights and priority on equipment.' },
-  Silver:  { tone:'neutral', blurb:'60-74%: working well, with gaps in documentation or follow-up.' },
-  Bronze:  { tone:'neutral', blurb:'40-59%: the console is in use but key records are missing.' },
-  Building:{ tone:'crit', blurb:'Below 40%: the score explains exactly what is missing. No penalty beyond the score itself.' }
+  Platinum:{ tone:'ok', blurb:'90% and above on the current usage indicators; review the evidence before interpreting the score.' },
+  Gold:    { tone:'warn', blurb:'75–89% on the current usage indicators; review the evidence before interpreting the score.' },
+  Silver:  { tone:'neutral', blurb:'60–74% on the current usage indicators.' },
+  Bronze:  { tone:'neutral', blurb:'40–59% on the current usage indicators.' },
+  Building:{ tone:'crit', blurb:'Below 40% on the current usage indicators.' }
 };
 
 const CREDITS = {
@@ -34574,10 +34648,10 @@ function renderRecognition(user){
       <div class="coins-hero-meta">
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:4px">
           <span class="badge ${band.tone}">${esc(band.name)} Standing</span>
-          <span class="badge b-info nodot">Rank #${myRank || 1} of ${board.length}</span>
+          <span class="badge b-info nodot">${myRank?`Rank #${myRank} of ${board.length}`:'Not in current standings'}</span>
         </div>
         <h3>${esc(user.name.replace(/^Demo - /,''))}</h3>
-        <p class="small muted" style="margin:2px 0 8px">${esc((BADGE_DETAIL[band.name]||{}).blurb||'Verified field & console excellence.')}</p>
+        <p class="small muted" style="margin:2px 0 8px">${esc((BADGE_DETAIL[band.name]||{}).blurb||'Review the available usage indicators and their evidence.')}</p>
         <div class="row" style="gap:10px;flex-wrap:wrap">
           <span class="coins-wallet-pill">${ic('sparkles',14)} <b>${num(bal.balance)}</b> C-DIMS Coins Available</span>
           <span class="xs muted">Earned <b>${num(bal.awarded)}</b> · Redeemed <b>${num(bal.spent)}</b> · <b>${affordableCount}/${PERKS.length}</b> perks unlocked</span>
@@ -34605,16 +34679,16 @@ function renderRecognition(user){
   const formulaCard = card('Transparent 5-Pillar Score Evidence & Monthly Coin Rate', `<div class="grid g2" style="gap:16px;align-items:center">
       <div class="sc-parts">${breakdown}</div>
       <div class="col" style="gap:10px">
-        <div class="note">${ic('shieldcheck',16)}<span><b>100% Evidence-Driven Formula:</b> Every point is computed directly from verified work in CareLink — patient registrations, hard-copy verification, longitudinal visits, national IDs, and 30-day PDCA timeliness.</span></div>
+        <div class="note">${ic('shieldcheck',16)}<span><b>How the current score is calculated:</b> It uses caregiver-assigned or county patient counts and documentation flags, visits attributed to the user, identity entries and open PDCAs owned by the user. It does not independently verify accuracy, timeliness, effectiveness or efficiency. Scores may reflect different workloads and the records available to this account; review the evidence before comparing people or making employment decisions.</span></div>
         ${bal.events.length ? table([
           {label:'Date', render:e=>`<span class="xs mono">${esc((e.at||'').replace('T',' ').slice(0,16))}</span>`},
           {label:'Recognition Event', render:e=>esc(e.reason)},
           {label:'Coins', cls:'num mono', render:e=>`<b style="color:${e.delta>0?'var(--ok)':'var(--crit)'}">${e.delta>0?'+':''}${e.delta}</b>`}
         ], bal.events.slice(0,6)) : `<div class="xs muted">Monthly coin closures &amp; reward redemptions appear here automatically.</div>`}
       </div>
-    </div>`, {sub:'Identical objective formula across every county office and role.'});
+    </div>`, {sub:'The same formula is used for different roles, but the available records and workloads may differ.'});
 
-  const leaderboardCard = card('Laureate Podium & Verified Staff Standings', (()=>{
+  const leaderboardCard = card('Laureate Podium & Staff Standings', (()=>{
       const top3 = board.slice(0,3);
       const podiumOrder = top3.length>=3 ? [top3[1], top3[0], top3[2]] : top3;
       const medalMeta = rank => rank===1
@@ -34643,7 +34717,7 @@ function renderRecognition(user){
           </div>`;
         }).join('')}
       </div>` : '';
-      return podiumHtml + `<div class="lb" style="margin-top:14px">
+      return podiumHtml + `<div class="coins-standings" aria-label="Staff standings" style="margin-top:14px">
         ${board.slice(0,12).map((b,i)=>{
           const uCoins = CREDITS.earned(b.u).balance;
           const uBand = scoreBand(b.s.score);
@@ -34658,7 +34732,7 @@ function renderRecognition(user){
           </div>`;
         }).join('')}
       </div>`;
-    })(), {sub:'Scored objectively from verified system records — refreshed automatically & sealed at monthly close.'});
+    })(), {sub:'Top 12 of the current standings from records available to this account; scores are not a verified measure of staff performance.'});
 
   const perksCard = card('Foundation Rewards & Equipment Perks Catalogue', `<div class="perks perks-grid">
       ${PERKS.map((p,idx)=>{
@@ -34699,8 +34773,8 @@ function renderRecognition(user){
       }).join('')}
     </div>`, {sub:'C-DIMS Coins unlock supervised Foundation equipment loans & staff recognition perks — never access to patient records.'});
 
-  return pageHead('C-DIMS coins & staff recognition',
-    'Transparent data-completeness recognition, objective 5-pillar scoring, symmetrical standings, and Foundation equipment rewards.',
+  return pageHead('Foundation C-DIMS Coins & staff recognition',
+    'Recognition encourages accurate, timely, effective, efficient and disciplined use of CareLink. The current score is a limited record-based indicator, not a complete performance assessment.',
     `<div class="row" style="gap:8px;flex-wrap:wrap">
       ${RBAC.has(user,'hr.view')||RBAC.has(user,'credit.manage')?`<button class="btn btn-sm btn-ghost" data-act="go" data-v="evaluation">${ic('users',14)} Staff Evaluation Matrix</button>`:''}
       ${RBAC.has(user,'credit.manage')?`<button class="btn btn-sm btn-primary" data-act="coins-run">${ic('sparkles',15)} Close Monthly Cycle</button>`:''}
@@ -34982,14 +35056,14 @@ function renderExecConsole(user){
     </div>` : emptyState('No agenda open','The Country Director has not published the next agenda.','calendar'));
 
   const actionsCard = card(`Executive Action & Follow-Up Matrix (${openActions.length} open · ${doneActions.length} completed)`,
-    allActions.length ? table([
+    allActions.length ? `<div class="exec-action-matrix">${table([
       { label:'Action Item', render:a=>`<div class="cellname">${esc(a.text)}<span class="sm">${esc(a.meeting)}</span></div>` },
       { label:'Lead Owner', render:a=>`<span class="small">${esc(userName(a.owner)||'-')}</span>` },
       { label:'Due Date', cls:'mono', render:a=>fmtDate(a.due) },
       { label:'Status', render:a=>(a.done||a.status==='done') ? badge('Completed','b-ok') : badge(a.priority==='high'?'Urgent Open':'Open','b-warn') },
       { label:'', cls:'act', render:a=>(!a.done && a.status!=='done' && RBAC.has(user,'exec.manage'))
         ? `<button class="btn btn-xs btn-primary" data-act="exec-done" data-m="${esc(a.meetingId)}" data-i="${a.actionIdx}">Mark done</button>` : '' }
-    ], sheet==='actions' ? allActions : openActions.concat(doneActions.slice(0,2))) : emptyState('Every action is closed','Nothing is outstanding from executive sittings.','check'));
+    ], sheet==='actions' ? allActions : openActions.concat(doneActions.slice(0,2)))}</div>` : emptyState('Every action is closed','Nothing is outstanding from executive sittings.','check'));
 
   const archiveCards = meetings.map(m=>card(`${esc(m.title)} · ${fmtDate(m.date)}`,
     `<div class="exec-meta-strip">
@@ -54014,6 +54088,6 @@ Object.assign(FORMS,{
   });
 })();
 </script>
-<!-- Build 2026-11-26 08:34 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-11-26 09:21 · CareLink C-DIMS v6.9.6 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
