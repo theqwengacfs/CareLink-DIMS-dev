@@ -1,7 +1,7 @@
 # LOMAMO LOMAMO C-DIMS — LOMAMO C-DIMS
 
 **Data & Information Management System for LOMAMO Foundation Kenya** (Love Matters Most)
-Kisumu & Homa Bay County Offices · version 6.9.6 · schema 6
+Kisumu & Homa Bay County Offices · version 6.9.7 · schema 6
 
 One operating system for the whole Foundation: patient registration and the
 assessment pipeline, home visits and PDCA follow-up, hospital coordination,
@@ -251,6 +251,25 @@ are offered on the installed icon: Home, Patients, Monday meeting and Report
 centre. When a new build reaches a device that has the app open, a strip says a
 newer version is ready and offers **Reload**; nothing reloads under a half-typed
 form without being asked.
+
+### What the planning year is, on every document
+
+The Foundation plans in a **52-week year of Monday–Friday working days**, so
+reports are labelled the way the Monday meeting reads them: *"Week 48 of 2026 ·
+Monday 16 Nov 2026 – Friday 20 Nov 2026 · Africa/Nairobi"*. Weekly reports
+(`Weekly Planning Indicators`, `Patient Figures`, `Patient-Days`, `Home Visits`)
+carry that label; expenditure, referral, quality, hospital-operations and
+condition reports are filed by month; the executive and donor summaries by
+quarter. Every printed report also names the person **and the department** that
+issued it. The label stays marked *(provisional)* until the Foundation confirms
+its official 52-week boundary rule. `v6/test/report-period-labels.js` covers it.
+
+### Where the prompt audit lives
+
+The Foundation's verbatim prompt set, and the per-line verdicts against the code,
+are kept in [`docs/audit/`](docs/audit/): `PROMPT-SOURCE-OF-TRUTH.md` records what
+was actually asked, and `PROMPT-AUDIT-001.md` records what is captured, partial,
+not captured or blocked, with the evidence for each.
 
 ### The weekly planning page
 

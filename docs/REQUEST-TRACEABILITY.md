@@ -1,5 +1,12 @@
 # Request traceability — subsequent 16-point request
 
+> **Superseded for source wording.** The verbatim prompt set was supplied on
+> 26 November 2026 and is recorded in [audit/PROMPT-SOURCE-OF-TRUTH.md](audit/PROMPT-SOURCE-OF-TRUTH.md),
+> with per-line verdicts in [audit/PROMPT-AUDIT-001.md](audit/PROMPT-AUDIT-001.md).
+> The audit covers roughly 68 requirements across four prompt batches; this table
+> remains only as the earlier 16-line reconstruction and must not be used as the
+> master index.
+
 This is a **reconstructed checklist**, not a verbatim copy of the original prompt. The original 16 numbered lines are not present in the available conversation context. Number ranges below reflect the retained summary; where that summary grouped lines, their individual wording and ordering cannot be verified. The user asked for line-by-line capture: obtain the original text and reconcile it before calling this list complete. Do not invent missing requirements or claim this file proves completion.
 
 | Retained reference | Requirement captured from the available context | Status and evidence |

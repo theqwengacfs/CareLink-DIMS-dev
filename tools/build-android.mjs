@@ -12,7 +12,7 @@
  *   node tools/build-android.mjs
  *
  * Environment overrides:
- *   CARELINK_APP_VERSION_NAME  (default: 6.9.6)
+ *   CARELINK_APP_VERSION_NAME  (default: 6.9.7)
  *   CARELINK_APP_VERSION_CODE  (default: 696)
  *   CARELINK_MANIFEST_URL      (default: live Vercel manifest)
  *   CARELINK_ANDROID_DIR       (default: ./android)
@@ -39,7 +39,7 @@ const ANDROID_DIR = path.resolve(
   REPO_ROOT,
   process.env.CARELINK_ANDROID_DIR || 'android',
 );
-const APP_VERSION_NAME = process.env.CARELINK_APP_VERSION_NAME || '6.9.6';
+const APP_VERSION_NAME = process.env.CARELINK_APP_VERSION_NAME || '6.9.7';
 const APP_VERSION_CODE = Number(process.env.CARELINK_APP_VERSION_CODE || 696);
 const PACKAGE_ID = 'com.lomamo.carelink';
 const KEYSTORE_FILE = 'android.keystore';

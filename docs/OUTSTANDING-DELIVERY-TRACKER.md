@@ -1,5 +1,11 @@
 # Outstanding delivery tracker
 
+> **Prompt source now available.** The verbatim prompt set was supplied on
+> 26 November 2026. See [audit/PROMPT-SOURCE-OF-TRUTH.md](audit/PROMPT-SOURCE-OF-TRUTH.md)
+> for provenance and [audit/PROMPT-AUDIT-001.md](audit/PROMPT-AUDIT-001.md) for the
+> per-line reconciliation against revision `347122a` (~68 requirements: 3 captured,
+> 44 partial, 6 not captured, 10 blocked or needing an external decision, 4 unverified).
+
 This tracker records known outstanding work; it is **not** proof of completion, clinical approval or production readiness. It is based on repository documentation and the partial 18-part cross-system audit in [draft PR #75](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/75), [audit at reviewed revision `231adc77`](https://github.com/theqwengacfs/CareLink-DIMS-dev/blob/231adc77f6265fc3a4815a262bfeefe4d4995646/docs/CROSS_SYSTEM_IMPROVEMENTS_WORK_IN_PROGRESS.md). The original prompts from other sessions were not available for a word-for-word comparison. Re-check the PR and original instructions before closing any item; another branch or a preview deployment is not evidence that a feature is on production.
 
 ## Safety and release rules
