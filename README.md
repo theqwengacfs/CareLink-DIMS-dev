@@ -284,6 +284,15 @@ New suites: `public-statistics-governance` (20), `scoped-announcements` (37),
 `scripture-registry` (36), `devotion-fairness` (12), `workspace-tab-reveal` (14) —
 all in `npm run test:all`.
 
+### What is pending on your side
+
+A single running list lives in [docs/PENDING-ON-YOUR-SIDE.md](docs/PENDING-ON-YOUR-SIDE.md):
+the three decisions only the Foundation can make (52-week rule, 4,444-patient
+reconciliation, 16→11 departments), the physical and account acceptance that only a
+person can perform (real devices, a real printer, a real stylus, a real network going
+down), the licences and suppliers still to be engaged, and the checks that must run
+through an approved private process. Each line names the requirement it blocks.
+
 ### Where the prompt audit lives
 
 The Foundation's verbatim prompt set, and the per-line verdicts against the code,
