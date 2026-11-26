@@ -70,6 +70,24 @@ segmented controls and tabs cross-fade colour. Every rule is dropped for
 and under `@media print`; nothing animates width, height, margin, padding or font
 size.
 
+**Measured effect.** On the 6.9.7 screenshots the coloured card ended at ~835px
+in a 1599px-wide 1600×900 capture, with the tab row at ~593–620px and the
+`Layout` chip at ~643–680px painted inside it. The card is now `18px 22px 14px`
+(16px shorter than the `26px 28px 22px` that was winning the cascade) and the
+strip sits below it, so the gradient ends on the divider under the copy and the
+whole banner region is roughly a quarter shorter. The strip keeps a 10px gap.
+
+**Deployed and verified.** PR #87 → `931e192`; PR #88 → `639d712` (edge cache).
+`GET /api/health` (bare path), `/api/bootstrap`, `/api/rev`, `/api/public/statistics`
+and the served `carelink-v6.html?v=6.10.0` all report **6.10.0** on
+`care-link-dims-dev-three.vercel.app`; GitHub Pages build `built @ 639d712`;
+Vercel commit status `success`. One wrinkle worth recording: after #87 the bare
+`/api/health` kept answering `6.9.9` from a stale Vercel edge object while every
+other route (and the same route with any query string) reported 6.10.0, so the
+`/api/(.*)` rule now also sends `CDN-Cache-Control: no-store` and
+`Vercel-CDN-Cache-Control: no-store`. If a bare probe ever disagrees with
+`/api/bootstrap` again, the probe is cached, not the deployment.
+
 **Checks.** `v6100-banner-height-motion-and-scheme-coherence` (25 checks) pins the
 card boundary in real rendered markup for every account, the strip's placement,
 the signature-derived palette, the eight schemes' contrast, and each motion guard.
