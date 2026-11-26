@@ -1002,7 +1002,7 @@ function patientDocuments(user,p){
     {label:'Uploaded',render:d=>`${fmtDate(d.uploadedAt)}<span class="xs muted"> ${esc(userName(d.uploadedBy).replace(/^Demo - /,''))}</span>`},
     {label:'Consent',render:d=>badge(titleCase(d.consent||p.consent.status), (d.consent||p.consent.status)==='granted'?'b-ok':'b-warn')},
     {label:'Publication',render:d=>badge(titleCase(d.publication), d.publication==='approved'?'b-ok':d.publication==='rejected'?'b-crit':'b-neutral')},
-    {label:'File',render:d=>d.fileStored?badge('Stored','b-ok'):badge('No file','b-warn')},
+    {label:'File',render:d=>d.fileStored?badge('Legacy reference','b-warn'):badge('No file recorded','b-warn')},
     {label:'',cls:'act',render:d=>d.restricted?badge('Restricted','b-dark'):`<button class="btn btn-xs btn-ghost" data-act="view-doc" data-id="${d.id}">View</button>`}
   ], docs, {empty:emptyState('No documents','Upload the signed form, CCC card or supporting evidence.','upload')}),
     {foot:`<span>${ic('shield',13)} Document access is classified. A clinical record is not automatically a media asset.</span>`,

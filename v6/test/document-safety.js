@@ -1,0 +1,38 @@
+/* Synthetic-only document UI and receipt checks; no real file service. */
+const assert=require('node:assert/strict');
+const {makeCtx}=require('./dom');
+const {run}=makeCtx();
+(async()=>{
+ run(`DB.load();DB.seedDemo();AUTH.user=DB.db.users.find(u=>u.roleId==='caregiver');
+  globalThis.documentNotices=[];globalThis.requestCount=0;
+  toast=(...args)=>documentNotices.push(args);openModal=(value)=>documentNotices.push(value);
+  fetch=async()=>{requestCount++;throw Error('Unexpected file request')};
+ `);
+ assert.equal(run('FILEVAULT.available()'),false);
+ const before=run('DB.db.documents.length');
+ await run(`FORMS.upload(new FormData())`);
+ assert.equal(run('DB.db.documents.length'),before,'unavailable upload must not create metadata');
+ run(`ACTIONS['upload-doc']({patient:'synthetic'})`);
+ assert.match(run('documentNotices.at(-1).body'),/does not enforce document-level permissions or scan uploads/);
+ const result=await run(`FILEVAULT.store({size:4,arrayBuffer:async()=>new ArrayBuffer(4)},{})`);
+ assert.equal(result.ok,false);
+ const beforeAudit=run('DB.db.audit.length');
+ run(`repo.documents=()=>[{id:'synthetic-doc',fileId:'synthetic-file',fileStored:true,kind:'clinical',classification:'clinical',patientId:'synthetic-patient'}]`);
+ await run(`ACTIONS['open-stored-file']({id:'synthetic-file'})`);
+ assert.equal(run('DB.db.audit.length'),beforeAudit,'failed access must not be logged as a successful open');
+ run(`ACTIONS['view-doc']({id:'out-of-scope'})`);
+ assert.equal(run('documentNotices.at(-1)[0]'),'Not available');
+ run(`ACTIONS['view-doc']({id:'synthetic-doc'})`);
+ assert.match(run('documentNotices.at(-1).body'),/Legacy file reference/);
+ assert.doesNotMatch(run('documentNotices.at(-1).body'),/File held by the shared online service/);
+ assert.equal(run('requestCount'),0);
+ run(`location.protocol='https:';SYNC.sessionToken='synthetic-session';bytesToBase64=()=> 'AAAAAA==';
+  FILEVAULT.digest=async()=> 'a'.repeat(64);
+  globalThis.mockFile={name:'synthetic.pdf',type:'application/pdf',size:4,arrayBuffer:async()=>new ArrayBuffer(4)};
+  fetch=async()=>({ok:true,json:async()=>({ok:true,id:'synthetic-file',bytes:4,sha256:'b'.repeat(64)})});`);
+ const badReceipt=await run('FILEVAULT.store(mockFile)');
+ assert.equal(badReceipt.ok,false);assert.match(badReceipt.msg,/outcome is unknown/);
+ run(`fetch=async()=>({ok:true,json:async()=>({ok:true,id:'synthetic-file',bytes:4,sha256:'a'.repeat(64)})});`);
+ const goodReceipt=await run('FILEVAULT.store(mockFile)');assert.equal(goodReceipt.ok,true);
+ console.log('Document safety passed: legacy warnings, scoped metadata, no false access audit, confirmed receipts and no fake records.');
+})().catch(e=>{console.error(e);process.exitCode=1});

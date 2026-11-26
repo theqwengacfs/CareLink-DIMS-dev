@@ -1975,7 +1975,7 @@ Requested by ${esc(userName(r.requestedBy))}</pre>
 
 function openUploadModal(patientId){
   openModal({title:'Upload patient document', sub:'Documents are classified. A clinical record is not a media asset.',
-    body:`<form data-form="upload" id="upForm">
+    body:`<div class="alert warn" style="margin-bottom:12px">${ic('alert',16)}<div><b>Secure sharing is not configured.</b><span>The legacy standalone file service does not enforce document-level permissions or scan uploads; signed-in users may be able to access files outside their scope. The hosted service does not support file uploads. Use an approved secure procedure for sensitive documents.</span></div></div><form data-form="upload" id="upForm">
       ${field('Patient','patientId','select',{value:patientId,required:true,options:repo.patientList(AUTH.user).map(p=>({v:p.id,l:p.name+' · '+p.code}))})}
       ${field('Document type','kind','select',{options:[
         {v:'assessment_form',l:'Signed assessment form'},{v:'ccc_card',l:'CCC clinic card'},{v:'hospital_record',l:'Hospital record'},
@@ -1983,7 +1983,7 @@ function openUploadModal(patientId){
       ${field('Classification','classification','select',{options:[
         {v:'clinical',l:'Clinical record'},{v:'identification',l:'Identification document'},{v:'hospital',l:'Hospital document'},
         {v:'internal_photo',l:'Internal patient photograph'},{v:'story_material',l:'Potential storytelling material'},{v:'restricted',l:'Restricted confidential attachment'}]})}
-      ${field('File','file','file',{hint:'The file is stored by the shared online service with a SHA-256 digest. It is not kept only in the browser.',accept:'.pdf,.jpg,.jpeg,.png,.docx,.xlsx'})}
+      ${field('File','file','file',{hint:'The hosted service cannot store this file. The legacy standalone store is not an approved secure sharing service.',accept:'.pdf,.jpg,.jpeg,.png,.docx,.xlsx'})}
       ${field('Consent confirmed for intended use','consent','checkbox',{})}
       ${field('Restrict to clinical roles','restricted','checkbox',{})}
     </form>`,
@@ -2156,16 +2156,17 @@ function mediaActions(){ return {
     DB.save(); toast('Publication declined','','warn'); render();
   },
   'view-doc':(d)=>{
-    const doc=DB.db.documents.find(x=>x.id===d.id);
+    const doc=repo.documents(AUTH.user).find(x=>x.id===d.id);
+    if(!doc) return toast('Not available','This document is not available in your current scope.','err');
     const p=DB.db.patients.find(x=>x.id===doc.patientId);
     if(doc.restricted && !RBAC.has(AUTH.user,'patient.view.clinical')) return toast('Restricted','This attachment requires clinical authority.','err');
-    const retention=doc.retention? RETENTION_BY_ID[doc.retention]:RETENTION_FOR_CLASS[doc.classification];
+    const retention=RETENTION_BY_ID[doc.retention || RETENTION_FOR_CLASS[doc.classification]] || RETENTION_BY_ID.standard;
     const stored=doc.fileStored && doc.fileId;
     openModal({title:titleCase(doc.kind), sub:(p?.name||'')+' · '+titleCase(doc.classification), body:`
-      ${stored?`<div class="alert ok" style="margin-bottom:10px">${ic('check',16)}<div><b>File held by the shared online service</b>
-        <span class="small">${esc(doc.fileName||'Document')} · ${num(Math.round((doc.fileBytes||0)/1024))} KB · SHA-256 ${esc(String(doc.fileSha||'').slice(0,24))}…</span></div></div>`
-      :`<div class="alert warn" style="margin-bottom:10px">${ic('alert',16)}<div><b>No file is attached to this record</b>
-        <span class="small">The document record exists, but the bytes were never stored. Upload the file again.</span></div></div>`}
+      ${stored?`<div class="alert warn" style="margin-bottom:10px">${ic('alert',16)}<div><b>Legacy file reference</b>
+        <span class="small">${esc(doc.fileName||'Document')} · ${num(Math.round((doc.fileBytes||0)/1024))} KB. The file’s current availability and security have not been verified. The legacy file service does not enforce document-level permissions.</span></div></div>`
+      :`<div class="alert warn" style="margin-bottom:10px">${ic('alert',16)}<div><b>No stored file is recorded</b>
+        <span class="small">This metadata does not establish that a file is available. Secure upload is not yet configured.</span></div></div>`}
       <dl class="dl">
         <dt>Uploaded</dt><dd>${fmtDate(doc.uploadedAt)} · ${esc(userName(doc.uploadedBy).replace(/^Demo - /,''))}</dd>
         <dt>Classification</dt><dd>${esc(titleCase(doc.classification))}</dd>
@@ -2173,14 +2174,17 @@ function mediaActions(){ return {
         <dt>Retention note</dt><dd>${esc(retention.note)}</dd>
         <dt>Consent</dt><dd>${esc(titleCase(doc.consent||p?.consent?.status||'pending'))}</dd>
       </dl>
-      <div class="note" style="margin-top:12px">${ic('lock',14)}<span>Opening the file is recorded in the audit trail. A restricted clinical image is never served to a role without clinical authority.</span></div>`,
+      <div class="note" style="margin-top:12px">${ic('lock',14)}<span>This is a metadata view, not a verified file-access audit. Secure document storage and sharing are not yet available.</span></div>`,
       footer:`<button class="btn btn-ghost" data-act="close-modal">Close</button>
         ${stored&&FILEVAULT.available()?`<button class="btn btn-primary" data-act="open-stored-file" data-id="${esc(doc.fileId)}">Open the file</button>`:''}`});
     AUDIT.append({actor:AUTH.user.id,action:'document.viewed',entity:'document',entityId:doc.id,detail:titleCase(doc.kind)}); DB.save();
   },
-  'open-stored-file':(d)=>{
-    FILEVAULT.open(d.id).then(r=>{ if(!r.ok) toast('Not opened',r.msg,'err'); });
-    AUDIT.append({actor:AUTH.user.id,action:'document.file_opened',entity:'file',entityId:d.id,detail:'Stored document opened'});
+  'open-stored-file':async (d)=>{
+    const doc=repo.documents(AUTH.user).find(x=>x.fileId===d.id);
+    if(!doc || (doc.restricted && !RBAC.has(AUTH.user,'patient.view.clinical'))) return toast('Not available','This document is not available in your current scope.','err');
+    const result=await FILEVAULT.open(d.id);
+    if(!result.ok) return toast('Not opened',result.msg,'err');
+    AUDIT.append({actor:AUTH.user.id,action:'document.file_download_started',entity:'file',entityId:d.id,detail:'File download initiated in this browser'});
     DB.save();
   },
   'edit-consent':(d)=>{
@@ -2931,32 +2935,31 @@ const FORMS = {
   'request':()=>{},
   'newpdca':()=>{},
   'upload':async (d)=>{
-    const pid=d.get('patientId'); const p=DB.db.patients.find(x=>x.id===pid);
+    if(!FILEVAULT.available()) return toast('Upload unavailable',FILEVAULT.unavailableMessage,'err');
+    const pid=d.get('patientId'); const p=repo.patientList(AUTH.user).find(x=>x.id===pid);
+    if(!p || !RBAC.has(AUTH.user,'media.upload')) return toast('Not available','This patient or upload action is not available in your current scope.','err');
     const file=d.get('file');
     const doc={id:uid('doc'),patientId:pid,kind:d.get('kind'),classification:d.get('classification'),
-      uploadedBy:AUTH.user.id,uploadedAt:todayISO(),consent:p?.consent.status||'pending',
+      uploadedBy:AUTH.user.id,uploadedAt:todayISO(),consent:p?.consent?.status||'pending',
       publication:d.get('classification')==='story_material'?'pending_review':'not_eligible',
       restricted:!!d.get('restricted'),demo:false,fileStored:false};
     const hasFile=file && typeof file==='object' && file.size>0;
+    if(!hasFile) return toast('No file selected','Choose a file; no document record was saved.','warn');
     if(hasFile){
       const r=await FILEVAULT.store(file,{patientId:pid,kind:d.get('kind'),classification:d.get('classification'),
         note:d.get('note')||''});
       if(r.ok){ doc.fileStored=true; doc.fileId=r.id; doc.fileName=r.name; doc.fileBytes=r.bytes; doc.fileSha=r.sha256; doc.retention=r.retention; }
       else {
-        /* The metadata is kept, but the record must not claim the file exists. */
-        DB.db.documents.push(doc);
-        AUDIT.append({actor:AUTH.user.id,action:'document.upload_failed',entity:'patient',entityId:pid,detail:r.msg});
-        DB.save(); closeModal();
-        toast('Document recorded without its file', r.msg+' The record is marked as having no stored file.','err');
-        render(); return;
+        /* A rejected or unknown-outcome upload is not a saved document.
+           Do not create a misleading metadata row or silently retry. */
+        return toast('Upload not confirmed',r.msg+' No document record was saved. If the connection failed, check with the host administrator before retrying.','err');
       }
     }
     DB.db.documents.push(doc);
     AUDIT.append({actor:AUTH.user.id,action:'document.uploaded',entity:'patient',entityId:pid,
       detail:titleCase(d.get('kind'))+(doc.fileStored?` · file ${doc.fileName} · ${doc.fileBytes} bytes · sha ${String(doc.fileSha||'').slice(0,12)}`:' · no file attached')});
     DB.save(); closeModal();
-    toast('Document uploaded', doc.fileStored?'The file is stored on the host with its digest and retention class.'
-      :'The record was saved without a file. Choose a file next time, or attach it from the documents tab.','ok');
+    toast('File accepted by legacy host','The host returned a file receipt. Document metadata may still be pending synchronization; secure sharing is not configured.','warn');
     render();
   },
   'recon':()=>{},
