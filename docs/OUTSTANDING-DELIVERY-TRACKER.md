@@ -1,0 +1,50 @@
+# Outstanding delivery tracker
+
+This tracker records known outstanding work; it is **not** proof of completion, clinical approval or production readiness. It is based on repository documentation and the partial 18-part cross-system audit in [draft PR #75](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/75), [audit at reviewed revision `231adc77`](https://github.com/theqwengacfs/CareLink-DIMS-dev/blob/231adc77f6265fc3a4815a262bfeefe4d4995646/docs/CROSS_SYSTEM_IMPROVEMENTS_WORK_IN_PROGRESS.md). The original prompts from other sessions were not available for a word-for-word comparison. Re-check the PR and original instructions before closing any item; another branch or a preview deployment is not evidence that a feature is on production.
+
+## Safety and release rules
+
+- Do not deploy draft PR #75 as a completed upgrade. Its held-work review, quality waiver safeguard, report printing, cycle manifest and other changes are partial and not merged into main at the time this tracker was written.
+- Hosted offline clinical login is not approved or enabled. The legacy outbox is unencrypted and can lose refused work or falsely acknowledge partially rejected work. Do not rely on it for secure or durable clinical work. Do not clear browser storage, reset/recommission the shared installation, seed production, or delete held work as a shortcut.
+- Every clinical/data-access change requires server-side authorization and scope, synthetic security and regression tests, plus clinical/privacy review as appropriate. Never infer approval, consent, signatures, paper delivery or historical facts from a UI action.
+- Do not publish real patient information, private organizational documents or credentials in this public repository. Real-data verification uses an approved private process.
+- Release only individually reviewed, tested and authorized changes; keep unmet items open. A passing build or Vercel preview is not clinical, security, privacy or physical-device acceptance.
+
+## Cross-system upgrade — all open or partial
+
+Numbers follow the draft PR audit, not an assertion that the original prompts have been recovered.
+
+1. **Quality and evidence — partial.** Design private, per-record authorized evidence attachments, validation, malware scanning, retention, redaction, access audit and deletion. Complete global quality/export certification rules. Review and replace legacy free-text waivers with scoped, versioned, server-owned decisions; review other free-text and historical audit records. In draft PR #75 shared legacy waivers are deliberately withheld, not migrated or deleted.
+2. **Monday decisions — open.** Record acceptance/on hold/not accepted, MCM-confirmed individual period and decision date, assignment and conditional progression; enforce existing enrollment authority, versioning, history, notifications and scope.
+3. **Caregiver plan — open.** Add structured plan items, item details, assignment, escalation and MCM-confirmed duration. Fixed reflection prompts in the draft are not trained clinical AI. A model trained on clinical records needs approved sources, lawful processing and independent clinical/privacy/security review.
+4. **Month boundaries — partial in draft.** Confirm rules and implement properly authorized monthly commitments and forecasts; current guidance/segmentation is not a purchase or automatic allocation.
+5. **Handwriting — open.** Design stylus input, approved recognition, proofing and original-stroke provenance; do not represent typing or pasted images as verified signatures.
+6. **Performance — open.** Define metrics and benchmark representative authorized workloads on target devices without weakening permissions or durability.
+7. **Announcements — open.** Define authorized recipients, privacy, delivery/read states, quiet hours, accessible opt-in sound/highlighting and offline behavior.
+8. **Icons — open.** Audit context and consistency for all authorized roles, views and supported devices.
+9. **Care-cycle drawer/archive — partial in draft.** Replace the live scoped source-count manifest with a complete, immutable, correctly attributed cycle file and append-only access audit; design scoped notifications without expanding clinical access.
+10. **International medical workspace — partial.** Existing authorized PDCA sharing and line discussions do not constitute the complete workspace. Define and enforce its approved scope.
+11. **Referral and Care Cycle File — open.** Gather linked sources with correct attribution; define audience, consent, purpose, redaction, provenance and legally reviewed, scoped audited export. Do not default patient data to public.
+12. **PDCA formats and individual period — partial in draft.** Review normal/extended formatting and transitions; implement the MCM-confirmed individual period without bypassing the existing clinical authorization chain.
+13. **Search and AI — open.** Specify coverage, per-record permission checks, freshness, audit, evaluation and approved processing. Do not expose unshared records or make unverified medical claims.
+14. **Device layouts — partial in draft.** Complete role-by-role PC, tablet, phone, zoom, keyboard and assistive-technology acceptance; sampled synthetic browser coverage is not universal device acceptance.
+15. **PWA and sync — open.** Select managed-device proof and trusted 24-hour expiry; implement an encrypted scoped vault, safe command policy, isolated durable queues, idempotent receipts, atomic acknowledgements, conflict recovery, integrity-protected audit, revocation and real-device tests. Draft PR #75 has partial fail-closed handling, not complete sync recovery. See [offline security requirements](OFFLINE_SECURITY_REQUIREMENTS.md).
+16. **Pane behavior — partial in draft.** Verify touch, keyboard and browser behavior, preferences and navigation on supported devices.
+17. **Pane role audit — open.** Obtain the approved account/role list and ensure an authorized alternative exists before hiding any destination.
+18. **Policy-card overlap — partial in draft.** Complete global rendered visual audit and physical-device acceptance, beyond the tested template.
+
+## Additional outstanding items
+
+- **Official calendar and weeks:** obtain the organization's observances, Monday/Friday times and 52-week boundary rule; design archive-key migration before replacing provisional labels. See [planning work](PLANNING_AND_PDCA_WORK_IN_PROGRESS.md) and [devotions](DEVOTIONS-AND-ROSTER.md).
+- **Minutes and roster:** obtain and integrate the official minutes template; plan preservation/migration of the device-only ledger. Design shared-devotion amendments, post-minutes substitutions and staff-change roster handling. Do not assume attendance or historic devotion completion.
+- **Late paper receipts:** establish an auditable correction/late-addition process after a Monday draw. Physical receipt confirmation is an attestation, not independent proof.
+- **Clinical forms:** obtain the missing discharge source page 2, secure field-by-field professional sign-off, resolve Trial Report edge cases and review server-side clinical schema enforcement. See [forms audit](FORMS-AND-COORDINATION-AUDIT.md).
+- **Native Android:** implement identity, role enforcement, production API access, secure storage/sync, clinical and operational workflow parity, signed release and device acceptance before real use. The existing native application is a fictional-data preview, not production parity. See [native preview](../native-android/README.md).
+- **Report history and output:** draft PR #75 says archive entries retain metadata but are reconstructed from current data; implement immutable snapshots if required. Validate all report layouts, long narratives, Word and PDF output and actual printer behavior. See [PDCA layout](PDCA-REPORT-LAYOUT-AND-PROVENANCE.md).
+- **Full privacy:** the repository-only check is not clearance. Obtain the authorized workbook through a private channel, use ephemeral storage and complete the full identity comparison under [privacy verification](PRIVACY_VERIFICATION.md). Never put workbook contents in chat, Git or test fixtures.
+- **Real-world acceptance and live diagnostics:** investigate the account/setup issue described in draft PR #75 without assuming its cause. Verify authorized real-account access, configured data, PC/Android/tablet layouts, accessibility, physical printer output and two-account calling using an approved test plan. Synthetic patient counts do not establish production counts. Do not reset or seed live data to test.
+- **Dependencies and release security:** review reported development-dependency advisories against current versions and exposure; perform privacy, security, clinical and legal sign-off where relevant. Production-dependency results and development advisories must not be conflated.
+
+## Completion evidence for each item
+
+Record the decision-maker and approved requirements; implementation PR/commit and deployment; synthetic positive, refusal and scope tests; migration/rollback and audit behavior; browser/device/clinical/privacy acceptance as applicable; and explicit remaining limitations. Do not close an item based only on a preview URL or a passing build. Track external decisions and private documents by reference, not by storing sensitive contents here.
