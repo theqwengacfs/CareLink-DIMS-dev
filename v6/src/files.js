@@ -1,18 +1,11 @@
 /* ============================================================
-   files.js - Document storage on the central database host.
+   files.js - Legacy document-file client.
 
-   A document record without its file is a promise, not a record. This module
-   puts the bytes where the database lives: on the host computer, inside the
-   same SQLite file, with a SHA-256 digest, a retention class and the person
-   who uploaded it. A tablet with no host connection is refused rather than
-   told a file was kept when it was not.
-
-   What is deliberately not done here:
-   - no file is ever put in the JSON database document, because that document
-     is mirrored to every device;
-   - no file is readable without a live host session;
-   - a file is never deleted by this interface. Retention classes and a
-     legal hold are recorded so that disposal is a deliberate, audited act.
+   The hosted API does not implement these file routes. The legacy standalone
+   server implements them without document-level authorization or malware
+   scanning; a session alone is not proof of appropriate access. Do not treat
+   these routes as secure sharing or as an approved clinical document vault.
+   Existing files and document metadata are not migrated or deleted here.
    ============================================================ */
 
 const RETENTION = [
@@ -46,6 +39,7 @@ const FILEVAULT = {
     const session=typeof SYNC!=='undefined' && SYNC.sessionToken;
     return hosted && !!session;
   },
+  unavailableMessage:'A live server session is required. Secure document sharing and malware scanning are not configured.',
 
   headers(){
     const h={'Content-Type':'application/json','Accept':'application/json'};
@@ -71,6 +65,7 @@ const FILEVAULT = {
   },
 
   async store(file, meta={}){
+    if(!this.available()) return {ok:false, msg:this.unavailableMessage};
     if(!/^https?:/.test(location.protocol||''))
       return {ok:false, msg:'The application is open as a file, so there is no host to store the document on. Open it from the address the host prints.'};
     if(typeof SYNC==='undefined' || !SYNC.sessionToken)
@@ -86,7 +81,11 @@ const FILEVAULT = {
           note:meta.note||''})});
       const body=await r.json().catch(()=>({}));
       if(!r.ok) return {ok:false, msg:body.error||'The host refused the file.'};
-      return {ok:true, id:body.id, sha256:body.sha256||sha, bytes:body.bytes, retention, name:read.name, mime:read.mime};
+      if(body.ok!==true || !/^[A-Za-z0-9_-]{6,60}$/.test(String(body.id||'')) ||
+         !/^[a-f0-9]{64}$/i.test(String(body.sha256||'')) || body.bytes!==read.bytes.length ||
+         (sha && body.sha256.toLowerCase()!==sha.toLowerCase()))
+        return {ok:false, msg:'The host response did not confirm the file and its digest. Its storage outcome is unknown.'};
+      return {ok:true, id:body.id, sha256:body.sha256, bytes:body.bytes, retention, name:read.name, mime:read.mime};
     }catch(e){
       return {ok:false, msg:'The host could not be reached while the file was being sent.'};
     }
@@ -96,7 +95,7 @@ const FILEVAULT = {
      link would not carry the header, so the bytes are fetched and shown from
      a local object URL. */
   async open(id){
-    if(!this.available()) return {ok:false, msg:'No live session with the host.'};
+    if(!this.available()) return {ok:false, msg:this.unavailableMessage};
     try{
       const r=await fetch('/api/files/'+encodeURIComponent(id),{headers:{'X-CareLink-Session':SYNC.sessionToken}});
       if(!r.ok) return {ok:false, msg:'The file could not be read. It may have been removed by an administrator.'};
