@@ -612,6 +612,65 @@ details.chart-table[open] > summary.chart-table-btn{
   font-size:10.5px; opacity:.85; font-family:var(--mono, monospace);
 }
 
+/* Responsive charts: use the available container, not the browser width.
+   Nested dashboard cards can be narrow even on a desktop-sized viewport. */
+.cost-chart-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%, 390px),1fr));
+  gap:18px; align-items:start;
+}
+.cost-chart-panel{min-width:0; padding:14px; border:1px solid var(--line); border-radius:var(--r); background:var(--surface);}
+.cost-chart-panel h3{margin:0 0 12px; font-size:14px; line-height:1.35; color:var(--ink);}
+.cm{min-width:0}
+.cm-v,.cm-s{overflow-wrap:anywhere}
+.chart-fig,.donut-block,.chart-rows-list{min-width:0; max-width:100%;}
+.chart-fig{container-type:inline-size;}
+.chart-plot{max-width:100%; overflow-x:auto; overscroll-behavior-inline:contain; scrollbar-width:thin;}
+.chart-fig .chart-plot svg.chart{min-width:560px; overflow:hidden;}
+.chart-fig svg.chart :is(text.val,text.axis-x,text.axis-y){font-size:13px;}
+.chart-scroll-hint{display:none; margin-top:5px; font-size:11px; color:var(--muted);}
+@container (max-width: 560px){.chart-scroll-hint{display:block;}}
+.chart-plot:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.chart-key .ck{min-width:0; overflow-wrap:anywhere;}
+.chart-fig figcaption{overflow-wrap:anywhere;}
+.donut-block{container-type:inline-size;}
+.donut-wrap.donut-wrap-clean{
+  display:grid; grid-template-columns:minmax(0,auto) minmax(0,1fr); gap:16px;
+  align-items:center; padding:4px 0;
+}
+.donut-svg-box{min-width:0; padding:0;}
+.donut-svg-box svg{display:block; max-width:100%; height:auto;}
+.donut-side-panel{min-width:0; width:100%;}
+.donut-total-strip{display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline;}
+.donut-total-val{margin-left:auto; overflow-wrap:anywhere;}
+.donut-total-meta{white-space:normal;}
+.legend.donut-legend{min-width:0; width:100%;}
+.legend.donut-legend .donut-li-sym{grid-template-columns:12px minmax(0,1fr) auto auto; gap:6px 8px;}
+.legend.donut-legend .donut-li-sym .lg-l{white-space:normal; overflow:visible; overflow-wrap:anywhere; line-height:1.35;}
+.legend.donut-legend .donut-li-sym .n{margin:0; padding:0; white-space:normal; overflow-wrap:anywhere; text-align:right;}
+.legend.donut-legend .donut-li-sym .pct{min-width:0;}
+@container (max-width: 460px){
+  .donut-wrap.donut-wrap-clean{grid-template-columns:minmax(0,1fr); justify-items:stretch;}
+  .donut-svg-box{justify-content:center;}
+}
+@container (max-width: 300px){
+  .legend.donut-legend .donut-li-sym{grid-template-columns:12px minmax(0,1fr) auto;}
+  .legend.donut-legend .donut-li-sym .n{grid-column:2; text-align:left;}
+  .legend.donut-legend .donut-li-sym .pct{grid-column:3; grid-row:2;}
+}
+.chart-rows-list{container-type:inline-size;}
+.chart-row-item{grid-template-columns:minmax(0,1fr) minmax(40px,1fr) minmax(0,auto); gap:8px;}
+.chart-row-lbl{white-space:normal; overflow:visible; overflow-wrap:anywhere; line-height:1.35;}
+.chart-row-val{white-space:normal; overflow-wrap:anywhere;}
+@container (max-width: 350px){
+  .chart-row-item{grid-template-columns:minmax(0,1fr) auto;}
+  .chart-row-track{grid-column:1/-1; grid-row:2;}
+}
+@media print{
+  .chart-plot{overflow:visible;}
+  .chart-fig .chart-plot svg.chart{min-width:0;}
+  .chart-scroll-hint{display:none;}
+}
+
 /* ---------------- 9. Coins Podium & Illustrated Rewards Store ---------------- */
 .coins-podium{
   display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));

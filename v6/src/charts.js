@@ -102,9 +102,9 @@ function chartBars(opts){
   if(isChartTableMode()) return tbl;
 
   return `<figure class="chart-fig" style="margin:0">
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">
       ${grid}${bars}
-    </svg>
+    </svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
     ${tbl}
   </figure>`;
@@ -233,7 +233,7 @@ function chartLine(opts){
   const tbl = chartTable([{key:'period',label:opts.labelHead||'Period'},...series.map(s=>({key:s.label,label:s.label,cls:'num mono'}))], rows, {title:opts.title||'Trend table'});
   if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">${key}
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${xlab}</svg>
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${xlab}</svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
     ${tbl}
   </figure>`;
@@ -274,7 +274,7 @@ function chartStacked(opts){
   if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">
     <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(summary)}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||summary)}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
     ${tbl}
   </figure>`;
@@ -306,7 +306,7 @@ function chartGrouped(opts){
   if(isChartTableMode()) return tbl;
   return `<figure class="chart-fig" style="margin:0">
     <div class="chart-key">${series.map((s,i)=>`<span class="ck"><i style="background:${s.color||colours[i%colours.length]}"></i>${esc(s.label)}</span>`).join('')}</div>
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Comparison')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Comparison')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Grouped comparison across '+labels.length+' categories.')}${opts.unit?' Unit: '+esc(opts.unit)+'.':''}</figcaption>
     ${tbl}
   </figure>`;
@@ -529,7 +529,7 @@ function chartWaterfall(steps, opts={}){
       <span class="ck"><i style="background:#0F7B4F"></i>Additions (+)</span>
       <span class="ck"><i style="background:#D97706"></i>Reductions / Outflows (-)</span>
     </div>
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Movement')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg>
+    <div class="chart-plot" tabindex="0" role="region" aria-label="Chart plot; scroll horizontally if needed"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title||'Movement')}" preserveAspectRatio="xMidYMid meet">${grid}${bars}</svg></div><span class="chart-scroll-hint">Scroll the chart horizontally or view as a table.</span>
     <figcaption class="small muted" style="margin-top:8px">${esc(opts.caption||'Every step is plotted upright from the zero baseline with signed movement labels above.')}</figcaption>
     ${tbl}
   </figure>`;
