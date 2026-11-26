@@ -11,6 +11,42 @@
 
 This tracker records known outstanding work; it is **not** proof of completion, clinical approval or production readiness. It is based on repository documentation and the partial 18-part cross-system audit in [draft PR #75](https://github.com/theqwengacfs/CareLink-DIMS-dev/pull/75), [audit at reviewed revision `231adc77`](https://github.com/theqwengacfs/CareLink-DIMS-dev/blob/231adc77f6265fc3a4815a262bfeefe4d4995646/docs/CROSS_SYSTEM_IMPROVEMENTS_WORK_IN_PROGRESS.md). The original prompts from other sessions were not available for a word-for-word comparison. Re-check the PR and original instructions before closing any item; another branch or a preview deployment is not evidence that a feature is on production.
 
+## Pending on the Foundation's side — needs a person, not code
+
+> Kept here so it is not lost as development continues. Each line says what is
+> needed, who has to give it, and what stays blocked or provisional until it arrives.
+> Nothing in this list can be closed by writing more code.
+
+### 1. Three decisions only the Foundation can make
+| # | Decision needed | Blocked until it arrives | Where it is recorded |
+|---|---|---|---|
+| 1 | The **official 52-week calendar and boundary rule** (which Monday is week 1, how a 53-week year is treated) | Every weekly report keeps the word **(provisional)**. `A1`, `A4`. | `docs/audit/PROMPT-AUDIT-001.md` |
+| 2 | The **4,444-patient reconciliation** — the authorised private records, or a written instruction that the 4,000 contract stands | `B6` stays blocked. Fabricating patient rows is prohibited. | same |
+| 3 | The **16 → 11 department structure** — the approved mapping of which of the 16 becomes which of the 11, and the 8 that appear on the landing graphic | `D9` (the one remaining *not captured* row) and `D10`. Changes RBAC, reporting and palettes, so it is not a rename. | same |
+
+### 2. Physical and account acceptance only you can perform
+| # | Needs | Why a test cannot cover it |
+|---|---|---|
+| 4 | Sign in on the **Samsung Tab A11+ and one desktop**, tap through every workspace tab | `B4`/`C5` reveal behaviour is measured in the test DOM; a real device is the only real proof. |
+| 5 | **Two browsers, one account** — confirm the second is refused, accept the takeover, confirm the first is told *why* it was signed out | Behaviour is proven in `session-and-single-client` (31 checks) but the message on a real screen is your acceptance. |
+| 6 | **Print** a report and a discharge summary to a real printer (wired and wireless) | `D2` — output on paper is unverified. |
+| 7 | **Stylus** on the tablet: sign a SOAP encounter, then print it | `D19` capture works with pointer events; the pen and the printed ink need your eye. |
+| 8 | **Offline sign-in** on a tablet: sign in once online, tick *Remember this device*, go offline, sign in offline | `C1` — credential expiry and refusal are tested; the real radio going down is not. |
+
+### 3. Licences, policies and third parties
+| # | Needs | Consequence if not supplied |
+|---|---|---|
+| 9 | **Bible translation licence** (which of the seven you may reproduce, with the licence reference) | Only public-domain KJV text is displayed; the other six show references that open at the publisher. `A6`. |
+| 10 | **Private storage + malware scanning** supplier/budget | `B2` document sharing stays blocked; the legacy file service keeps running without document-level authorisation. |
+| 11 | **Clinical/privacy review** of the PDCA pattern review engine | `D17` stays advisory-only and is never presented as a clinical model. |
+| 12 | **Clinical review of the demonstration corpus** if a real engine is wanted (120 MCM-reviewed cycles) | The engine learns from the demo register, and says so. |
+
+### 4. Verification that needs an approved private process
+| # | Needs | Note |
+|---|---|---|
+| 13 | Real-patient data completeness verification | Must run through the approved private process; never in this repository. `v6/tools/verify_no_patient_data.py` guards the repo side. |
+| 14 | Independent review of the **Android APK** build | `native-android/` and the two workflows are committed; signing and store submission are yours. |
+
 ## Safety and release rules
 
 - Do not deploy draft PR #75 as a completed upgrade. Its held-work review, quality waiver safeguard, report printing, cycle manifest and other changes are partial and not merged into main at the time this tracker was written.
