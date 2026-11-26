@@ -18,7 +18,7 @@ browser-local records are not silently deleted or uploaded.
 
 **Vercel project:** <https://vercel.com/dandante01-2639/care-link-dims-dev>
 
-**Outstanding work and release gates:** [Delivery tracker](docs/OUTSTANDING-DELIVERY-TRACKER.md). A draft or preview is not evidence of production readiness.
+**Outstanding work and release gates:** [Delivery tracker](docs/OUTSTANDING-DELIVERY-TRACKER.md) · [Reconstructed request traceability](docs/REQUEST-TRACEABILITY.md). A draft or preview is not evidence of production readiness.
 
 An address change alone does **not** migrate the database, browser-local records,
 held work or device-approval cookies. Preserve any unsynced work at its original
