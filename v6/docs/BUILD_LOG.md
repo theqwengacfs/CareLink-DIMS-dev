@@ -14,13 +14,68 @@
 | Central database | `server.py` · SQLite · revision snapshots · 26/26 API checks |
 | Audit pass | 2026-10-18 — 14 defects found and fixed (docs/12 §9) |
 
-## Deployed state — v6.9.9, and what is still awaited
+## Deployed state — v6.10.0, and what is still awaited
 
-**v6.9.9** is the current release. The Foundation's preferred host is
-**https://care-link-dims-dev-three.vercel.app/** (project `dandante01-2639/care-link-dims-dev`),
-where `GET /api/health` reported `version 6.9.9` after the rollout; the older
-`care-link-dims-dev.vercel.app` and the GitHub Pages mirror are kept in step by the
-same push to `main`, so all three serve one build.
+**v6.10.0** is the current release. The Foundation's preferred host is
+**https://care-link-dims-dev-three.vercel.app/** (project `dandante01-2639/care-link-dims-dev`);
+the older `care-link-dims-dev.vercel.app` and the GitHub Pages mirror are kept in
+step by the same push to `main`, so all three serve one build.
+
+### v6.10.0 — the banner height, one colour system, and motion
+
+The console banner had been made taller than it used to be: the role-tab strip
+(the row of console tabs plus the `Layout` control) had been folded *inside* the
+coloured card, so the gradient ran on past the divider that used to end it and
+covered the tabs as well.
+
+**Restored geometry (the size question, answered).** The card now contains the
+greeting, the actions and the quick metric cards and nothing else; the role strip
+is a tab bar directly below it, on the page. On desktop the card keeps the base
+`.ws67-hero` padding, **`18px 22px 14px`** (≈626px tall at 1600×900 for a console
+with six role tabs), with a **`10px`** gap to the strip.
+
+Two things had grown it. The strip's own `margin-top:20px; padding-top:18px` moved
+from inside the card to below it, and — the larger one — a "workspace breathing
+room" block in `entry_theme.css` re-declared the card padding at **`26px 28px
+22px`** *later in the cascade* than the compact palette value, adding 16px of
+padding plus 12px of gap, so the gradient reached ~835px and swallowed the tab
+row. That competing declaration is gone: the card padding is stated once. Phone
+(`14px 16px 12px`) and short-screen (`10px 20px 8px`) tiers keep the same rule.
+
+The role strip now sits on the page, so its chips are styled against the page
+rather than against the gradient: each chip carries its own signature hue and the
+current one is filled with `--console-c1`. No stylesheet may paint a border or a
+fill on the strip inside the banner, and
+`v6100-banner-height-motion-and-scheme-coherence` fails if one does.
+
+**One colour system.** Two blocks were painting a second, fixed palette on top
+of each console's own signature: a light-mode block pinned six hex tints onto the
+metric cards and role chips of every console in every scheme, and a Foundation
+block stepped `.rc68-tile`/`.ctx-rtab` through five fixed colours. A Procurement
+crimson console therefore showed teal, mauve and sand chips beside it. Both now
+derive from `--console-c1..c6`/`--console-hero-1..3` (already contrast-corrected
+by `WTHEME.safeFill`). The mauve page sheet, the blue-to-mauve sheet header, the
+three fixed navigation-tile fills and the three fixed metric fills follow the
+signature too. Alert/warning/critical colours are untouched. One accent stays
+fixed on purpose: `--console-highlight` (`#1e40af`) marks the *current* item
+beside gold, in the sidebar and the shortcut bar.
+
+**Motion.** Page changes use the browser View Transition where available and a
+short CSS fade-and-lift where not (never both). Sheets fade and scale in, and
+play a closing frame before removal — with removal guaranteed by a timer, so a
+dialog can never be trapped by an animation. Switches slide their knob
+(travel corrected to `20px` so the checked knob sits inside the 44px track),
+segmented controls and tabs cross-fade colour. Every rule is dropped for
+`prefers-reduced-motion`, for the Interface animation switch (`html[data-calm="on"]`)
+and under `@media print`; nothing animates width, height, margin, padding or font
+size.
+
+**Checks.** `v6100-banner-height-motion-and-scheme-coherence` (25 checks) pins the
+card boundary in real rendered markup for every account, the strip's placement,
+the signature-derived palette, the eight schemes' contrast, and each motion guard.
+`npm run test:all` → exit 0; `v697` 20/20; `v695` 16/16; `v670` 17/17;
+`v6100` **25/25**. `v65`'s version gate was widened from `6.[4-9].x` to accept
+`6.10.x` and later.
 
 ### v6.9.9 — the public statistics fix
 

@@ -5,8 +5,8 @@
 > Re-read this at the start of every development round; items move off it only when
 > you say they are done.
 >
-> Last verified against the deployed system: **v6.9.9**, preferred host
-> `care-link-dims-dev-three.vercel.app` (`/api/health` reports `version 6.9.9`).
+> Last verified against the deployed system: **v6.10.0**, preferred host
+> `care-link-dims-dev-three.vercel.app` (`/api/health` reports `version 6.10.0`).
 
 ---
 
@@ -27,6 +27,8 @@
 | 6 | **Print** a report and a discharge summary, wired and wireless | Output on physical paper is unverified (D2) |
 | 7 | **Stylus**: sign a SOAP encounter on the tablet, then print it | Capture works with pointer events; the pen feel and printed ink need your eye (D19) |
 | 8 | **Offline sign-in**: sign in online, tick *Remember this device*, turn the radio off, sign in offline | Credential expiry and refusals are tested; a real network going down is not (C1) |
+| 8a | **Look at the console banner on your own screen** and confirm it now ends at the divider under the greeting (v6.10.0). The role tabs and the `Layout` control sit on the page below it, not inside the gradient | The height was restored from the padding rules; only your eye can say it reads right at your zoom and font size |
+| 8b | **Let a page change, a sheet opening and a switch play once** with animation on, then once with *Interface animation* switched off, and once with your device set to reduce motion | The guards prove the rules are dropped; whether the motion itself is comfortable is your judgement (B3) |
 
 ## 3. Licences, suppliers and third parties
 
@@ -41,7 +43,7 @@
 
 | # | To confirm | Why |
 |---|---|---|
-| 12a | Whether the **4,000-patient demonstration register** is meant to be loaded on the live host at `care-link-dims-dev-three` | It is a live, globally activated installation with **36 accounts** and no patient rows loaded (rev 359). The register is imported deliberately, never seeded automatically — so this waits on your instruction. |
+| 12a | Whether the **4,000-patient demonstration register** is meant to be loaded on the live host at `care-link-dims-dev-three` | It is a live, globally activated installation with **36 accounts** and no patient rows loaded (rev 361 as of v6.9.9; v6.10.0 is interface-only and does not change it). The register is imported deliberately, never seeded automatically — so this waits on your instruction. |
 | 12b | Name a **reviewer** for the public statistics (`settings.publicStatistics.<figure>.reviewedBy`) | Until a figure carries a named official's review, the portal keeps showing the labelled cumulative totals and prints no live number. That is by design (B5). |
 
 ## 4. Verification that needs an approved private process

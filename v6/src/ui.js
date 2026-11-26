@@ -477,9 +477,29 @@ function closeModal(force){
     closeAllModals();
   }
 }
+/* A dismissed sheet plays its closing frame before it is removed. The class is
+   the stylesheet's, the timing is this function's, and removal still happens
+   even if the browser never fires a transition (a hidden tab, or a reader who
+   asked for reduced motion): nothing may keep a dialog on screen, and nothing
+   waits on an animation to finish before the workspace is usable again. */
+const SHEET_CLOSE_MS = 120;
+function dismissSheet(back){
+  if(!back) return;
+  const finish = ()=>{ try{ back.remove(); }catch(e){} };
+  let done = false;
+  const once = ()=>{ if(done) return; done = true; finish(); };
+  try{
+    const calm = typeof document!=='undefined' && document.documentElement &&
+      document.documentElement.getAttribute && document.documentElement.getAttribute('data-calm')==='on';
+    if(calm || !back.classList || typeof back.classList.add!=='function'){ once(); return; }
+    back.classList.add('is-closing');
+    back.addEventListener('animationend', once, { once:true });
+    setTimeout(once, SHEET_CLOSE_MS + 60);
+  }catch(e){ once(); }
+}
 function closeAllModals(){
-  while(modalStack.length){ const b=modalStack.pop(); if(b) try{ b.remove(); }catch(e){} }
-  $$('.modal-back').forEach(b=>{ try{ b.remove(); }catch(e){} });
+  while(modalStack.length){ dismissSheet(modalStack.pop()); }
+  $$('.modal-back').forEach(dismissSheet);
 }
 function toast(title, msg='', kind='ok'){
   const normKind = (kind==='err' || kind==='crit' || kind==='error' || kind==='danger') ? 'err' : (kind==='warn' || kind==='warning') ? 'warn' : 'ok';

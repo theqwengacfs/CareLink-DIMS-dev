@@ -1,5 +1,17 @@
 /* Coordinated multi-colour accents across signed-in workspace cards and tabs.
-   This layer never changes the selected theme's surface or status semantics. */
+   This layer never changes the selected theme's surface or status semantics.
+
+   One rule of colour (v6.10.0): every accent in a console is measured against
+   the console's OWN signature (--console-c1..c6, set by themes.js from the
+   role's palette, corrected for contrast), never against a second, fixed
+   palette painted on top of it. Before this, a light-mode block pinned its own
+   six hex values onto the quick metrics, the workspace tabs and the KPI rails
+   of every console and every scheme, so a Procurement crimson console showed
+   teal, mauve and sand chips and the banner beside them no longer matched the
+   room it belonged to. The tints are now derived with color-mix from the
+   signature, which keeps them in the console's own hue, keeps them legible on
+   the selected surface (the signature is contrast-corrected before it gets
+   here), and keeps them identical in light and dark modes. */
 .console-scheme-grid{
   display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%;
 }
@@ -118,19 +130,37 @@ html[data-wmode="light"] .ws67-hero .ws67-arch-pill.hero-dept-pill,
 html[data-wmode="light"] .ws67-hero .ws67-scope-pill{background:rgba(255,255,255,.13) !important;color:#fff !important;border:1px solid rgba(255,255,255,.24) !important}
 html[data-wmode="light"] .ws67-hero .ws67-actions .btn{background:rgba(255,255,255,.13) !important;color:#fff !important;border:1px solid rgba(255,255,255,.3) !important;box-shadow:none}
 html[data-wmode="light"] .ws67-hero .ws67-actions .btn:hover{background:rgba(255,255,255,.23) !important}
-html[data-wmode="light"] .ws67-hero .ws67-role-tabs{border-top-color:rgba(255,255,255,.22);padding-top:15px;margin-top:18px}
-html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero .ctx-rtab:not(.on){
-  background:#edf4f5 !important;border:1px solid #d9e6e8 !important;color:#244355 !important;
-  padding:8px 13px;box-shadow:none !important;border-radius:9px;
+/* The role strip is no longer painted by the hero, so its chips are styled
+   against the surface they actually sit on: the page. Each chip carries its
+   own signature hue, and the current one is filled with the console's primary
+   colour with the ink chosen for it (--accent-ink), so it reads as selected in
+   every scheme, light or dark. */
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on){
+  --rtab-c:var(--console-c1);
+  background:color-mix(in srgb,var(--rtab-c) 7%,var(--surface)) !important;
+  border:1px solid color-mix(in srgb,var(--rtab-c) 30%,var(--line)) !important;
+  color:color-mix(in srgb,var(--rtab-c) 72%,var(--ink)) !important;
+  box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--rtab-c) 55%,transparent) !important;
 }
-html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero .ctx-rtab:not(.on):nth-child(3n+2){background:#f2edfa !important;border-color:#e3dcf1 !important;color:#554471 !important}
-html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero .ctx-rtab:not(.on):nth-child(3n){background:#faf2e9 !important;border-color:#ecded0 !important;color:#704e31 !important}
-html[data-wmode="light"][data-colorscheme]:not([data-colorscheme="public"]) .ws67-hero .ctx-rtab.on{background:#fff !important;border-color:#fff !important;color:#173b4a !important;box-shadow:0 3px 12px rgba(0,0,0,.14) !important;padding:8px 13px;border-radius:9px}
-html[data-wmode="light"] .ws67-hero .ws67-mode-seg{background:#f4f6f6;border:1px solid #d8e0e1;border-radius:10px;padding:3px}
-html[data-wmode="light"] .ws67-hero .ws67-mode-seg button{color:#40545c;border-radius:7px}
-html[data-wmode="light"] .ws67-hero .ws67-mode-seg button.on{background:#274b59;color:#fff}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n+2){--rtab-c:var(--console-c2);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n+3){--rtab-c:var(--console-c3);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n+4){--rtab-c:var(--console-c4);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n+5){--rtab-c:var(--console-c5);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n){--rtab-c:var(--console-c6);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):hover{
+  background:color-mix(in srgb,var(--rtab-c) 16%,var(--surface)) !important;
+  border-color:var(--rtab-c) !important;color:var(--ink) !important;
+}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab.on{
+  background:var(--console-c1) !important;border:1px solid var(--console-c1) !important;
+  color:var(--accent-ink,#FFFFFF) !important;
+  box-shadow:inset 0 -3px 0 rgba(255,255,255,.5),0 3px 10px color-mix(in srgb,var(--console-c1) 26%,transparent) !important;
+}
+html[data-wmode="light"] .ws67-hero .ws67-mode-seg{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px}
+html[data-wmode="light"] .ws67-hero .ws67-mode-seg button{color:var(--ink-2);border-radius:7px}
+html[data-wmode="light"] .ws67-hero .ws67-mode-seg button.on{background:var(--console-c1);color:var(--accent-ink,#FFFFFF)}
 html[data-wmode="light"] .ws67-hero .ws67-qcard:not(.is-alert){background:#fff !important;border-color:#e5ebee !important;border-top:3px solid var(--console-q-accent) !important;box-shadow:0 4px 14px rgba(0,0,0,.08)}
-html[data-wmode="light"] .ws67-hero .ws67-qcard .ws67-qlbl{color:#415660}
+html[data-wmode="light"] .ws67-hero .ws67-qcard .ws67-qlbl{color:color-mix(in srgb,var(--console-q-accent) 55%,var(--ink))}
 html[data-wmode="light"] .ws67-hero .ws67-qcard.is-alert{background:#fff4df !important;border-color:#edd4a6 !important;color:#573c15}
 html[data-wmode="light"] .ws67-hero .ws67-qcard.is-alert .ws67-qnum{color:#79510b}
 html[data-wmode="light"] .ws67-kpi-row .kpi:not(.ok):not(.warn):not(.crit):not(.info){background:color-mix(in srgb,var(--console-kpi-accent,var(--console-c1)) 5%,#fff) !important}
@@ -155,6 +185,17 @@ html[data-wmode="light"] .ws67-hero button:focus-visible{outline:3px solid #f6cb
 }
 .shell-role-banner:focus-visible{outline:3px solid var(--console-c2);outline-offset:-3px;}
 .shell-role-banner .ws67-hero.ctx-strip{margin:0 !important;}
+/* The introduction card ends on its own line. The role strip that follows it
+   is the console's tab bar: it is not painted by the gradient, so the coloured
+   banner stops exactly at the divider under the greeting, the actions and the
+   quick metrics, and the tabs read as navigation rather than as banner
+   content. This is the height the banner had before the strip was folded into
+   it; the strip keeps its own spacing below the card. */
+.shell-role-banner .ws67-role-tabs{
+  margin:10px 0 0 !important;padding:0 !important;
+  border-top:0 !important;background:transparent !important;box-shadow:none !important;
+}
+.shell-role-banner .ws67-role-tabs > .row{min-width:0;}
 .app.shell > .cbar,.app.shell > .sheet{position:relative;top:auto;}
 /* Desktop: one workspace column on the right of the navigation pane. The banner
    is its first item, the console bar follows, then the workspace. The column
@@ -186,7 +227,6 @@ html[data-wmode="light"] .ws67-hero button:focus-visible{outline:3px solid #f6cb
   .shell-role-banner{padding:4px 6px 0;}
   .shell-role-banner .ws67-hero-main{gap:10px;}
   .shell-role-banner .ws67-greeting{font-size:20px !important;}
-  .shell-role-banner .ws67-role-tabs{margin-top:10px;padding-top:10px;}
 }
 @media print{.shell-role-banner{display:none !important}}
 
@@ -206,7 +246,10 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67
   background:rgba(0,0,0,.28) !important;color:#fff !important;border:1px solid rgba(255,255,255,.5) !important;
 }
 html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-actions .btn:hover{background:rgba(0,0,0,.45) !important;}
-html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs{border-top-color:rgba(255,255,255,.35);}
+/* No rule may paint the role strip into the banner: the coloured card must end
+   above it. A later layer that re-adds a border here would silently grow the
+   banner again, so the divider is explicitly transparent. */
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs{border-top:0 !important;background:transparent !important;}
 
 /* Individually coloured navigation tiles: readable text uses the theme's ink,
    and tinted surfaces never replace operational status or alert colours. */
@@ -245,13 +288,14 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:hover{background:c
 .shell-role-banner .ws67-actions{max-width:100%;}
 .shell-role-banner .ws67-hero-main{grid-template-columns:minmax(0,1fr) !important;}
 @media(min-width:1000px){
-  html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:16px 22px 10px !important;}
-  html[data-wmode="light"] .shell-role-banner .ws67-hero .ws67-role-tabs{padding-top:9px;margin-top:10px;}
+  /* The card's padding is stated once, in entry_theme.css (18px 22px 14px,
+     the base .ws67-hero padding); nothing here competes with it. The strip
+     below the card keeps a fixed 10px gap so the two never touch. */
+  .shell-role-banner .ws67-role-tabs{margin-top:10px;}
   .shell-role-banner .ws67-hero-main{grid-template-columns:minmax(0,1.38fr) minmax(240px,.88fr) !important;}
 }
 @media(max-width:760px){
   html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:10px 12px 8px !important;}
-  html[data-wmode="light"] .shell-role-banner .ws67-hero .ws67-role-tabs{margin-top:8px;padding-top:7px;}
   .shell-role-banner .ws67-hero.ctx-strip{padding:12px 14px 10px !important;}
   .shell-role-banner .ws67-actions{gap:6px;}
   .shell-role-banner .ws67-qgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
@@ -286,5 +330,4 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:hover{background:c
 @media(max-height:720px) and (min-width:761px){
   html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:10px 20px 8px !important;}
   .shell-role-banner .ws67-greeting{font-size:clamp(19px,1.7vw,22px) !important;}
-  html[data-wmode="light"] .shell-role-banner .ws67-hero .ws67-role-tabs{margin-top:8px;padding-top:8px;}
 }
