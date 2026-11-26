@@ -14,6 +14,20 @@
 | Central database | `server.py` · SQLite · revision snapshots · 26/26 API checks |
 | Audit pass | 2026-10-18 — 14 defects found and fixed (docs/12 §9) |
 
+## Deployed state — v6.9.8, and what is still awaited
+
+`v6.9.8` is live: PR #83 merged to `main` as `de7d1be`; the GitHub Pages build for
+that commit succeeded and the Vercel deployment check passed. The public bundle
+served is `carelink-v6.html?v=6.9.8` and the page reports **v6.9.8**.
+
+The items that remain open need a person rather than a commit, and are listed once
+in [docs/OUTSTANDING-DELIVERY-TRACKER.md](../OUTSTANDING-DELIVERY-TRACKER.md) under
+*Pending on the Foundation's side*: the three decisions (52-week rule, 4,444
+reconciliation, 16→11 departments), real-device and print acceptance, the Bible
+translation licence, private storage and scanning, clinical/privacy review, and the
+signing of the Android build. Every one of them is also named in the audit record
+beside the requirement it blocks.
+
 ## Rebuild
 
 ```bash
