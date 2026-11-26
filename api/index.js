@@ -1044,7 +1044,7 @@ function overlayAuthoritativeHead(state, head, manifestRev = 0, manifestSaved = 
   }
   state.rev = targetRev;
   if (manifestSaved || head.saved) state.saved = manifestSaved || head.saved;
-  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.9.8' }, users: [], audit: [] };
+  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.9.9' }, users: [], audit: [] };
   if (Array.isArray(head.users) && head.users.length) {
     state.db.users = Array.isArray(state.db.users) ? state.db.users : [];
     for (const hu of head.users) {
@@ -3375,7 +3375,7 @@ async function handleRequest(req, res) {
     ));
     return sendJson(res, 200, {
       ok: true,
-      version: '6.9.8',
+      version: '6.9.9',
       cloud: true,
       onlineDatabase: true,
       mode: TRIAL_MODE ? 'isolated-synthetic-trial' : 'online-site-db',
@@ -3425,7 +3425,7 @@ async function handleRequest(req, res) {
   if (route === 'public/statistics' && method === 'GET') {
     const K_FLOOR = 5;
     const db = state.db || {};
-    const published = (state.db && state.db.settings && state.db.settings.publicStatistics) || {};
+    const published = (db.settings && db.settings.publicStatistics) || {};
     /* The floor protects people, so it applies to counts of *people*. A count of
        counties, ministry areas or departments is a structural fact about the
        organisation; suppressing "2 counties served" would hide a public
@@ -3433,48 +3433,109 @@ async function handleRequest(req, res) {
        reviewer before the page may print them. */
     const personCount = (value) => (Number(value) > 0 && Number(value) < K_FLOOR ? null : Number(value) || 0);
     const structuralCount = (value) => Number(value) || 0;
-    const count = (arr) => (Array.isArray(arr) ? arr.length : 0);
-    const patients = Array.isArray(db.patients) ? db.patients : [];
-    const visits = Array.isArray(db.visits) ? db.visits : [];
     const nowIso = nowISO();
     const startOfYear = nowIso.slice(0, 4) + '-01-01';
-    /* Every figure below is an aggregate over the whole register; none is scoped
-       to a person and none can be traced back to one. */
-    const computed = {
-      patientsDischargedHealthy: personCount(patients.filter(p => p && String(p.status || '') === 'discharged' && (p.outcome === 'healthy' || p.dischargeOutcome === 'healthy')).length),
-      activeCaseload: personCount(patients.filter(p => p && String(p.status || '') === 'active').length),
-      homeVisitsThisYear: personCount(visits.filter(v => v && String(v.date || '').slice(0, 10) >= startOfYear).length),
-      countiesServed: structuralCount(new Set(patients.map(p => p && p.countyId).filter(Boolean)).size),
-      ministryAreasServed: structuralCount(new Set(patients.map(p => p && p.areaId).filter(Boolean)).size),
-      departmentsOperating: structuralCount(count(db.departments)),
+
+    /* WHERE THE REGISTER ACTUALLY LIVES. A commissioned tablet is a view of the
+       shared record: the host keeps the 4,000-patient register as a verified
+       reference master in KV rather than as `state.db.patients`, and a request to
+       this public route is never allowed to pull that multi-megabyte payload. So
+       reading `db.patients` alone reported zero for every figure on a working
+       installation - a public page saying "0 patients discharged" while the
+       programme was running. Three sources are consulted, in order of authority,
+       and the answer says which one it used:
+
+         1. `db.patients` when a session or a full state read put it in hand;
+         2. the register's own recorded totals (`meta.referenceMaster.counts`),
+            written by the import that verified every row;
+         3. nothing - and then the figures are reported as unavailable rather
+            than as zero. */
+    const headCounts = (state._headCounts && typeof state._headCounts === 'object') ? state._headCounts : null;
+    const masterCounts = (db.meta && db.meta.referenceMaster && db.meta.referenceMaster.counts) || null;
+    const registerSize = Number(
+      (headCounts && headCounts.patients) || (masterCounts && masterCounts.patients) || 0
+    ) || 0;
+    const patients = Array.isArray(db.patients) ? db.patients : null;
+    const visits = Array.isArray(db.visits) ? db.visits : null;
+    const hasRows = Array.isArray(patients) && patients.length > 0;
+
+    const count = (arr) => (Array.isArray(arr) ? arr.length : 0);
+    const computed = hasRows
+      ? {
+          patientsDischargedHealthy: personCount(patients.filter(p => p && String(p.status || '') === 'discharged' && (p.outcome === 'healthy' || p.dischargeOutcome === 'healthy')).length),
+          activeCaseload: personCount(patients.filter(p => p && String(p.status || '') === 'active').length),
+          homeVisitsThisYear: personCount(count(visits && visits.filter(v => v && String(v.date || '').slice(0, 10) >= startOfYear))),
+          countiesServed: structuralCount(new Set(patients.map(p => p && p.countyId).filter(Boolean)).size),
+          ministryAreasServed: structuralCount(new Set(patients.map(p => p && p.areaId).filter(Boolean)).size),
+          /* The department roster is organisation structure, held in the
+             generated official structure rather than in the database document. */
+          departmentsOperating: structuralCount(Array.isArray(officialStructure && officialStructure.departments) ? officialStructure.departments.length : 0),
+        }
+      : null;
+
+    /* Without rows in hand, report what the register itself records: its size and
+       the structure it serves, and say plainly that the programme totals were not
+       computed for this request. */
+    const structure = officialStructure && typeof officialStructure === 'object' ? officialStructure : {};
+    const structureCounties = Array.isArray(structure.counties) ? structure.counties : [];
+    /* Ministry areas are the villages and slums the roster is organised by, so
+       they are counted from the roster itself rather than typed as a constant. */
+    const structureAreas = new Set(structureCounties.flatMap(c => (Array.isArray(c && c.areas) ? c.areas : []).map(a => a && a.id).filter(Boolean)));
+    const structureDepartments = Array.isArray(structure.departments) ? structure.departments : [];
+    /* Structure describes *this installation's* organisation, so it is only
+       reported once that organisation exists. Before commissioning there is
+       nothing to describe, and reporting the product's own defaults as though
+       they were the Foundation's would be an invented figure. */
+    const commissioned = Boolean(state.setup);
+    const structuralOnly = {
+      patientsDischargedHealthy: null,
+      activeCaseload: null,
+      homeVisitsThisYear: null,
+      countiesServed: structuralCount(commissioned ? structureCounties.length : 0),
+      ministryAreasServed: structuralCount(commissioned ? structureAreas.size : 0),
+      departmentsOperating: structuralCount(commissioned ? structureDepartments.length : 0),
     };
+    const values = computed || structuralOnly;
+
     const figures = {};
-    for (const [key, value] of Object.entries(computed)) {
+    for (const [key, value] of Object.entries(values)) {
       const review = published[key];
+      const withheldForPrivacy = value === null && computed !== null;
+      const notComputed = value === null && computed === null;
       figures[key] = {
         value: value === null ? null : value,
-        suppressed: value === null,
-        reason: value === null ? `Fewer than ${K_FLOOR} people support this figure, so it is withheld rather than published.` : null,
+        suppressed: withheldForPrivacy,
+        reason: withheldForPrivacy ? `Fewer than ${K_FLOOR} people support this figure, so it is withheld rather than published.`
+          : notComputed ? 'Not computed for this request: the register totals are not held in this process. Open the dashboard to read them from the register.'
+          : null,
         /* Says which rule produced the number, so a reader can tell a protected
            people-count from a structural fact about the organisation. */
         basis: ['countiesServed', 'ministryAreasServed', 'departmentsOperating'].includes(key) ? 'organisational structure' : 'people count',
         reviewedBy: (review && review.reviewedBy) || null,
         reviewedAt: (review && review.reviewedAt) || null,
-        publishable: Boolean(review && review.reviewedBy),
+        publishable: Boolean(review && review.reviewedBy) && value !== null,
       };
     }
     return sendJson(res, 200, {
       ok: true,
       generatedAt: nowIso,
       rev: state.rev || 0,
-      basis: 'Cumulative programme totals computed from the central CareLink database',
+      /* Which source answered, so a reader can tell a figure counted from the
+         register from one read out of the register's own recorded totals. */
+      source: computed ? 'register rows' : 'register metadata',
+      registerSize,
+      basis: computed
+        ? 'Cumulative programme totals computed from the central CareLink database'
+        : 'Organisational structure from the official roster; programme totals are recorded in the register and not recomputed for this request',
       suppressionFloor: K_FLOOR,
       figures,
       /* The page must not print a figure the Chief has not reviewed; the flag says
          which ones those are instead of leaving the decision to the renderer. */
       note: Object.values(figures).some(f => f.value !== null && !f.publishable)
         ? 'Some figures have not yet been reviewed for publication. They are computed here so they can be checked, not so they can be published unreviewed.'
-        : 'Every published figure has been reviewed by a named official.',
+        : Object.values(figures).some(f => f.value === null)
+          ? 'Figures the register cannot support for this request are withheld rather than reported as zero.'
+          : 'Every published figure has been reviewed by a named official.',
     });
   }
 
@@ -3522,7 +3583,7 @@ async function handleRequest(req, res) {
 
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
-    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.8' }, users: [], audit: [] });
+    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.9.9' }, users: [], audit: [] });
     // Setup has no authenticated mailbox attestation yet. A client-supplied or
     // guessed address is not evidence that an official work mailbox exists.
     const chiefEmail = '';
@@ -4888,7 +4949,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 409, { ok:false, code:'rebuild_refresh_required', error:'The account hierarchy was rebuilt. Refresh the shared state before saving pending changes.' });
     }
     const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
-    state.db = state.db || { meta: { schema: 6, version: '6.9.8' } };
+    state.db = state.db || { meta: { schema: 6, version: '6.9.9' } };
     const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
     const applied = [];
     const rejected = [];

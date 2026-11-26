@@ -62,7 +62,25 @@ const PUBLIC_IDS = ['p-1', 'p-2', 'p-3', 'p-4', 'p-5', 'p-6', 'p-7'];
   ok('the public statistics endpoint answers without a session', empty.status === 200, String(empty.status));
   const emptyBody = await empty.json();
   ok('and it says where the figures come from',
-    /central CareLink database/i.test(String(emptyBody.basis)), String(emptyBody.basis));
+    /central CareLink database|official roster/i.test(String(emptyBody.basis)), String(emptyBody.basis));
+  /* The deployed installation keeps the 4,000-patient register as a verified
+     reference master, not as `db.patients` in the process answering a public
+     request. On that shape the endpoint must report the *structure* it can read
+     and mark the programme totals as not computed - never as zero. A public page
+     saying "0 patients discharged" while the programme is running is a false
+     statement about the Foundation, which is the same class of defect as
+     publishing an unreviewed number. */
+  ok('with no register rows in hand it says which source answered',
+    emptyBody.source === 'register metadata', String(emptyBody.source));
+  ok('programme totals are reported as unavailable rather than as zero',
+    ['patientsDischargedHealthy', 'activeCaseload', 'homeVisitsThisYear'].every(
+      (k) => emptyBody.figures[k].value === null && emptyBody.figures[k].suppressed === false &&
+             /not computed/i.test(String(emptyBody.figures[k].reason))),
+    JSON.stringify(emptyBody.figures.activeCaseload));
+  ok('an installation that does not exist yet is not described at all',
+    emptyBody.figures.countiesServed.value === null || emptyBody.figures.countiesServed.value === 0,
+    JSON.stringify({ c: emptyBody.figures.countiesServed.value, d: emptyBody.figures.departmentsOperating.value }));
+  ok('nothing in that state is marked publishable', Object.values(emptyBody.figures).every((f) => f.publishable === false));
   ok('it names the suppression floor it is applying', emptyBody.suppressionFloor === 5, String(emptyBody.suppressionFloor));
   ok('an empty installation publishes no invented number',
     Object.values(emptyBody.figures).every((f) => f.value === 0 || f.value === null),
@@ -97,6 +115,16 @@ const PUBLIC_IDS = ['p-1', 'p-2', 'p-3', 'p-4', 'p-5', 'p-6', 'p-7'];
     fig.countiesServed && fig.countiesServed.value === 2 && !Array.isArray(fig.countiesServed.value), JSON.stringify(fig.countiesServed));
   ok('no figure is marked publishable before the Chief has reviewed it',
     Object.values(fig).every((f) => f.publishable === false), JSON.stringify(Object.entries(fig).map(([k, v]) => [k, v.publishable])));
+  /* Ministry areas SERVED are counted from the register rows when those are in
+     hand, which is why this synthetic seed reports three of them rather than the
+     ten the organisation is organised by. Structure that is readable without the
+     register is checked on its own installation below. */
+  ok('with rows in hand, ministry areas served is counted from the rows, not assumed',
+    fig.ministryAreasServed.value === 3, JSON.stringify(fig.ministryAreasServed));
+  ok('the structure figures are labelled as structure, not as a people count',
+    ['countiesServed', 'ministryAreasServed', 'departmentsOperating'].every(
+      (k) => fig[k].basis === 'organisational structure'));
+
   ok('the response says plainly that unreviewed figures are not published',
     /not yet been reviewed/i.test(String(filled.note)), String(filled.note));
 
@@ -109,6 +137,33 @@ const PUBLIC_IDS = ['p-1', 'p-2', 'p-3', 'p-4', 'p-5', 'p-6', 'p-7'];
     !/area-1|"kisumu"|"homabay"/.test(raw), raw.slice(0, 200));
   ok('the endpoint exposes an allow-list, not whatever collections exist',
     /patientsDischargedHealthy/.test(API) && /departmentsOperating/.test(API) && !/\.\.\.db\b/.test(API.slice(API.indexOf("route === 'public/statistics'"), API.indexOf("route === 'public/status'"))));
+
+  /* ---- a commissioned installation with no rows in hand ---------------- */
+  /* This is the shape of the deployed host: the register lives as a verified
+     reference master in KV, and the process answering a public request never
+     holds its rows. Structure must still be described; programme totals must be
+     withheld and explained, never reported as zero. */
+  const kv2 = makeKv();
+  installKvFetch(kv2);
+  const handler2 = await loadHandler();
+  const br2 = makeBrowser(handler2);
+  await br2.fetch('/api/setup', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ admin: { username: 'chief.admin', password: 'Kx9!vQ2#mTz7Lp' }, db: { meta: { schema: 6 }, settings: { onboarded: true }, users: [] } }),
+  });
+  const rowlessBody = await (await br2.fetch('/api/public/statistics')).json();
+  ok('a commissioned installation with the register held elsewhere still describes its structure',
+    rowlessBody.figures.countiesServed.value === 2 &&
+    rowlessBody.figures.ministryAreasServed.value === 10 &&
+    rowlessBody.figures.departmentsOperating.value === 16,
+    JSON.stringify(rowlessBody.figures.ministryAreasServed));
+  ok('and its programme totals are withheld, not zeroed',
+    ['patientsDischargedHealthy', 'activeCaseload', 'homeVisitsThisYear'].every(
+      (k) => rowlessBody.figures[k].value === null && rowlessBody.figures[k].suppressed === false),
+    JSON.stringify(rowlessBody.figures.activeCaseload));
+  ok('the response names that source so nobody has to guess',
+    rowlessBody.source === 'register metadata' && /official roster/i.test(rowlessBody.basis),
+    String(rowlessBody.basis));
 
   /* The renderer must not print a figure the server has not cleared. */
   const views = fs.readFileSync(path.join(__dirname, '..', 'src', 'views_entry.js'), 'utf8');

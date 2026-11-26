@@ -46,7 +46,7 @@ const { makeCtx } = require('./dom');
     };
   })())`));
 
-  ok('APP.version is 6.9.8', themeAudit.appVersion === '6.9.8', themeAudit.appVersion);
+  ok('APP.version is 6.9.9', themeAudit.appVersion === '6.9.9', themeAudit.appVersion);
   ok('Global Landing Default is the white-led LOMAMO letterhead with the restored workflow graphic',
     themeAudit.defaultLandingId === 'clinic' &&
     themeAudit.firstLanding.id === 'clinic' &&

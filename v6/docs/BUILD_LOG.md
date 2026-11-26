@@ -14,11 +14,32 @@
 | Central database | `server.py` · SQLite · revision snapshots · 26/26 API checks |
 | Audit pass | 2026-10-18 — 14 defects found and fixed (docs/12 §9) |
 
-## Deployed state — v6.9.8, and what is still awaited
+## Deployed state — v6.9.9, and what is still awaited
 
-`v6.9.8` is live: PR #83 merged to `main` as `de7d1be`; the GitHub Pages build for
-that commit succeeded and the Vercel deployment check passed. The public bundle
-served is `carelink-v6.html?v=6.9.8` and the page reports **v6.9.8**.
+**v6.9.9** is the current release. The Foundation's preferred host is
+**https://care-link-dims-dev-three.vercel.app/** (project `dandante01-2639/care-link-dims-dev`),
+where `GET /api/health` reported `version 6.9.9` after the rollout; the older
+`care-link-dims-dev.vercel.app` and the GitHub Pages mirror are kept in step by the
+same push to `main`, so all three serve one build.
+
+### v6.9.9 — the public statistics fix
+
+Probing the live host found a real defect rather than a test problem: on a
+commissioned installation the 4,000-patient register is a **verified reference
+master in KV**, not `state.db.patients` in the process answering a public request.
+The endpoint read the rows alone and therefore reported **0 patients discharged,
+0 active caseload and 0 home visits** while the programme was running — a public
+page stating something false about the Foundation.
+
+`GET /api/public/statistics` now reports which source answered (`register rows` or
+`register metadata`), returns the register size it can see, describes the
+organisational structure (2 county offices, 10 ministry areas, 16 departments) once
+the installation is commissioned, and **withholds** any programme total it cannot
+compute for the request with an explanation instead of returning a zero. Before
+commissioning it describes nothing at all, because reporting the product's own
+defaults as the Foundation's organisation would be an invented figure.
+`public-statistics-governance` grew to **29 checks** and now drives the
+commissioned-with-no-rows shape as well as the rows-in-hand shape.
 
 The items that remain open need a person rather than a commit, and are listed once
 in [docs/OUTSTANDING-DELIVERY-TRACKER.md](../OUTSTANDING-DELIVERY-TRACKER.md) under
