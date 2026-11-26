@@ -4534,12 +4534,13 @@ async function handleRequest(req, res) {
     const results = patches.map((p) => {
       if (!p || !allowed.has(p.c) || typeof p.id !== 'string' || p.del || !p.set || typeof p.set !== 'object' || Array.isArray(p.set)) return 'needs_review';
       const keys = Object.keys(p.set);
-      if (!keys.length || keys.some(k=>FORBIDDEN_KEYS.has(k))) return 'needs_review';
+      // A top-level null can mean field deletion on an update, but a null
+      // value on creation. Equality cannot establish which operation happened,
+      // so retain the entire held item for manual review in either case.
+      if (!keys.length || keys.some(k=>FORBIDDEN_KEYS.has(k) || p.set[k] === null)) return 'needs_review';
       const current = (Array.isArray(visible[p.c]) ? visible[p.c] : []).find(r=>r && String(r.id) === p.id);
       if (!current) return 'needs_review';
-      const matches = keys.every(k => p.set[k] === null
-        ? (!Object.hasOwn(current,k) || current[k] === null)
-        : Object.hasOwn(current,k) && JSON.stringify(current[k]) === JSON.stringify(p.set[k]));
+      const matches = keys.every(k => Object.hasOwn(current,k) && JSON.stringify(current[k]) === JSON.stringify(p.set[k]));
       return matches ? 'matches_shared' : 'needs_review';
     });
     return sendJson(res, 200, {ok:true,rev:state.rev || 0,results});
