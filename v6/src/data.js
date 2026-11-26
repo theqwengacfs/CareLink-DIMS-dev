@@ -25,7 +25,7 @@ const APP = {
   shortName: 'CareLink',
   formerName: 'LOMAMO C-DIMS',
   full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
-  version: '6.9.6',
+  version: '6.9.7',
   build: '2026.10.29',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
@@ -153,7 +153,7 @@ const CAPS = {
 
   /* CareLink v6.3 strict departmental, clinical & partner capabilities */
   'pmi.check':        { g:'Patients', l:'Check returning-patient history & discharge advisories' },
-  /* v6.9.6 — the weekly planning page counts recorded decisions but not their
+  /* v6.9.7 — the weekly planning page counts recorded decisions but not their
      content. Only a ministry or leadership role may read who was recorded, so
      the aggregate is gated by the same capability rather than being inferred
      from holding a reporting capability. */

@@ -1190,7 +1190,14 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
-    { tag:'v6.9.6', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+    { tag:'v6.9.7', date:'2026-11-26', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Reconciled the verbatim Foundation prompt set against the code, corrected the report period labelling across every document family and added the issuing department to every report.',
+      changes:['Every report family now states the period it actually covers: weekly reports by 52-week number and Monday-Friday span, monthly reports by month, leadership summaries by quarter',
+        'No printed document still carries the rolling "7 days to" window',
+        'Every report names the department that issued it, read from the org chart',
+        'New tests/report-period-labels.js (26 checks) pins the mapping, the 52-week clamp and the Mon/Fri bounds',
+        'docs/audit/PROMPT-SOURCE-OF-TRUTH.md records the verbatim prompt set; docs/audit/PROMPT-AUDIT-001.md records per-line verdicts and evidence against ~68 requirements'] },
+    { tag:'v6.9.7', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Hardened the installed application (install button, offline and new-version notices, a bounded navigation fallback), measured every department palette against the contrast rule it is drawn with, and added the weekly planning page and the report gaps the usage trial report names.',
       changes:['Install button is now actually attached on every host; an offline strip, a new-version reload notice and an "Offline on this device" status chip were added',
         'Held work is replayed the moment the network returns, not at the next poll',

@@ -434,14 +434,14 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
 
   const landingHtml = root.innerHTML;
   const appVer = vm.runInContext(`APP.version`, bctx);
-  ok('APP.version is 6.9.6 across CareLink OS', appVer === '6.9.6', `got=${appVer}`);
+  ok('APP.version is 6.9.7 across CareLink OS', appVer === '6.9.7', `got=${appVer}`);
   ok('Compiled bundle opens in the white-led LOMAMO letterhead with the restored workflow graphic',
-    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="clinic" data-mode="light"') && landingHtml.includes('class="ld-scene-svg" role="img"') && (landingHtml.match(/data-workflow-node=/g)||[]).length === 8 && landingHtml.includes('--entry-relief-footer:#171717') && landingHtml.includes('v6.9.6') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
+    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="clinic" data-mode="light"') && landingHtml.includes('class="ld-scene-svg" role="img"') && (landingHtml.match(/data-workflow-node=/g)||[]).length === 8 && landingHtml.includes('--entry-relief-footer:#171717') && landingHtml.includes('v6.9.7') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'login'; render();`, bctx);
   const loginHtml = root.innerHTML;
-  ok('Compiled single-script bundle renders Sign-In page cleanly showing v6.9.6 · Schema 6',
-    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes('CareLink C-DIMS v6.9.6 · Schema 6') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
+  ok('Compiled single-script bundle renders Sign-In page cleanly showing v6.9.7 · Schema 6',
+    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes('CareLink C-DIMS v6.9.7 · Schema 6') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'architecture'; render();`, bctx);
   const archHtml = root.innerHTML;
