@@ -290,7 +290,39 @@ function parseHash(){
   if(id) params.id = id;
   APPX.view = view||'home'; APPX.params = params;
 }
+/* A page change is painted by the browser's View Transition where it exists,
+   so the crossing from one workspace to the next is a single coordinated
+   fade rather than two unrelated repaints. The CSS entry animation in
+   entry_theme.css is the fallback, and the two are never shown together
+   (html[data-view-transition="on"] disables the CSS one). Offered only when
+   the reader has not asked for reduced motion and has not switched Interface
+   animation off; a transition is skipped for the very same view so a refresh
+   does not flash, and any failure falls straight through to a plain render. */
+function viewTransitionAllowed(){
+  try{
+    if(typeof document==='undefined' || !document.startViewTransition) return false;
+    if(typeof matchMedia==='function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    const calm = document.documentElement && document.documentElement.getAttribute && document.documentElement.getAttribute('data-calm');
+    return calm !== 'on';
+  }catch(e){ return false; }
+}
 function go(view, params={}){
+  const sameView = APPX.view === view;
+  if(!sameView && viewTransitionAllowed()){
+    try{
+      const root = document.documentElement;
+      if(root && root.setAttribute) root.setAttribute('data-view-transition','on');
+      const mark = ()=>{ try{ root.setAttribute('data-view-transition','off'); }catch(e){} };
+      const t = document.startViewTransition(()=>{ goRender(view, params); });
+      if(t && t.finished && typeof t.finished.then==='function') t.finished.then(mark, mark);
+      else if(t && t.updateCallbackDone && typeof t.updateCallbackDone.then==='function') t.updateCallbackDone.then(mark, mark);
+      else mark();
+      return;
+    }catch(e){ /* fall through to the ordinary render */ }
+  }
+  goRender(view, params);
+}
+function goRender(view, params={}){
   APPX.view = view; APPX.params = params;
   if(typeof NAVP!=='undefined'){
     NAVP._tempOpen = false;

@@ -592,33 +592,63 @@ html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .s
   --bg:#fff;--surface:#fff;--surface-2:#f3f6fc;--ink:#14233e;--muted:#475569;
   --foundation-blue:#1e40af;--foundation-teal:#0f655d;--foundation-violet:#6d28a8;
   --foundation-rose:#a51d4c;--foundation-gold:#854d0e;
+  /* One highlighted accent survives every scheme on purpose: it is the
+     Foundation "this is the live one" mark (current navigation tile, current
+     shortcut), and it always sits beside white text. Everything else in the
+     console is drawn from the console's own signature. */
+  --console-highlight:#1e40af;
 }
-html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab){--feature-color:#1e40af;--feature-soft:#eef3ff;}
-html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab):nth-child(5n+2){--feature-color:#0f655d;--feature-soft:#e6f6f1;}
-html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab):nth-child(5n+3){--feature-color:#6d28a8;--feature-soft:#f4eaff;}
-html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab):nth-child(5n+4){--feature-color:#a51d4c;--feature-soft:#ffedf3;}
-html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab):nth-child(5n){--feature-color:#854d0e;--feature-soft:#fff5d9;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip,
+/* The five "feature" colours were a fixed palette, so a Foundation console in
+   any of the eight schemes wore blue/teal/violet/rose/gold chips that belonged
+   to none of them. They now step through the console's own six-colour signature
+   and their soft wash is mixed from the same colour, so the tint and the rail
+   beside it can never disagree. */
+html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab){
+  --feature-color:var(--console-c1);
+  --feature-soft:color-mix(in srgb,var(--console-c1) 9%,var(--surface));
+}
+html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab):nth-child(5n+2){--feature-color:var(--console-c2);--feature-soft:color-mix(in srgb,var(--console-c2) 9%,var(--surface));}
+html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab):nth-child(5n+3){--feature-color:var(--console-c3);--feature-soft:color-mix(in srgb,var(--console-c3) 9%,var(--surface));}
+html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab):nth-child(5n+4){--feature-color:var(--console-c4);--feature-soft:color-mix(in srgb,var(--console-c4) 9%,var(--surface));}
+html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab,.hero-qtab):nth-child(5n){--feature-color:var(--console-c5);--feature-soft:color-mix(in srgb,var(--console-c5) 9%,var(--surface));}
+/* The hero is the console's own gradient (console_color_schemes.css sets it
+   from --console-hero-1/2/3). This layer only supplies the gold identity edge
+   and the shadow, so the banner and the sidebar brand above it are cut from
+   one cloth instead of the violet wash this block used to paint over every
+   scheme. The wash survives for .home-hero, the pre-6.8 hero still used by a
+   few bespoke pages. */
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{
+  color:#fff !important;border:1px solid transparent !important;border-inline-start:6px solid #facc15 !important;
+  border-radius:20px !important;box-shadow:0 8px 28px #14233e14 !important;
+}
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell .home-hero{
   background:radial-gradient(ellipse at 95% 0%,#dbeafe 0%,transparent 48%),linear-gradient(110deg,#fff 30%,#f3eaff 76%,#fff0f5) !important;
   color:#14233e !important;border:1px solid #d7dff0 !important;border-inline-start:6px solid #6d28a8 !important;
   border-radius:20px !important;box-shadow:0 8px 28px #1e40af0d !important;
 }
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-greeting,
+/* The greeting sits on the console's gradient, so it is white; only the
+   pre-6.8 .home-hero keeps the blue headline it was designed with. */
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-greeting{color:#fff !important;letter-spacing:-.035em;font-weight:750;}
 html[data-wt="foundation"] .shell .home-hero h2{color:#1e40af !important;letter-spacing:-.035em;font-weight:750;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-sub,
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-sub{color:#fff !important;}
 html[data-wt="foundation"] .shell .home-hero p{color:#37465f !important;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-arch-pill,.ws67-scope-pill),
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-arch-pill,.ws67-scope-pill){
+  background:#fff !important;color:var(--console-c1) !important;border:1px solid #fff !important;border-radius:999px;
+}
 html[data-wt="foundation"] .shell .home-hero .hero-dept-pill{
   background:#e8eaff !important;color:#44238e !important;border:1px solid #c9c5f1 !important;border-radius:999px;
 }
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ctx-rtab:not(.on),
+/* Module tabs and hero chips fill with their own signature colour, so the row
+   reads as a family of colours from this console rather than a rainbow of five
+   fixed ones. The white text they carry is checked against the
+   contrast-corrected signature by the palette tests. The role strip below the
+   banner is styled in console_color_schemes.css, where its surface is the
+   page rather than the gradient. */
 html[data-wt="foundation"] .shell .ws67-mod-tabs>.tab:not(.active):not(.on),
 html[data-wt="foundation"] .shell .hero-qtab:not(.is-alert){
   background:var(--feature-color) !important;color:#fff !important;border:1px solid var(--feature-color) !important;
   border-radius:12px !important;box-shadow:0 3px 8px #14233e12 !important;font-family:var(--font);font-weight:650;
 }
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ctx-rtab.on,
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell .ws67-mod-tabs>.tab:is(.active,.on){
   background:#14233e !important;color:#fff !important;border:2px solid #14233e !important;
   box-shadow:inset 0 -3px 0 #facc15,0 3px 10px #14233e1a !important;border-radius:12px !important;
@@ -640,27 +670,40 @@ html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab):
 @media(prefers-contrast:more){html[data-wt="foundation"] .shell :is(.rc68-tile,.ctx-rtab,.ws67-mod-tabs>.tab){outline:1px solid currentColor;}}
 /* Quick workspace boxes, workflow headings and the navigation drawer carry
    the same accent language; patient status and severity badges are not targeted. */
+/* Metric cards on the reading surface take a wash of their own signature
+   step, so the card and its top rail are always the same colour. */
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell .ws67-qcard:not(.is-alert){
-  background:#e9efff !important;border:1px solid #c4d1f3 !important;border-top:4px solid #1e40af !important;border-radius:14px !important;
+  background:color-mix(in srgb,var(--console-q-accent,var(--console-c1)) 7%,var(--surface)) !important;
+  border:1px solid color-mix(in srgb,var(--console-q-accent,var(--console-c1)) 24%,var(--line)) !important;
+  border-top:4px solid var(--console-q-accent,var(--console-c1)) !important;border-radius:14px !important;
 }
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell .ws67-qcard:not(.is-alert):nth-child(3n+2){background:#e2f5ef !important;border-color:#a6d8c9 !important;border-top-color:#0f655d !important;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell .ws67-qcard:not(.is-alert):nth-child(3n){background:#f1e7ff !important;border-color:#d5bdf0 !important;border-top-color:#6d28a8 !important;}
-html[data-wt="foundation"] .shell .sheet{background:#f0edfc;border-color:#d8d0ef;}
-html[data-wt="foundation"] .shell .sheet-all{background:#6d28a8;color:#fff;border-radius:10px;}
-html[data-wt="foundation"] .shell .sheet-g{color:#583081;font-weight:750;}
+/* The page sheet is chrome, not identity: a neutral wash keeps it behind the
+   content in every one of the eight schemes rather than tinting the whole tab
+   rail mauve. Its group labels and the "All" affordance carry the signature. */
+html[data-wt="foundation"] .shell .sheet{background:var(--chrome,#f5f3ee);border-color:var(--chrome-line,#dedbd4);}
+html[data-wt="foundation"] .shell .sheet-all{background:var(--console-c1);color:var(--accent-ink,#fff);border-radius:10px;}
+html[data-wt="foundation"] .shell .sheet-g{color:color-mix(in srgb,var(--console-c1) 62%,var(--ink));font-weight:750;}
+/* A sheet's header names the form and belongs to the same console, so it takes
+   a wash of the signature instead of a blue-to-mauve gradient. */
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .modal .modal-h{
-  background:linear-gradient(105deg,#e8f0ff,#f2eaff);color:#14233e;border-bottom:3px solid #6d28a8;
+  background:linear-gradient(105deg,color-mix(in srgb,var(--console-c1) 10%,var(--surface)),color-mix(in srgb,var(--console-c2) 10%,var(--surface)));
+  color:var(--ink);border-bottom:3px solid var(--console-c1);
 }
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .modal .field>label{color:#293f72;font-weight:650;}
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell .ws67-qcard:not(.is-alert) :is(.ws67-qnum,.ws67-qlbl){color:#14233e !important;}
 
 /* Workspace breathing room: progressive disclosure rather than smaller type.
    No patient rows, workflow actions or clinical alerts are removed. */
+/* The card's own padding is NOT part of the breathing room. It used to be
+   enlarged here (26px 28px 22px) on top of the compact value the palette layer
+   already set, which is what made the coloured banner grow downwards. The card
+   keeps the base .ws67-hero padding at every width, and the space around it is
+   given to the workspace below instead. */
 html[data-wt="foundation"] .shell-role-banner{padding-top:20px;padding-bottom:8px;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:26px 28px 22px !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:18px 22px 14px !important;}
 html[data-wt="foundation"] .shell-role-banner .ws67-hero-main{gap:26px !important;}
 html[data-wt="foundation"] .shell-role-banner .ws67-sub{max-width:76ch;line-height:1.7;margin-block:12px 18px;}
-html[data-wt="foundation"] .shell-role-banner .ws67-role-tabs{margin-top:20px !important;padding-top:18px !important;gap:16px !important;}
+html[data-wt="foundation"] .shell-role-banner .ws67-role-tabs{gap:16px !important;}
 html[data-wt="foundation"] .shell-role-banner .ws67-actions{gap:10px;align-items:flex-start;}
 html[data-wt="foundation"] .shell .content{padding-top:24px;}
 html[data-wt="foundation"] .shell :is(.ws67-primary-grid,.ws67-stack){gap:26px;margin-block:24px;}
@@ -687,7 +730,7 @@ html[data-wt="foundation"] .shell .ws67-mod-tabs{gap:10px;padding-block:8px 18px
 .ws67-more-body{padding:10px 24px 24px;min-width:0;}
 :is(.ws67-workspace-tools,.ws67-layout-options,.ws67-more-workspaces)>summary:focus-visible{outline:3px solid var(--focus,var(--accent));outline-offset:4px;}
 @media(max-width:760px){
-  html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:22px 18px 18px !important;}
+  html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:14px 16px 12px !important;}
   html[data-wt="foundation"] .shell-role-banner{padding-top:14px;}
   html[data-wt="foundation"] .shell :is(.ws67-primary-grid,.ws67-stack){gap:18px;margin-block:20px;}
   html[data-wt="foundation"] .shell :is(.ws67-primary-slot,.ws67-mod-stage)>.card>:is(.card-h,.card-b){padding:18px;}
@@ -712,7 +755,8 @@ html[data-wt="foundation"] .shell .ws67-mod-tabs{gap:10px;padding-block:8px 18px
 @media(max-width:600px){.monday-review-period{padding:18px;gap:18px;}.monday-review-period form{width:100%;}.monday-review-period form .field{flex:1;min-width:0;}}
 
 /* Coordinated identity bands: vivid chrome over a white reading canvas.
-   The three hero fills are contrast-corrected by WTHEME.safeFill. */
+   The three hero fills are contrast-corrected by WTHEME.safeFill. The band is
+   defined once, here; the role strip below it is page furniture, not band. */
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{
   background:linear-gradient(112deg,var(--console-hero-1,#1e40af) 0%,var(--console-hero-2,#0f655d) 64%,var(--console-hero-3,#6d28a8) 100%) !important;
   color:#fff !important;border:1px solid transparent !important;border-inline-start:6px solid #facc15 !important;
@@ -720,9 +764,8 @@ html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .s
 }
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-greeting,.ws67-sub){color:#fff !important;}
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-greeting{font-family:var(--font-head,var(--font));font-weight:750;letter-spacing:-.035em;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-arch-pill,.ws67-scope-pill){background:#fff !important;color:#243455 !important;border:1px solid #fff !important;box-shadow:0 2px 8px #14233e16;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs{border-top:1px solid #ffffff55 !important;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-workspace-tools,.ws67-layout-options)>summary{background:#fff;color:#243455;border-color:#fff;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-arch-pill,.ws67-scope-pill){background:#fff !important;color:var(--console-c1) !important;border:1px solid #fff !important;box-shadow:0 2px 8px #14233e16;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-workspace-tools,.ws67-layout-options)>summary{background:#fff;color:var(--console-c1);border-color:#fff;}
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(button,summary):focus-visible{outline:3px solid #fde047 !important;outline-offset:4px;}
 html[data-wt="foundation"] .shell .npane .np-brand{
   background:linear-gradient(145deg,var(--console-hero-1,#1e40af),var(--console-hero-2,#0f655d));
@@ -738,17 +781,16 @@ html[data-wt="foundation"] .shell .npane .np-brand .np-x{color:#fff;background:#
 .np-id .np-account-name>span{display:flex;flex-direction:column;gap:3px;min-width:0;}
 .np-id .np-account-name small{font-size:10px;letter-spacing:.03em;}
 .np-id .np-account-name strong{font-size:12px;font-weight:650;line-height:1.45;overflow-wrap:anywhere;}
-html[data-wt="foundation"] .shell .npane .np-i:not(.on)>svg{background:#e5edff;color:#1e40af;border-radius:7px;padding:3px;width:25px;height:25px;flex-shrink:0;}
-html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n+2) .np-i:not(.on)>svg{background:#e5f5ef;color:#0f655d;}
-html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n) .np-i:not(.on)>svg{background:#f2e7ff;color:#6d28a8;}
-html[data-wt="foundation"] .shell .npane .np-i.on{background:#1e40af !important;color:#fff !important;box-shadow:inset 4px 0 0 #facc15,0 3px 8px #1e40af20;border-radius:10px;}
+/* Navigation icons and the current tile follow the console signature, so the
+   sidebar belongs to the same console as the banner above it. The gold edge on
+   the current tile is the one fixed accent: it is the Foundation identity mark,
+   and it is paired with white text on the contrast-corrected signature. */
+html[data-wt="foundation"] .shell .npane .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c1) 12%,#fff);color:var(--console-c1);border-radius:7px;padding:3px;width:25px;height:25px;flex-shrink:0;}
+html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n+2) .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c2) 12%,#fff);color:var(--console-c2);}
+html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n) .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c3) 12%,#fff);color:var(--console-c3);}
+html[data-wt="foundation"] .shell .npane .np-i.on{background:var(--console-c1) !important;color:var(--accent-ink,#fff) !important;box-shadow:inset 4px 0 0 #facc15,0 3px 8px color-mix(in srgb,var(--console-c1) 22%,transparent);border-radius:10px;}
 html[data-wt="foundation"] .shell .npane .np-i.on :is(svg,.np-l){color:#fff !important;}
 /* Dense data stays on white; navigational boxes and their icons carry colour. */
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert){
-  --identity-fill:#1e40af;background:var(--identity-fill) !important;border:1px solid #ffffff77 !important;border-top:4px solid #ffffff88 !important;border-radius:14px !important;
-}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert):nth-child(3n+2){--identity-fill:#0f655d;background:var(--identity-fill) !important;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert):nth-child(3n){--identity-fill:#6d28a8;background:var(--identity-fill) !important;}
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert) :is(.ws67-qnum,.ws67-qlbl,.ws67-qlbl svg){color:#fff !important;}
 html[data-wt="foundation"] .shell .npane .np-brand :is(button,a):focus-visible{outline:3px solid #fde047;outline-offset:3px;}
 @media(max-width:760px){html[data-wt="foundation"] .shell .npane .np-brand{padding-block:18px !important;}}
@@ -783,7 +825,7 @@ html[data-client-layout="compact"] .shell-role-banner .ws67-hero-main{grid-templ
 html[data-client-layout="compact"] .shell-role-banner .ws67-qgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
 .topbar.cbar .cb-qbtn{min-height:40px;white-space:normal;text-align:left;}
 html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn{background:#e8efff !important;color:#203c7a !important;border:1px solid #c6d5f0;border-radius:10px;padding:9px 14px;}
-html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn.on{background:#1e40af !important;color:#fff !important;border-color:#1e40af;box-shadow:inset 0 -3px 0 #facc15;}
+html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn.on{background:var(--console-c1) !important;color:var(--accent-ink,#fff) !important;border-color:var(--console-c1);box-shadow:inset 0 -3px 0 #facc15;}
 .topbar.cbar .cb-id :is(h1,.cb-console-name,.cb-view-name){white-space:normal !important;overflow-wrap:anywhere;max-width:100%;}
 .topbar.cbar .cb-id .xs{line-height:1.5;white-space:normal;}
 .topbar.cbar .sync-chip{max-width:230px;white-space:normal;}
@@ -792,7 +834,7 @@ html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn.on{background:#1e40af !i
 .topbar.cbar .icon-btn:disabled{opacity:.45;}
 html[data-wt="foundation"] .shell>.content{background:radial-gradient(ellipse at 98% 0%,#e9efff88,transparent 40%),radial-gradient(ellipse at 0% 70%,#f4eaff55,transparent 36%),#fff;}
 /* Translucent texture stays behind opaque reading cards, never behind patient text. */
-html[data-wt="foundation"] .shell .msg-pane-h{background:linear-gradient(110deg,#e7efff,#f2e8ff);border-bottom:2px solid #6d28a8;padding:18px;}
+html[data-wt="foundation"] .shell .msg-pane-h{background:linear-gradient(110deg,color-mix(in srgb,var(--console-c1) 11%,#fff),color-mix(in srgb,var(--console-c2) 11%,#fff));border-bottom:2px solid var(--console-c1);padding:18px;}
 html[data-wt="foundation"] .shell .msg-pane-h :is(b,span){color:#203455;}
 html[data-wt="foundation"] .shell .msg-thread.on{background:#e8efff;box-shadow:inset 4px 0 0 #1e40af;}
 html[data-wt="foundation"] .shell .msg-pane{border-radius:18px;box-shadow:0 6px 24px #14233e0a;}
@@ -1044,26 +1086,86 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand 
 .np-id .np-role-name .np-dot{display:block;width:12px;height:12px;flex:0 0 12px;border:2px solid #fff;box-shadow:0 0 0 1px #15263e;}
 @media print{html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand{background:#fff !important;color:#000 !important;}}
 
-/* ---- Workspace transitions (B3) ----------------------------------------
-   Content fades and lifts a few pixels when a new workspace opens, which makes
-   the change of place legible without making anybody wait. It is deliberately
-   short, it never animates layout, and it is removed entirely for readers who
-   have asked their device for reduced motion. Nothing here delays a click: the
-   markup is already in place, only its first paint is offset. */
+/* ---- Workspace, sheet and switch transitions (B3 / v6.10.0) -------------
+   Three motions, all of them short and none of them layout:
+     - a page (workspace view) fades and lifts 4px as it opens;
+     - a sheet (dialog) fades in with a tiny scale, and its backdrop fades;
+     - a switch knob and track slide, a segmented control's chosen chip
+       cross-fades, and tabs cross-fade their tint.
+   Motion is decoration: it never delays a click, never changes a size, and is
+   removed entirely for a reader whose device asks for reduced motion or who
+   has turned Interface animation off (html[data-calm="on"]). Print output is
+   never affected: the rules are dropped under @media print as well. */
 @keyframes carelink-ws-in{
-  from{opacity:0;transform:translateY(6px)}
+  from{opacity:0;transform:translateY(4px)}
   to{opacity:1;transform:none}
 }
-.workspace-view{animation:carelink-ws-in .18s ease-out both;}
-.modal .modal-b,.modal .modal-h{animation:carelink-ws-in .16s ease-out both;}
+@keyframes carelink-sheet-in{
+  from{opacity:0;transform:translateY(10px) scale(.985)}
+  to{opacity:1;transform:none}
+}
+@keyframes carelink-sheet-back-in{
+  from{opacity:0}
+  to{opacity:1}
+}
+@keyframes carelink-sheet-out{
+  from{opacity:1;transform:none}
+  to{opacity:0;transform:translateY(6px) scale(.99)}
+}
+@keyframes carelink-back-out{
+  from{opacity:1}
+  to{opacity:0}
+}
+.workspace-view{animation:carelink-ws-in .2s cubic-bezier(.22,.61,.36,1) both;}
+/* A sheet is the whole dialog, not only its body: the frame and its shadow
+   arrive together, over a backdrop that fades in at the same time. */
+.modal-back{animation:carelink-sheet-back-in .16s ease-out both;}
+.modal-back > .modal{animation:carelink-sheet-in .19s cubic-bezier(.22,.61,.36,1) both;
+  transform-origin:50% 12%;}
+/* Closing: ui.js adds .is-closing for one frame before it removes the element,
+   so a dismissed sheet leaves the way it arrived instead of vanishing. */
+.modal-back.is-closing{animation:carelink-back-out .12s ease-in both;pointer-events:none;}
+.modal-back.is-closing > .modal{animation:carelink-sheet-out .12s ease-in both;}
 .npane .np-i.on{transition:background .16s ease,border-color .16s ease,color .16s ease;}
 .tbl tbody tr:hover{background:color-mix(in srgb,var(--accent,#162F59) 4%,transparent);}
+
+/* Switches: the track fills and the knob travels; both follow the person's
+   colour scheme through --accent, and both are pure transform/colour. The knob
+   travels 20px inside the 44px track, so the checked state sits within its
+   own pill instead of overhanging the rounded end. */
+.switch .track{transition:background-color .18s ease,box-shadow .18s ease;}
+.switch .track::after{transition:transform .2s cubic-bezier(.34,1.4,.64,1),box-shadow .18s ease;}
+.switch input:focus-visible+.track{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent);}
+.switch input:checked+.track::after{transform:translateX(20px);}
+/* The chosen chip of a segmented control (Layout, filters, period pickers)
+   cross-fades the colour it already carries, never a reflow. */
+.seg button{transition:background-color .16s ease,color .16s ease,border-color .16s ease,box-shadow .16s ease;}
+.seg button.on{box-shadow:0 2px 8px color-mix(in srgb,var(--accent) 22%,transparent);}
+/* Tabs and role buttons cross-fade their tint rather than snapping. */
+.ctx-rtab,.tabs .tab,.sheet .tab{transition:background-color .16s ease,color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;}
+.ctx-rtab:active,.tabs .tab:active{transform:translateY(1px);}
+
+/* One switch for all of it: the reader's "Interface animation" preference and
+   the operating system's reduced-motion setting both land on html[data-calm]
+   (themes.js) and prefers-reduced-motion. */
 @media (prefers-reduced-motion:reduce){
-  .workspace-view,.modal .modal-b,.modal .modal-h{animation:none !important;}
-  .npane .np-i.on,.tbl tbody tr{transition:none !important;}
+  .workspace-view,.modal-back,.modal-back>.modal,.modal .modal-b,.modal .modal-h{animation:none !important;}
+  .npane .np-i.on,.tbl tbody tr,.switch .track,.switch .track::after,.seg button,
+  .ctx-rtab,.tabs .tab,.sheet .tab{transition:none !important;}
 }
-/* A view transition is only worth using where the browser can run one without
-   a flash of the old page; the CSS above is the fallback everywhere else. */
+html[data-calm="on"] .workspace-view,
+html[data-calm="on"] .modal-back,
+html[data-calm="on"] .modal-back>.modal,
+html[data-calm="on"] .modal .modal-b,
+html[data-calm="on"] .modal .modal-h{animation:none !important;}
+html[data-calm="on"] .switch .track,html[data-calm="on"] .switch .track::after,
+html[data-calm="on"] .seg button,html[data-calm="on"] .ctx-rtab,
+html[data-calm="on"] .tabs .tab{transition:none !important;}
+/* A page is sometimes handed over inside a browser View Transition (app.js);
+   in that hand-over the document paints both frames itself, so the CSS entry
+   animation is skipped there and only the browser's own transition shows. */
+html[data-view-transition="on"] .workspace-view{animation:none !important;}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.18s;}
 @media print{
-  .workspace-view{animation:none !important;}
+  .workspace-view,.modal-back,.modal-back>.modal{animation:none !important;}
 }

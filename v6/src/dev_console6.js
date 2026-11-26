@@ -1190,6 +1190,17 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.10.0', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Restored the console banner to its pre-6.9 height and finished the colour system it sits in: the role-tab strip is navigation below the banner again instead of content inside it, every accent is drawn from the console\'s own signature rather than a second fixed palette, and page changes, sheets and switches now animate.',
+      changes:['The coloured introduction card ends after the greeting, the actions and the quick metrics; the role tabs and the Layout control are a tab bar directly below it, so the gradient stops at the line under the copy exactly as it did before the strip was folded in',
+        'Desktop card padding is stated once (the base .ws67-hero 18px 22px 14px) with a 10px gap to the strip: a later breathing-room block had been re-imposing 26px 28px 22px over the compact value, which is what actually grew the banner; phone and short-screen variants follow the same rule, and no stylesheet is allowed to paint the strip back into the band',
+        'Colour coherence: the light-mode block that pinned its own hex tints onto the metric cards and role chips, the fixed five-colour Foundation feature palette, the mauve page sheet, the blue-to-mauve sheet header and the three fixed navigation-tile fills now all derive from the console signature (--console-c1..c6 and --console-hero-1..3)',
+        'Status, alert, warning and critical colours keep their semantic palettes; only navigation and identity colour is derived',
+        'Role chips below the banner carry their own signature hue with a filled current chip, and the header pills, Layout summary and active shortcut follow the signature too',
+        'Motion: page changes use the browser View Transition where available with a short CSS fade-and-lift fallback; sheets fade and scale in and play a closing frame before removal, with removal guaranteed by a timer; switches, segmented controls and tabs animate colour and transform only',
+        'All motion is removed for prefers-reduced-motion, for the Interface animation switch and under @media print, and no rule animates width, height, margin, padding or font size',
+        'New suite v6100-banner-height-motion-and-scheme-coherence (25 checks) pins the card boundary, the strip placement, the signature-derived palette and every motion guard'],
+      highlights:['B3'] },
     { tag:'v6.9.9', date:'2026-11-26', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Corrected the public statistics endpoint on the deployed architecture: a commissioned installation that keeps the register as a verified reference master was reporting every programme total as zero.',
       changes:['GET api/public/statistics no longer assumes the patient rows are in the process answering the request; a commissioned host holds the register as a verified reference master in KV, so reading the rows alone reported 0 patients discharged and 0 active caseload on a live installation',

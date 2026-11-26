@@ -791,7 +791,13 @@ const WORKSPACE_LAYOUTS = {
     const qtabs = Array.isArray(ctx.qtabs) ? ctx.qtabs.slice(0, 4) : [];
     const barCfg = (typeof ROLE_CTX !== 'undefined' && ROLE_CTX.roleBarConfig) ? ROLE_CTX.roleBarConfig(user) : { tabs: [] };
     const roleTabs = Array.isArray(barCfg.tabs) ? barCfg.tabs.slice(0, 6) : [];
-    const roleTabsHtml = `<div class="ctx-role-tabs ws67-role-tabs" style="justify-content:space-between;gap:10px" role="navigation" aria-label="Role contextual workspace tabs">
+    /* The role strip is the console's tab bar, not part of the coloured
+       introduction. It sits directly BELOW the banner card - outside the
+       gradient - so the banner ends on the line under the greeting, actions
+       and quick metrics, which is where it ended before the strip was folded
+       into it. Markup-wise it stays inside .shell-role-banner, so the banner
+       region still owns its navigation for keyboard and screen-reader users. */
+    const roleTabsHtml = `<div class="ctx-role-tabs ws67-role-tabs" role="navigation" aria-label="Role contextual workspace tabs">
         <div class="row" style="gap:6px;flex-wrap:wrap">
           ${roleTabs.map(t => `<button type="button" class="ctx-rtab ${t.v === (ctx.currentView || 'home') ? 'on' : ''}" data-act="go" data-v="${esc(t.v)}">${ic(t.ic || 'file', 13)}<span>${esc(t.l)}</span></button>`).join('')}
         </div>
@@ -827,8 +833,8 @@ const WORKSPACE_LAYOUTS = {
         </div>
         ${quickMetricsHtml}
       </div>
-      ${roleTabsHtml}
-    </section>`;
+    </section>
+      ${roleTabsHtml}`;
 
     return headerHtml;
   },
