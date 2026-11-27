@@ -12,6 +12,10 @@
    - Universal Workspace Drafts Hub across all accounts
    - Symmetrical Executive Console, Global Expenditure-Against-Budget, C-DIMS Coins & CareLink AI Smart Workflow Engine (100% Data Quality)
    ===================================================================== */
+
+/* Read the version from the package, so a release bumps it in one place. */
+const PKG_VERSION = JSON.parse(require('fs').readFileSync(require('path').join(__dirname,'..','..','package.json'),'utf8')).version;
+
 const fs = require('fs');
 const path = require('path');
 const { makeCtx } = require('./dom');
@@ -434,14 +438,17 @@ test('11. Compiled standalone browser HTML bundle boots cleanly and renders Land
 
   const landingHtml = root.innerHTML;
   const appVer = vm.runInContext(`APP.version`, bctx);
-  ok('APP.version is 6.10.0 across CareLink OS', appVer === '6.10.0', `got=${appVer}`);
+  /* The version is read from the package, never pinned here: a release bumps it
+     in one place and every gate follows, instead of a suite failing on a
+     harmless version bump. */
+  ok(`APP.version is ${PKG_VERSION} across CareLink OS`, appVer === PKG_VERSION, `got=${appVer}`);
   ok('Compiled bundle opens in the white-led LOMAMO letterhead with the restored workflow graphic',
-    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="clinic" data-mode="light"') && landingHtml.includes('class="ld-scene-svg" role="img"') && (landingHtml.match(/data-workflow-node=/g)||[]).length === 8 && landingHtml.includes('--entry-relief-footer:#171717') && landingHtml.includes('v6.10.0') && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
+    landingHtml.length > 5000 && landingHtml.includes('class="ld" data-front="1" data-theme="clinic" data-mode="light"') && landingHtml.includes('class="ld-scene-svg" role="img"') && (landingHtml.match(/data-workflow-node=/g)||[]).length === 8 && landingHtml.includes('--entry-relief-footer:#171717') && landingHtml.includes('v'+PKG_VERSION) && /Sign in/i.test(landingHtml), `len=${landingHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'login'; render();`, bctx);
   const loginHtml = root.innerHTML;
-  ok('Compiled single-script bundle renders Sign-In page cleanly showing v6.10.0 · Schema 6',
-    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes('CareLink C-DIMS v6.10.0 · Schema 6') && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
+  ok(`Compiled single-script bundle renders Sign-In page cleanly showing v${PKG_VERSION} · Schema 6`,
+    loginHtml.length > 3000 && loginHtml.includes('class="lg6"') && loginHtml.includes(`CareLink C-DIMS v${PKG_VERSION} · Schema 6`) && /Sign in/i.test(loginHtml), `len=${loginHtml.length}`);
 
   vm.runInContext(`APPX.screen = 'architecture'; render();`, bctx);
   const archHtml = root.innerHTML;

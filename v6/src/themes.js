@@ -363,7 +363,30 @@ const WTC = {
   mix(a,b,t){ const A=WTC.rgb(a), B=WTC.rgb(b); return WTC.hex(A.map((v,i)=>v+(B[i]-v)*t)); },
   lum(h){ const f=c=>{ c/=255; return c<=0.03928? c/12.92 : Math.pow((c+0.055)/1.055,2.4); };
           const [r,g,b]=WTC.rgb(h); return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b); },
-  contrast(a,b){ let x=WTC.lum(a), y=WTC.lum(b); if(x<y){ const t=x; x=y; y=t; } return (x+0.05)/(y+0.05); }
+  contrast(a,b){ let x=WTC.lum(a), y=WTC.lum(b); if(x<y){ const t=x; x=y; y=t; } return (x+0.05)/(y+0.05); },
+
+  /* Solve a fill/ink pair that a stylesheet can trust: move the hue until one
+     of the two extremes reaches the minimum contrast on it, and return both.
+     Forcing white text onto a dark hue is the classic way to end up with dark
+     text on a dark highlight, which is exactly the shape of the bug this
+     replaces; here the hue is nudged *away* from the ink instead, so the
+     signature colour survives while the label stays readable. `toward` is the
+     direction the theme prefers the fill move when both options work. */
+  fillWithInk(hex, preferredInk='#FFFFFF', dark=false, minimum=4.5){
+    if(!/^#[0-9A-Fa-f]{6}$/.test(String(hex||''))) return { fill:hex, ink:preferredInk };
+    const other = preferredInk === '#FFFFFF' ? '#000000' : '#FFFFFF';
+    let fill = hex;
+    for(let n=0; n<=40; n++){
+      const onPreferred = WTC.contrast(fill, preferredInk);
+      const onOther = WTC.contrast(fill, other);
+      if(onPreferred >= minimum) return { fill, ink:preferredInk };
+      if(onOther >= minimum) return { fill, ink:other };
+      fill = WTC.mix(fill, dark ? '#FFFFFF' : '#000000', 0.05);
+    }
+    /* forty steps could not reach the gate: pick whichever extreme is best */
+    return WTC.contrast(fill, preferredInk) >= WTC.contrast(fill, other)
+      ? { fill, ink:preferredInk } : { fill, ink:other };
+  },
 };
 
 /* Fifteen additional institutional themes. Their palette families are
@@ -640,8 +663,27 @@ const WTHEME = {
       while(WTC.contrast(safe, target) < 4.6 && tries++ < 48) safe = WTC.mix(safe, direction, 0.055);
       return safe;
     });
+      /* --console-cN is the signature hue corrected as INK: it only has to read
+       against the page. The moment that hue is used as a FILL - the current
+       role chip, a filled button, a sheet head - the text on it needs its own
+       answer, and "assume white" is the wrong one: a dark hue that reads
+       beautifully as text is nearly the same colour as white text on itself.
+       Each hue therefore also gets a solved pair here:
+         --console-cN-fill  the hue moved (in whichever direction the theme
+                            needs) until some ink reaches 4.5:1 on it, and
+         --console-cN-ink   that ink, white or near-black.
+       Solving it once means the chip, the button and the sheet head cannot
+       disagree, and no stylesheet has to guess the colour of its own text. */
     schemeInk.forEach((color, i)=>{
+      const dark = theme.mode === 'dark';
+      /* White ink is what a selected chip, a filled button or a sheet head
+         expects, so it is tried first and the fill is moved until white
+         works. Only a hue that cannot carry white at all - a pale blue, the
+         gold - is given dark ink instead. */
+      const fill = WTC.fillWithInk(color, '#FFFFFF', dark, 4.5);
       set(`--console-c${i+1}`, color);
+      set(`--console-c${i+1}-fill`, fill.fill);
+      set(`--console-c${i+1}-ink`, fill.ink);
       set(`--console-soft-${i+1}`, WTC.mix(theme.t.surface, color, 0.055));
     });
     set('--console-hero-1', WTHEME.safeFill(schemeColors[0]));

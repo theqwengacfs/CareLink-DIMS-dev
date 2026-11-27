@@ -717,6 +717,7 @@ function viewCrumb(){
     clinicalmcm:'Medical Case Manager & Clinical Console', bmiboard:'BMI Nutritional Intelligence',
     cccdesk:'CCC / PSC Hospital Referral Desk', govdashboard:'Government Health Partnership',
     intlmedical:'120+ Day PDCA & International Medical Review', foodbudget:'Projected Food & Hygiene Budget',
+    foodprotocol:'Monday Procurement Protocol',
     adminops:'Admin Operations & 9th Statutory', devconsole:'CareLink Development Console'};
   const baseTitle = labels[v]||titleCase(v);
   const t = (AUTH.user && typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel) ? ROLE_CTX.navLabel(AUTH.user, v, baseTitle) : baseTitle;
@@ -854,6 +855,7 @@ function contentFor(view, params, user, options = {}){
       case 'govdashboard': return guard('gov.oversight')||HANDOVER_PARTNERS.renderGovDashboard(user, params);
       case 'intlmedical': return guard('intl.medical')||HANDOVER_PARTNERS.renderIntlMedical(user, params);
       case 'foodbudget': return (RBAC.has(user,'procurement.view')||RBAC.has(user,'finance.view'))?MONDAY_PROC.renderFoodBudget(user, params):deniedPanel('procurement.view');
+      case 'foodprotocol': return (RBAC.has(user,'procurement.view')||RBAC.has(user,'finance.view'))?MONDAY_PROTOCOL_UI.render(user, params):deniedPanel('procurement.view');
       /* CareLink v6.4/v6.5 Admin Operations, Development Console & Intelligent Workflow Engine */
       case 'adminops': return (RBAC.has(user,'admin.ops')||RBAC.has(user,'finance.view'))?ADMIN_OPS.render(user, params):deniedPanel('admin.ops');
       case 'devconsole': return DEV_CONSOLE.canAccess(user)?DEV_CONSOLE.render(user, params):deniedPanel('dev.console');

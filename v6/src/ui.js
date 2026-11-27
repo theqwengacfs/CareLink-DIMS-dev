@@ -151,7 +151,8 @@ function navModel(user){
       { id:'costing', label:'Cost per patient', icon:'receipt', show:has('cost.view') },
       { id:'budget', label:'Budget lines', icon:'layers', show:has('finance.budget.manage') },
       { id:'procurement', label:'Procurement', icon:'package', show:has('procurement.view') },
-      { id:'foodbudget', label:'Projected food & hygiene budget', icon:'clipboard', show:has('procurement.view')||has('finance.view') }
+      { id:'foodbudget', label:'Projected food & hygiene budget', icon:'clipboard', show:has('procurement.view')||has('finance.view') },
+      { id:'foodprotocol', label:'Monday Procurement Protocol', icon:'package', show:has('procurement.view')||has('finance.view') }
     ]},
     { label:'Media & governance', show:has('media.view')||has('pr.view'), items:[
       { id:'media', label:'Media library', icon:'image', show:has('media.view') },
@@ -244,7 +245,7 @@ function navModel(user){
     referral:['report.referral'], archive:['report.executive','report.patient_figures'], targets:['report.targets.view','report.targets.manage'],
     conditions:['condition.aggregate','condition.sensitive'], donor:['report.executive','media.publish'], analytics:['report.patient_figures','report.executive'],
     adminops:['admin.ops','finance.view'], finance:['finance.view'], costing:['cost.view'], budget:['finance.budget.manage'],
-    procurement:['procurement.view'], foodbudget:['procurement.view','finance.view'], media:['media.view'], studio:['media.view'],
+    procurement:['procurement.view'], foodbudget:['procurement.view','finance.view'], foodprotocol:['procurement.view','finance.view'], media:['media.view'], studio:['media.view'],
     consent:['media.consent.manage'], publish:['media.publish'], policy:['media.view'], pr:['pr.view'],
     staff:['hr.view'], welfare:['welfare.view'], delegation:['delegation.manage'], vehicles:['vehicle.view'], trips:['vehicle.view'],
     audit:['audit.view'], history:['system.audit'], security:['audit.view','system.audit'], accessaudit:['audit.view','role.manage'],
@@ -262,7 +263,7 @@ function navModel(user){
     /* The Chief administers the platform, not the clinical, programme,
        finance or HR desks. Keep system configuration, import, assurance and
        personal collaboration visible; exceptional explicit grants still work. */
-    chief:      new Set(['patients','pipeline','attention','hardcopy','waiting','visits','bmiboard','schedule','visitplan','forms','pdca','households','repeat','programdays','cccdesk','govdashboard','teams','clinicalmcm','intlmedical','pharmacy','tbcare','careplans','requests','liaison','recon','urgent','care','care-incidents','reports','referral','archive','targets','conditions','donor','analytics','adminops','finance','costing','budget','procurement','foodbudget','staff','welfare','delegation','vehicles','trips','executive','compare','execconsole','evaluation','inventory','interns','ohs']),
+    chief:      new Set(['patients','pipeline','attention','hardcopy','waiting','visits','bmiboard','schedule','visitplan','forms','pdca','households','repeat','programdays','cccdesk','govdashboard','teams','clinicalmcm','intlmedical','pharmacy','tbcare','careplans','requests','liaison','recon','urgent','care','care-incidents','reports','referral','archive','targets','conditions','donor','analytics','adminops','finance','costing','budget','procurement','foodbudget','foodprotocol','staff','welfare','delegation','vehicles','trips','executive','compare','execconsole','evaluation','inventory','interns','ohs']),
     caregiver:  new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting']),
     chw:        new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting','pharmacy']),
     coordinator:new Set(['cccdesk','tbcare','costing','pharmacy']),

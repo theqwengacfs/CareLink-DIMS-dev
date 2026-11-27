@@ -238,8 +238,45 @@ const SYNC = {
         return {ok:true, user:r.body.user, mustChange:true, passwordBeforeWorkspace:true, idleSeconds:r.body.idleSeconds, username:r.body.username};
       }
       /* Authentication alone is not enough: a fresh tablet must not render
-         its old/empty browser document while it waits for the next poll. */
-      const pulled = await this.pullFull({ minRev: r.body.rev || 0, inlineState: r.body.inlineState || null });
+         its old/empty browser document while it waits for the next poll.
+         On a device that already holds this account's document at the host's
+         current revision, downloading the whole workspace again makes a daily
+         sign-in cost as much as a first one. A single authenticated delta
+         question settles that: if the host says "unchanged" there is nothing
+         to download and the console opens immediately; anything else falls
+         straight through to the full pull below, unchanged. The owner check is
+         what makes it safe - a document written by a different account is
+         never reused, however fresh its revision looks. */
+      let pulled = false;
+      const localRev = Number(DB.db && DB.db.meta && DB.db.meta.serverRev) || 0;
+      const localOwner = String((DB.db && DB.db.meta && DB.db.meta.snapshotOwner) || '').toLowerCase();
+      const signingIn = String(r.body.username || username || '').toLowerCase();
+      if (localRev > 0 && localOwner && localOwner === signingIn && !r.body.passwordBeforeWorkspace) {
+        try {
+          const probe = await this._json(`api/state?since=${localRev}&deltaOnly=1`, { timeoutMs: 12000 });
+          if (probe && probe.ok && probe.body && probe.body.unchanged === true) {
+            /* Nothing has moved: the document on this device is the document on
+               the host. Adopt its revision and skip the download entirely. */
+            this.rev = Number(probe.body.rev) || localRev;
+            this.saved = probe.body.saved || (DB.db.meta && DB.db.meta.serverSaved) || null;
+            DB.db.meta = Object.assign({}, DB.db.meta, { serverRev: this.rev, serverSaved: this.saved });
+            this.state = 'connected';
+            this.message = 'Signed in on the shared online source';
+            this.bump();
+            pulled = true;
+          }
+        } catch (_e) { /* fall through to the full pull */ }
+      }
+      if (!pulled) {
+        pulled = await this.pullFull({ minRev: r.body.rev || 0, inlineState: r.body.inlineState || null });
+      }
+      /* Remember whose document this device is holding, and at which revision,
+         so the next sign-in can take the fast path above instead of downloading
+         the workspace again. */
+      if (pulled && DB.db && DB.db.meta) {
+        DB.db.meta.snapshotOwner = signingIn;
+        try { if (typeof DB.persistState === 'function') DB.persistState(); } catch (_e) {}
+      }
       if(!pulled){
         const detail = this.message && !/Sign-in succeeded/i.test(this.message) ? ` (${this.message})` : '';
         await this.logout();

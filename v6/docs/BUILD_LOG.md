@@ -2,9 +2,9 @@
 
 | Field | Value |
 |---|---|
-| Application | CareLink DIMS v6.9.8 |
+| Application | CareLink DIMS v6.11.0 |
 | Organisation | LOMAMO Foundation Kenya |
-| Build date | 2026-10-18 |
+| Build date | 2026-11-27 |
 | Database schema | 6 |
 | Artefact | `LOMAMO-CareLink-DIMS-v5.0.html` (one file, no dependencies) |
 | Source modules | 11 (`src/`) |
@@ -13,6 +13,49 @@
 | Authorisation controls verified | 13 / 13 |
 | Central database | `server.py` · SQLite · revision snapshots · 26/26 API checks |
 | Audit pass | 2026-10-18 — 14 defects found and fixed (docs/12 §9) |
+
+## v6.11.0 — Monday Procurement Protocol, colour coherence, sign-in latency
+
+**Monday Procurement Protocol** (`v6/src/monday_procurement_protocol6.js`, new;
+route `foodprotocol`; console navigation, and four tabs). Every Monday the Active
+Programme Register is counted after discharges, deaths and completions, taken off
+the Foundation's 180-patients-a-week envelope, and the remainder is that week's
+new-intake target — the same number that sets how many assessment forms the week
+can accept. Household and headcount are shown side by side because a couple
+household takes one Bag 2 rather than two Bag 1s.
+
+Bag 1 and Bag 2 are bought and issued every week, and each patient alternates, so
+no patient receives the same bag twice running; a patient in a ward that week
+takes the bedside pack (milk and oranges) instead of a dry household bag. The
+item budget is per-bag contents × bags to issue, priced per unit, and a line reads
+*working* until Procurement keys the verified quotation price — the sheet says
+which figures are which, and closing the Monday freezes both quantities and
+prices so a later price change cannot rewrite the order.
+
+**The colour clash.** The current role chip filled with the raw signature hue
+(contrast-checked only against the page) while its label assumed white, so on a
+dark green console the current tab was dark-on-dark and effectively invisible —
+the phone screenshot that started this. Every filled console surface now takes
+both its fill and its ink from one solved pair (`--console-cN-fill` /
+`--console-cN-ink`, solved by `WTC.fillWithInk`, minimum 4.5:1), covering the
+current role chip, the selected navigation tile, the "all" sheet chip, the quick
+button and the workspace mode segment. Three Admin Ops index badges were also
+moved above 4.5:1.
+
+**Sign-in latency.** Measured rather than guessed: the server counts KV
+round-trips per request and `/api/auth/login?timing=1` now reports the stage
+timings (credential check, device admission, auth write) and the round-trip
+count. A device that already holds the host's current document no longer
+re-downloads the whole workspace on sign-in (with an owner check so another
+account's document is never reused), and admission no longer reconstructs a
+sharded workspace merely to read the device register. The dominant remaining
+cost is the mobile link itself: on the 15 kbps connection in the screenshot a
+first sign-in legitimately needs ~50 s to download a large register.
+
+**Checks.** `v6110-monday-procurement-protocol` (58), `v6110-active-tab-colour-
+coherence` (28, including the solver's maths run for real across 18 hues),
+`v6110-signin-latency` (24). `npm run test:all` exit 0. `views.js` renders 5051
+views without a fallback.
 
 ## Deployed state — v6.10.0, and what is still awaited
 

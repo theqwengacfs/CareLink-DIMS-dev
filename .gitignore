@@ -50,3 +50,6 @@ native-android/.idea/
 
 # Developer source handover archives (generated locally, never committed)
 /deliverables/CareLink-Developer-Handover-*.zip
+
+# Local visual previews rendered by tools/preview-v6110.cjs (generated, not shipped).
+.preview/
