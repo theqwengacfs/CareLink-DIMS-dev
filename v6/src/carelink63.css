@@ -1635,7 +1635,7 @@ html[data-banner="solid"] .topbar.cbar{
   font-weight:900 !important;
   box-shadow:0 2px 6px rgba(0,0,0,.24);
 }
-.topbar.cbar .cb-qbtn.on svg, .topbar.cbar .cb-qbtn.on span{ color:#090D16 !important; }
+.topbar.cbar .cb-qbtn.on svg, .topbar.cbar .cb-qbtn.on span{ color:var(--tab-ink, #090D16) !important; fill:currentColor !important; }
 .topbar.cbar .searchbox{
   background:#FFFFFF !important;
   border:1.5px solid rgba(255,255,255,.92) !important;
@@ -1749,8 +1749,8 @@ html[data-banner="solid"] .topbar.cbar{
   transition:all .14s ease;
 }
 .ctx-rtab:hover{
-  border-color:var(--accent) !important;
-  background:var(--accent-soft) !important;
+  border-color:var(--console-c1, var(--accent)) !important;
+  background:color-mix(in srgb, var(--console-c1, var(--accent)) 8%, var(--surface)) !important;
   color:var(--ink) !important;
 }
 .ctx-rtab.on{
@@ -1812,7 +1812,7 @@ html[data-tabstyle="boxed"] .tabs .tab,
 html[data-tabstyle="boxed"] .ctx-rtab{ border-radius:8px !important; }
 html[data-tabstyle="underline"] .tabs{ background:transparent !important; border:0 !important; border-bottom:2px solid var(--line) !important; border-radius:0 !important; padding:0 0 4px !important; }
 html[data-tabstyle="underline"] .tabs .tab{ background:transparent !important; border:0 !important; border-bottom:3px solid transparent !important; border-radius:6px 6px 0 0 !important; box-shadow:none !important; color:var(--ink-2) !important; }
-html[data-tabstyle="underline"] .tabs .tab.active{ background:var(--accent-soft) !important; color:var(--accent-fg) !important; border-bottom-color:var(--accent) !important; }
+html[data-tabstyle="underline"] .tabs .tab.active{ background:var(--tab-fill, transparent) !important; color:var(--tab-ink, var(--accent-fg)) !important; border-bottom-color:var(--tab-ink, var(--accent)) !important; }
 
 html[data-borders="bold"] .card,
 html[data-borders="bold"] .input,
@@ -2084,28 +2084,25 @@ html:not([data-tabstyle="underline"]) .tabs .tab.on .tcount:not(.crit){
 html[data-tabstyle="underline"] .tabs .tab.active,
 html[data-tabstyle="underline"] .tabs .tab.on{
   background:transparent !important;
-  color:var(--accent-fg) !important;
+  color:var(--tab-ink, var(--accent-fg)) !important;
   border-color:transparent !important;
-  border-bottom:2.5px solid var(--accent) !important;
+  border-bottom:2.5px solid var(--tab-ink, var(--accent)) !important;
   border-radius:0 !important;
   font-weight:800 !important;
 }
 html[data-tabstyle="underline"] .tabs .tab.active span,
 html[data-tabstyle="underline"] .tabs .tab.active svg{
-  color:var(--accent-fg) !important;
+  color:var(--tab-ink, var(--accent-fg)) !important;
 }
+/* Selected page tab. This block used to paint a pale accent wash here and
+   gave the label --accent-fg - an ink solved against the page, not against a
+   console fill - while three other layers filled the same chip. --accent-fg on
+   navy over a maroon chip is 1.02:1, which is the label that disappeared.
+   The selected state is now owned by tab_ink.css, which reads one solved pair
+   (--tab-fill / --tab-ink); this block only keeps the geometry. */
 .sheet .tab.active, .sheet .tab.on{
-  background:var(--accent-soft) !important;
-  color:var(--accent-fg) !important;
-  border-color:color-mix(in srgb, var(--accent) 42%, var(--line)) !important;
+  border-color:color-mix(in srgb, var(--tab-fill, var(--accent)) 42%, var(--line)) !important;
   font-weight:800 !important;
-}
-.sheet .tab.active span, .sheet .tab.active svg{
-  color:var(--accent-fg) !important;
-}
-.sheet .tab.active .tcount:not(.crit){
-  background:var(--accent) !important;
-  color:var(--accent-ink, #FFFFFF) !important;
 }
 
 /* --- B. 5-TIER DISTINCT BANNER & BAR TYPOGRAPHIC / STRUCTURAL HIERARCHY ---

@@ -1190,6 +1190,8 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.11.2', date:'2026-11-27', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      notes:'Selected tabs take their fill and the ink on that fill from one solved pair; the audit resolves the real cascade over 18,720 theme x scheme x signature pages.'},
     { tag:'v6.11.0', date:'2026-11-27', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Adds the Monday Procurement Protocol — the 180-patient weekly envelope, the alternate Bag 1 / Bag 2 issue, and an item-level foodbag budget the Procurement Office buys against — fixes a colour clash that made the current role chip unreadable on a dark console, and makes sign-in latency attributable instead of guessed at.',
       changes:['Monday Procurement Protocol (new workspace): every Monday the Active Programme Register is counted after discharges, deaths and completions, taken off the 180-patient weekly envelope, and the remainder is that week\'s new-intake target; household and headcount are shown side by side because a couple household takes one Bag 2 rather than two Bag 1s',

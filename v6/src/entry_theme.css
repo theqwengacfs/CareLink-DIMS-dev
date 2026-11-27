@@ -496,8 +496,14 @@ html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .s
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-greeting,.ws67-sub){color:#242321 !important;}
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner :is(.ws67-arch-pill,.ws67-scope-pill,.ws67-actions .btn){background:#fff !important;color:#403731 !important;border:1px solid #d9d4cc !important;}
 html[data-wt="foundation"] .shell-role-banner .ws67-role-tabs{border-top-color:#dedbd4 !important;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ctx-rtab.on{background:#7c1e24 !important;color:#fff !important;border-color:#7c1e24 !important;}
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell :is(.tabs .tab,.sheet .tab):is(.active,.on){background:#7c1e24 !important;color:#fff !important;border-color:#7c1e24 !important;}
+/* The foundation console keeps its crimson selected state, but it now owns
+   BOTH halves of the pair. Before this, the chip was painted crimson here
+   while its label was given the ink solved for the console signature, so the
+   text could be a colour that had never been tested against crimson. */
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ctx-rtab.on{--tab-fill:#7c1e24;--tab-ink:#fff;background:var(--tab-fill) !important;color:var(--tab-ink) !important;border-color:var(--tab-fill) !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ctx-rtab.on :is(svg,span){color:var(--tab-ink) !important;fill:currentColor !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell :is(.tabs .tab,.sheet .tab):is(.active,.on){--tab-fill:#7c1e24;--tab-ink:#fff;background:var(--tab-fill) !important;color:var(--tab-ink) !important;border-color:var(--tab-fill) !important;}
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell :is(.tabs .tab,.sheet .tab):is(.active,.on) :is(span,b,svg,i){color:var(--tab-ink) !important;fill:currentColor !important;}
 @media print{
   html[data-wt="foundation"] .shell{--bg:#fff;--chrome:#fff;}
 }
@@ -650,7 +656,8 @@ html[data-wt="foundation"] .shell .hero-qtab:not(.is-alert){
   border-radius:12px !important;box-shadow:0 3px 8px #14233e12 !important;font-family:var(--font);font-weight:650;
 }
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell .ws67-mod-tabs>.tab:is(.active,.on){
-  background:#14233e !important;color:#fff !important;border:2px solid #14233e !important;
+  --tab-fill:#14233e;--tab-ink:#fff;
+  background:var(--tab-fill) !important;color:var(--tab-ink) !important;border:2px solid var(--tab-fill) !important;
   box-shadow:inset 0 -3px 0 #facc15,0 3px 10px #14233e1a !important;border-radius:12px !important;
 }
 html[data-wt="foundation"] .shell .rc68-tile{
@@ -799,8 +806,8 @@ html[data-wt="foundation"] .shell .npane .np-brand .np-x{color:#fff;background:#
 html[data-wt="foundation"] .shell .npane .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c1) 12%,#fff);color:var(--console-c1);border-radius:7px;padding:3px;width:25px;height:25px;flex-shrink:0;}
 html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n+2) .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c2) 12%,#fff);color:var(--console-c2);}
 html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n) .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c3) 12%,#fff);color:var(--console-c3);}
-html[data-wt="foundation"] .shell .npane .np-i.on{background:var(--console-c1-fill,var(--console-c1)) !important;color:var(--console-c1-ink,var(--accent-ink,#fff)) !important;box-shadow:inset 4px 0 0 #facc15,0 3px 8px color-mix(in srgb,var(--console-c1) 22%,transparent);border-radius:10px;}
-html[data-wt="foundation"] .shell .npane .np-i.on :is(svg,.np-l){color:#fff !important;}
+html[data-wt="foundation"] .shell .npane .np-i.on{--tab-fill:var(--console-c1-fill,var(--console-c1));--tab-ink:var(--console-c1-ink,var(--accent-ink,#fff));background:var(--tab-fill) !important;color:var(--tab-ink) !important;box-shadow:inset 4px 0 0 #facc15,0 3px 8px color-mix(in srgb,var(--console-c1) 22%,transparent);border-radius:10px;}
+html[data-wt="foundation"] .shell .npane .np-i.on :is(svg,.np-l){color:var(--tab-ink) !important;fill:currentColor !important;}
 /* Dense data stays on white; navigational boxes and their icons carry colour. */
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert) :is(.ws67-qnum,.ws67-qlbl,.ws67-qlbl svg){color:#fff !important;}
 html[data-wt="foundation"] .shell .npane .np-brand :is(button,a):focus-visible{outline:3px solid #fde047;outline-offset:3px;}
@@ -836,7 +843,8 @@ html[data-client-layout="compact"] .shell-role-banner .ws67-hero-main{grid-templ
 html[data-client-layout="compact"] .shell-role-banner .ws67-qgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
 .topbar.cbar .cb-qbtn{min-height:40px;white-space:normal;text-align:left;}
 html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn{background:#e8efff !important;color:#203c7a !important;border:1px solid #c6d5f0;border-radius:10px;padding:9px 14px;}
-html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn.on{background:var(--console-c1-fill,var(--console-c1)) !important;color:var(--console-c1-ink,var(--accent-ink,#fff)) !important;border-color:var(--console-c1);box-shadow:inset 0 -3px 0 #facc15;}
+html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn.on{--tab-fill:var(--console-c1-fill,var(--console-c1));--tab-ink:var(--console-c1-ink,var(--accent-ink,#fff));background:var(--tab-fill) !important;color:var(--tab-ink) !important;border-color:var(--console-c1);box-shadow:inset 0 -3px 0 #facc15;}
+html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn.on :is(svg,span){color:var(--tab-ink) !important;fill:currentColor !important;}
 .topbar.cbar .cb-id :is(h1,.cb-console-name,.cb-view-name){white-space:normal !important;overflow-wrap:anywhere;max-width:100%;}
 .topbar.cbar .cb-id .xs{line-height:1.5;white-space:normal;}
 .topbar.cbar .sync-chip{max-width:230px;white-space:normal;}

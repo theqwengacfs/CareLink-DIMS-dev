@@ -80,7 +80,14 @@ const nodeBuilder=fs.readFileSync(path.join(root,'tools/sync-lovable.mjs'),'utf8
 const pythonBuilder=fs.readFileSync(path.join(root,'v6/build.py'),'utf8');
 const parse=(text)=>text.match(/CSS_ORDER\s*=\s*\[([^\]]+)\]/)[1].match(/['"]([^'"]+)['"]/g).map(v=>v.slice(1,-1));
 assert.deepEqual(parse(nodeBuilder),CSS_ORDER);assert.deepEqual(parse(pythonBuilder),CSS_ORDER);
-assert.equal(CSS_ORDER.at(-1),'entry_theme.css','entry rules must win over legacy workspace rules');
+/* entry_theme.css must still be the last *entry* layer, so its public-page
+   rules win over the legacy workspace sheets. tab_ink.css is the one sheet
+   allowed after it, and only because it is the single owner of a selected
+   control's fill AND ink - the fix for labels disappearing on filled tabs. It
+   must itself be last, so nothing can repaint half of that pair. */
+const entryPos=CSS_ORDER.indexOf('entry_theme.css');
+assert.equal(CSS_ORDER.at(-1),'tab_ink.css','tab ink layer must win over every legacy workspace rule');
+assert.equal(entryPos,CSS_ORDER.length-2,'entry rules must still win over legacy workspace rules');
 const css=fs.readFileSync(path.join(root,'v6/src/entry_theme.css'),'utf8');
 assert.match(css,/\.ld\[data-front="1"\] \.ld-canvas-card\{[^}]*background:var\(--entry-relief-surface\)/);
 assert.match(css,/\.ld\[data-front="1"\] \.ld-foot\{[^}]*background:var\(--entry-relief-footer\)/);
