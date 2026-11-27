@@ -174,4 +174,55 @@ run('DB.load();DB.seedDemo();');
     /\.shell-role-banner \.ws67-hero-copy\{max-width:100%;overflow-wrap:anywhere;\}/.test(schemes));
 }
 
+/* ---------------------------------------------------------------------
+   5. The tablet tier (768-1024px) is a layout of its own, not a stretched
+      phone and not a squeezed desktop
+   --------------------------------------------------------------------- */
+{
+  /* Below 1000px the introduction is one column, so the greeting, the actions
+     and the quick metrics stack instead of fighting for the same row. */
+  ok('The tablet hero is a single column, not a two-column squeeze',
+    /@media\(min-width:1000px\)\{[\s\S]{0,400}\.shell-role-banner \.ws67-hero-main\{grid-template-columns:minmax\(0,1\.38fr\) minmax\(240px,\.88fr\) !important;\}\n\}/.test(schemes));
+  ok('The base hero is one column, applied at every width until the desktop tier',
+    /\.shell-role-banner \.ws67-hero-main\{grid-template-columns:minmax\(0,1fr\) !important;\}/.test(schemes));
+  ok('The quick metrics stay a two-up grid on a tablet, so four read as 2x2',
+    /\.ws67-qgrid, \.ws67-hero \.ws67-qgrid\.hero-qtabs\{\s*display:grid !important; grid-template-columns:repeat\(2, minmax\(0, 1fr\)\);/.test(read('carelink63.css')));
+  ok('Tablets and phones get 44px touch targets on every control in the shell',
+    /html\[data-client-kind="tablet"\] \.shell :is\(\.btn,\.icon-btn,\.tab,\.np-i\),html\[data-client-kind="phone"\] \.shell :is\(\.btn,\.icon-btn,\.tab,\.np-i\)\{min-height:44px;\}/.test(entry));
+  ok('Tablet controls never rely on double-tap zoom to be usable',
+    /html\[data-client-kind="tablet"\] :is\(button,input,select\)/.test(entry) &&
+    /touch-action:manipulation/.test(entry));
+  ok('A compact client gets the one-column banner even on a wide screen',
+    /html\[data-client-layout="compact"\] \.shell-role-banner \.ws67-hero-main\{grid-template-columns:minmax\(0,1fr\) !important;\}/.test(entry));
+
+  /* What a metric card has to hold is read out of the application, not
+     guessed: every console's quick-metric labels, the longest of them, and how
+     many words that is. A card carries that label beside a 13px icon at
+     11px/700 with 12px padding each side; two cards plus the 8px grid gap
+     have to fit the metric column for the four metrics to read as 2x2 rather
+     than as four cramped rows with wrapped labels. */
+  const labels = JSON.parse(run(`(() => {
+    const out = [];
+    DB.db.users.forEach(u => { try { ROLE_CTX.heroQuickTabs(u).forEach(t => out.push(t.label)); } catch (_e) {} });
+    return JSON.stringify([...new Set(out)]);
+  })()`));
+  ok('Every console declares quick-metric labels, so the card width is a real constraint',
+    labels.length >= 10, `${labels.length} distinct labels`);
+  const longest = labels.reduce((a, b) => (b.length > a.length ? b : a), '');
+  const charPx = 6.1;                                  // 11px Inter, weight 700
+  const labelPx = longest.length * charPx;
+  const cardMin = labelPx + 13 + 5 + 24;               // label + icon + gap + padding
+  const twoUpMin = cardMin * 2 + 8;                    // two cards + the grid gap
+  const metricsTrack = (w) => Math.max(240, (w - 44 - 18) * (0.88 / 2.26));
+  ok('The longest metric label is a real multi-word label, not a single word',
+    longest.split(' ').length >= 2, JSON.stringify(longest));
+  ok('At 1100px the four metrics still fit two-up, so the desktop tier is chosen correctly',
+    metricsTrack(1100) >= twoUpMin, `${Math.round(metricsTrack(1100))}px available, ${Math.round(twoUpMin)}px needed`);
+  ok('At 820px a two-column banner would leave the metrics short, which is why the tablet tier is one column',
+    metricsTrack(820) < twoUpMin, `${Math.round(metricsTrack(820))}px available, ${Math.round(twoUpMin)}px needed`);
+
+  ok('The role strip is a single scroller on a tablet as well as a phone (no wrapped wall)',
+    /\.shell-role-banner \.ws67-role-tabs > \.row\{flex:1 1 auto;min-width:0;flex-wrap:nowrap !important;overflow-x:auto/.test(schemes));
+}
+
 console.log(`mobile layout: ${passed} checks passed, 0 failed`);
