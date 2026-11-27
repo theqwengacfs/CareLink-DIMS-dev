@@ -214,5 +214,57 @@ check(packBytes < plainBytes * 0.25, 'the compressed pack is at least four times
   check(Number(t.kvRoundTrips) >= 1, 'a cold sign-in reports at least one KV round-trip', String(t.kvRoundTrips));
 }
 
+/* ---------------------------------------------------------------------
+   The "empty fast pack" that looked like a bug: `api/state?fast=1` returning
+   rev 1 with zero patients is not a broken pack. It is what a freshly
+   commissioned installation holds before any register has been imported, and
+   the plain snapshot says the same thing. Asserting it here stops the next
+   person from hunting a defect that does not exist - and catches the real
+   failure it would hide, where the two routes ever disagree.
+   --------------------------------------------------------------------- */
+{
+  const { __resetCloudCachesForTests } = await import('../../api/index.js');
+  const emptyKv = makeKv();
+  const restore = globalThis.fetch;
+  installKvFetch(emptyKv);
+  __resetCloudCachesForTests();
+  const emptyHandler = await loadHandler();
+  const eb = makeBrowser(emptyHandler, { origin: 'https://empty.test' });
+  const epost = async (path, body, token) => {
+    const r = await eb.fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    });
+    return { status: r.status, body: await r.json() };
+  };
+  await epost('api/setup', {
+    admin: { username: 'chief.admin', password: ADMIN_PW, name: 'Empty Chief' },
+    db: { meta: { schema: 6 }, settings: {}, users: [], patients: [], visits: [], pdcas: [],
+      requests: [], transactions: [], urgentCases: [], waitingList: [], calendarEvents: [] },
+  });
+  const emptyChief = await epost('api/auth/login', { username: 'chief.admin', password: ADMIN_PW });
+  await epost('api/setup/activate-global', {
+    settings: { globallyActivated: false }, meta: { globallyActivated: false, demoDisabled: false },
+    users: [{ id: 'u-e', username: 'empty.officer', name: 'Empty Officer', roleId: 'caregiver', countyId: 'kisumu', areaIds: ['nyalenda'], status: 'pending_activation', active: true }],
+    accounts: [{ id: 'u-e', username: 'empty.officer', name: 'Empty Officer', roleId: 'caregiver', countyId: 'kisumu' }],
+  }, emptyChief.body.token);
+  const emptyPack = await (await eb.fetch('api/state?fast=1', { headers: { Authorization: `Bearer ${emptyChief.body.token}` } })).json();
+  const emptyPlain = await (await eb.fetch('api/state', { headers: { Authorization: `Bearer ${emptyChief.body.token}` } })).json();
+  const emptyUnpacked = emptyPack.fastPack
+    ? JSON.parse(zlib.gunzipSync(Buffer.from(emptyPack.part0, 'base64')).toString('utf8')) : null;
+  const emptyPackPatients = emptyUnpacked ? (emptyUnpacked.db.patients || []).length : -1;
+  const emptyPlainPatients = (emptyPlain.db.patients || []).length;
+  console.log(`  empty install    fast rev ${emptyPack.rev} patients ${emptyPackPatients} · plain rev ${emptyPlain.rev} patients ${emptyPlainPatients}`);
+  check(emptyPack.fastPack === true, 'an empty installation still returns a well-formed fast pack');
+  check(emptyPackPatients === 0 && emptyPlainPatients === 0,
+    'an empty register reads as empty from both routes - not as a broken pack');
+  check(String(emptyPack.rev) === String(emptyPlain.rev),
+    'both routes agree on the revision of an empty installation',
+    `${emptyPack.rev} vs ${emptyPlain.rev}`);
+  globalThis.fetch = restore;
+  __resetCloudCachesForTests();
+}
+
 if (bad) { console.log(`\nwire cost: ${bad} FAILED`); process.exit(1); }
 console.log('\nwire cost: all checks passed');

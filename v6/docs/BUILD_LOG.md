@@ -81,10 +81,17 @@ to the reported total, and the KV round-trip count includes the cold read path
 never carried the workspace: the register is a separate request, where the
 compressed pack applies.
 
+**A reported defect that was not one.** `api/state?fast=1` sometimes answered
+`rev 1, patients 0`, which read like an empty pack a client could not boot from.
+It is what a freshly commissioned installation holds before a register has been
+imported, and the plain snapshot says exactly the same. Both routes are now
+asserted to agree on an empty install, so the real failure — the two ever
+disagreeing — is what fails a test.
+
 **Checks.** `v6110-monday-procurement-protocol` (58), `v6110-active-tab-colour-
 coherence` (28, including the solver's maths run for real across 18 hues),
 `v6110-signin-latency` (24), `v6110-mobile-layout` (38, phone **and** tablet tiers),
-`v6110-signin-wire-cost` (11, measured at 4,000 patients). `npm run test:all`
+`v6110-signin-wire-cost` (14, measured at 4,000 patients). `npm run test:all`
 exit 0. `views.js` renders 5051 views without a fallback.
 
 ## Deployed state — v6.10.0, and what is still awaited
