@@ -1,0 +1,218 @@
+/* =====================================================================
+   console_head7.css — the console head, the coloured corner tab, and the
+   scrolling workspace banner
+
+   Three requests, all about the top of the console:
+
+   1. THE COLOURED CORNER TAB
+      "Foundation White as the default, but with a coloured upper small tab on
+      the top most left." In the screenshot the left column is a green block
+      with "HOSPITAL FOCAL DESK" in white lettering and a small chevron. What
+      it was missing was a *tag*: the thing that says at a glance which
+      department and which console you are in, sitting on the top-left of that
+      block rather than floating in the middle of it. The tag is painted from
+      the console's own solved fill/ink pair, so it stays legible in all 45
+      themes and never becomes white-on-pale.
+
+   2. THE SCROLLING BANNER
+      The coloured greeting banner ("Good evening, Wycliff...") is now a
+      horizontally scrollable strip on a phone instead of a wall that pushes
+      the metric cards off the right edge. The copy keeps its width, the metric
+      cards stay beside it, and the strip scrolls with momentum and snap
+      points - no page-level sideways scroll, which would move the whole
+      console. On a wide screen nothing changes: the strip fits and does not
+      scroll.
+
+   3. THE COLOURED HEAD ITSELF
+      Foundation White keeps its white chrome (that is what "White" means),
+      but the identity now reads as a console rather than a page: a slim
+      coloured rail along the top of the workspace and a coloured edge on the
+      navigation block, both taken from the theme's action colour, so the
+      corner tab, the rail and the selected tab all speak the same colour.
+
+   Every colour here is a token or a color-mix of one. Nothing is a literal.
+   ===================================================================== */
+
+/* ---- 1. The corner tab on the navigation block ----------------------- */
+.app.shell .npane .np-brand {
+  position: relative;
+}
+/* The tag itself: department + console, on the console's solved pair. */
+.app.shell .npane .np-brand-corr,
+.app.shell .npane .np-brand .np-corr-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--console-c1-fill, var(--accent));
+  color: var(--console-c1-ink, #FFFFFF) !important;
+  font-size: 9.6px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--console-c1-fill, var(--accent)) 30%, transparent);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app.shell .npane .np-brand-corr :is(svg, i, span),
+.app.shell .npane .np-brand .np-corr-tag :is(svg, i, span) {
+  color: inherit !important;
+  fill: currentColor !important;
+}
+@media (max-width: 760px) {
+  .app.shell .npane .np-brand-corr,
+  .app.shell .npane .np-brand .np-corr-tag { font-size: 9.1px; padding: 2.5px 9px; }
+}
+
+/* A short coloured bar in the top-left corner of the block, so the tag reads as
+   attached to the corner rather than centred in a wall of colour. */
+.app.shell .npane .np-brand::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0;
+  width: 46px;
+  height: 4px;
+  border-start-end-radius: 4px;
+  background: linear-gradient(90deg, var(--console-c1-fill, var(--accent)),
+    color-mix(in srgb, var(--console-c2, var(--accent)) 82%, var(--surface)));
+  pointer-events: none;
+}
+
+/* ---- 2. A slim coloured rail across the head ------------------------- */
+/* The console identity is a hairline of the action colour under the header,
+   plus the same colour on the block's edge. It is deliberately thin: the
+   surfaces stay white, which is the whole character of Foundation White. */
+.app.shell .topbar.cbar {
+  border-bottom: 2px solid color-mix(in srgb, var(--console-c1, var(--accent)) 72%, var(--surface));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--console-c2, var(--accent)) 26%, transparent);
+}
+.app.shell .npane .np-brand {
+  border-bottom: 2px solid color-mix(in srgb, var(--console-c1-fill, var(--accent)) 82%, transparent);
+}
+
+/* ---- 3. The scrolling workspace banner ------------------------------- */
+/* On a phone the banner's two halves (copy, metric grid) cannot both fit, and
+   squeezing them is what makes the cards unreadable. Let the strip scroll
+   instead, with the copy and the cards at their natural widths. */
+@media (max-width: 820px) {
+  .app.shell .shell-role-banner .ws67-hero.ctx-strip {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  .app.shell .shell-role-banner .ws67-hero-main {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 14px;
+    min-width: max-content;
+    padding-bottom: 4px;
+  }
+  .app.shell .shell-role-banner .ws67-hero-copy {
+    flex: 0 0 clamp(258px, 76vw, 340px);
+    scroll-snap-align: start;
+  }
+  .app.shell .shell-role-banner .ws67-qgrid.hero-qtabs {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, 132px);
+    gap: 8px;
+    scroll-snap-align: start;
+  }
+  /* The metrics keep a readable height once they are no longer squeezed. */
+  .app.shell .shell-role-banner .ws67-qcard {
+    min-height: 62px;
+    padding: 9px 11px;
+  }
+  .app.shell .shell-role-banner .ws67-qcard .ws67-qnum { font-size: 21px; line-height: 1.15; }
+  .app.shell .shell-role-banner .ws67-qcard .ws67-qlbl { font-size: 10.4px; line-height: 1.3; }
+
+  /* A quiet hint that there is more to the right, so the strip does not look
+     truncated. It scrolls away with the content. */
+  .app.shell .shell-role-banner::after {
+    content: '';
+    display: block;
+    height: 0;
+  }
+}
+
+/* A very narrow phone: one metric per row keeps the numbers large. */
+@media (max-width: 380px) {
+  .app.shell .shell-role-banner .ws67-qgrid.hero-qtabs {
+    grid-template-columns: 128px;
+  }
+  .app.shell .shell-role-banner .ws67-hero-copy {
+    flex-basis: clamp(238px, 84vw, 300px);
+  }
+}
+
+/* The scroll affordance: a pair of edge fades, only while the strip actually
+   overflows. They are decorative and never intercept a tap. */
+@media (max-width: 820px) {
+  .app.shell .shell-role-banner {
+    position: relative;
+  }
+  .app.shell .shell-role-banner .ws67-hero.ctx-strip {
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 26px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 26px), transparent 100%);
+  }
+}
+
+/* Print and reduced-motion: no scrolling machinery needed. */
+@media print {
+  .app.shell .shell-role-banner .ws67-hero.ctx-strip { overflow: visible !important; mask-image: none !important; -webkit-mask-image: none !important; }
+  .app.shell .shell-role-banner .ws67-hero-main { display: block !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app.shell .shell-role-banner .ws67-hero.ctx-strip { scroll-behavior: auto; }
+}
+
+/* =====================================================================
+   The theme shelf miniature
+
+   The chooser has to show what a theme really looks like: the navigation
+   block with its coloured corner tab, the head with its coloured rail, a
+   greeting banner carrying two metric cards, and the status row. The original
+   miniature was a pane, a bar and two rectangles, which made fifteen different
+   palettes look identical on the shelf - the very complaint the "perfect the
+   existing themes" request was about.
+   ===================================================================== */
+.wt-prev { height: 104px; }
+.wt-pane { position: relative; width: 27%; gap: 5px; }
+/* the coloured corner tab of the navigation block */
+.wt-pane .wt-corr {
+  display: block; height: 6px; width: 74%; border-radius: 3px;
+  opacity: 1; margin-bottom: 2px; text-decoration: none;
+}
+.wt-rail { height: 3px; border-radius: 2px; margin-top: -4px; }
+.wt-banner {
+  border-radius: 6px; padding: 6px 6px 5px;
+  display: flex; flex-direction: column; gap: 5px; min-height: 40px;
+}
+.wt-greet { display: block; height: 5px; width: 62%; border-radius: 3px; opacity: .92; text-decoration: none; }
+.wt-metrics { display: flex; gap: 5px; }
+.wt-metrics em {
+  flex: 1; min-width: 0; border-radius: 4px; border-top: 2px solid transparent;
+  padding: 3px 4px; display: flex; flex-direction: column; gap: 2px; font-style: normal;
+}
+.wt-metrics u { height: 4px; border-radius: 2px; display: block; opacity: .9; text-decoration: none; }
+.wt-metrics u + u { width: 66%; opacity: .55; }
+/* the shelf card states its family and its day/night character */
+.wt-card .wt-meta b { display: inline-flex; align-items: center; gap: 5px; }
+.wt-card .wt-meta b svg { flex: none; opacity: .82; }
+/* a night theme is recognisable on the shelf without opening it */
+.wt-card[data-id="night"], .wt-card[data-id="midnight"], .wt-card[data-id="harbour"],
+.wt-card[data-id="aurora"], .wt-card[data-id="amethyst"], .wt-card[data-id="obsidian"],
+.wt-card[data-id="ruby"] { border-color: color-mix(in srgb, currentColor 22%, transparent); }
+
+@media (max-width: 520px) {
+  .wt-prev { height: 92px; }
+  .wt-banner { min-height: 34px; padding: 5px; }
+}

@@ -17,5 +17,5 @@ module.exports = [
    and ink, so it has to be able to outrank every layer that used to paint
    half of that pair. */
 module.exports.CSS_ORDER = [
-  'styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css', 'carelink63.css', 'console_color_schemes.css', 'admin_ops6.css', 'care_review.css', 'entry_theme.css', 'tab_ink.css'
+  'styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css', 'carelink63.css', 'console_color_schemes.css', 'admin_ops6.css', 'care_review.css', 'entry_theme.css', 'console_head7.css', 'tab_ink.css'
 ];

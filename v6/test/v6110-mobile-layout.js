@@ -166,7 +166,7 @@ run('DB.load();DB.seedDemo();');
    --------------------------------------------------------------------- */
 {
   const files = ['styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css',
-    'carelink63.css', 'console_color_schemes.css', 'admin_ops6.css', 'care_review.css', 'entry_theme.css', 'tab_ink.css'];
+    'carelink63.css', 'console_color_schemes.css', 'admin_ops6.css', 'care_review.css', 'entry_theme.css', 'console_head7.css', 'tab_ink.css'];
   const bad = [];
   for (const f of files) {
     const css = read(f);

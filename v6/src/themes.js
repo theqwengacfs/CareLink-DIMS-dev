@@ -389,27 +389,84 @@ const WTC = {
   },
 };
 
-/* Fifteen additional institutional themes. Their palette families are
-   deliberately distinct; all use the contrast-audited Foundation surface
-   tokens and high-luminance-contrast chrome/action inks. */
+/* Fifteen additional institutional themes.
+   These used to be the Foundation palette with only chrome and action swapped,
+   which is why a sweep found 30 near-identical theme pairs: fifteen names for
+   one look. Each now defines its own warm or cool ground, its own surface tint,
+   its own ink ramp, a DARK chrome (so the identity reads as a console with a
+   head, not a white page with a coloured bar), banner inks solved for that
+   chrome, a second action step, and its own operational status colours. The
+   contrast audit (tools/audit-theme-catalogue.cjs) scores every one of them on
+   the same gate as Foundation White. */
 const ADDITIONAL_THEME_PALETTES = [
-  ['harbor','Harbour Teal','#115E59'], ['acacia','Acacia Green','#166534'],
-  ['mauve','Mauve Ledger','#6B21A8'], ['copper','Copper Coast','#9A3412'],
-  ['sapphire','Lake Sapphire','#1E40AF'], ['baobab','Baobab Bark','#713F12'],
-  ['orchid','Orchid Bloom','#86198F'], ['mangrove','Mangrove Shade','#065F46'],
-  ['amberstone','Amberstone Ledger','#713F0D'], ['slate','Slate Executive','#334155'],
-  ['garnet','Garnet Governance','#9F1239'], ['lagoon','Lagoon Blue','#075985'],
-  ['olive','Olive Grove','#3F6212'], ['mulberry','Mulberry Archive','#581C87'],
-  ['ironwood','Ironwood Charcoal','#374151']
+  /* dark chrome, ground, surface, ink, status trio */
+  /* 'harbour' above is the dark Harbour Dark; this one is its daylight twin,
+     so it keeps the family name but reads as Harbour Day on a mineral-washed
+     ground rather than repeating Lake Victoria. */
+  { id:'harbor', name:'Harbour Day', chrome:'#0B3B45', bg:'#DEF0F2', surface:'#FBFDFD', surface2:'#F0F7F8',
+    ink:'#0A2830', ink2:'#1B4450', muted:'#436B74', line:'#CBE2E6', action:'#0F766E', action2:'#0D9488',
+    ok:'#0B6B47', okBg:'#E3F5EC', warn:'#8A4B00', warnBg:'#FFF1D8', crit:'#A3122B', critBg:'#FDE8EC', info:'#13619E', infoBg:'#E6F1FA' },
+  { id:'acacia', name:'Acacia Green', chrome:'#22380F', bg:'#F6FAEE', surface:'#FFFFFF', surface2:'#FAFCF3',
+    ink:'#15240A', ink2:'#2C4515', muted:'#52683A', line:'#D8E6C4', action:'#4D7C0F', action2:'#65A30D',
+    ok:'#146B3A', okBg:'#E5F5EA', warn:'#7F4E00', warnBg:'#FFF2D6', crit:'#9E1030', critBg:'#FCE9EC', info:'#11588F', infoBg:'#E7F0F8' },
+  { id:'mauve', name:'Mauve Ledger', chrome:'#43166E', bg:'#F8F3FC', surface:'#FFFFFF', surface2:'#FCF9FE',
+    ink:'#1D0F2B', ink2:'#3B1F57', muted:'#63507C', line:'#E3D5F0', action:'#86198F', action2:'#A21CAF',
+    ok:'#13694A', okBg:'#E5F4EC', warn:'#7C4A00', warnBg:'#FEF1D9', crit:'#A01034', critBg:'#FCE7EC', info:'#12528A', infoBg:'#E6EEF8' },
+  { id:'copper', name:'Copper Coast', chrome:'#4A230F', bg:'#FDF4EE', surface:'#FFFFFF', surface2:'#FFF9F5',
+    ink:'#2A1206', ink2:'#4F2410', muted:'#75452C', line:'#F2D6C1', action:'#C2410C', action2:'#EA580C',
+    ok:'#12663F', okBg:'#E4F4EA', warn:'#8A5200', warnBg:'#FFF2DA', crit:'#A3111F', critBg:'#FDE8E8', info:'#14508A', infoBg:'#E6EEF8' },
+  { id:'sapphire', name:'Lake Sapphire', chrome:'#122A4F', bg:'#EEF3FB', surface:'#FFFFFF', surface2:'#F6F9FE',
+    ink:'#0B1D38', ink2:'#1D3760', muted:'#455F84', line:'#CFDCF0', action:'#1D4ED8', action2:'#2563EB',
+    ok:'#0E6B45', okBg:'#E4F5EC', warn:'#855000', warnBg:'#FEF2D9', crit:'#A2112E', critBg:'#FDE8EC', info:'#0F4E9C', infoBg:'#E5EEFB' },
+  { id:'baobab', name:'Baobab Bark', chrome:'#3B2610', bg:'#FAF5EB', surface:'#FFFDF8', surface2:'#FBF7EF',
+    ink:'#241605', ink2:'#452C12', muted:'#6B5233', line:'#E6D8BF', action:'#94600C', action2:'#B4730F',
+    ok:'#12683F', okBg:'#E4F4EA', warn:'#7E4A00', warnBg:'#FFF0D2', crit:'#9E1222', critBg:'#FCE8EA', info:'#13518D', infoBg:'#E6EFF9' },
+  { id:'orchid', name:'Orchid Bloom', chrome:'#4A1042', bg:'#FBF2FA', surface:'#FFFFFF', surface2:'#FEF9FE',
+    ink:'#26091F', ink2:'#4C1440', muted:'#7A4A70', line:'#EED2E8', action:'#A21CAF', action2:'#C026D3',
+    ok:'#0F6A47', okBg:'#E4F4EC', warn:'#7F4B00', warnBg:'#FEF1D8', crit:'#A01032', critBg:'#FCE7EC', info:'#134F8C', infoBg:'#E6EEF9' },
+  { id:'mangrove', name:'Mangrove Shade', chrome:'#0A2E24', bg:'#EDF6F1', surface:'#FFFFFF', surface2:'#F5FBF7',
+    ink:'#08251B', ink2:'#16412F', muted:'#3F6552', line:'#C9E3D5', action:'#047857', action2:'#059669',
+    ok:'#0A6644', okBg:'#E2F4EA', warn:'#7E4D00', warnBg:'#FEF1D9', crit:'#A01226', critBg:'#FCE7EA', info:'#12518B', infoBg:'#E6EEF9' },
+  { id:'amberstone', name:'Amberstone Ledger', chrome:'#3F2B07', bg:'#FDF8EA', surface:'#FFFDF6', surface2:'#FEFBF1',
+    ink:'#271A03', ink2:'#48320B', muted:'#6D5626', line:'#EADCB9', action:'#8A5A05', action2:'#A86E06',
+    ok:'#10663D', okBg:'#E3F4EA', warn:'#7A4500', warnBg:'#FFEFD0', crit:'#9C1220', critBg:'#FCE8E9', info:'#11508C', infoBg:'#E5EEF9' },
+  { id:'slate', name:'Slate Executive', chrome:'#1E293B', bg:'#F1F5F9', surface:'#FFFFFF', surface2:'#F8FAFC',
+    ink:'#0B1220', ink2:'#253451', muted:'#4A5B76', line:'#D3DCE7', action:'#334155', action2:'#475569',
+    ok:'#0F6742', okBg:'#E4F4EB', warn:'#7E4C00', warnBg:'#FEF2D9', crit:'#9D1226', critBg:'#FCE7EB', info:'#12518C', infoBg:'#E6EEF9' },
+  { id:'garnet', name:'Garnet Governance', chrome:'#45091B', bg:'#FCF2F4', surface:'#FFFFFF', surface2:'#FEF8F9',
+    ink:'#260710', ink2:'#4B1222', muted:'#7A3F4E', line:'#F0D2D9', action:'#9F1239', action2:'#BE123C',
+    ok:'#0E6844', okBg:'#E3F4EB', warn:'#7E4A00', warnBg:'#FEF1D8', crit:'#8A0A1E', critBg:'#FCE6E9', info:'#12508B', infoBg:'#E6EEF9' },
+  { id:'lagoon', name:'Lagoon Blue', chrome:'#073A52', bg:'#EDF6FA', surface:'#FFFFFF', surface2:'#F5FAFD',
+    ink:'#062430', ink2:'#124355', muted:'#3B6474', line:'#C7E0E9', action:'#0369A1', action2:'#0284C7',
+    ok:'#0D6843', okBg:'#E3F4EB', warn:'#7E4D00', warnBg:'#FEF1D9', crit:'#9F1229', critBg:'#FCE7EB', info:'#0B4D86', infoBg:'#E5EDF8' },
+  { id:'olive', name:'Olive Grove', chrome:'#2F3A12', bg:'#F7F9ED', surface:'#FFFFFF', surface2:'#FBFCF3',
+    ink:'#1C2209', ink2:'#364214', muted:'#5B6637', line:'#DCE3C0', action:'#4D7C0F', action2:'#3F6212',
+    ok:'#12673E', okBg:'#E4F4EA', warn:'#7C4E00', warnBg:'#FEF1D7', crit:'#9D1226', critBg:'#FCE7EA', info:'#12508B', infoBg:'#E6EEF9' },
+  { id:'mulberry', name:'Mulberry Archive', chrome:'#38103C', bg:'#F9F2F9', surface:'#FFFFFF', surface2:'#FDF9FD',
+    ink:'#220C25', ink2:'#43194A', muted:'#714B76', line:'#E9D2EB', action:'#7E22CE', action2:'#9333EA',
+    ok:'#0F6845', okBg:'#E3F4EB', warn:'#7D4B00', warnBg:'#FEF1D8', crit:'#9E1030', critBg:'#FCE7EB', info:'#12508B', infoBg:'#E6EEF9' },
+  { id:'ironwood', name:'Ironwood Charcoal', chrome:'#1F2329', bg:'#F4F5F6', surface:'#FFFFFF', surface2:'#FAFBFC',
+    ink:'#101317', ink2:'#2C3238', muted:'#525A63', line:'#D9DDE1', action:'#374151', action2:'#4B5563',
+    ok:'#0E6641', okBg:'#E3F4EA', warn:'#7D4A00', warnBg:'#FEF1D8', crit:'#9C1124', critBg:'#FCE7EA', info:'#11508A', infoBg:'#E6EEF9' }
 ];
-for(const [id,name,color] of ADDITIONAL_THEME_PALETTES){
-  const base = WTHEMES.find(t=>t.id==='foundation');
-  const tokens = Object.assign({}, base.t, {
-    chrome:color, chrome2:color, chromeInk:'#FFFFFF', chromeMuted:'#FFFFFF',
-    chromeLine:color, action:color, action2:color, actionInk:'#FFFFFF'
-  });
-  WTHEMES.push({ id, name, mode:'light', accent:color, brand:color, gold:'#9A6700',
-    blurb:`${name}: a distinct CareLink palette on Foundation high-clarity surfaces.`, t:tokens });
+/* One construction path for all fifteen, so a new entry cannot drift from the
+   shape: the chrome ink and muted ink are solved against that theme's own
+   chrome, never assumed white. */
+for(const def of ADDITIONAL_THEME_PALETTES){
+  const { id, name, chrome, bg, surface, surface2, ink, ink2, muted, line, action, action2, ok, okBg, warn, warnBg, crit, critBg, info, infoBg } = def;
+  const chromeInk = WTC.contrast(chrome, '#FFFFFF') >= 4.5 ? '#FFFFFF' : '#0B0F14';
+  const chromeMuted = chromeInk === '#FFFFFF'
+    ? WTC.mix(chrome, '#FFFFFF', 0.78)
+    : WTC.mix(chrome, '#000000', 0.72);
+  const tokens = {
+    bg, surface, surface2, ink, ink2, ink3:muted, muted, line, line2:surface2,
+    bar:surface, chrome, chrome2:chrome, chromeInk, chromeMuted, chromeLine:WTC.mix(chrome, chromeInk, 0.22),
+    action, action2, actionInk: WTC.contrast(action, '#FFFFFF') >= 4.5 ? '#FFFFFF' : '#0B0F14',
+    ok, okBg, warn, warnBg, crit, critBg, info, infoBg
+  };
+  WTHEMES.push({ id, name, mode:'light', accent:action, brand:chrome, gold:'#9A6700',
+    blurb:`${name}: its own ${chrome === '#FFFFFF' ? 'white' : 'deep'} console chrome, a ${surface.toLowerCase() === '#ffffff' ? 'clean' : 'tinted'} reading surface and matched operational colours — not a recolour of Foundation White.`,
+    t:tokens });
 }
 
 const WTHEME = {
@@ -685,6 +742,18 @@ const WTHEME = {
       set(`--console-c${i+1}-fill`, fill.fill);
       set(`--console-c${i+1}-ink`, fill.ink);
       set(`--console-soft-${i+1}`, WTC.mix(theme.t.surface, color, 0.055));
+      /* A tinted PANEL is not the page. The metric cards mix 5-7% of the hue
+         into --surface, so in a dark theme the card is slightly darker than
+         the page, and a hue corrected to read ON the page can lose the last
+         few tenths of contrast on it (night: 4.34:1). Solve the same hue
+         again against the panel it is actually printed on, and give the card
+         that value; the chip above it keeps the page-corrected one. */
+      const panel = WTC.mix(theme.t.surface, color, dark ? 0.045 : 0.055);
+      let onPanel = color, tries2 = 0;
+      const dir2 = dark ? '#FFFFFF' : '#000000';
+      while(WTC.contrast(onPanel, panel) < 4.6 && tries2++ < 48) onPanel = WTC.mix(onPanel, dir2, 0.055);
+      set(`--console-c${i+1}-panel`, WTC.mix(theme.t.surface, color, dark ? 0.045 : 0.055));
+      set(`--console-c${i+1}-panel-ink`, onPanel);
     });
     set('--console-hero-1', WTHEME.safeFill(schemeColors[0]));
     set('--console-hero-2', WTHEME.safeFill(schemeColors[1]));

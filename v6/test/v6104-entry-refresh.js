@@ -85,9 +85,18 @@ assert.deepEqual(parse(nodeBuilder),CSS_ORDER);assert.deepEqual(parse(pythonBuil
    allowed after it, and only because it is the single owner of a selected
    control's fill AND ink - the fix for labels disappearing on filled tabs. It
    must itself be last, so nothing can repaint half of that pair. */
-const entryPos=CSS_ORDER.indexOf('entry_theme.css');
+/* The tail of the cascade, last to first, is fixed by what each layer must be
+   able to outrank:
+     tab_ink.css      the single owner of a selected control's fill AND ink;
+     console_head7.css the console head, corner tab and scrolling banner;
+     entry_theme.css  the public entry pages over the legacy workspace rules. */
+assert.deepEqual(CSS_ORDER.slice(-3),['entry_theme.css','console_head7.css','tab_ink.css'],
+  'the last three layers must be entry, console head, tab ink');
+assert.ok(CSS_ORDER.indexOf('entry_theme.css') > CSS_ORDER.indexOf('carelink63.css'),
+  'entry rules must still win over legacy workspace rules');
+assert.ok(CSS_ORDER.indexOf('console_head7.css') > CSS_ORDER.indexOf('entry_theme.css'),
+  'the console head must be able to override the foundation geometry');
 assert.equal(CSS_ORDER.at(-1),'tab_ink.css','tab ink layer must win over every legacy workspace rule');
-assert.equal(entryPos,CSS_ORDER.length-2,'entry rules must still win over legacy workspace rules');
 const css=fs.readFileSync(path.join(root,'v6/src/entry_theme.css'),'utf8');
 assert.match(css,/\.ld\[data-front="1"\] \.ld-canvas-card\{[^}]*background:var\(--entry-relief-surface\)/);
 assert.match(css,/\.ld\[data-front="1"\] \.ld-foot\{[^}]*background:var\(--entry-relief-footer\)/);

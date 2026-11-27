@@ -1190,6 +1190,8 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.11.3', date:'2026-11-27', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      notes:'Text on a tinted panel gets its own solved ink; Foundation White keeps its default with a coloured corner tab and a scrolling banner; the fifteen institutional themes carry their own palettes.'},
     { tag:'v6.11.2', date:'2026-11-27', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       notes:'Selected tabs take their fill and the ink on that fill from one solved pair; the audit resolves the real cascade over 18,720 theme x scheme x signature pages.'},
     { tag:'v6.11.0', date:'2026-11-27', channel:'Production', schema:6, author:'CareLink OS Core Engineering',

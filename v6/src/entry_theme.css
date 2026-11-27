@@ -808,8 +808,11 @@ html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n+2) .np-i:not(.on)>sv
 html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n) .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c3) 12%,#fff);color:var(--console-c3);}
 html[data-wt="foundation"] .shell .npane .np-i.on{--tab-fill:var(--console-c1-fill,var(--console-c1));--tab-ink:var(--console-c1-ink,var(--accent-ink,#fff));background:var(--tab-fill) !important;color:var(--tab-ink) !important;box-shadow:inset 4px 0 0 #facc15,0 3px 8px color-mix(in srgb,var(--console-c1) 22%,transparent);border-radius:10px;}
 html[data-wt="foundation"] .shell .npane .np-i.on :is(svg,.np-l){color:var(--tab-ink) !important;fill:currentColor !important;}
-/* Dense data stays on white; navigational boxes and their icons carry colour. */
-html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert) :is(.ws67-qnum,.ws67-qlbl,.ws67-qlbl svg){color:#fff !important;}
+/* The metric card is a PALE wash of the console signature (7% over the
+   surface), not a dark panel: white text on it measured 1.12:1 - the number
+   was there and invisible, which is the defect in the phone screenshot. It is
+   held to the page ink now, which is solved against exactly that surface. */
+html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert) :is(.ws67-qnum,.ws67-qlbl,.ws67-qlbl svg){color:var(--console-q-ink,var(--ink)) !important;}
 html[data-wt="foundation"] .shell .npane .np-brand :is(button,a):focus-visible{outline:3px solid #fde047;outline-offset:3px;}
 @media(max-width:760px){html[data-wt="foundation"] .shell .npane .np-brand{padding-block:18px !important;}}
 @media print{html[data-wt="foundation"] .shell .npane .np-brand{background:#fff !important;color:#000 !important;}}

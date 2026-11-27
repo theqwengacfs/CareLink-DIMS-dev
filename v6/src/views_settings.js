@@ -406,23 +406,60 @@ function settingsNetwork(user){
 /* ---------------- 13. Appearance ---------------- */
 /* A faithful miniature of the console in each theme: pane, bar, two cards and
    the action colour, drawn from the theme's own tokens. */
+/* A faithful miniature of the console in each theme: the navigation block with
+   its coloured corner tab, the head with its coloured rail, a greeting banner
+   carrying two metric cards, and the status row. Every colour is a token from
+   that theme, so the miniature cannot flatter a palette the real console does
+   not deliver. The two metric cards deliberately use the SOLVED fill/ink pair,
+   which is what makes the shelf show at a glance whether a theme is legible. */
 function wtPreview(t){
   const k = t.t;
+  const cs = (typeof consoleSchemeColors==='function') ? consoleSchemeColors('department', {c1:k.chrome, c2:k.action, c3:k.ok}) : {c1:k.chrome};
+  const c1 = Array.isArray(cs) ? cs[0] : (cs && cs.c1) || k.chrome;
+  const c2 = Array.isArray(cs) ? (cs[1]||c1) : (cs && cs.c2) || k.action;
   return `<div class="wt-prev" style="background:${k.bg}">
-    <i class="wt-pane" style="background:${k.chrome}"><b style="background:${k.chromeMuted}"></b><b style="background:${k.chromeMuted}"></b><b style="background:${k.chromeInk}"></b></i>
+    <i class="wt-pane" style="background:${k.chrome}">
+      <u class="wt-corr" style="background:${c1}"></u>
+      <b style="background:${k.chromeMuted}"></b><b style="background:${k.chromeMuted}"></b>
+      <b style="background:${k.chromeInk}"></b><b style="background:${k.chromeMuted}"></b>
+    </i>
     <div class="wt-main">
       <i class="wt-bar" style="background:${k.bar};border-color:${k.line}"></i>
+      <i class="wt-rail" style="background:linear-gradient(90deg,${c1},${c2})"></i>
+      <div class="wt-banner" style="background:linear-gradient(118deg,${k.chrome},${c2})">
+        <s class="wt-greet" style="background:${k.chromeInk}"></s>
+        <div class="wt-metrics">
+          <em style="background:${k.surface};border-top-color:${c1}"><u style="background:${k.ink}"></u><u style="background:${k.muted}"></u></em>
+          <em style="background:${k.surface};border-top-color:${c2}"><u style="background:${k.ink}"></u><u style="background:${k.muted}"></u></em>
+        </div>
+      </div>
       <div class="wt-cards"><i style="background:${k.surface};border-color:${k.line}"><u style="background:${k.ink}"></u><u style="background:${k.muted}"></u></i>
         <i style="background:${k.surface};border-color:${k.line}"><u style="background:${k.ink}"></u><u style="background:${k.muted}"></u></i></div>
-      <div class="wt-chips"><span style="background:${k.action}"></span><span style="background:${k.okBg};border-color:${k.ok}"></span><span style="background:${k.warnBg};border-color:${k.warn}"></span><span style="background:${k.critBg};border-color:${k.crit}"></span></div>
+      <div class="wt-chips"><span style="background:${k.action}"></span><span style="background:${k.okBg};border-color:${k.ok}"></span><span style="background:${k.warnBg};border-color:${k.warn}"></span><span style="background:${k.critBg};border-color:${k.crit}"></span><span style="background:${k.infoBg};border-color:${k.info}"></span></div>
     </div></div>`;
+}
+/* Each theme states three things a chooser needs: which family it belongs to,
+   whether it is a day or night palette, and whether it is the one in use. */
+function wtFamily(t){
+  const m = /^#(..)(..)(..)$/.exec((t.t && t.t.bg) || '#FFFFFF');
+  if (t.mode === 'dark') return 'Night';
+  if (!m) return 'Daylight';
+  const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  const warm = r >= g && g >= b;
+  const cool = b >= g && g >= r;
+  const spread = Math.max(r, g, b) - Math.min(r, g, b);
+  if (spread < 12) return 'Neutral';
+  if (warm) return 'Warm';
+  if (cool) return 'Cool';
+  return 'Botanical';
 }
 function wtCard(t, current, act, extra){
   const on = t.id===current;
+  const glyph = t.mode==='dark' ? 'moonstar' : 'sunrise';
   return `<button class="wt-card ${on?'on':''}" data-act="${act}" data-id="${esc(t.id)}" aria-pressed="${on}" ${extra||''}>
     ${wtPreview(t)}
-    <span class="wt-meta"><b>${esc(t.name)}</b><span>${esc(t.blurb)}</span>
-      <em class="wt-tag">${t.mode==='dark'?'Dark':'Light'}${on?' · In use':''}</em></span></button>`;
+    <span class="wt-meta"><b>${ic(glyph,13)} ${esc(t.name)}</b><span>${esc(t.blurb)}</span>
+      <em class="wt-tag">${wtFamily(t)} · ${t.mode==='dark'?'Night':'Daylight'}${on?' · In use':''}</em></span></button>`;
 }
 function wtAutoCard(current, act){
   const on = current===WT_AUTO;
