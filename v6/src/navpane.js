@@ -302,6 +302,13 @@ const NAVP = {
     }).join('');
     return `<nav class="npane" id="npane" aria-label="Pages in this console" data-rail="${effRail?1:0}" data-autofold="${autoActive?1:0}">
       <div class="np-brand">
+        ${(()=>{
+          /* The coloured corner tab: which department, which console. Painted
+             from the console's solved fill/ink pair so it cannot become
+             white-on-pale in any theme. */
+          const tag = (dept && (dept.short || dept.name)) || role.dept || 'Console';
+          return `<span class="np-corr-tag" title="${esc(String(dept && dept.name || tag))} · ${esc(String(role.consoleTitle||role.name||''))}">${ic('building',10)}<span>${esc(String(tag))}</span></span>`;
+        })()}
         <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
         <div class="np-id"><div class="np-os">CareLink OS</div><b>${esc(role.consoleTitle||role.name||'Console')}</b>
           <span class="np-role-name"><i class="np-dot" aria-hidden="true" style="background:${esc(dept.accent)}"></i><span>${esc(role.name||'')}</span></span>

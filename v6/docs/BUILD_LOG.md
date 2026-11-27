@@ -2,17 +2,84 @@
 
 | Field | Value |
 |---|---|
-| Application | CareLink DIMS v6.11.2 |
+| Application | CareLink DIMS v6.11.3 |
 | Organisation | LOMAMO Foundation Kenya |
 | Build date | 2026-11-27 |
 | Database schema | 6 |
 | Artefact | `LOMAMO-CareLink-DIMS-v5.0.html` (one file, no dependencies) |
 | Source modules | 11 (`src/`) |
 | Offline tooling | `tools/import_engine.py`, `tools/make_master_template.py`, `tools/gen_rbac.py` |
-| Test suites | 114 test files in `v6/test/`; `npm run test:all` → EXIT=0, 0 failures |
+| Test suites | 115 test files in `v6/test/`; `npm run test:all` → EXIT=0, 0 failures |
 | Authorisation controls verified | 13 / 13 |
 | Central database | `server.py` · SQLite · revision snapshots · 26/26 API checks |
 | Audit pass | 2026-10-18 — 14 defects found and fixed (docs/12 §9) |
+
+## v6.11.3 — text on a tinted panel, the corner tab, and the themes as real choices
+
+**The report.** The hero metric cards on a Foundation console showed
+"Caregiver Feedback **71**" as white text on a pale card: the number was
+painted, and invisible. "The former default Foundation White and its beautiful
+features didn't have the issue of fonts and texts in these boxes not being
+seen."
+
+**Why it happened.** The card's SURFACE came from one layer — a 7% wash of the
+console signature over `--surface`, `#F4F1EF` — and its NUMBER came from
+another: a hard `#fff` in `entry_theme.css`. White on that wash is **1.12:1**.
+Same shape of defect as the tab in v6.11.2: two layers, each correct alone, the
+pair never solved. Two related faults came out of the same sweep:
+
+* the alert card is pale (`#fff4df`) and was also pinned to white text;
+* in a DARK theme the card panel is **darker than the page**, so a hue
+  corrected to read on the page lost contrast on the panel (**4.34:1**).
+
+**The fix.** `themes.js` now solves each signature hue a second time, against
+the panel it is actually printed on, and emits `--console-cN-panel` and
+`--console-cN-panel-ink`. The card reads that pair; the chip above it keeps the
+page-corrected one. Foundation White's card number went from **1.12:1 to
+9.17:1**; the dark themes from 4.34:1 to 4.71:1.
+
+**The audit.** `tools/audit-surface-ink.cjs` resolves the real cascade for the
+16 surfaces that carry text on a coloured banner — metric numbers, labels and
+icons, the greeting, the pills, the action button, the KPI tiles, the page tab
+— across **45 themes × 8 colour schemes × 4 account signatures: 23,040 pairs,
+all at 4.5:1 or better**.
+
+The audit itself had to be fixed before it could be trusted: it initially read
+`:root` as matching every element (so every dark theme was scored as light), it
+composited translucent fills against the page instead of the banner behind them,
+and it ignored the inline theme tokens that `themes.js` writes on `<html>`. All
+three are corrected in `tools/css-cascade.cjs`, which both this audit and the
+v6.11.2 tab audit now share.
+
+**Foundation White stays the default**, and gains what the screenshot was
+missing:
+
+* a **coloured corner tab** on the navigation block — department and console on
+  the console's own solved fill/ink pair;
+* a slim **coloured rail** across the head, and the same colour on the block's
+  edge, so the identity reads as a console rather than a page with a colour bar;
+* a **scrolling workspace banner** on a phone: the copy and the metric cards
+  keep their natural widths and the strip scrolls with snap points, instead of
+  squeezing the cards until the numbers wrap.
+
+**The themes were perfected, not replaced.** All 30 remain. The fifteen
+"additional institutional" themes were Foundation White with only chrome and
+action swapped — fifteen names for one look. Each now carries its own ground,
+surface tint, ink ramp, dark chrome, banner inks and operational colours, and
+`tools/audit-theme-catalogue.cjs` scores every theme on 13 text pairs plus the
+solved tab and card pairs. **45 themes, all at 4.5:1 or better.**
+
+The theme shelf now draws the real console — corner tab, rail, banner, metric
+cards, status row — so a palette cannot look better on the shelf than it does
+in use, and each card states its family (Warm, Cool, Botanical, Neutral) and
+whether it is a day or a night palette.
+
+**More icons.** 26 new ones (compass, sunrise, moonstar, leaf, waves, mountain,
+droplet, flame, seed, anchor, scale, handshake, badge, stethoscope, pill,
+syringe, dumbbell, apple, bedpan, ambulance, siren, chart bar, chart pie, trend,
+calendar, clock, pin, grid, list, filter, bell, quote, star, spark, tree, shield,
+book, link, message, wifi, sync, target), drawn on the same 24×24 grid at 1.9
+stroke so they take the ink of whatever they sit in.
 
 ## v6.11.2 — a selected tab may not paint its text from another layer
 

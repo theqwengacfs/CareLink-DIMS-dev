@@ -30,18 +30,29 @@
 
 /* The screenshot's executive quick-metric boxes and equivalent role-console
    shortcuts receive a coordinated tint and color marker, not status colors. */
+/* Each metric card carries one signature hue, and the number and icon take a
+   SOLVED pair for that hue rather than the raw colour. In a dark theme the card
+   surface is dark while --console-cN is corrected to read as text ON the page,
+   so raw accent on a dark card measured 3.25:1. The solved tokens are the same
+   ones the tab fix uses, so a card cannot disagree with the chip above it. */
+/* Each card's surface is the panel mix for its own hue, and its number, label
+   and icon use the ink solved against THAT panel (--console-cN-panel-ink), not
+   the hue corrected for the page. In a dark theme the card is darker than the
+   page, so the page-corrected hue fell to 4.34:1 - below the gate - while the
+   panel-corrected one holds. */
 .ws67-qcard:not(.is-alert){
   --console-q-accent:var(--console-c1);
+  --console-q-panel:var(--console-c1-panel,var(--surface));
+  --console-q-ink:var(--console-c1-panel-ink,var(--console-c1));
   border-top:3px solid var(--console-q-accent) !important;
-  background:color-mix(in srgb,var(--console-q-accent) 5%,var(--surface)) !important;
+  background:var(--console-q-panel) !important;
 }
-.ws67-qcard:not(.is-alert):nth-child(6n+2){--console-q-accent:var(--console-c2);}
-.ws67-qcard:not(.is-alert):nth-child(6n+3){--console-q-accent:var(--console-c3);}
-.ws67-qcard:not(.is-alert):nth-child(6n+4){--console-q-accent:var(--console-c4);}
-.ws67-qcard:not(.is-alert):nth-child(6n+5){--console-q-accent:var(--console-c5);}
-.ws67-qcard:not(.is-alert):nth-child(6n){--console-q-accent:var(--console-c6);}
-.ws67-qcard:not(.is-alert) .ws67-qnum{color:var(--console-q-accent);}
-.ws67-qcard:not(.is-alert) .ws67-qlbl svg{color:var(--console-q-accent);}
+.ws67-qcard:not(.is-alert):nth-child(6n+2){--console-q-accent:var(--console-c2);--console-q-panel:var(--console-c2-panel,var(--surface));--console-q-ink:var(--console-c2-panel-ink,var(--console-c2));}
+.ws67-qcard:not(.is-alert):nth-child(6n+3){--console-q-accent:var(--console-c3);--console-q-panel:var(--console-c3-panel,var(--surface));--console-q-ink:var(--console-c3-panel-ink,var(--console-c3));}
+.ws67-qcard:not(.is-alert):nth-child(6n+4){--console-q-accent:var(--console-c4);--console-q-panel:var(--console-c4-panel,var(--surface));--console-q-ink:var(--console-c4-panel-ink,var(--console-c4));}
+.ws67-qcard:not(.is-alert):nth-child(6n+5){--console-q-accent:var(--console-c5);--console-q-panel:var(--console-c5-panel,var(--surface));--console-q-ink:var(--console-c5-panel-ink,var(--console-c5));}
+.ws67-qcard:not(.is-alert):nth-child(6n){--console-q-accent:var(--console-c6);--console-q-panel:var(--console-c6-panel,var(--surface));--console-q-ink:var(--console-c6-panel-ink,var(--console-c6));}
+.ws67-qcard:not(.is-alert) :is(.ws67-qnum,.ws67-qlbl,.ws67-qlbl svg){color:var(--console-q-ink,var(--console-q-accent));}
 .ws67-qcard:not(.is-alert):hover{background:color-mix(in srgb,var(--console-q-accent) 10%,var(--surface)) !important;}
 
 /* Color rails distinguish neutral KPI boxes while green/amber/red/blue KPI
