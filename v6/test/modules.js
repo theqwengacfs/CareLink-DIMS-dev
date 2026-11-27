@@ -12,7 +12,10 @@ module.exports = [
   'admin_workflows6.js','dev_console6.js','workflow_engine6.js','visual_audit.js','strategic_governance67.js','role_consoles68.js', 'security6.js'
 ];
 
-/* Public entry overrides must remain last in both production builders. */
+/* Public entry overrides must remain last in both production builders, and
+   tab_ink.css after those: it is the single owner of a selected control's fill
+   and ink, so it has to be able to outrank every layer that used to paint
+   half of that pair. */
 module.exports.CSS_ORDER = [
-  'styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css', 'carelink63.css', 'console_color_schemes.css', 'admin_ops6.css', 'care_review.css', 'entry_theme.css'
+  'styles.css', 'console51.css', 'console6.css', 'portal6.css', 'audit6.css', 'carelink63.css', 'console_color_schemes.css', 'admin_ops6.css', 'care_review.css', 'entry_theme.css', 'tab_ink.css'
 ];

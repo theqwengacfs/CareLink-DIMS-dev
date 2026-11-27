@@ -175,19 +175,20 @@ html[data-kpistyle="tinted"] .kpi .ks,html[data-kpistyle="outlined"] .kpi .ks{co
 .sheet{background:var(--bar);border-bottom-color:var(--line)}
 .tab{color:var(--ink-2)}
 .tab:hover{background:var(--hover);color:var(--ink)}
-.tab.active{background:var(--accent-soft);color:var(--accent-fg);
-  border-color:color-mix(in srgb,var(--accent) 34%,transparent);font-weight:700}
-.tab.active svg{color:var(--accent-fg);opacity:1}
+/* Selected tab: tab_ink.css owns the fill and the ink together. This file keeps
+   only the border, so a console fill cannot arrive with a page-solved ink. */
+.tab.active{border-color:color-mix(in srgb,var(--tab-fill,var(--accent)) 34%,transparent);font-weight:700}
+.tab.active svg{color:var(--tab-ink,var(--accent-fg));opacity:1}
 .tab svg{color:currentColor}
 .tab .ct{background:var(--chip);color:var(--chip-ink)}
-.tab.active .ct{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--accent-fg)}
+.tab.active .ct{background:color-mix(in srgb,var(--tab-fill,var(--accent)) 22%,transparent);color:var(--tab-ink,var(--accent-fg))}
 .sheet-g{color:var(--ink-3);font-weight:800}
 .tabs{border-bottom-color:var(--line)}
 .tabs .tab{color:var(--muted)}
 .tabs .tab:hover{color:var(--ink);background:var(--hover)}
-.tabs .tab.active{color:var(--accent-fg);background:var(--accent-soft);border-bottom-color:var(--accent)}
+.tabs .tab.active{border-bottom-color:var(--tab-fill,var(--accent))}
 .seg button{background:var(--surface-2);color:var(--ink-2);border-color:var(--line)}
-.seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.seg button.on{background:var(--tab-fill,var(--accent));color:var(--tab-ink,var(--accent-ink));border-color:var(--tab-fill,var(--accent))}
 
 /* Links inside tinted panels: the accent FILL colour is solved for white
    text, so it is too dark on a tint in a dark theme. accent-fg is solved

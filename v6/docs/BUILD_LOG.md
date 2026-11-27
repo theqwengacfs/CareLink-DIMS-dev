@@ -2,17 +2,62 @@
 
 | Field | Value |
 |---|---|
-| Application | CareLink DIMS v6.11.0 |
+| Application | CareLink DIMS v6.11.2 |
 | Organisation | LOMAMO Foundation Kenya |
 | Build date | 2026-11-27 |
 | Database schema | 6 |
 | Artefact | `LOMAMO-CareLink-DIMS-v5.0.html` (one file, no dependencies) |
 | Source modules | 11 (`src/`) |
 | Offline tooling | `tools/import_engine.py`, `tools/make_master_template.py`, `tools/gen_rbac.py` |
-| Test suites | 110 test files in `v6/test/`; `npm run test:all` → EXIT=0, 0 failures |
+| Test suites | 114 test files in `v6/test/`; `npm run test:all` → EXIT=0, 0 failures |
 | Authorisation controls verified | 13 / 13 |
 | Central database | `server.py` · SQLite · revision snapshots · 26/26 API checks |
 | Audit pass | 2026-10-18 — 14 defects found and fixed (docs/12 §9) |
+
+## v6.11.2 — a selected tab may not paint its text from another layer
+
+**The report.** Two phone screenshots: the current page tab had a visible shape
+and no readable label. One was a green chip with its text hidden, the other a
+navy chip carrying maroon text.
+
+**Why it happened.** A selected tab's surface and its text were painted by
+different layers, and each layer used a colour that was correct *on its own*:
+
+| Layer | What it painted | Token |
+|---|---|---|
+| `console_color_schemes.css` | the chip's fill | `--console-c1-fill` (the console's solved maroon) |
+| `carelink63.css:2103` | the label `<span>` and `<svg>` inside it | `--accent-fg` (the accent *as ink*, solved against the page) |
+
+Both pass their own contrast checks — navy on the page is 10.4:1, white on
+maroon is 12.2:1 — but navy on maroon is **1.02:1**. Every earlier review had
+checked a colour against the page. None had checked a label against the surface
+that ended up behind it, because no single stylesheet was wrong.
+
+**The fix.** One pair, declared once per state, and every selected control reads
+only those two tokens: `v6/src/tab_ink.css` (new, loaded last) sets
+`--tab-fill` and `--tab-ink` in the same declaration block for the sheet page
+tabs, module tab strips, console shortcuts, the header quick bar, the collapsed
+rail, the role chips, the Layout segment and the module tiles. The labels and
+icons of those controls are re-pointed at `--tab-ink` rather than left to
+inherit, because three other sheets colour a tab's `<span>` directly.
+
+`--accent-fg` and `--accent-soft` are no longer used to colour or wash a
+selected control: `--accent-fg` is ink solved for the page, and `--accent-soft`
+is a pale wash the console fill overpaints. The foundation theme keeps its
+crimson selected state, but now owns both halves of the pair instead of pinning
+white text while a solved ink arrived from elsewhere.
+
+**The audit.** `tools/audit-tab-ink.cjs` resolves the real cascade — importance,
+then specificity, then source order — for every theme × console colour scheme ×
+account signature, follows `color:inherit` up the tree, resolves `var()`,
+`color-mix()` and `rgba()` against the tokens the page actually emits, and
+measures the text against the surface really behind it. 18,720 pairs, minimum
+4.5:1, currently the weakest is 5.5:1. With `tab_ink.css` emptied it reports
+1,440 failures at 1.00:1, so it is a real gate and not a rubber stamp.
+
+`v6/test/v6112-tab-ink.js` (23 checks) locks the structure down: fill and ink in
+one block, a forced ink on the label and the icon, no `--accent-fg`/`--accent-soft`
+on a selected control, and no literal fill paired with a variable ink.
 
 ## v6.11.0 — Monday Procurement Protocol, colour coherence, sign-in latency
 
