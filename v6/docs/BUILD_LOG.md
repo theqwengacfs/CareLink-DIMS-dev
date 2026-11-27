@@ -83,7 +83,7 @@ compressed pack applies.
 
 **Checks.** `v6110-monday-procurement-protocol` (58), `v6110-active-tab-colour-
 coherence` (28, including the solver's maths run for real across 18 hues),
-`v6110-signin-latency` (24), `v6110-mobile-layout` (27),
+`v6110-signin-latency` (24), `v6110-mobile-layout` (38, phone **and** tablet tiers),
 `v6110-signin-wire-cost` (11, measured at 4,000 patients). `npm run test:all`
 exit 0. `views.js` renders 5051 views without a fallback.
 
