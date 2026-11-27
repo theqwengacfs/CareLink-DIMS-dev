@@ -118,20 +118,44 @@ run('DB.load();DB.seedDemo();');
 }
 
 /* ---------------------------------------------------------------------
-   3. The install prompt can no longer cover the workspace
+   3. The install pill: restored to its original design, and off the
+      console's bottom edge only where the console actually needs it
+
+   The pill always floated at the bottom-right. That is what made it easy to
+   see and easy to use, and because it is `position:fixed` it takes no room in
+   the document - which is exactly why it can never push the one-screen landing
+   or sign-in pages past 100dvh. The earlier "fix" moved it into the flow,
+   which changed both its nature and the page height. Both are now asserted.
    --------------------------------------------------------------------- */
 {
-  ok('The install prompt is in document flow, not fixed over the workspace',
-    /position: 'static', zIndex: '10', display: 'none'/.test(install));
-  ok('The update and offline notices leave the bottom edge of a phone for its top edge',
-    /const narrow = \(typeof window\.innerWidth === 'number'\) && window\.innerWidth <= 760;/.test(install) &&
-    /position: 'sticky', top: '0'/.test(install));
-  ok('It is a named chip rather than an inline-styled floater', /b\.className = 'pwa-install-btn'/.test(install));
-  ok('It is hosted by a container that survives page changes',
-    /return pick\('main\.content'\) \|\| pick\('main'\) \|\| doc\.body;/.test(install));
-  ok('It is full width on a phone and auto on a wide screen',
-    /installButton\.style\.width = \(host\.clientWidth && host\.clientWidth < 620\) \? '100%' : 'auto'/.test(install));
-  ok('It never assumes the host document offers querySelector',
+  ok('The pill floats at the bottom-right corner again, at 16px from each edge',
+    /Object\.assign\(b\.style, \{ position: 'fixed', right: '16px', bottom: '16px', zIndex: '10000', display: 'none',/.test(install));
+  ok('The pill keeps its red fill, full radius and 700-weight label',
+    /background: '#B7192B', color: '#fff',/.test(install) && /borderRadius: '999px'/.test(install) &&
+    /font: '700 14px system-ui'/.test(install));
+  ok('The pill is appended to the body, so no page layout can reflow it',
+    /function installHost\(\) \{\s*return doc\.body;\s*\}/.test(install));
+  ok('It can never be wider than the screen',
+    /maxWidth: 'calc\(100vw - 32px\)'/.test(install));
+
+  /* Fixed positioning takes no space in the document - this is the property
+     the one-screen policy depends on, so it is stated as an invariant. */
+  ok('Fixed positioning keeps the pill out of the document flow entirely',
+    !/position: 'static'/.test(install) && !/position: 'sticky'/.test(install));
+  ok('The notice strips stay fixed near the bottom edge, so they cannot push the entry pages either',
+    /position: 'fixed', left: '12px', right: '12px', bottom: '76px'/.test(install));
+
+  /* Inside a console the bottom edge belongs to the shortcuts and the strip,
+     so the pill steps up - by a measured amount, with a bounded fallback. */
+  ok('Inside a console the pill lifts clear of the console furniture',
+    /installButton\.style\.bottom = inConsole\(\) \? consoleClearance\(\) : '16px';/.test(install));
+  ok('Entry screens keep the original 16px corner',
+    /: '16px';/.test(install));
+  ok('The lift is measured from the element that is in the way, not hard-coded',
+    /getBoundingClientRect\(\)/.test(install) && /Math\.round\(window\.innerHeight - box\.top\)/.test(install));
+  ok('The lift is bounded, so a short phone cannot turn the pill into a banner',
+    /Math\.min\(160, Math\.max\(64, needed \+ 12\)\)/.test(install));
+  ok('A host document without querySelector cannot crash the measurement',
     /typeof doc\.querySelector === 'function'/.test(install));
   ok('Both show paths go through the one helper, so nothing can re-introduce display:block alone',
     (install.match(/showInstallButton\(\)/g) || []).length >= 4);

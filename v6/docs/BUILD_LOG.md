@@ -57,12 +57,22 @@ was visible on a desktop: (1) every inner page rendered **two** role-tab rows �
 six chips in the banner and seven again in the context strip directly beneath
 it, because the strip kept its own copy of a tab bar the banner already draws;
 the strip now yields its tabs (`contextStrip(user, view, {omitTabs})`) and keeps
-only what is genuinely per-page. (2) The install prompt was `position:fixed` at
-bottom-right, so on a 390px phone it sat on the shortcuts; it is now a chip in
-document flow inside `main.content`, full width on a phone, and the update and
-offline notices move to the top edge instead of `bottom:76px`. (3) The `Layout`
-chip's label was a bare text node with a `::after` plus sign and no gap, so it
-clipped; the label is now its own element and the indicator is `flex:0 0 auto`.
+only what is genuinely per-page. (2) The `Layout` chip's label was a bare text
+node with a `::after` plus sign and no gap, so it clipped; the label is now its
+own element and the indicator is `flex:0 0 auto`.
+
+**Correction: the install pill.** An earlier attempt at (2) also converted the
+install prompt from a floating pill into a flow chip inside the workspace. That
+was wrong on both counts. The pill is the one control whose job is to be
+noticed, it was already easy to see and easy to use, and being `position:fixed`
+it contributes **zero height** to the page — so it was never what pushed the
+one-screen landing or sign-in past `100dvh`. The pill is restored exactly: red,
+bottom-right, `16px` from each edge, a direct child of the body, in the flow of
+nothing. The notice strips are restored too. The only adjustment left is inside
+a signed-in console, whose bottom edge belongs to the shortcut row and the role
+strip; there the pill steps up by a **measured** clearance (bounded 64–160px,
+with a constant fallback for hosts it cannot measure), never on the entry
+pages.
 
 **Sign-in, measured on the wire at the contractual size** (4,000 patients,
 1,334 in the field officer's scope, real handler behind a real fetch):
@@ -90,7 +100,9 @@ disagreeing — is what fails a test.
 
 **Checks.** `v6110-monday-procurement-protocol` (58), `v6110-active-tab-colour-
 coherence` (28, including the solver's maths run for real across 18 hues),
-`v6110-signin-latency` (24), `v6110-mobile-layout` (38, phone **and** tablet tiers),
+`v6110-signin-latency` (24), `v6110-mobile-layout` (43, phone **and** tablet
+tiers **and** the restored pill), `v6110-entry-one-screen` (27, the one-screen
+policy for the landing and sign-in pages),
 `v6110-signin-wire-cost` (14, measured at 4,000 patients). `npm run test:all`
 exit 0. `views.js` renders 5051 views without a fallback.
 

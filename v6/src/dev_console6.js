@@ -1200,7 +1200,7 @@ const VERSION_CONTROL = {
         'Sign-in latency is now attributed: the server counts KV round-trips per request and reports stage timings for /api/auth/login when asked (?timing=1), so a slow sign-in can be measured rather than guessed at',
         'A device that already holds the current document at the host revision no longer re-downloads the whole workspace on sign-in; the owner check makes sure another account\'s document is never reused',
         'Admission no longer reconstructs an entire sharded workspace merely to read the device register',
-        'Phone layout: inner pages were drawing two role-tab rows (the banner\'s and the context strip\'s), the install prompt was fixed over the shortcuts at the bottom of the screen, and the Layout chip could clip its own label; the strip now owns the only tab row, the install prompt is in document flow, and the update/offline notices move to the top edge on a phone',
+        'Phone layout: inner pages were drawing two role-tab rows (the banner\'s and the context strip\'s); the strip now owns the only tab row, and the Layout chip can no longer clip its own label',
         'Tablet tier verified as its own layout rather than a stretched phone: one-column introduction, 2x2 metrics, 44px targets and no double-tap zoom between 760px and 1000px',
         'Measured on the wire at the contractual 4,000-patient register: the sign-in response is 1.1 KB, the workspace it then needs is 0.04 MB compressed (90.8% smaller than the plain snapshot), and an already-current device downloads 0.1 KB instead of the register'] },
     { tag:'v6.10.0', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
