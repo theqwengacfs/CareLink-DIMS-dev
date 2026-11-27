@@ -110,7 +110,13 @@ function makeShellDom({ online = true, body = true, ios = false } = {}) {
   const late = makeShellDom({ body: true });
   late.winListeners.beforeinstallprompt[0]({ preventDefault() { }, prompt() { }, userChoice: Promise.resolve({ outcome: 'dismissed' }) });
   const button = late.appended.find(el => el.tagName === 'BUTTON' && /Install CareLink/.test(el.textContent));
-  check('the install button is attached to the document and shown', !!button && button.style.display === 'block');
+  check('the install button is attached to the document and shown',
+    !!button && /^(block|inline-flex)$/.test(button.style.display));
+  /* It used to be position:fixed bottom-right, which on a 390px phone sat
+     directly on top of the console's role strip and its Layout control - and
+     stayed there while the page scrolled. It is now in document flow. */
+  check('the install prompt is in document flow, so it cannot cover the workspace',
+    !!button && button.style.position !== 'fixed' && button.className === 'pwa-install-btn');
   check('the install button is reachable by keyboard and pointer',
     button.type === 'button' && button['aria-label'] === 'Install CareLink on this device');
   check('the button lives inside the body, not in a detached node', button.parentNode === late.bodyEl);

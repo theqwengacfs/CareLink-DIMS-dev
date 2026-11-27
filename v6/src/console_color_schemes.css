@@ -286,7 +286,13 @@ html[data-colorscheme]:not([data-colorscheme="public"]) :is(.tabs .tab,.sheet .t
   box-shadow:inset 0 -3px 0 var(--nav-colour) !important;
 }
 html[data-colorscheme]:not([data-colorscheme="public"]) :is(.tabs .tab,.sheet .tab):is(.active,.on){
-  background:var(--console-hero-1) !important;color:#fff !important;border-color:var(--console-hero-1) !important;
+  /* The selected page tab uses the same solved pair as the role chips: the
+     first signature hue moved until an ink reaches 4.5:1 on it, and that ink.
+     A fixed #fff on --console-hero-1 was reading only 3.9:1 on the lighter
+     console signatures. */
+  background:var(--console-c1-fill,var(--console-hero-1)) !important;
+  color:var(--console-c1-ink,#fff) !important;
+  border-color:var(--console-c1-fill,var(--console-hero-1)) !important;
 }
 html[data-colorscheme]:not([data-colorscheme="public"]) .np-i:not(.on){
   border-inline-start:3px solid var(--nav-colour);background:color-mix(in srgb,var(--nav-colour) 12%,var(--chrome));

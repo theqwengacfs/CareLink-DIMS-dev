@@ -801,7 +801,7 @@ const WORKSPACE_LAYOUTS = {
         <div class="row" style="gap:6px;flex-wrap:wrap">
           ${roleTabs.map(t => `<button type="button" class="ctx-rtab ${t.v === (ctx.currentView || 'home') ? 'on' : ''}" data-act="go" data-v="${esc(t.v)}">${ic(t.ic || 'file', 13)}<span>${esc(t.l)}</span></button>`).join('')}
         </div>
-        ${(!ctx.currentView || ctx.currentView === 'home') ? `<details class="ws67-layout-options no-print"><summary>${ic('layers',13)} Layout</summary><div class="seg ws67-mode-seg" role="group" aria-label="Console workspace layout mode">
+        ${(!ctx.currentView || ctx.currentView === 'home') ? `<details class="ws67-layout-options no-print"><summary>${ic('layers',13)} <span class="ws67-chip-label">Layout</span></summary><div class="seg ws67-mode-seg" role="group" aria-label="Console workspace layout mode">
           <button type="button" class="${mode === 'smart' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="smart">Decongested Deck</button>
           <button type="button" class="${mode === 'tabbed' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="tabbed">Focused Tabs</button>
           <button type="button" class="${mode === 'full' ? 'on' : ''}" data-act="ws-layout-mode" data-mode="full">Expanded Stack</button>
@@ -824,7 +824,7 @@ const WORKSPACE_LAYOUTS = {
           <p class="ws67-sub">${esc(introText)}</p>
           <div class="ws67-actions">
             ${ctx.actionsHtml || ''}
-            <details class="ws67-workspace-tools"><summary>${ic('settings',13)} Workspace tools</summary><div class="ws67-workspace-tools-body">
+            <details class="ws67-workspace-tools"><summary>${ic('settings',13)} <span class="ws67-chip-label">Workspace tools</span></summary><div class="ws67-workspace-tools-body">
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="open-switch-account">${ic('users', 13)} Switch Account</button>
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="wtheme-open" data-tab="studio">${ic('palette', 13)} Themes &amp; Style</button>
             <button class="btn btn-xs btn-ghost ws67-tool-btn" type="button" data-act="arrange-home">${ic('settings', 13)} Arrange</button>

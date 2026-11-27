@@ -715,7 +715,12 @@ html[data-wt="foundation"] .shell .rc68-tile{padding:18px;gap:14px;min-height:82
 html[data-wt="foundation"] .shell .ws67-mod-tabs{gap:10px;padding-block:8px 18px;}
 .ws67-workspace-tools,.ws67-layout-options{position:relative;min-width:0;}
 .ws67-workspace-tools>summary,.ws67-layout-options>summary{display:flex;align-items:center;gap:8px;cursor:pointer;min-height:40px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:12px;font-weight:600;color:var(--ink);background:var(--surface);list-style:none;}
-.ws67-workspace-tools>summary::after,.ws67-layout-options>summary::after{content:'+';font-size:16px;margin-left:8px;}
+/* The +/- affordance must not be able to clip its own label. The summary is a
+   flex row that may shrink on a phone; the label keeps its own box, never
+   breaks mid-word, and the indicator is a fixed, non-shrinking +. */
+.ws67-workspace-tools>summary::after,.ws67-layout-options>summary::after{content:'+';font-size:16px;margin-left:8px;flex:0 0 auto;line-height:1;}
+.ws67-workspace-tools>summary,.ws67-layout-options>summary{flex:0 0 auto;max-width:100%;white-space:nowrap;overflow:visible;}
+.ws67-workspace-tools>summary>.ws67-chip-label,.ws67-layout-options>summary>.ws67-chip-label{flex:0 1 auto;min-width:0;overflow:visible;text-overflow:clip;}
 .ws67-workspace-tools[open]>summary::after,.ws67-layout-options[open]>summary::after{content:'−';}
 .ws67-workspace-tools-body{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0 2px;max-width:420px;}
 .ws67-layout-options>.ws67-mode-seg{margin-top:10px;display:flex;flex-wrap:wrap;}
@@ -730,6 +735,12 @@ html[data-wt="foundation"] .shell .ws67-mod-tabs{gap:10px;padding-block:8px 18px
 .ws67-more-body{padding:10px 24px 24px;min-width:0;}
 :is(.ws67-workspace-tools,.ws67-layout-options,.ws67-more-workspaces)>summary:focus-visible{outline:3px solid var(--focus,var(--accent));outline-offset:4px;}
 @media(max-width:760px){
+  /* On a 390px phone the role strip is a horizontal scroller, so the Layout
+     and Workspace-tools chips sit at its end and are reached by scrolling
+     rather than by being squeezed into half a chip. */
+  .shell-role-banner .ws67-role-tabs{align-items:center;}
+  .shell-role-banner :is(.ws67-layout-options,.ws67-workspace-tools){flex:0 0 auto;}
+  .shell-role-banner :is(.ws67-layout-options,.ws67-workspace-tools)>summary{min-height:44px;padding:8px 12px;}
   html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-hero.ctx-strip{padding:14px 16px 12px !important;}
   html[data-wt="foundation"] .shell-role-banner{padding-top:14px;}
   html[data-wt="foundation"] .shell :is(.ws67-primary-grid,.ws67-stack){gap:18px;margin-block:20px;}

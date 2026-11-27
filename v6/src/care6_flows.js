@@ -1625,8 +1625,15 @@ const ROLE_CTX = {
     };
   },
 
-  contextStrip(user, view){
+  /* opts.omitTabs: the console banner above already carries the role tab row,
+     on every signed-in page. Repeating it here produced two identical strips -
+     six chips in the banner and seven in this one - which on a phone read as a
+     duplicated tab bar and doubled the height before any content. The strip
+     still owns what is genuinely per-page: the identity badges, the operator
+     line and the pack/CTA buttons. */
+  contextStrip(user, view, opts){
     if(!user || view==='dualcheck') return '';
+    const omitTabs = !!(opts && opts.omitTabs);
     const role = roleObj(user.roleId) || {};
     const dept = role.dept ? deptObj(role.dept) : null;
     const deptKey = role.dept || 'admin';
@@ -1668,7 +1675,7 @@ const ROLE_CTX = {
     if(!rawTabs.some(t => t.v === 'smartflow')){
       rawTabs.splice(1, 0, { v:'smartflow', l: ROLE_CTX.navLabel(user, 'smartflow', 'Smart Workflow'), ic:'sparkles' });
     }
-    const tabsHTML = rawTabs.length
+    const tabsHTML = (rawTabs.length && !omitTabs)
       ? `<div class="ctx-role-tabs" role="navigation" aria-label="Role contextual workspace tabs">
           ${rawTabs.map(t => `<button type="button" class="ctx-rtab ${view === t.v ? 'on' : ''}" data-act="go" data-v="${esc(t.v)}">${ic(t.ic || 'file', 14)}<span>${esc(t.l)}</span></button>`).join('')}
         </div>`
