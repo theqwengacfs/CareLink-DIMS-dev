@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#202020">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.10.0) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.11.0) - LOMAMO Foundation Kenya Data & Information Management System">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -6628,7 +6628,9 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):
 html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):not(.on):hover{border-color:var(--console-tab-accent,var(--console-c1)) !important;color:var(--console-tab-accent,var(--console-c1)) !important;}
 html[data-colorscheme]:not([data-colorscheme="public"]) .ctx-rtab:not(.on){border-color:color-mix(in srgb,var(--console-c2) 34%,var(--line)) !important;}
 html[data-colorscheme]:not([data-colorscheme="public"]) .ctx-rtab:not(.on):hover{border-color:var(--console-c1) !important;background:color-mix(in srgb,var(--console-c1) 8%,var(--surface)) !important;color:var(--console-c1) !important;}
-html[data-colorscheme]:not([data-colorscheme="public"]) .ctx-rtab.on{background:var(--accent) !important;border-color:var(--accent) !important;color:var(--accent-ink,#FFFFFF) !important;}
+html[data-colorscheme]:not([data-colorscheme="public"]) .ctx-rtab.on{background:var(--console-c1-fill,var(--accent)) !important;border-color:var(--console-c1-fill,var(--accent)) !important;color:var(--console-c1-ink,var(--accent-ink,#FFFFFF)) !important;}
+html[data-colorscheme]:not([data-colorscheme="public"]) .ctx-rtab.on svg,
+html[data-colorscheme]:not([data-colorscheme="public"]) .ctx-rtab.on span{color:inherit !important;}
 
 /* Light accent rails on the large module cards used by the decongested decks. */
 .ws67-primary-slot:nth-child(6n+1)>.card{border-top:3px solid var(--console-c1);}
@@ -6651,10 +6653,10 @@ html[data-colorscheme]:not([data-colorscheme="public"]) .tabs .tab:not(.active):
 
 /* Finance's five work areas carry the selected Admin Ops reporting palette;
    paid/due/critical labels and their status colours remain untouched. */
-.aops-section-tab:not(.is-current):nth-child(5n+1) .aops-section-index{color:var(--aops-c1);background:color-mix(in srgb,var(--aops-c1) 12%,#FFFFFF);}
-.aops-section-tab:not(.is-current):nth-child(5n+2) .aops-section-index{color:var(--aops-c2);background:color-mix(in srgb,var(--aops-c2) 12%,#FFFFFF);}
-.aops-section-tab:not(.is-current):nth-child(5n+3) .aops-section-index{color:var(--aops-c3);background:color-mix(in srgb,var(--aops-c3) 12%,#FFFFFF);}
-.aops-section-tab:not(.is-current):nth-child(5n+4) .aops-section-index{color:var(--aops-c4);background:color-mix(in srgb,var(--aops-c4) 12%,#FFFFFF);}
+.aops-section-tab:not(.is-current):nth-child(5n+1) .aops-section-index{color:color-mix(in srgb,var(--aops-c1) 82%,#111827);background:color-mix(in srgb,var(--aops-c1) 12%,#FFFFFF);}
+.aops-section-tab:not(.is-current):nth-child(5n+2) .aops-section-index{color:color-mix(in srgb,var(--aops-c2) 82%,#111827);background:color-mix(in srgb,var(--aops-c2) 12%,#FFFFFF);}
+.aops-section-tab:not(.is-current):nth-child(5n+3) .aops-section-index{color:color-mix(in srgb,var(--aops-c3) 82%,#111827);background:color-mix(in srgb,var(--aops-c3) 12%,#FFFFFF);}
+.aops-section-tab:not(.is-current):nth-child(5n+4) .aops-section-index{color:color-mix(in srgb,var(--aops-c4) 82%,#111827);background:color-mix(in srgb,var(--aops-c4) 12%,#FFFFFF);}
 .aops-section-tab:not(.is-current):nth-child(5n) .aops-section-index{color:var(--aops-c5);background:color-mix(in srgb,var(--aops-c5) 12%,#FFFFFF);}
 .aops-section-tab:not(.is-current):nth-child(5n+1){border-color:color-mix(in srgb,var(--aops-c1) 22%,#E1E7EF);}
 .aops-section-tab:not(.is-current):nth-child(5n+2){border-color:color-mix(in srgb,var(--aops-c2) 22%,#E1E7EF);}
@@ -6689,30 +6691,47 @@ html[data-wmode="light"] .ws67-hero .ws67-actions .btn:hover{background:rgba(255
    own signature hue, and the current one is filled with the console's primary
    colour with the ink chosen for it (--accent-ink), so it reads as selected in
    every scheme, light or dark. */
+/* Three tokens per chip, and they are the only ones the three states use:
+   --rtab-c is the signature hue as *ink* (contrast-corrected against the page),
+   --rtab-fill the solid it stands on when the chip is current, and --rtab-ink
+   the text that provably reads on that fill. Deriving the ink from the fill
+   instead of assuming white is what stopped a dark green console from painting
+   dark green text on its own dark green highlight. themes.js solves
+   --console-c1-ink / --console-c1-fill once, so the chip, the filled buttons
+   and the sheet heads all agree. */
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab{
+  --rtab-fill:var(--console-c1-fill,var(--console-c1));
+  --rtab-ink:var(--console-c1-ink,#FFFFFF);
+}
 html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on){
-  --rtab-c:var(--console-c1);
   background:color-mix(in srgb,var(--rtab-c) 7%,var(--surface)) !important;
   border:1px solid color-mix(in srgb,var(--rtab-c) 30%,var(--line)) !important;
   color:color-mix(in srgb,var(--rtab-c) 72%,var(--ink)) !important;
   box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--rtab-c) 55%,transparent) !important;
 }
-html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n+2){--rtab-c:var(--console-c2);}
-html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n+3){--rtab-c:var(--console-c3);}
-html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n+4){--rtab-c:var(--console-c4);}
-html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n+5){--rtab-c:var(--console-c5);}
-html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):nth-child(6n){--rtab-c:var(--console-c6);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:nth-child(6n+2){--rtab-c:var(--console-c2);--rtab-fill:var(--console-c2-fill,var(--console-c2));--rtab-ink:var(--console-c2-ink,#FFFFFF);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:nth-child(6n+3){--rtab-c:var(--console-c3);--rtab-fill:var(--console-c3-fill,var(--console-c3));--rtab-ink:var(--console-c3-ink,#FFFFFF);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:nth-child(6n+4){--rtab-c:var(--console-c4);--rtab-fill:var(--console-c4-fill,var(--console-c4));--rtab-ink:var(--console-c4-ink,#FFFFFF);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:nth-child(6n+5){--rtab-c:var(--console-c5);--rtab-fill:var(--console-c5-fill,var(--console-c5));--rtab-ink:var(--console-c5-ink,#FFFFFF);}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:nth-child(6n){--rtab-c:var(--console-c6);--rtab-fill:var(--console-c6-fill,var(--console-c6));--rtab-ink:var(--console-c6-ink,#FFFFFF);}
 html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab:not(.on):hover{
   background:color-mix(in srgb,var(--rtab-c) 16%,var(--surface)) !important;
   border-color:var(--rtab-c) !important;color:var(--ink) !important;
 }
 html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab.on{
-  background:var(--console-c1) !important;border:1px solid var(--console-c1) !important;
-  color:var(--accent-ink,#FFFFFF) !important;
-  box-shadow:inset 0 -3px 0 rgba(255,255,255,.5),0 3px 10px color-mix(in srgb,var(--console-c1) 26%,transparent) !important;
+  background:var(--rtab-fill,var(--console-c1-fill,var(--console-c1))) !important;
+  border:1px solid color-mix(in srgb,var(--rtab-fill,var(--console-c1)) 70%,var(--ink)) !important;
+  color:var(--rtab-ink,var(--console-c1-ink,#FFFFFF)) !important;
+  box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--rtab-ink,#FFFFFF) 34%,transparent),
+             0 3px 10px color-mix(in srgb,var(--rtab-fill,var(--console-c1)) 26%,transparent) !important;
+}
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab.on svg,
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-role-tabs .ctx-rtab.on span{
+  color:var(--rtab-ink,var(--console-c1-ink,#FFFFFF)) !important;fill:currentColor !important;
 }
 html[data-wmode="light"] .ws67-hero .ws67-mode-seg{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px}
 html[data-wmode="light"] .ws67-hero .ws67-mode-seg button{color:var(--ink-2);border-radius:7px}
-html[data-wmode="light"] .ws67-hero .ws67-mode-seg button.on{background:var(--console-c1);color:var(--accent-ink,#FFFFFF)}
+html[data-wmode="light"] .ws67-hero .ws67-mode-seg button.on{background:var(--console-c1-fill,var(--console-c1));color:var(--console-c1-ink,var(--accent-ink,#FFFFFF))}
 html[data-wmode="light"] .ws67-hero .ws67-qcard:not(.is-alert){background:#fff !important;border-color:#e5ebee !important;border-top:3px solid var(--console-q-accent) !important;box-shadow:0 4px 14px rgba(0,0,0,.08)}
 html[data-wmode="light"] .ws67-hero .ws67-qcard .ws67-qlbl{color:color-mix(in srgb,var(--console-q-accent) 55%,var(--ink))}
 html[data-wmode="light"] .ws67-hero .ws67-qcard.is-alert{background:#fff4df !important;border-color:#edd4a6 !important;color:#573c15}
@@ -7751,7 +7770,7 @@ html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .s
    content in every one of the eight schemes rather than tinting the whole tab
    rail mauve. Its group labels and the "All" affordance carry the signature. */
 html[data-wt="foundation"] .shell .sheet{background:var(--chrome,#f5f3ee);border-color:var(--chrome-line,#dedbd4);}
-html[data-wt="foundation"] .shell .sheet-all{background:var(--console-c1);color:var(--accent-ink,#fff);border-radius:10px;}
+html[data-wt="foundation"] .shell .sheet-all{background:var(--console-c1-fill,var(--console-c1));color:var(--console-c1-ink,var(--accent-ink,#fff));border-radius:10px;}
 html[data-wt="foundation"] .shell .sheet-g{color:color-mix(in srgb,var(--console-c1) 62%,var(--ink));font-weight:750;}
 /* A sheet's header names the form and belongs to the same console, so it takes
    a wash of the signature instead of a blue-to-mauve gradient. */
@@ -7858,7 +7877,7 @@ html[data-wt="foundation"] .shell .npane .np-brand .np-x{color:#fff;background:#
 html[data-wt="foundation"] .shell .npane .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c1) 12%,#fff);color:var(--console-c1);border-radius:7px;padding:3px;width:25px;height:25px;flex-shrink:0;}
 html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n+2) .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c2) 12%,#fff);color:var(--console-c2);}
 html[data-wt="foundation"] .shell .npane .np-g:nth-child(3n) .np-i:not(.on)>svg{background:color-mix(in srgb,var(--console-c3) 12%,#fff);color:var(--console-c3);}
-html[data-wt="foundation"] .shell .npane .np-i.on{background:var(--console-c1) !important;color:var(--accent-ink,#fff) !important;box-shadow:inset 4px 0 0 #facc15,0 3px 8px color-mix(in srgb,var(--console-c1) 22%,transparent);border-radius:10px;}
+html[data-wt="foundation"] .shell .npane .np-i.on{background:var(--console-c1-fill,var(--console-c1)) !important;color:var(--console-c1-ink,var(--accent-ink,#fff)) !important;box-shadow:inset 4px 0 0 #facc15,0 3px 8px color-mix(in srgb,var(--console-c1) 22%,transparent);border-radius:10px;}
 html[data-wt="foundation"] .shell .npane .np-i.on :is(svg,.np-l){color:#fff !important;}
 /* Dense data stays on white; navigational boxes and their icons carry colour. */
 html[data-wt="foundation"][data-colorscheme]:not([data-colorscheme="public"]) .shell-role-banner .ws67-qcard:not(.is-alert) :is(.ws67-qnum,.ws67-qlbl,.ws67-qlbl svg){color:#fff !important;}
@@ -7895,7 +7914,7 @@ html[data-client-layout="compact"] .shell-role-banner .ws67-hero-main{grid-templ
 html[data-client-layout="compact"] .shell-role-banner .ws67-qgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
 .topbar.cbar .cb-qbtn{min-height:40px;white-space:normal;text-align:left;}
 html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn{background:#e8efff !important;color:#203c7a !important;border:1px solid #c6d5f0;border-radius:10px;padding:9px 14px;}
-html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn.on{background:var(--console-c1) !important;color:var(--accent-ink,#fff) !important;border-color:var(--console-c1);box-shadow:inset 0 -3px 0 #facc15;}
+html[data-wt="foundation"] .shell .topbar.cbar .cb-qbtn.on{background:var(--console-c1-fill,var(--console-c1)) !important;color:var(--console-c1-ink,var(--accent-ink,#fff)) !important;border-color:var(--console-c1);box-shadow:inset 0 -3px 0 #facc15;}
 .topbar.cbar .cb-id :is(h1,.cb-console-name,.cb-view-name){white-space:normal !important;overflow-wrap:anywhere;max-width:100%;}
 .topbar.cbar .cb-id .xs{line-height:1.5;white-space:normal;}
 .topbar.cbar .sync-chip{max-width:230px;white-space:normal;}
@@ -8249,7 +8268,7 @@ html[data-view-transition="on"] .workspace-view{animation:none !important;}
 <script>
 /* ===== Embedded assets ===== */
 window.LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIkAAACdCAYAAACAY1tEAAArYUlEQVR42u2daXBc13Xnf/e913s3GjsBEARFcRFJcRMpiRQpUyIpmxpZsiVFSywnI9kpu+KkUuVU2ZNxUpOZL2OnnKmajEdW7NiKI8eSTFlT1kJZIiOJoihuIkGIBDdwBUCAWBpbN3p/y50PjffUAEGKAEgRJPpUvWp0o/u9u/zvOf9z7rn3ilgsJilIQS4hSqEJClIASUEmLFr+G6OoqNAiBckB4/BhqKsraJKCFMxNQQogKcg14SQXSF0dypIlhVa6wcXasQOi0fGBRFmyBOWllwqteKPLd76D9eKL49QkNtJ+9CNobCw05o0mixej/OAHEzQ3tjQ25lRSOFxo2BtFWlsRlzAxYwcJQDhMaWsrXq8XVVURQiCEALjgdTKKYRgT+r2UEkVRUFX1usCAlPKCVykluq6TzWbpG4qBXFmQDMm6deuYM2cOPp8Pn8+H2+3G7XajaRqqqqIoyqQDTSqVoqWlBV3Xx10mKSWVlZVUVVVhWdakGxD5YLAsC9M0MU2TbDZLNpslmUySTqdpaGhgx44dV9C7GUWKi4upqKigqKiIQCCA1+t1tIumaQ5IJlMjSilRVZWBgQEUZXxevxCCBQsW4Pf7J7X2yAeJYRhkMhnS6TSJRIJYLEbROKLqYwaJ3++nqKiI4uJiAoGAo1E0TXNAkq9NJkPD2WU5fvz4uEBiWRYlJSXU1taOG2SfN0gMw8AwDFKpFOl0Gk3LdbXH47n6IPF4PAQCAQKBAKFQCL/fPwwk+XxlMmkTr9dLT08P6XR6TOWy1fisWbMoKSm5LjiIrUUMw8DlcqFpmsNHPheQuFwuvF4vPp8Pv9/vXJqm4XK5Jp0mydeAtbW1tLa2jql8lmXh9/uZMWMGXq930pPVkSCx62kYxjCN8rmBJB8oLpcLl8t1geczmWTmzJn09/djGMZlmw3TNKmqqqKsrGyY6boeQKLruvO5ruukUilcLtfVB4mqqg5JtS9bpeWbm8lmuy3Lory8nHA4TF9f32VrE1VVqaurw+VyXTcgsdteSjmsX2zv83MByUiAjATJZPVwhBDMmDGDWCzmgPmzgFVcXEx5efm4RuC1AMhIIOf3le1YXHWQ2FrCDizZr/kaZjJqErvxqqqqaG5uJpvNXhaIq6qqJj0XGQmSfAKb3zd2v30uILFBkP862meTTYQQBAIBSkpK6OzsvGSDSSnx+XxUV1c7dZnM5kYIMcwFHtk3E9Hs2ngLNPIaCZDJGk9QFIXa2loikcglG82OjdjBp8nMRfLLbNdx5DURkCjjAchof18vDSmlpKysjEAg4DTqaN9RVZXp06dPWk/ts/rmig4sppgIIXC73c4czMVGZDAYpKSkxLHxU1mmZPqiTWC9Xu+oPEMIQUVFBV6v97rRIgWQXAUJhUKEQiEsy7pAW2iaRnV1NQWZ4iCxOYfNQUYS1mAwWEDHVAcJQGlpKT6fbxhhBaipqRnXHEcBJDeg+P1+KisrhxFYv99PeXl5ARkFkHyajlhVVYWqqk4QqrysbJh2KcgUBokQAiSUFJfkCKy0UFWVqiHCWnB9pzRIrNwlAUxcboWammqkblJcVExRcQkSCyGsAjqmLkgUQEEKkEIgUSirmIYvGKByWgUetwthKmAVVsA6IYEpyUeQgASZA0Io6KO8uoyKaRUIC0wlp2gK/s0UBgmAQCABS5gIYTBv9jy8Li+WACEsVAlIAYWA6/UPEptgCiGwLGvY7LNlWWQymWFplTZAcj+2QEoU4SXgy2kYKQ2w1BxlEdL5bn5aoMfjGZY+MIwMF0AySb0Um20oirMYKZFIEI1GiUajzJs3j3DeElVryOgIAYrQ0Lv7SDadRCvyE1g4B0tTsaRAYTgAent7aW1tpby8nGAwiM/nw+v13vCBtxuidtlsllgsxsDAAIlEgng8TiwWQ9d1VEVl7ty5wxiJAKQEIRSSTSfo+MUvSe3Yi1pSTsnTj1H1xKOYijtHTMTw57S1t9HZ2YnH4yEUChEMBgmHw4TDYYLB4HWzDPS6BsnI+ISdcZWvNaSUDA4OEovFiMVixONx4vE4yWTSMTlCCFRNxSUUFJnTCUKClAKEiRAK2ZbztP7Dj1H/4z3KLAu95Sy9kTZAUPn441gqqFbOAxIKCEVBU3N5vLqu09vbSyQSQdM0gsGgc4XDYWdN0mgmabT6TGZTNelAcjFbr+s6iUSC3t5e+vr6SKVSZDIZMpmM811FUYapfonEFOJT/inkEFkVKOk0537+C9T3PqBYqihCw62auM530/e/foZvei1Fa+/GkhKGfi9HmB87A8+yLKLRKAMDA2iahtvtxuPxEAwGKSsro6SkBL/fP6qWmewAmRQgGW2U2Z9ls1n6+/vp6ekhFouRTqfRdd3ZISC/oy7mweRiIjmX18LEEgoqgp7NW8m+9ntKTQMVN7oCQrpwKZKi9nOc/7/P4bt5DlptVY7gIriYq5P/fCmls/42Fos5miYQCFBUVERFRQXhcNhZojGa9pxsJFibTGbGMAyHT/T09NDf3082mx3WmKOlE14qhK5YFkLmyIWCigJkzjYT+ZdfUDwQRVEVJBaalGC5c+6vW6Du2Ufnb19lxl//OVJRsAmKJSXKZ4Ts88tnGIazqr+np4fm5ma8Xi/Tpk1zuIzX63WANhm1yjUFiWVZpNNpTNOkq6uLnp4e4vE4pmk637mc9TGXFCVnKywJihRIS6fjt5twnTiCS9FQpIUUuf+BgYVAswRhS9K76XckNnyBwG1LAQsFgUtzoWnqhLRmNpulra2NtrY2XC4X4XCYiooKSktLURQFt9s9qQjwNQWJruu89dZbLFu2jFAoRCAQGLb6bMKqV4IlrNysrgWokGg8TOb3b1CSESiKwFQlQmpYQmAJE1MxcVugKBBsb6Pj319i9oJbkF4vxSXFLF9+27jLNBr/yOdTx48fp6Ojg40bNxZAkt/5Bw4cIJPJ8MQTT+B2u6+SKcsFR6SVIfL7zXhaO1A0N0gLMcRcBBZCAbdUhwiuxKcIUlu3MPjYI4RXr8Lv9xDwV12VMvb39/Pee+8RDAYn3XKUa14aVVXZtm0bW7ZscfJNr+RlyiGfRIHEiVMktryPV1ExRc7MaJZAtSRSmEiRc3kVKbCEiiJUAr19dP/+DdDNnPs8pKEmWi7Lspxkp0QiwSuvvMLRo0cn5XJS5VprEvvaunUr27dvH7aV1hW57PC6hJ6t2/G3d6DZ4XapYCgWhpJ7r1gCUwFT5DSLIg3cUkPftZvk2bOfmgoBTKBM+V5ROp3mtddeo76+ftIutr/mILFf0+k0b775Jrt27brAFZ4ANWYoFIbR14/54U4C6dyeHYrMheWlEFgKWELJeUESFCRC5i5VaPjOtRH9eLfjAMsrUG9FUdB1nc2bN7Njx45hS2MnW8LTpICsEAJN04jH47z66qvs27fvCrmCCpbIzfbqra1kjzSiamKokxUsQDFAMyUSC0uRuZiKVEGq6IpAKuDN6CR37MFKZZ0gHRPoSHuycPPmzWzbtm3SB9QmlV5TVZVEIsGmTZv45JNPnJndCY0saSGByN69uOPxXP8DhtDJkkXm9AaqCaopsNAxyGLY/EE1UFUN/fAxjEivAxI5pHXGC5J33nmHrVu3YprmpN6HbdKBxLbTg4ODvPDCCzQ1NaEoyoRMjwII3SKxrwFf1kKYkEEh5S8mWVlDLFxMZih0rwtIqCqxshIS0ypIBsJkZI6naN1dxE+ccOyNGIrVy3EAZMeOHfzhD3+4LkLykyriOhIo8XicTZs28c1vfpPa2trxaxOhkOk6j9rahgtBXFNJ33EbRf/pAUpn1pFsO0fs7c1k99YDCua96yh64H68ZWHip04z8Mbb+BsbcSdTDB46ROl993xKiMcBkIMHD/Laa6/lZqivkxnjawqSi3W8zVFaWlp45ZVXeOaZZygtLR1PLA2BQO/sQI1EMAB95R3c9MO/xzt3NiAJo1L6hVUc+e5/RQv6WPA//w7X9BkAFG1YR2jVSjr+9u/R9tWjHz2KzOgIj5b/gMuW06dP89JLLzE4ODjpd06aVMG0zwJPKpWa8Jbf6Y5OZGyAZMBL5Tf/M965czHJokiBISSeObMp+/OncYWCuKbPyGWnoWEJSWjpYjJPPE5P/QHUnghGPIbLU4YlhtjMGFIcU6kUuq5Peg4y6TmJDRxd15k5cyZPPfUUlZWV4zI3th+j9w6gp1MQDuGdMzv3qdQQ0oVqqSAFNes3UL5yZY5vSA055AYD+GfPQvN6kX0xMtHBTwNq5LjM5cqtt97K1772NQKBwLD5qQJIxukeVldX89RTTzFr1qyJETwJenc3fglWRsdMJYfAI5BCoggJmGg+P263F0vk3GAhTKTINY8ejaLqBjKZxkqlPgXgGB0cRVG48847eeyxx/B4PNcNUJTJBA7I7ZsaDod58sknmTNnzgQ9AIFpSjKRbjyWhSueINbQAAgUKxcbMYWVC7kJiVRAkVYuY94SYIElTXo+3otqGFiKibBMBxhinA1411138fDDDzueWwEkYxDTNHG5XDz88MMsWrToyriIUoJpYWoKfsNg4NU3yJ5rQ6gCE4FAQ+QcZSwUkApSCqRUUBVINR7GeO8DvDKnPaSd94HATqkej/e2du1avvjFLzrzOAWQXIYWsSwLj8fDww8/zKpVq67YCBOqwFtSirQU3Ai8Bw/T9cK/I5NxVKEMwQMUC1Q5tNRGAqrA6Onh/E9/jufsORRNzTWXk8qY++54Amr2nmxf/vKXueOOO67QFMQUAInL5eL+++/nvvvuu4IBJgtFEbjrZpAWEkMBv5Uh/uJv6XntLRRDR2KBsJAKmEJiCRNFWJDNcO75lzG3vk8RCpawUDVPLsVgCBsWE5vH8Xq9/PEf/zG33377xCPLNypI8jek3bhxIxs3bhw2CzpxsAzdp6gIXK5c+B1BcSxG5Cf/TP9HuxAoWJZAOGkKICxJ1+9fJ/3iSxRn9RyILFBKS9GKw054RBmjd5Pvwdl1DAaDPPnkk9x2222YpjkpTc81D6apqsqGDRt46KGHLrn950TEN72awZIiZM8AilTwKBBsbaPjn/4FX00Vnnm3YEkT1RIIVTD48QF6/uk5Snt60FQFA4EuBdmyMFooMKx8V6KU4XCYr3/966TT6QJIRpMlS5Zwxx130NvXh6qoKIqKyJuTzyUMjZJNfhmaWSCRQkWtrMQoK8WI9KGK3MywX7Ew6/fR9pN/YdYP/weyKICqCPTubs4/+xzFra1oas7LUdCwVAXv/DloPh/JVBo9m81pksstzEg4yU8XrtsJSOvXr6ezsxPDMK5alt51BxJN01izZg2nT59m50cfsXfffrq7I8P2rweBcDphjHFwy8Ll8fDP//uf0OpmwtGTmEOpAqoQ+MnSt2UrPWvvpvLxRxACul57C3XnbtzKEASEiZQKhsdF0dKlgOB3v9vEs//8c4JeP0OzfZ8drEFgryyWlpXbJcU0QFrMmDGDlStXsm7dOlauXDnp5nSueVh+2rRphEIhbr75Zjbefz8HDx7kjTfepOGTBs63nyebzTD6mpfLAYuJy+sjbuiUL7sNa8u2HEuROXaiCklRIkrvK69StuEerHSa+P/7PSXpDKrqQgFMJRdPMYpLCc29BYCWlmb279kNQsvR10sSEznib4kQKrW1tSxevIgnnnic5cuXO8es+Hy+SUdgr7m5UVXV2VN1+vTpLFu2lCeeeIKBgQFOnz7N1q1befe9bTQ1NeXmcXQ9Z7dHSQccyWNMqeJ2uxGKpHT1SlqCPnzJ7NCYBhMFj6KiffIJA//xHma0H+/x42iqihQSg1yI3jIN1FtvRZue2ypLGxrpqtudS6CWoykxa+ggAAVV03CpCjPr6rhr9WoefvirLFmyhPLycvx+/wUZaZMtfWBSTPANHznCOY2rurqaNWvW8Ld/+3ccP97E9u3b2b59OydOnqSjo4N4fBA9q4MARVEvUNOqBMUSSCSeuTcjFswiu/8omgpSWGimikQSzujE/uH/gGnhkyZSqEglpyGk1EirEv8X7kL15zbcsxWHGGFp8r0Tj8dDcXGY2bNns/y25WzYsJ57772HUCh00VTFyZpbMinySS7WOHauq9fr5rbblnLbbUv5q7/6S3p6etj+4Ye89+67nGg6Qeu5Vnp6eonFYkPaSUMIJWf/hYk0QSkpwbt6DZkDx3BJgYKBVHLRMA0I9nRhKgoaGgiJauV2xDLNLHpNDRWr7sqzGnbkwMgdr2rk5mBCRUWUl1cw66aZLFm6hEcfeYQVK5bj9wccQIw8uKiQdHQVtI2qqkybNo0nHn+cJx5/nGg0SkNDAw0NDRw61MjRo8c4caKJaDSKlBZqVkVaOeJYsv4eun77GnR3Y6kapgBN5uZxhCLRMFFNBVPNzfAKSyEt08jlS/HlbV9hWbmyGNksgWCAmXUzuf3221m6dCkrVqzg9ttvJxAIXODuXy+guG5BcrEGD4fD3Hvvvdx7771A7uzfXbt2cfbsWQ4dauTMmbOfBq6WLKHrrjtJvP4GAamiCjBQUEUuHq/KXI6IRS57HmmRLA5R+chDCJ8ntw5YCELBIMuW3cbdd9/NwlsXsGzpMlatWjWsrCPNyPW8C9J1uYnNyAbP3wZr/vz5zJ8/H4COjg7ONrcwY+aM3LZX3gDlX/sjunbvxheJoFoqUihIkTM7wgJDDEVdgSQW2uq7KVmzJpdZn9v5hoceeoh7713H/Pnzhh29lg/eG2lrrBtip6OLZXpVV1dTXV3tLIGQCIrvvIPeDetJ//Z3BMh1ugWolsQSYKigWiAMk8HyMmr/5OuIoiCWlE68Zvbsm8fEra779uWGlqH1MZJcMhEgvH6qn/kTBmbehCGFE58TIjfDm9tWQjKgaXge+jKhu+7ExMjtSDBFd2JUbmyI2BGR3LJwRYIpDQK3Lqb8z/6UmMeFYkpchkQZSkdULdANi+zCOdT+6ddRvF5U29WVagEkN5oMLdnNXdiaQkUKqHr0EcTGdcSxhnZAshCWhmVKBsNllP/Zt/AumDvEM3I7DYiCJpkiInLbYoniYmb89ffJrFpFUkgsy8CQGfoCfrQ//SNKH/zSEA8Z3WMpgOTGRglCgoWFZ87NTP9v/4X0vevoDZTSU1uD9o2vM+sv/xzh8+XI7nUW+Cp4N1cGIkhFRZUSKSB421Jm/PcfENm5B19ZOeX3fAElGETKT+eHpjJApiRIGMphlU4k18A/dw4z584BS+R2FrAkUigohX3lpyhIyN+Tdcj/tSRZ3UBVldw6HEWb+CYkBU5yPbvFQ4uvZG57G4QCisLmzW8RHYwhhDaUv1o4FGnKgkTYW+kJnAhKOp3h5d/+lqYTpwCR25+mcGj0VPZu8tVKzqa0tray9+OP2fnRjpH/KsiUB8mQHD16lHOtzezevQddN264CboCSCZieoaA8M6WdwD45JODnD9/voCKAkiGSzweZ8+u3SAUWltbOHz48JC5KdibAkiGpKmpiXNtbSiKiqFneX/b+wVUFEDCsAXaH2zbxsDAwFAStWDXrl2k06kCJ5nqILGJaSabZc/ej7GsXCKzUFSam1s43nSqgIyCuclJV2cXDZ8cRCi5wLOqqnR1dbFv38cFZBRAkpPTp0/T3NzsrNcRQiAtk/ff34ZhmAV0FEAC77yzBdMYvhuiorr4+OOP6entLaBjqoMknUmz46OPLnB3FUWhra2N48ePF9Ax1UFy+tRpWltbcgnQIySbzbBly5YCOqY6SBo+aaCrqxNFVYdlBQghQFrs2rWLZCJRQMhUBYlpmrz33vsYQ7szX7CphdA4efIUzS0tBYRMVZAMDAywd+8+hDL6EglVU+nsPM+RowVeMmVB0nTiBM3NzaPyEVukZbF582b7XQEkU00+2LaNVCp56YMAhEp9fT3RaIwrs31eASTXjWQyGT74YHvuuNdL7IuiqiptbW0cOnSoYG6mSkXtWMi5c+doampyQvEXbRhFIRaL8uGHHxZAMlUqamuNQ4cOcf5822XtcCgtk527dpEaOpmiAJIpIm+/vQXDMC8rFUBRXRw8eJCOjo4CSKaKDA4m2PvxPhCXtzuAqqp0dHQ42WoFkEwBOXLkCOfPt4/peDNpmWx+661hvKYAkhtYdu/eTW9v7xjPwBMcqK8nFotN2Wy1KQMSXdfZuWsXSHNMnS0UldbWcxw7dqxgbm50iUR6OPjJJwh1bEetqqpKJNLN3r17CyC50eXYsWM0Nzc7W36PyXUW8P7776PregEkN6LYXHPLli0YRnZc6zcVRaP+wAF6enqnJIG94UEiBKRSafbu/fhTzTBmkKh0d0f45ODUDNFPCXNz6tRJTp8+OeTVjOMQaiHIZjO8/fYfCiC5UaW+vp6Ojg5cLtfQboxizBdSoaGhgYGBgSnnCt/wOx1JKZk7dy4//elPcblc5LaxGXsnW6YkFAqMMcZSAMl1I3fddRdr1qy5Iveyj2adStpkSgwL+9ycK3WvqWZuplyqQEGuAUjyT4O6Fsep5z/TPs4+/7MrPfKvJtjy224yxWKUK1W5azlS848su3Knk3/+dch/FUJMmoOkJwwS+0Ci+vp63n333c+9c2xgRKNRtm/fztmzZ68oB/m86zI4OMi7775LS0vLpPGklImiX1VV+vv7aWhoYNGiRZ/baLP/zmQybN26lZ/85CecOHGCf/3Xf8U0TaSUJBIJdF2/LMCMvPfnpfrte2ezWbZu3co//uM/cvbsWTZt2uSkTSYSCQzDmJApvqYgkVLy4Ycfcvvtt+dOqbqKDZqvIYQQ9Pf38/zzz6NpGt/73ve47777qKioIJPJ8Oabb/L0009z5MiRy9JuQgj6+vpIJBJD5/kKUqkUHR0dV5VvCSEYGBjghRdewDAMfvCDH7B27Vp8Ph+6rrN582Yef/xxzp07Ny7w2fVKJpPXBiT2CnxN01i2bNnnouJtInru3Dn+8Ic/8KUvfYn169fj8XjYtm0b8+bN44033uDYsWN8+ctfvmztdv78eb73ve9x6tQpVFXFNE1++ctf8uyzzw47x/dKS1dXF1u2bOELX/gCDzzwAF6vl3379jF79mzee+899u/fz4YNG5g2bdq42qq7u5sf//jHnDx5ctxlnFAwzbIsGhsbWbVq1ajezlhiFWM5Zbu1tZWdO3eyYcMGqqqqANi/fz/9/f243W6mT5+O2+3m/vvvR9O0zyTWpmny7LPPEgwGHV7wySefUF9fz5NPPsmJEyeYO3Tk68hTOvPvPVqdL0XyI5EIH374IatWrWLmzJkANDY20tzcjM/no66ujnQ6zQMPPIDf77+s++c/wzAMfvWrX1FaWkogEBh3dt2ENMm5c+fwer3U1tY6BctvuPz3tgof+bn9XV3XyWazozJ6+3v9/f10d3ezc+dO7r33Xgcgvb29bNmyxTmRPJVKsXbt2lEb1jAMx00GOHv2LL/4xS84ffo0d955Jx9++CEvv/wyzz//PDNmzCAajdLU1EQ6nR72O8uyMAxjGEBGtsHFOjCZTDoAWb58uQOQ/v5+fve731FTU8OiRYvo7u7mvvvuIxwOX+DSX+wZ9mddXV3827/9GydOnODmm2/m6NGjzuHan5sm0XWdpqYmJ9ydXwkpJQ0NDezZs4fFixdz9913A5BOp9m+fTu33HILkUiE5cuXo6oqx48fZ/fu3WSzWb797W9fMELt+7744ouoqsr69euprq52nvv8888TCoXYuHEj9fX1zJs3j/Lycud3pmmyf/9+jh8/zvz587nzzjude3/88cc0Njby7W9/m7q6OkzT5LnnnmPNmjWsWLGCmpoa2tvbee6551i5cqVTl71799Le3s5NN93EnDlzKCkpwbIs9uzZQyAQYPHixRfVmNu2bePQoUN89atfZfbs2U7b/exnPyObzfLoo49y8OBB6urqqKioGKY1Dh48yK5du5g/fz7r1q0DoK+vjwMHDrB8+XLC4TBCCA4cOMDp06f5xje+QSgUwuv1kslk2L9//+cHkubmZoqKiqisrERK6bhrjY2NnDx5kvb2dnw+H2+88QbLli2jsbGRlpYWWlpaiEajbNu2jVmzZnH48GE2bdpERUUFa9euxbIszp8/T1VV1dCE3Kdy7NgxNm7cyC233OJ8tm3bNk6cOMEPf/hDTNNkYGCAm2++2dEaTU1NHDx4kMOHD3PPPfcQj8cdslhfX09DQwN/8Rd/wa233sqhQ4fYtWsXy5cv55lnnqG7u5vdu3ezZcsWbrrpJmbMmEEsFuPAgQMcP36ctrY2mpubueWWW2hpyW0UvHfvXlavXs38+fPp7u5m2rRpjsmzO/vIkSPMmjWLhQsXOiGE7du3c/ToUX70ox/R399Pe3s7a9eudczh0aNHaWpqorm5mUAgwCuvvMKyZcs4efIkJ06c4OjRoyxcuBBFUdi9ezf79+/nmWeeoba2NpeRp2lkMpnPx9wYhsHg4CCNjY0sWbLEIbCRSITf/OY36LrO4OCgM5LnzZvHrl27CAaDVFVV0dnZyfHjx1m4cCENDQ1MmzaNWbNmkUgkaGlp4de//jV9fX0XaJHGxkaCwSBf/OIXnc87Ojp45513+O53v0tlZSUNDQ2Ohtm5cycvvvgi+tAeJCUlJezdu5fm5mZ+9atfsWPHDkpLS4nFYrz99tts2rQJVVWpqamhvr6e559/nlOnTrFw4UI8Hg+WZbFlyxbeeecdysvLeeyxx/jmN79JW1sbL7/8Mi0tLZSVlfHggw/S19fHz3/+c/r7+y+ox7Fjx+jo6ODRRx912q67u5tXX32V73//+9TW1nLs2DGCwaDDtV588UVSqRR+v5/p06fjcrlYuHAhu3fvxjRNamtr+cpXvsILL7zA+++/T2VlJclkks2bN/Pmm28SjUYnRK7HrElef/119u/fz5NPPommabS3t3Pq1CmEENxzzz3U1tZSVFTEnj17WLNmDXPnzkXXdfx+P729vUQiEVavXk15eTmGYeD3+6mrq+PIkSNomsbNN9+M3+9HUZRhfOXXv/4169evx+fzOZ9v376dDRs2OB5MTU0Nv/nNb2hoaGDx4sU8+OCDhMNhQqEQUkoWLFjAwYMHufXWW53O/9a3voUQgtmzZxMIBKipqaGkpIR58+YRDofxer38zd/8DWfPnqW0tJSamhr8fj+qqlJWVsYzzzxDKBRixowZnD59mrfffpubbrqJRx99lMrKymERYNM0eeGFF1i3bh1ut9tp048++ogHH3zQGXR1dXU8//zztLS0sGjRIr7yla8QDAaJRCK8/fbbrFq1ijlz5mBZFqqq8tZbb9HW1sbKlStZsWIFHo+Hp59+mmQySUVFBZZlEY/Hx+9RxmIxh/0YRUXD1cyDD6K89BLWU09hHTpEaWsrjzzyCHfddRdnzpxhcHCQmpoaHnvsMebNyx3Jnq9aVVV1Gimf8I3mUuYT25F8JJVKceDAAVatWjUsCplKpfB4PMOekU6nUVUVl8vlAM0mzqqqOs/J/1/+/E7+Z/lltSzLucdIkmg/37IsdF1HVVVUVb2gjtFolP3797N69WoH7DZXc7vdw+o2ODiI2+3G5XI5z5RSYhgGmqYNK69hGE5g035vGAamaZJIJEgkEgwMDNDb28vrr7/Oz372M/rq6hAzZ6K+9RbWd76D9eKLw7XH4cNQVzc+TbJo0SIWLVrE2rVrKSoqoqioyBlZdoV1XUfXdQKBAH6//4LYysWCPheLbnq9XlavXj2sAwF8Pt8FrujI59liN+BI0I5moxVFob+/n4GBAW666SYgd1BBe3s7CxYsuICk57/P1xAj3eNQKMT69esvqKfX672g3l1dXdTV1TnltoGsadoFv3e5XM5AuNik5kRiWGPmJPkNYo/G/MhhT08PmUyG/v5+jh8/fkGBx/p+ZOfZI3tYauElfmeXM/91tGeOFsNIpT7dY76np2fY7gL256OV52LPGBkxvtgVj8dpbm4eNR5ysWeMnNwc2RYTCQaOGSQjO8W+ent7GRgYoKqqitLSUqLR6LBRfTF0G4bhNP6lNpW5WhHPbDZLOp2+IOCXzWYdTWWDxI7LjPcYWGdP+0yGbDZ7QWDOllgshs/nG6aVxto/ky5VAODkyZMOF0gmk/j9/mExgItVSNd1uru7r8msrR1d7e/vH/aZZVkkk0nHw7DN6MVM2Vif2dfXRzQavWiHplIpQqHQpEl3GDMnyQ+75yf4VFZWcuDAATweD9XV1SxYsOACQpdPuPK5QllZGVJKTNMcZsIuFtK372GT0HzyK6UcFoqXFzlK3v5fMBjENM1h98pms8RiMYqLix0yLITA4/F85kSflBJd10fVAvYz7YDXyOiy/X/DMCgpKbkgx2Q0TTFytjq/b/KviUxQjhkk9gPzXy3LckjWjh07HHJrmibRaBRVVTl16hSzZs3C7/djmiaappFOp/F4PKiqSjqdRkpJJpMhGAyiqiqpVArDMHC73cPInT0HEQwGSaVSTjSxp6eHbDbLzJkzHc/KsizHnBiGQSgUwjRNBgcHCYVC6LqOx+Nx4j92R9j3VhSFRCJBKBRyzEQgECCdTpNMJikuLkbXdYcTpNNpzpw5w5w5c/D5fGQyGdLptAOMfM8vmUw6nklRUZEzUBKJBDU1NQ5YQ6EQlmXhcrmIx+O43W6EEKTTaUKh0DAyPhIUI0EzHqCMK+JqP9AegbarOHPmTEKhEPv27aO6upp0Ok1fXx/BYBBFUTh8+DBz587l/PnzzJ49m9OnT6MoCpWVlZw/fx6fz0dbWxsrVqwgmUySzWad6Ovs2bMBOHPmDEIIIpEIM2bMoLm5mSVLljj5LIcOHUJVVerq6rAsi0QiQX19PbW1tbS1tbF8+XLa29tJJpNUVlbS0dHBggUL6OjoIBAIcOTIERYtWoSmaTQ1NTlxC8uy6OrqoqWlhaVLlxKJRFBVld7eXnRdp6Kigs7OTsrKytB1ncbGRm699VZaW1vxeDwEAgE0TSMej9PY2Mi8efM4fPgwlZWVDAwMsGrVKieWEo/HMU2TxsZGSkpKnESqW265hc7OTjRNc/Jk3G73MA1nA8I0TecaqVGuOicxTdPxww3DcCbm7Nfi4mJqamro7Ozk3LlzSClxuVyEw2HC4TAul8tJovF6vUSjUbxeL+fOnSMYDBIIBEgmk5w5c4by8nIymQxer5dsNkt/fz+nTp2ioqKCRCJBW1sbXq+XZDJJIBDANE2CwaDTiPZIjMViuN1ufD4fnZ2d9Pf343K5ME0Tl8tFV1eXYw7dbrfzvrS0FI/Hw8DAAPF4nGAwyODgIIcOHSIQCCCE4PTp0/T19aGqKolEAo/Hg9vtJhAIkM1maWlpIRgMYlkW2WyWSCRCIBBw9kmx4yB2eQcHB/F4PBw/fhxVVfH7/fT19TkTnH6/n/b2duLxuOMeZ7NZpw/sa2Qf2XGT8aREjgsk+UDJZDJOsk4qlSIajVJaWoqUkvb2dioqKgiFQnR2djozsLquMzAwQFFRkaPO7QaxgeN2u4nH40SjUYqKitB1nWg0Sjqddiquqiper5fu7m4nVhCJRByQ2KS4rKwMl8vlkGpbndt1scF85swZAoEAAwMDlJeXO+VobW2loqKCnp4eB6B2Rp6tMW0Qu1wuUqmU04EzZszg1KlTTnnsend2dlJRUYGiKLjd7mHl9fl89PX1UVpaSnd3txMwtAl+MplEVVVKSkpIpVK0tbWRSqWGgWQkWPK1ylU3N4ZhkE6nSafTuFwustksbW1tlJSUUFxcDEBJSQler9cJJdudbFkWsVjMQb7H4yEWi9Hf3+9klNlT8vYoDIfDDqew52A6OjqYNm0agUCAaDTqZF3ZHoE9Z2J7T5WVlaRSKWKxmKPNIpEIhmHQ29uL1+tlcHCQgYEBamtryWazzoRYJpNxRnoqlWL69OlOTMiyLMLhMD09PXR1dWFZlrMMNBaLEY/HURSF8vJyEomEU55IJIKiKBQVFdHb20s0GnX+bxiGw3X6+/tJJBLMnDmT/v5+YrEY1dXVhEIhBgcHnfvU19ezevVqx+zYgNB1nWQySTqdJpVKOQPsqoPEjivYaPZ6vVRVVTn2zu/3YxgGiqJQV1fnFHratGmOvbSJZSqVYvbs2Qgh8Hq9pFIpSktLHfN0/vx5h6zZUl1djWmaDtELBAJOvoVpms69E0MnTBQXF6MoCqZpUlVVhaqqTgjc6/VSV1eH2+0mk8k4/GLatGlks1nHwyguLsY0TcLhMKZpUlFRgWEYlJeXY1mWA5w5c+Y4JtfmB3YY3Z59Lisrc7w42632er1Oee2pDbfbTTabpbS01Jnj8vv9JBIJKisrnekHIQQrVqxwtOtIkKRSqWHXePZYGTNIMpkMyWRyaPF1jmj5fD40TcMwDGdE5IffM5nMJTOoRkokEiGTyRCLxaisrBw1Wcb2huzg1OXcdyTYbRJ+7ty5YVFX28v5LLE13OUMrNEy2SZ675Ednu/F2GbG1iKJRMJxBq46SJLJJNFo1IkH2C6oqqpomjYsBD5eSSQSjotqm7arKZFIBJfLRVFREX19fVyPMpp3Y4Mkk8kQj8cZHBwcV1uOGST9/f1EIhHi8bgTOna73c7MZ/5cxkRyZ22C9nmIaZoOl7meZTQX2OZ/NjcZTwrjmEHywQcfsGPHjgsml67WvMHnFZ6f6EzpZATMyFdb+189kLS20jeUX1CQG0DGkK12eSBZvBgxwRS4gkxCDXqRZO1xgUT5wQ8KLTqF5ZIgsQ4dgu98p9BKN7hYO3ZcWuNcKse1IFNYe+TluCqF5ijIZ9KNQhMUpACSglxZ4qpN8ROiCpIn4fDoxLUgBSmYm4KMS/4/roKyatGV1yoAAAAASUVORK5CYII=";
-window.BUILD_STAMP = "2026-11-26 21:29";
+window.BUILD_STAMP = "2026-11-27 06:01";
 </script>
 <script>
 /* ============================================================
@@ -8279,7 +8298,7 @@ const APP = {
   shortName: 'CareLink',
   formerName: 'LOMAMO C-DIMS',
   full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
-  version: '6.10.0',
+  version: '6.11.0',
   build: '2026.10.29',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
@@ -21046,7 +21065,30 @@ const WTC = {
   mix(a,b,t){ const A=WTC.rgb(a), B=WTC.rgb(b); return WTC.hex(A.map((v,i)=>v+(B[i]-v)*t)); },
   lum(h){ const f=c=>{ c/=255; return c<=0.03928? c/12.92 : Math.pow((c+0.055)/1.055,2.4); };
           const [r,g,b]=WTC.rgb(h); return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b); },
-  contrast(a,b){ let x=WTC.lum(a), y=WTC.lum(b); if(x<y){ const t=x; x=y; y=t; } return (x+0.05)/(y+0.05); }
+  contrast(a,b){ let x=WTC.lum(a), y=WTC.lum(b); if(x<y){ const t=x; x=y; y=t; } return (x+0.05)/(y+0.05); },
+
+  /* Solve a fill/ink pair that a stylesheet can trust: move the hue until one
+     of the two extremes reaches the minimum contrast on it, and return both.
+     Forcing white text onto a dark hue is the classic way to end up with dark
+     text on a dark highlight, which is exactly the shape of the bug this
+     replaces; here the hue is nudged *away* from the ink instead, so the
+     signature colour survives while the label stays readable. `toward` is the
+     direction the theme prefers the fill move when both options work. */
+  fillWithInk(hex, preferredInk='#FFFFFF', dark=false, minimum=4.5){
+    if(!/^#[0-9A-Fa-f]{6}$/.test(String(hex||''))) return { fill:hex, ink:preferredInk };
+    const other = preferredInk === '#FFFFFF' ? '#000000' : '#FFFFFF';
+    let fill = hex;
+    for(let n=0; n<=40; n++){
+      const onPreferred = WTC.contrast(fill, preferredInk);
+      const onOther = WTC.contrast(fill, other);
+      if(onPreferred >= minimum) return { fill, ink:preferredInk };
+      if(onOther >= minimum) return { fill, ink:other };
+      fill = WTC.mix(fill, dark ? '#FFFFFF' : '#000000', 0.05);
+    }
+    /* forty steps could not reach the gate: pick whichever extreme is best */
+    return WTC.contrast(fill, preferredInk) >= WTC.contrast(fill, other)
+      ? { fill, ink:preferredInk } : { fill, ink:other };
+  },
 };
 
 /* Fifteen additional institutional themes. Their palette families are
@@ -21323,8 +21365,27 @@ const WTHEME = {
       while(WTC.contrast(safe, target) < 4.6 && tries++ < 48) safe = WTC.mix(safe, direction, 0.055);
       return safe;
     });
+      /* --console-cN is the signature hue corrected as INK: it only has to read
+       against the page. The moment that hue is used as a FILL - the current
+       role chip, a filled button, a sheet head - the text on it needs its own
+       answer, and "assume white" is the wrong one: a dark hue that reads
+       beautifully as text is nearly the same colour as white text on itself.
+       Each hue therefore also gets a solved pair here:
+         --console-cN-fill  the hue moved (in whichever direction the theme
+                            needs) until some ink reaches 4.5:1 on it, and
+         --console-cN-ink   that ink, white or near-black.
+       Solving it once means the chip, the button and the sheet head cannot
+       disagree, and no stylesheet has to guess the colour of its own text. */
     schemeInk.forEach((color, i)=>{
+      const dark = theme.mode === 'dark';
+      /* White ink is what a selected chip, a filled button or a sheet head
+         expects, so it is tried first and the fill is moved until white
+         works. Only a hue that cannot carry white at all - a pale blue, the
+         gold - is given dark ink instead. */
+      const fill = WTC.fillWithInk(color, '#FFFFFF', dark, 4.5);
       set(`--console-c${i+1}`, color);
+      set(`--console-c${i+1}-fill`, fill.fill);
+      set(`--console-c${i+1}-ink`, fill.ink);
       set(`--console-soft-${i+1}`, WTC.mix(theme.t.surface, color, 0.055));
     });
     set('--console-hero-1', WTHEME.safeFill(schemeColors[0]));
@@ -21775,7 +21836,8 @@ function navModel(user){
       { id:'costing', label:'Cost per patient', icon:'receipt', show:has('cost.view') },
       { id:'budget', label:'Budget lines', icon:'layers', show:has('finance.budget.manage') },
       { id:'procurement', label:'Procurement', icon:'package', show:has('procurement.view') },
-      { id:'foodbudget', label:'Projected food & hygiene budget', icon:'clipboard', show:has('procurement.view')||has('finance.view') }
+      { id:'foodbudget', label:'Projected food & hygiene budget', icon:'clipboard', show:has('procurement.view')||has('finance.view') },
+      { id:'foodprotocol', label:'Monday Procurement Protocol', icon:'package', show:has('procurement.view')||has('finance.view') }
     ]},
     { label:'Media & governance', show:has('media.view')||has('pr.view'), items:[
       { id:'media', label:'Media library', icon:'image', show:has('media.view') },
@@ -21868,7 +21930,7 @@ function navModel(user){
     referral:['report.referral'], archive:['report.executive','report.patient_figures'], targets:['report.targets.view','report.targets.manage'],
     conditions:['condition.aggregate','condition.sensitive'], donor:['report.executive','media.publish'], analytics:['report.patient_figures','report.executive'],
     adminops:['admin.ops','finance.view'], finance:['finance.view'], costing:['cost.view'], budget:['finance.budget.manage'],
-    procurement:['procurement.view'], foodbudget:['procurement.view','finance.view'], media:['media.view'], studio:['media.view'],
+    procurement:['procurement.view'], foodbudget:['procurement.view','finance.view'], foodprotocol:['procurement.view','finance.view'], media:['media.view'], studio:['media.view'],
     consent:['media.consent.manage'], publish:['media.publish'], policy:['media.view'], pr:['pr.view'],
     staff:['hr.view'], welfare:['welfare.view'], delegation:['delegation.manage'], vehicles:['vehicle.view'], trips:['vehicle.view'],
     audit:['audit.view'], history:['system.audit'], security:['audit.view','system.audit'], accessaudit:['audit.view','role.manage'],
@@ -21886,7 +21948,7 @@ function navModel(user){
     /* The Chief administers the platform, not the clinical, programme,
        finance or HR desks. Keep system configuration, import, assurance and
        personal collaboration visible; exceptional explicit grants still work. */
-    chief:      new Set(['patients','pipeline','attention','hardcopy','waiting','visits','bmiboard','schedule','visitplan','forms','pdca','households','repeat','programdays','cccdesk','govdashboard','teams','clinicalmcm','intlmedical','pharmacy','tbcare','careplans','requests','liaison','recon','urgent','care','care-incidents','reports','referral','archive','targets','conditions','donor','analytics','adminops','finance','costing','budget','procurement','foodbudget','staff','welfare','delegation','vehicles','trips','executive','compare','execconsole','evaluation','inventory','interns','ohs']),
+    chief:      new Set(['patients','pipeline','attention','hardcopy','waiting','visits','bmiboard','schedule','visitplan','forms','pdca','households','repeat','programdays','cccdesk','govdashboard','teams','clinicalmcm','intlmedical','pharmacy','tbcare','careplans','requests','liaison','recon','urgent','care','care-incidents','reports','referral','archive','targets','conditions','donor','analytics','adminops','finance','costing','budget','procurement','foodbudget','foodprotocol','staff','welfare','delegation','vehicles','trips','executive','compare','execconsole','evaluation','inventory','interns','ohs']),
     caregiver:  new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting']),
     chw:        new Set(['cccdesk','tbcare','urgent','costing','analytics','waiting','pharmacy']),
     coordinator:new Set(['cccdesk','tbcare','costing','pharmacy']),
@@ -30332,8 +30394,45 @@ const SYNC = {
         return {ok:true, user:r.body.user, mustChange:true, passwordBeforeWorkspace:true, idleSeconds:r.body.idleSeconds, username:r.body.username};
       }
       /* Authentication alone is not enough: a fresh tablet must not render
-         its old/empty browser document while it waits for the next poll. */
-      const pulled = await this.pullFull({ minRev: r.body.rev || 0, inlineState: r.body.inlineState || null });
+         its old/empty browser document while it waits for the next poll.
+         On a device that already holds this account's document at the host's
+         current revision, downloading the whole workspace again makes a daily
+         sign-in cost as much as a first one. A single authenticated delta
+         question settles that: if the host says "unchanged" there is nothing
+         to download and the console opens immediately; anything else falls
+         straight through to the full pull below, unchanged. The owner check is
+         what makes it safe - a document written by a different account is
+         never reused, however fresh its revision looks. */
+      let pulled = false;
+      const localRev = Number(DB.db && DB.db.meta && DB.db.meta.serverRev) || 0;
+      const localOwner = String((DB.db && DB.db.meta && DB.db.meta.snapshotOwner) || '').toLowerCase();
+      const signingIn = String(r.body.username || username || '').toLowerCase();
+      if (localRev > 0 && localOwner && localOwner === signingIn && !r.body.passwordBeforeWorkspace) {
+        try {
+          const probe = await this._json(`api/state?since=${localRev}&deltaOnly=1`, { timeoutMs: 12000 });
+          if (probe && probe.ok && probe.body && probe.body.unchanged === true) {
+            /* Nothing has moved: the document on this device is the document on
+               the host. Adopt its revision and skip the download entirely. */
+            this.rev = Number(probe.body.rev) || localRev;
+            this.saved = probe.body.saved || (DB.db.meta && DB.db.meta.serverSaved) || null;
+            DB.db.meta = Object.assign({}, DB.db.meta, { serverRev: this.rev, serverSaved: this.saved });
+            this.state = 'connected';
+            this.message = 'Signed in on the shared online source';
+            this.bump();
+            pulled = true;
+          }
+        } catch (_e) { /* fall through to the full pull */ }
+      }
+      if (!pulled) {
+        pulled = await this.pullFull({ minRev: r.body.rev || 0, inlineState: r.body.inlineState || null });
+      }
+      /* Remember whose document this device is holding, and at which revision,
+         so the next sign-in can take the fast path above instead of downloading
+         the workspace again. */
+      if (pulled && DB.db && DB.db.meta) {
+        DB.db.meta.snapshotOwner = signingIn;
+        try { if (typeof DB.persistState === 'function') DB.persistState(); } catch (_e) {}
+      }
       if(!pulled){
         const detail = this.message && !/Sign-in succeeded/i.test(this.message) ? ` (${this.message})` : '';
         await this.logout();
@@ -33145,6 +33244,7 @@ function viewCrumb(){
     clinicalmcm:'Medical Case Manager & Clinical Console', bmiboard:'BMI Nutritional Intelligence',
     cccdesk:'CCC / PSC Hospital Referral Desk', govdashboard:'Government Health Partnership',
     intlmedical:'120+ Day PDCA & International Medical Review', foodbudget:'Projected Food & Hygiene Budget',
+    foodprotocol:'Monday Procurement Protocol',
     adminops:'Admin Operations & 9th Statutory', devconsole:'CareLink Development Console'};
   const baseTitle = labels[v]||titleCase(v);
   const t = (AUTH.user && typeof ROLE_CTX!=='undefined' && ROLE_CTX.navLabel) ? ROLE_CTX.navLabel(AUTH.user, v, baseTitle) : baseTitle;
@@ -33282,6 +33382,7 @@ function contentFor(view, params, user, options = {}){
       case 'govdashboard': return guard('gov.oversight')||HANDOVER_PARTNERS.renderGovDashboard(user, params);
       case 'intlmedical': return guard('intl.medical')||HANDOVER_PARTNERS.renderIntlMedical(user, params);
       case 'foodbudget': return (RBAC.has(user,'procurement.view')||RBAC.has(user,'finance.view'))?MONDAY_PROC.renderFoodBudget(user, params):deniedPanel('procurement.view');
+      case 'foodprotocol': return (RBAC.has(user,'procurement.view')||RBAC.has(user,'finance.view'))?MONDAY_PROTOCOL_UI.render(user, params):deniedPanel('procurement.view');
       /* CareLink v6.4/v6.5 Admin Operations, Development Console & Intelligent Workflow Engine */
       case 'adminops': return (RBAC.has(user,'admin.ops')||RBAC.has(user,'finance.view'))?ADMIN_OPS.render(user, params):deniedPanel('admin.ops');
       case 'devconsole': return DEV_CONSOLE.canAccess(user)?DEV_CONSOLE.render(user, params):deniedPanel('dev.console');
@@ -48476,6 +48577,740 @@ Object.assign(FORMS, {
 });
 
 /* ============================================================
+   monday_procurement_protocol6.js — CareLink v6.11.0
+
+   The Monday Procurement Protocol.
+
+   The Foundation serves a budgeted 180 patients a week. Every Monday
+   morning the number still on the Active Programme Register (after last
+   week's discharges, deaths and completing households) is taken off that
+   180, and the remainder is the number of new patients to be accepted that
+   week. The foodbag budget follows the same figure, because every accepted
+   patient is fed from the Monday basket.
+
+   Two rules shape the bags:
+
+     1. Every one of the 180 patients is fed every week, but Bag 1 and Bag 2
+        are issued in ALTERNATE weeks: a patient given Bag 1 this week takes
+        Bag 2 next week and Bag 1 the week after. The wallet therefore never
+        carries the whole 180 at Bag 1 prices.
+     2. Households are accepted into the programme, and a couple household
+        takes one Bag 2 rather than two Bag 1s. Headcount and serving count
+        are therefore shown side by side: the serving count is what gets
+        bought and issued, the headcount is what gets fed.
+
+   What this module does NOT do is invent prices. Each line carries the
+   Foundation's own working figure until Finance or Procurement keys the
+   verified price from a quotation, and the sheet says which is which on
+   every row.
+   ============================================================ */
+
+/* ---------------- 1. The baskets ----------------
+   One item list, two bags, and the same item code in both so the price is
+   keyed once and used twice. `qty` is what one bag of that type carries.
+   Prices are the working ceiling already used by the food budget; they are
+   editable in the Budget tab and an edit is stored per county. */
+const FOODBAG_ITEMS = [
+  { code:'MAIZE',   name:'Maize meal (unga) — sifted',      unit:'2 kg pack', market:'KES 155 – 190 / pack' },
+  { code:'RICE',    name:'Rice — long grain',               unit:'2 kg pack', market:'KES 190 – 240 / pack' },
+  { code:'BEANS',   name:'Beans / ndengu',                  unit:'1 kg',      market:'KES 160 – 220 / kg' },
+  { code:'GREENGR', name:'Green grams',                     unit:'1 kg',      market:'KES 180 – 230 / kg' },
+  { code:'UJIFLR',  name:'Fortified porridge / uji flour',   unit:'1 kg',      market:'KES 150 – 195 / kg' },
+  { code:'OIL',     name:'Cooking oil',                     unit:'500 ml',    market:'KES 165 – 210 / bottle' },
+  { code:'OMENA',   name:'Omena / soya protein',            unit:'250 g',     market:'KES 120 – 180 / pack' },
+  { code:'SUGAR',   name:'Sugar',                           unit:'500 g',     market:'KES 85 – 105 / pack' },
+  { code:'SALT',    name:'Iodised salt',                    unit:'500 g',     market:'KES 25 – 40 / pack' },
+  { code:'VEGS',    name:'Fresh vegetables & fruit (weekly)',unit:'1 bunch',  market:'KES 90 – 140 / bundle' },
+  { code:'GREENS',  name:'Leafy greens (sukuma / managu)',  unit:'1 bunch',   market:'KES 40 – 70 / bundle' },
+  { code:'MILK',    name:'Long-life milk',                  unit:'500 ml',    market:'KES 65 – 80 / packet' },
+  { code:'ORANGE',  name:'Fresh oranges',                   unit:'1 piece',   market:'KES 15 – 25 / piece' }
+];
+
+/* Bag composition. `BG1` is the standard household bag, `BG2` the larger
+   family/couple bag, `INP` the bedside pack for a hospitalised patient
+   (a patient in a ward is not given a dry household bag that week). */
+const FOODBAG_RECIPES = {
+  BG1: {
+    label:'Bag 1', name:'Standard household food bag', serves:'1 – 2 people',
+    items:{ MAIZE:1, BEANS:1, UJIFLR:1, OIL:1, SUGAR:1, SALT:1, VEGS:1, GREENS:1 }
+  },
+  BG2: {
+    label:'Bag 2', name:'Family / couple household food bag', serves:'3 – 5 people',
+    items:{ MAIZE:2, RICE:1, BEANS:1, GREENGR:1, UJIFLR:1, OIL:1, OMENA:1, SUGAR:1, SALT:1, VEGS:1, GREENS:1 }
+  },
+  INP: {
+    label:'Inpatient pack', name:'Hospital bedside nutrition pack', serves:'1 inpatient',
+    items:{ MILK:4, ORANGE:4 }
+  }
+};
+
+/* The Foundation's working cost for one unit of each item. Used until a
+   verified quotation price is keyed; every screen that shows a total also
+   says how many lines are still on the working figure. */
+const FOODBAG_WORKING_PRICE = {
+  MAIZE:172, RICE:215, BEANS:190, GREENGR:205, UJIFLR:172, OIL:188, OMENA:150,
+  SUGAR:95, SALT:32, VEGS:115, GREENS:55, MILK:72, ORANGE:20, BAGPACK:40
+};
+
+/* One foldable carrier per bag, so the count is explicit rather than hidden. */
+const FOODBAG_PACK_COST = 40;
+
+/* Monday 5 January 2026 — an ordinary Monday used only as the parity origin for
+   the alternate-bag rule, so Bag 1 / Bag 2 alternate from the calendar itself
+   rather than from whenever somebody first pressed Save. */
+const MONDAY_PROTOCOL_DEFAULT_ANCHOR = '2026-W02';
+
+const MONDAY_PROTOCOL = {
+  /* The weekly envelope. 180 is the Foundation's stated weekly serving
+     budget; it is stored in the county record so a second county can carry a
+     different figure without a code change. */
+  WEEKLY_BUDGET: 180,
+
+  /* ---- 2. State ---- */
+  ensureStore(){
+    if(typeof DB === 'undefined' || !DB.db) return null;
+    DB.db.foodProtocol = DB.db.foodProtocol || {};
+    const c = DB.db.foodProtocol;
+    c.settings = Object.assign({ weeklyBudget:this.WEEKLY_BUDGET, startBag:'BG1', anchorWeek:'' }, c.settings||{});
+    c.prices = Object.assign({}, FOODBAG_WORKING_PRICE, c.prices||{});
+    c.counties = c.counties || {};
+    c.orders = Array.isArray(c.orders) ? c.orders : [];
+    c.bagLog = Array.isArray(c.bagLog) ? c.bagLog : [];
+    return c;
+  },
+
+  /* ISO week key (YYYY-Www) so Monday-to-Sunday weeks sort as text. */
+  weekKey(date){
+    const d = new Date(date || Date.now());
+    d.setHours(0,0,0,0);
+    const day = (d.getDay() + 6) % 7;           /* Monday = 0 */
+    d.setDate(d.getDate() - day + 3);           /* Thursday of this ISO week */
+    const firstThursday = new Date(d.getFullYear(), 0, 4);
+    const fday = (firstThursday.getDay() + 6) % 7;
+    firstThursday.setDate(firstThursday.getDate() - fday + 3);
+    const week = 1 + Math.round((d - firstThursday) / (7 * 86400000));
+    return `${d.getFullYear()}-W${String(week).padStart(2,'0')}`;
+  },
+
+  /* The Monday that opens a given week key. */
+  mondayOf(weekKey){
+    const m = /^(\d{4})-W(\d{1,2})$/.exec(String(weekKey||''));
+    if(!m) return new Date();
+    const year = Number(m[1]), week = Number(m[2]);
+    const jan4 = new Date(year, 0, 4);
+    const jan4Day = (jan4.getDay() + 6) % 7;
+    const week1Monday = new Date(jan4);
+    week1Monday.setDate(jan4.getDate() - jan4Day);
+    const d = new Date(week1Monday);
+    d.setDate(week1Monday.getDate() + (week - 1) * 7);
+    return d;
+  },
+
+  /* ---- 3. The alternate-bag rule ----
+     Bag 1 and Bag 2 swap every week. The reference week is stored once, so
+     "this week is Bag 1" is a fact the whole system agrees on rather than a
+     per-user guess. A patient with a recorded bag last week simply gets the
+     other one, which is how the register stays consistent even if a home
+     visit was missed and re-issued. */
+  primaryBagFor(weekKey){
+    const c = this.ensureStore();
+    /* Before the first Monday is saved there is no anchor week, and returning a
+       constant here would have meant the alternation did not exist until
+       somebody pressed Save - the opposite of what the protocol promises. The
+       default anchor is a fixed Monday, so week parity is decided from the
+       calendar itself and every account, on every device, agrees which bag
+       this Monday issues. */
+    const anchor = (c && c.settings.anchorWeek) || MONDAY_PROTOCOL_DEFAULT_ANCHOR;
+    const startBag = (c && c.settings.startBag === 'BG2') ? 'BG2' : 'BG1';
+    const a = this.mondayOf(anchor), b = this.mondayOf(weekKey);
+    const weeks = Math.round((b - a) / (7 * 86400000));
+    const odd = ((weeks % 2) + 2) % 2 === 1;
+    if(!odd) return startBag;
+    return startBag === 'BG1' ? 'BG2' : 'BG1';
+  },
+
+  /* The bag a specific patient takes this week: the alternate of whatever
+     they were issued last week, falling back to the week's primary bag. */
+  bagForPatient(patient, weekKey){
+    const primary = this.primaryBagFor(weekKey);
+    const c = this.ensureStore();
+    if(!c || !patient) return primary;
+    const last = c.bagLog.filter(x => x && x.patientId === patient.id).sort((a,b)=> String(b.week).localeCompare(String(a.week)))[0];
+    if(!last || !last.bag || !['BG1','BG2'].includes(last.bag)) return primary;
+    return last.bag === 'BG1' ? 'BG2' : 'BG1';
+  },
+
+  /* ---- 4. The Monday arithmetic ----
+     Required intakes = 180 − (patients still active after discharges).
+     Everything downstream is driven by this one number. */
+  computeWeeklyPlan({ activeNow = 0, discharges = 0, deaths = 0, inpatient = 0, completed = 0, weeklyBudget = this.WEEKLY_BUDGET, avgHousehold = 2.4 } = {}){
+    const budget = Math.max(0, Number(weeklyBudget) || this.WEEKLY_BUDGET);
+    const active = Math.max(0, Number(activeNow) || 0);
+    const leaving = Math.max(0, Number(discharges)||0) + Math.max(0, Number(deaths)||0) + Math.max(0, Number(completed)||0);
+    /* Discharges are what the count is taken AFTER; a negative remainder means
+       the register is already over the weekly envelope, and that is reported
+       rather than clamped so it cannot be hidden. */
+    const remaining = active - leaving;
+    const requiredIntakes = budget - remaining;
+    const servedThisWeek = Math.min(budget, Math.max(0, remaining) + Math.max(0, requiredIntakes));
+    const inWard = Math.min(servedThisWeek, Math.max(0, Number(inpatient)||0));
+    const homeServed = Math.max(0, servedThisWeek - inWard);
+    /* Households: a couple household takes one Bag 2, so the household count is
+       the denominator of the bag budget, not the patient count. */
+    const households = Math.max(0, Math.round(homeServed / Math.max(1, Number(avgHousehold)||2.4)));
+    return {
+      weeklyBudget: budget,
+      activeNow: active,
+      leaving,
+      remaining: Math.max(0, remaining),
+      overEnvelope: remaining > budget,
+      overBy: remaining > budget ? remaining - budget : 0,
+      requiredIntakes: Math.max(0, requiredIntakes),
+      servedThisWeek,
+      inWard,
+      homeServed,
+      households,
+      headcountFed: servedThisWeek,
+      underFilled: requiredIntakes < 0 ? Math.max(0, -requiredIntakes) : 0
+    };
+  },
+
+  /* How the two bags split. Bag 1 goes to single / adult-only households,
+     Bag 2 to couple and larger households. The split is a setting because it
+     is a programme decision, not arithmetic. */
+  splitBags(homeServed, households, bag1Share = 0.34){
+    const total = Math.max(0, Math.round(homeServed));
+    const coupleOrLarger = Math.max(0, Math.min(total, Math.round(total * (1 - bag1Share))));
+    return { bag1: Math.max(0, total - coupleOrLarger), bag2: coupleOrLarger, households };
+  },
+
+  /* ---- 5. Item-level budget for one week ----
+     Quantities are derived from the recipes, prices from the county record.
+     A line is flagged `working:true` while it still carries the Foundation's
+     working figure rather than a keyed verified price. */
+  computeWeekBudget(countyId = 'kisumu', weekKey = this.weekKey(), planOverride = null){
+    const c = this.ensureStore();
+    const plan = planOverride || this.computeWeeklyPlan(this.planInputs(countyId));
+    const split = this.splitBags(plan.homeServed, plan.households, Number((c && c.settings.bag1Share) ?? 0.34));
+    /* Alternate issue: only the primary bag of this week is bought for the
+       home roster; the other bag is bought for the patients who were issued it
+       last week and are taking the alternate now. In practice both bags are
+       bought every week, each for half the roster, which is the point of
+       alternating. The per-bag counts below are what gets purchased. */
+    const primary = this.primaryBagFor(weekKey);
+    const secondary = primary === 'BG1' ? 'BG2' : 'BG1';
+    const half = Math.round(plan.homeServed / 2);
+    const bags = {
+      BG1: primary === 'BG1' ? half : plan.homeServed - half,
+      BG2: primary === 'BG2' ? half : plan.homeServed - half,
+      INP: plan.inWard
+    };
+    const priceFor = (code) => Number((c && c.prices && c.prices[code]) ?? FOODBAG_WORKING_PRICE[code] ?? 0);
+
+    const lines = [];
+    let verifiedLines = 0, workingLines = 0;
+    for (const bagCode of ['BG1','BG2','INP']){
+      const recipe = FOODBAG_RECIPES[bagCode];
+      const count = Math.max(0, Number(bags[bagCode]) || 0);
+      Object.keys(recipe.items).forEach((itemCode, idx) => {
+        const per = Number(recipe.items[itemCode]) || 0;
+        const item = FOODBAG_ITEMS.find(i => i.code === itemCode) || { code:itemCode, name:itemCode, unit:'unit' };
+        const unitPrice = priceFor(itemCode);
+        const verified = Boolean(c && c.verified && c.verified[itemCode]);
+        if (verified) verifiedLines++; else workingLines++;
+        lines.push({
+          bagCode, bagLabel: recipe.label, itemCode, name:item.name, unit:item.unit,
+          perBag: per, bags: count, qty: per * count, unitPrice,
+          lineTotal: per * count * unitPrice, verified, firstOfBag: idx === 0
+        });
+      });
+      /* the carrier itself */
+      lines.push({
+        bagCode, bagLabel: recipe.label, itemCode:'BAGPACK', name:'Carrier bag / pack',
+        unit:'1 bag', perBag:1, bags:count, qty:count,
+        unitPrice: priceFor('BAGPACK'), lineTotal: count * priceFor('BAGPACK'),
+        verified: Boolean(c && c.verified && c.verified.BAGPACK), firstOfBag:false
+      });
+    }
+
+    const totals = lines.reduce((a, l) => {
+      a[l.bagCode] = (a[l.bagCode] || 0) + l.lineTotal;
+      return a;
+    }, {});
+    const grandTotal = lines.reduce((n, l) => n + l.lineTotal, 0);
+    const perPatient = plan.servedThisWeek ? grandTotal / plan.servedThisWeek : 0;
+    const perHousehold = plan.households ? grandTotal / plan.households : 0;
+
+    return {
+      countyId, weekKey, monday:this.mondayOf(weekKey), primary, secondary, bags, plan, split,
+      lines, totals, grandTotal, perPatient, perHousehold,
+      priceStatus: workingLines === 0 ? 'verified' : (verifiedLines === 0 ? 'working' : 'mixed'),
+      verifiedLines, workingLines
+    };
+  },
+
+  /* Where the "still active" figure comes from. The register is the authority;
+     the manual figure exists so Monday can be run before the register is
+     reconciled, and the screen says which one was used. */
+  planInputs(countyId){
+    const c = this.ensureStore();
+    const saved = (c && c.counties && c.counties[countyId]) || {};
+    const scoped = (invoice) => !countyId || !invoice || !invoice.countyId || invoice.countyId === countyId;
+    let activeNow = null;
+    try {
+      if (typeof DB !== 'undefined' && DB.db && Array.isArray(DB.db.patients)){
+        const rows = DB.db.patients.filter(p => p && scoped(p) && !p.demo === false ? true : scoped(p));
+        const live = DB.db.patients.filter(p => p && scoped(p) && !['discharged','deceased','inactive','completed'].includes(String(p.status||'active')));
+        if (live.length) activeNow = live.length;
+        void rows;
+      }
+    } catch (_e){ activeNow = null; }
+    return {
+      activeNow: activeNow !== null ? activeNow : Number(saved.activeNow) || 0,
+      fromRegister: activeNow !== null,
+      discharges: Number(saved.discharges) || 0,
+      deaths: Number(saved.deaths) || 0,
+      completed: Number(saved.completed) || 0,
+      inpatient: Number(saved.inpatient) || 0,
+      avgHousehold: Number(saved.avgHousehold) || 2.4,
+      weeklyBudget: Number(saved.weeklyBudget) || this.WEEKLY_BUDGET
+    };
+  },
+
+  /* ---- 6. Monday order record ----
+     Freezing the week is what makes it auditable: once a Monday is closed the
+     quantities and prices are copied onto the order, so a later price change
+     cannot rewrite what was bought. */
+  frozenOrder(weekKey, countyId){
+    const c = this.ensureStore();
+    if(!c) return null;
+    return c.orders.find(o => o.weekKey === weekKey && o.countyId === countyId) || null;
+  },
+
+  closeMonday(weekKey, countyId, actor){
+    const c = this.ensureStore();
+    if(!c || typeof AUTH === 'undefined' || !AUTH.user) return { ok:false, msg:'Sign in to close the Monday budget.' };
+    const computed = this.computeWeekBudget(countyId, weekKey);
+    const existing = this.frozenOrder(weekKey, countyId);
+    if(existing) return { ok:false, msg:`${weekKey} is already closed and frozen. Reopen it first if the budget genuinely changed.` };
+    const order = {
+      id:'FB-'+weekKey.replace(/[^0-9]/g,'')+'-'+String(countyId).slice(0,3).toUpperCase(),
+      weekKey, countyId, closedAt:new Date().toISOString(), closedBy:actor || AUTH.user.username,
+      forecastPatients:computed.plan.servedThisWeek,
+      requiredIntakes:computed.plan.requiredIntakes,
+      grandTotal:computed.grandTotal,
+      primaryBag:computed.primary,
+      lines:computed.lines.map(l => ({ itemCode:l.itemCode, name:l.name, unit:l.unit, qty:l.qty, unitPrice:l.unitPrice, lineTotal:l.lineTotal, bagCode:l.bagCode })),
+      status:'closed'
+    };
+    c.orders.push(order);
+    if(typeof AUDIT !== 'undefined' && AUDIT.append){
+      AUDIT.append({ actor:AUTH.user.id, action:'procurement.monday_closed', entity:'food_protocol', entityId:order.id,
+        detail:`Monday Procurement Protocol closed for ${weekKey} (${countyName(countyId)}): ${order.forecastPatients} patients, ${computed.plan.requiredIntakes} new intakes, ${money(order.grandTotal)}.` });
+    }
+    if(typeof DB.persistState === 'function') DB.persistState();
+    return { ok:true, order };
+  },
+
+  reopenMonday(weekKey, countyId){
+    const c = this.ensureStore();
+    if(!c) return { ok:false };
+    const idx = c.orders.findIndex(o => o.weekKey === weekKey && o.countyId === countyId);
+    if(idx < 0) return { ok:false, msg:'That week is not closed.' };
+    const [removed] = c.orders.splice(idx, 1);
+    if(typeof AUDIT !== 'undefined' && AUDIT.append && typeof AUTH !== 'undefined' && AUTH.user){
+      AUDIT.append({ actor:AUTH.user.id, action:'procurement.monday_reopened', entity:'food_protocol', entityId:removed.id,
+        detail:`Monday Procurement Protocol reopened for ${weekKey}; the frozen order was released.` });
+    }
+    if(typeof DB.persistState === 'function') DB.persistState();
+    return { ok:true };
+  },
+
+  /* Record that a bag actually went out, which is what keeps the alternate
+     rule honest for an individual patient. */
+  logIssue(patientId, weekKey, bagCode, actor){
+    const c = this.ensureStore();
+    if(!c || !patientId) return { ok:false };
+    c.bagLog = c.bagLog.filter(x => !(x.patientId === patientId && x.week === weekKey));
+    c.bagLog.push({ patientId, week:weekKey, bag:bagCode, at:new Date().toISOString(), by:actor || (typeof AUTH!=='undefined'&&AUTH.user?AUTH.user.username:'') });
+    if(typeof DB.persistState === 'function') DB.persistState();
+    return { ok:true };
+  }
+};
+
+/* ============================================================
+   7. The procurement console workspace
+
+   Four tabs, because Monday work has four steps and mixing them is how a
+   budget stops being checkable: Monday (the arithmetic), Bags (what is in
+   them), Budget (item quantities and money), Orders (frozen weeks).
+   ============================================================ */
+const MONDAY_PROTOCOL_UI = {
+  render(user, params = {}){
+    if(typeof RBAC !== 'undefined' && !RBAC.has(user,'procurement.view') && !RBAC.has(user,'finance.view') && !RBAC.has(user,'monday.meeting')){
+      return deniedPanel('procurement.view');
+    }
+    const c = MONDAY_PROTOCOL.ensureStore();
+    if(!c) return emptyState('Storage unavailable','The database is not open on this device.','alert');
+    const isGlobalUser = (typeof isGlobal === 'function') ? isGlobal(user) : false;
+    const countyId = (isGlobalUser && params.county) ? params.county : (user.countyId || 'kisumu');
+    const weekKey = params.week || MONDAY_PROTOCOL.weekKey();
+    const tab = params.tab || 'monday';
+
+    const canManage = (typeof RBAC !== 'undefined') && (RBAC.has(user,'procurement.manage') || RBAC.has(user,'finance.pay') || RBAC.has(user,'finance.budget.manage'));
+    const plan = MONDAY_PROTOCOL.computeWeeklyPlan(MONDAY_PROTOCOL.planInputs(countyId));
+    const budget = MONDAY_PROTOCOL.computeWeekBudget(countyId, weekKey, plan);
+    const frozen = MONDAY_PROTOCOL.frozenOrder(weekKey, countyId);
+
+    const countyBtns = isGlobalUser ? `<div class="row" style="gap:6px;flex-wrap:wrap">
+      ${COUNTIES.map(x=>`<button class="btn btn-xs ${countyId===x.id?'btn-primary':'btn-ghost'}" data-act="go" data-v="foodprotocol" data-county="${x.id}" data-week="${weekKey}" data-tab="${tab}">${esc(x.name)}</button>`).join('')}
+    </div>` : '';
+
+    /* The week switcher walks Mondays, because the whole protocol is a
+       Monday-to-Sunday week. */
+    const weekNav = (() => {
+      const prev = new Date(MONDAY_PROTOCOL.mondayOf(weekKey)); prev.setDate(prev.getDate()-7);
+      const next = new Date(MONDAY_PROTOCOL.mondayOf(weekKey)); next.setDate(next.getDate()+7);
+      const label = MONDAY_PROTOCOL.mondayOf(weekKey).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+      return `<div class="row" style="gap:6px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-xs btn-ghost" data-act="go" data-v="foodprotocol" data-county="${esc(countyId)}" data-week="${MONDAY_PROTOCOL.weekKey(prev)}" data-tab="${tab}" title="Previous Monday">${ic('chevron',13)}</button>
+        <span class="small"><b>Monday ${esc(label)}</b> <span class="muted xs mono">${esc(weekKey)}</span></span>
+        <button class="btn btn-xs btn-ghost" data-act="go" data-v="foodprotocol" data-county="${esc(countyId)}" data-week="${MONDAY_PROTOCOL.weekKey(next)}" data-tab="${tab}" title="Next Monday">${ic('chevron',13)}</button>
+        ${frozen?badge('Closed & frozen','b-ok','nodot'):badge('Open','b-warn','nodot')}
+      </div>`;
+    })();
+
+    const tabs = `<div class="tabs" style="margin-bottom:14px">
+      <button class="tab ${tab==='monday'?'active':''}" data-act="go" data-v="foodprotocol" data-tab="monday" data-county="${esc(countyId)}" data-week="${weekKey}">${ic('calendar',14)} Monday Arithmetic</button>
+      <button class="tab ${tab==='bags'?'active':''}" data-act="go" data-v="foodprotocol" data-tab="bags" data-county="${esc(countyId)}" data-week="${weekKey}">${ic('package',14)} Bag Contents</button>
+      <button class="tab ${tab==='budget'?'active':''}" data-act="go" data-v="foodprotocol" data-tab="budget" data-county="${esc(countyId)}" data-week="${weekKey}">${ic('receipt',14)} Item Budget</button>
+      <button class="tab ${tab==='orders'?'active':''}" data-act="go" data-v="foodprotocol" data-tab="orders" data-county="${esc(countyId)}" data-week="${weekKey}">${ic('clipboard',14)} Closed Weeks (${(c.orders||[]).filter(o=>o.countyId===countyId).length})</button>
+    </div>`;
+
+    let body = '';
+
+    /* ---------- Monday: the arithmetic ---------- */
+    if(tab==='monday'){
+      const inp = MONDAY_PROTOCOL.planInputs(countyId);
+      body = `<div class="grid g2" style="margin-bottom:16px">
+        ${card('Monday Protocol — how the week is sized', `
+          <div class="note">${ic('info',14)}<span><b>The envelope is ${num(plan.weeklyBudget)} patients a week.</b> Every Monday the number still on the Active Programme Register, after discharges and completions, is taken off ${num(plan.weeklyBudget)}. The remainder is the number of new patients to accept this week, so the register finishes the week at ${num(plan.weeklyBudget)} served.</span></div>
+          <form id="foodProtocolForm">
+            <input type="hidden" name="countyId" value="${esc(countyId)}">
+            <input type="hidden" name="weekKey" value="${esc(weekKey)}">
+            <div class="grid g2" style="margin-top:10px">
+              <div class="field"><label>Active on the register now ${inp.fromRegister?'<span class="xs muted">(from the register)</span>':'<span class="xs muted">(entered by hand)</span>'}</label>
+                <input class="input" type="number" min="0" name="activeNow" value="${inp.activeNow}"></div>
+              <div class="field"><label>Weekly envelope (patients served)</label>
+                <input class="input" type="number" min="0" name="weeklyBudget" value="${inp.weeklyBudget}"></div>
+              <div class="field"><label>Discharged this week (−)</label>
+                <input class="input" type="number" min="0" name="discharges" value="${inp.discharges}"></div>
+              <div class="field"><label>Deceased this week (−)</label>
+                <input class="input" type="number" min="0" name="deaths" value="${inp.deaths}"></div>
+              <div class="field"><label>Completed programme (−)</label>
+                <input class="input" type="number" min="0" name="completed" value="${inp.completed}"></div>
+              <div class="field"><label>Currently in a hospital ward</label>
+                <input class="input" type="number" min="0" name="inpatient" value="${inp.inpatient}"></div>
+              <div class="field"><label>Average people per household</label>
+                <input class="input" type="number" min="1" step="0.1" name="avgHousehold" value="${inp.avgHousehold}"></div>
+              <div class="field"><label>Bag 1 share of the roster (%)</label>
+                <input class="input" type="number" min="0" max="100" name="bag1SharePct" value="${Math.round((Number(c.settings.bag1Share)||0.34)*100)}"></div>
+            </div>
+            <div class="spread" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+              <span class="xs muted">Intakes = Envelope − (Active − Discharged − Deceased − Completed)</span>
+              ${canManage?`<button type="button" class="btn btn-sm btn-primary" data-act="foodprotocol-save">${ic('refresh',14)} Save Monday figures</button>`:''}
+            </div>
+          </form>
+        `)}
+        ${card('This Monday\'s worked answer', `
+          <div class="grid g2" style="gap:10px">
+            <div class="cm"><span class="cm-l">Still active after exits</span><b class="cm-v">${num(plan.remaining)}</b><span class="cm-s">${num(plan.activeNow)} active − ${num(plan.leaving)} leaving</span></div>
+            <div class="cm"><span class="cm-l">New patients to accept</span><b class="cm-v">${num(plan.requiredIntakes)}</b><span class="cm-s">to reach ${num(plan.weeklyBudget)} served</span></div>
+            <div class="cm"><span class="cm-l">Fed this week (headcount)</span><b class="cm-v">${num(plan.headcountFed)}</b><span class="cm-s">${num(plan.inWard)} in a ward · ${num(plan.homeServed)} at home</span></div>
+            <div class="cm"><span class="cm-l">Households served</span><b class="cm-v">${num(plan.households)}</b><span class="cm-s">at ${plan.households? (plan.homeServed/plan.households).toFixed(1):'0'} people per household</span></div>
+          </div>
+          ${plan.overEnvelope?`<div class="note" style="margin-top:10px;background:#fff4df;border-color:#edd4a6">${ic('alert',14)}<span><b>The register is already ${num(plan.overBy)} over the ${num(plan.weeklyBudget)} envelope.</b> No new intakes are calculated this week. The overrun is shown rather than hidden so it can be resolved by discharge or a budget decision, not by arithmetic.</span></div>`:''}
+          ${plan.requiredIntakes === 0 && !plan.overEnvelope ? `<div class="note" style="margin-top:10px">${ic('check',14)}<span>The register already stands at the full ${num(plan.weeklyBudget)}. No new intakes are needed; assessment forms need not be raised.</span></div>`:''}
+          <div class="note" style="margin-top:10px">${ic('calendar',14)}<span><b>Bag ${esc(budget.primary.replace('BG',''))} is issued this week</b> and Bag ${esc(budget.secondary.replace('BG',''))} next Monday. Each patient alternates every week, so no patient receives the same bag twice running.</span></div>
+        `)}
+      </div>`
+      + card('The four Monday steps, in order', `
+        <ol class="small" style="margin:0;padding-left:18px;line-height:1.9">
+          <li><b>Count the register.</b> Active patients after last week's discharges, deaths and completions. The register supplies this figure; the box above only overrides it when the register is not yet reconciled.</li>
+          <li><b>Subtract from ${num(plan.weeklyBudget)}.</b> The remainder is this week's new intakes. That number is the assessment-form target for the week — no more households are accepted than the basket can feed.</li>
+          <li><b>Budget the bags.</b> Bag 1 and Bag 2 alternate weekly; each patient takes one bag. Hospitalised patients take the bedside pack instead of a dry household bag.</li>
+          <li><b>Close the Monday.</b> Closing freezes the quantities and prices for the week, so a later price change cannot rewrite what was ordered.</li>
+        </ol>`, { sub:'Every figure below is derived from steps 1 and 2; nothing is keyed twice.' });
+    }
+
+    /* ---------- Bags: what is inside ---------- */
+    if(tab==='bags'){
+      const bagCards = ['BG1','BG2','INP'].map(code => {
+        const r = FOODBAG_RECIPES[code];
+        const rows = Object.keys(r.items).map(itemCode => {
+          const item = FOODBAG_ITEMS.find(i=>i.code===itemCode) || { name:itemCode, unit:'unit', market:'-' };
+          const price = Number(c.prices[itemCode] ?? FOODBAG_WORKING_PRICE[itemCode] ?? 0);
+          const qty = Number(r.items[itemCode]) || 0;
+          return { itemCode, name:item.name, unit:item.unit, qty, price, line:qty*price, market:item.market, verified:Boolean(c.verified && c.verified[itemCode]) };
+        });
+        const bagCost = rows.reduce((n,x)=>n+x.line,0) + Number(c.prices.BAGPACK ?? FOODBAG_PACK_COST);
+        const isThisWeek = budget.primary === code;
+        return card(`${r.label} — ${r.name}`, `
+          <div class="spread" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
+            <span class="small muted">Serves ${esc(r.serves)} · ${num(budget.bags[code]||0)} to issue this Monday</span>
+            ${isThisWeek?badge('Issued this week','b-ok','nodot'):badge(code==='INP'?'As admitted':'Alternates next week','b-info','nodot')}
+          </div>
+          ${table([
+            {label:'Item', render:x=>`<b>${esc(x.name)}</b><div class="xs muted">${esc(x.unit)} · ${esc(x.market)}</div>`},
+            {label:'Per bag', cls:'num mono', render:x=>num(x.qty)},
+            {label:'Unit price', cls:'num mono', render:x=>`${money(x.price)} ${x.verified?badge('verified','b-ok','nodot'):'<span class="xs muted">working</span>'}`},
+            {label:'Per bag cost', cls:'num mono', render:x=>money(x.line)}
+          ], rows)}
+          <div class="spread" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">
+            <span class="small"><b>One ${esc(r.label)} costs</b> <span class="xs muted">(plus ${money(c.prices.BAGPACK ?? FOODBAG_PACK_COST)} carrier)</span></span>
+            <b class="mono">${money(bagCost)}</b>
+          </div>
+        `);
+      }).join('');
+      body = `<div class="grid g3" style="margin-bottom:16px">${bagCards}</div>`
+        + card('The alternation rule, stated plainly', `
+          <p class="small" style="line-height:1.8;margin:0">
+            Every patient is fed every week, but the two bags are not the same size: <b>Bag 1</b> is the standard
+            household bag for one or two people, <b>Bag 2</b> the larger family or couple bag for three to five.
+            A patient given Bag 1 this Monday takes Bag 2 next Monday and Bag 1 the Monday after, so over any two
+            weeks each patient receives one of each. Households are accepted, and a couple household takes one
+            Bag 2 rather than two Bag 1s — that is why the budget works in <b>households served</b> as well as
+            headcount, and why the two figures are shown side by side on every screen.
+          </p>
+          <div class="note" style="margin-top:10px">${ic('info',14)}<span>A patient in a hospital ward that week takes the <b>bedside pack</b> (milk and oranges) instead of a dry household bag, so no household bag is bought twice for the same person.</span></div>
+        `, { sub:'Bag contents and unit prices are the Foundation\'s own; a price becomes "verified" when Procurement keys the quotation figure.' });
+    }
+
+    /* ---------- Budget: item quantities and money ---------- */
+    if(tab==='budget'){
+      const grouped = ['BG1','BG2','INP'].map(code => {
+        const rows = budget.lines.filter(l => l.bagCode === code);
+        return { code, label:FOODBAG_RECIPES[code].label, bags:budget.bags[code]||0, rows, total:budget.totals[code]||0 };
+      });
+      const priceBadge = budget.priceStatus === 'verified' ? badge('All prices verified','b-ok','nodot')
+        : budget.priceStatus === 'mixed' ? badge(`${budget.workingLines} lines on working prices`,'b-warn','nodot')
+        : badge('Working prices — key quotations','b-warn','nodot');
+
+      body = `<div class="grid g4" style="margin-bottom:14px">
+          ${kpi('Weekly foodbag budget', money(budget.grandTotal), `${num(budget.lines.reduce((n,l)=>n+l.qty,0))} item units`, 'info', 'wallet')}
+          ${kpi('Per patient fed', money(budget.perPatient), `${num(plan.headcountFed)} patients this week`, '', 'users')}
+          ${kpi('Per household', money(budget.perHousehold), `${num(plan.households)} households`, '', 'home')}
+          ${kpi('Bag split this Monday', `1 × ${num(budget.bags.BG1)} · 2 × ${num(budget.bags.BG2)}`, `Primary bag: ${FOODBAG_RECIPES[budget.primary].label}`, 'ok', 'package')}
+        </div>`
+        + card('Budget is the Monday order — this is what gets bought', `
+          <div class="spread" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <span class="small muted">Quantities are per-bag contents × bags to issue. ${priceBadge}</span>
+            <div class="row" style="gap:6px;flex-wrap:wrap">
+              ${canManage?`<button class="btn btn-sm btn-ghost" data-act="foodprotocol-prices" data-county="${esc(countyId)}">${ic('receipt',14)} Key quotation prices</button>`:''}
+              ${canManage?`<button class="btn btn-sm btn-ghost" data-act="foodprotocol-print" data-county="${esc(countyId)}" data-week="${esc(weekKey)}">${ic('file',14)} Printable order</button>`:''}
+              ${canManage && !frozen?`<button class="btn btn-sm btn-primary" data-act="foodprotocol-close" data-county="${esc(countyId)}" data-week="${esc(weekKey)}">${ic('check',14)} Close & freeze this Monday</button>`:''}
+              ${canManage && frozen?`<button class="btn btn-sm btn-ghost" data-act="foodprotocol-reopen" data-county="${esc(countyId)}" data-week="${esc(weekKey)}">${ic('refresh',14)} Reopen this Monday</button>`:''}
+            </div>
+          </div>
+          ${grouped.map(g => `
+            <div style="margin-bottom:14px">
+              <div class="spread" style="margin-bottom:6px">
+                <b class="small">${esc(g.label)} <span class="muted xs">${num(g.bags)} bag(s) to issue</span></b>
+                <b class="mono small">${money(g.total)}</b>
+              </div>
+              ${table([
+                {label:'Item', render:x=>`<b>${esc(x.name)}</b><div class="xs muted">${esc(x.unit)}</div>`},
+                {label:'Per bag', cls:'num mono', render:x=>num(x.perBag)},
+                {label:'Bags', cls:'num mono', render:x=>num(x.bags)},
+                {label:'Total qty', cls:'num mono', render:x=>`<b>${num(x.qty)}</b>`},
+                {label:'Unit price', cls:'num mono', render:x=>money(x.unitPrice)},
+                {label:'Line total', cls:'num mono', render:x=>`<b>${money(x.lineTotal)}</b>`}
+              ], g.rows)}
+            </div>`).join('')}
+          <div class="spread" style="border-top:2px solid var(--ink);padding-top:8px">
+            <b>Week total</b><b class="mono" style="font-size:16px">${money(budget.grandTotal)}</b>
+          </div>
+        `, { sub:`${MONDAY_PROTOCOL.mondayOf(weekKey).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · ${countyName(countyId)} · figures follow the ${num(plan.servedThisWeek)} patients this Monday's arithmetic produced.` })
+        + card('Verified quotation prices', `
+          <p class="small muted" style="margin:0 0 10px">A line stops saying <i>working</i> when the price here is the one on a supplier quotation, not the Foundation's planning figure. Keying a price never changes the bag contents.</p>
+          <form id="foodProtocolPriceForm">
+            <input type="hidden" name="countyId" value="${esc(countyId)}">
+            <div class="grid g4">
+              ${FOODBAG_ITEMS.map(i=>`<div class="field"><label>${esc(i.name)} <span class="xs muted">${esc(i.unit)}</span></label>
+                <input class="input" type="number" min="0" step="1" name="price_${esc(i.code)}" value="${Number(c.prices[i.code] ?? FOODBAG_WORKING_PRICE[i.code] ?? 0)}">
+                <span class="xs muted">${esc(i.market)}</span></div>`).join('')}
+            </div>
+            <div class="spread" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+              <span class="xs muted">Source recorded on every save: quotation date, supplier reference and who keyed it.</span>
+              ${canManage?`<button type="button" class="btn btn-sm btn-primary" data-act="foodprotocol-price-save">${ic('check',14)} Save prices as verified</button>`:''}
+            </div>
+          </form>
+        `);
+    }
+
+    /* ---------- Orders: the closed weeks ---------- */
+    if(tab==='orders'){
+      const orders = (c.orders||[]).filter(o=>o.countyId===countyId).sort((a,b)=>String(b.weekKey).localeCompare(String(a.weekKey)));
+      body = card('Closed Monday orders', orders.length ? table([
+        {label:'Week', cls:'mono', render:o=>`<b>${esc(o.weekKey)}</b><div class="xs muted">${esc(fmtDate(o.closedAt))}</div>`},
+        {label:'Reference', cls:'mono', render:o=>esc(o.id)},
+        {label:'Patients fed', cls:'num', render:o=>`<b>${num(o.forecastPatients)}</b><div class="xs muted">${num(o.requiredIntakes)} new intakes</div>`},
+        {label:'Primary bag', render:o=>badge(FOODBAG_RECIPES[o.primaryBag]?FOODBAG_RECIPES[o.primaryBag].label:(o.primaryBag||'-'),'b-info','nodot')},
+        {label:'Total', cls:'num mono', render:o=>`<b>${money(o.grandTotal)}</b>`},
+        {label:'Closed by', render:o=>`<span class="small">${esc(o.closedBy||'-')}</span>`},
+        {label:'', render:o=>`<button class="btn btn-xs btn-ghost" data-act="go" data-v="foodprotocol" data-tab="budget" data-county="${esc(countyId)}" data-week="${esc(o.weekKey)}">View</button>`}
+      ], orders) : emptyState('No Monday closed yet',
+        'Close a Monday from the Item Budget tab. Closing freezes the quantities and prices for that week, so the order cannot be rewritten by a later price change.','clipboard'),
+        { sub:'A frozen week is the record of what was actually ordered and at what price.' });
+    }
+
+    return pageHead('Monday Procurement Protocol',
+      `The 180-patient weekly envelope, the alternate Bag 1 / Bag 2 issue, and the item-level foodbag budget the Procurement Office buys against.`,
+      `${countyBtns}${weekNav}
+       <button class="btn btn-sm btn-ghost" data-act="go" data-v="foodbudget">${ic('clipboard',15)} Legacy food &amp; hygiene budget</button>
+       <button class="btn btn-sm btn-ghost" data-act="go" data-v="procurement">${ic('package',15)} Supplier register</button>`)
+      + tabs + body;
+  }
+};
+
+/* ============================================================
+   8. Actions
+   ============================================================ */
+if (typeof ACTIONS !== 'undefined') {
+  const protocolCounty = (d = {}) => d.county || (AUTH && AUTH.user && AUTH.user.countyId) || 'kisumu';
+  const openProtocol = (countyId, week, tab) => {
+    if (typeof go === 'function') {
+      go('foodprotocol', { county: countyId, week: week || MONDAY_PROTOCOL.weekKey(), tab: tab || 'monday' });
+    }
+  };
+
+  Object.assign(ACTIONS, {
+    'foodprotocol-save': (d = {}) => {
+      const f = document.querySelector('#foodProtocolForm');
+      if (!f) return;
+      const fd = new FormData(f);
+      const countyId = String(fd.get('countyId') || protocolCounty(d));
+      const weekKey = String(fd.get('weekKey') || MONDAY_PROTOCOL.weekKey());
+      const c = MONDAY_PROTOCOL.ensureStore();
+      c.counties[countyId] = Object.assign({}, c.counties[countyId] || {}, {
+        activeNow: Number(fd.get('activeNow') || 0),
+        weeklyBudget: Number(fd.get('weeklyBudget') || MONDAY_PROTOCOL.WEEKLY_BUDGET),
+        discharges: Number(fd.get('discharges') || 0),
+        deaths: Number(fd.get('deaths') || 0),
+        completed: Number(fd.get('completed') || 0),
+        inpatient: Number(fd.get('inpatient') || 0),
+        avgHousehold: Number(fd.get('avgHousehold') || 2.4),
+        savedAt: new Date().toISOString()
+      });
+      c.settings.bag1Share = Math.min(100, Math.max(0, Number(fd.get('bag1SharePct') || 34))) / 100;
+      /* The first Monday saved becomes the anchor for the alternate-bag rule,
+         so the alternation is consistent for everyone from then on. */
+      if (!c.settings.anchorWeek) {
+        c.settings.anchorWeek = weekKey;
+        c.settings.startBag = 'BG1';
+      }
+      const plan = MONDAY_PROTOCOL.computeWeeklyPlan(MONDAY_PROTOCOL.planInputs(countyId));
+      if (typeof AUDIT !== 'undefined' && AUDIT.append && AUTH.user) {
+        AUDIT.append({ actor: AUTH.user.id, action: 'procurement.monday_saved', entity: 'food_protocol', entityId: countyId,
+          detail: `${weekKey} ${countyName(countyId)}: ${plan.remaining} active, ${plan.requiredIntakes} new intakes against the ${plan.weeklyBudget} envelope.` });
+      }
+      if (typeof DB.persistState === 'function') DB.persistState();
+      if (typeof toast === 'function') {
+        toast('Monday figures saved',
+          `${plan.requiredIntakes} new patients to accept this week (${plan.remaining} active after exits, envelope ${plan.weeklyBudget}).`, 'ok');
+      }
+      openProtocol(countyId, weekKey, 'monday');
+    },
+
+    'foodprotocol-price-save': (d = {}) => {
+      const f = document.querySelector('#foodProtocolPriceForm');
+      if (!f) return;
+      const fd = new FormData(f);
+      const countyId = String(fd.get('countyId') || protocolCounty(d));
+      const c = MONDAY_PROTOCOL.ensureStore();
+      c.verified = c.verified || {};
+      c.priceSource = c.priceSource || {};
+      const stampedAt = new Date().toISOString();
+      FOODBAG_ITEMS.forEach(i => {
+        const v = fd.get(`price_${i.code}`);
+        if (v === null || v === '' || isNaN(Number(v))) return;
+        c.prices[i.code] = Number(v);
+        c.verified[i.code] = true;
+        c.priceSource[i.code] = { at: stampedAt, by: (AUTH && AUTH.user && AUTH.user.username) || '', countyId };
+      });
+      const packVal = fd.get('price_BAGPACK');
+      if (packVal !== null && packVal !== '' && !isNaN(Number(packVal))) {
+        c.prices.BAGPACK = Number(packVal);
+        c.verified.BAGPACK = true;
+      }
+      if (typeof AUDIT !== 'undefined' && AUDIT.append && AUTH.user) {
+        AUDIT.append({ actor: AUTH.user.id, action: 'procurement.prices_verified', entity: 'food_protocol', entityId: countyId,
+          detail: `Quotation prices keyed for ${countyName(countyId)}; the item budget now uses verified figures.` });
+      }
+      if (typeof DB.persistState === 'function') DB.persistState();
+      if (typeof toast === 'function') toast('Prices recorded as verified', 'The item budget now uses these figures. Bag contents are unchanged.', 'ok');
+      openProtocol(countyId, d.week || MONDAY_PROTOCOL.weekKey(), 'budget');
+    },
+
+    'foodprotocol-close': (d = {}) => {
+      const countyId = protocolCounty(d);
+      const weekKey = d.week || MONDAY_PROTOCOL.weekKey();
+      const r = MONDAY_PROTOCOL.closeMonday(weekKey, countyId, AUTH && AUTH.user ? AUTH.user.username : '');
+      if (!r.ok) { if (typeof toast === 'function') toast('Not closed', r.msg || 'The Monday could not be closed.', 'warn'); return; }
+      if (typeof toast === 'function') {
+        toast('Monday closed and frozen',
+          `${weekKey} is fixed at ${money(r.order.grandTotal)} for ${r.order.forecastPatients} patients. A later price change cannot rewrite it.`, 'ok');
+      }
+      openProtocol(countyId, weekKey, 'budget');
+    },
+
+    'foodprotocol-reopen': (d = {}) => {
+      const countyId = protocolCounty(d);
+      const weekKey = d.week || MONDAY_PROTOCOL.weekKey();
+      const r = MONDAY_PROTOCOL.reopenMonday(weekKey, countyId);
+      if (typeof toast === 'function') {
+        toast(r.ok ? 'Monday reopened' : 'Not reopened',
+          r.ok ? `${weekKey} is open again and will follow the current figures.` : (r.msg || 'That week was not closed.'), r.ok ? 'ok' : 'warn');
+      }
+      openProtocol(countyId, weekKey, 'budget');
+    },
+
+    'foodprotocol-prices': (d = {}) => {
+      const countyId = protocolCounty(d);
+      openProtocol(countyId, d.week || MONDAY_PROTOCOL.weekKey(), 'budget');
+      if (typeof toast === 'function') toast('Key the quotation prices', 'Scroll to “Verified quotation prices” at the foot of this tab.', 'info');
+    },
+
+    'foodprotocol-print': (d = {}) => {
+      const countyId = protocolCounty(d);
+      const weekKey = d.week || MONDAY_PROTOCOL.weekKey();
+      const b = MONDAY_PROTOCOL.computeWeekBudget(countyId, weekKey);
+      if (typeof openModal !== 'function' || typeof table !== 'function') return;
+      const html = `<div class="small" style="margin-bottom:10px">
+          <b>${esc(countyName(countyId))}</b> · Monday ${esc(MONDAY_PROTOCOL.mondayOf(weekKey).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}))}<br>
+          Patients fed: <b>${num(b.plan.servedThisWeek)}</b> · New intakes: <b>${num(b.plan.requiredIntakes)}</b> · Primary bag: <b>${esc(FOODBAG_RECIPES[b.primary].label)}</b>
+        </div>`
+        + table([
+          {label:'Bag', render:l=>esc(FOODBAG_RECIPES[l.bagCode].label)},
+          {label:'Item', render:l=>esc(l.name)},
+          {label:'Unit', render:l=>esc(l.unit)},
+          {label:'Qty', cls:'num mono', render:l=>num(l.qty)},
+          {label:'Unit price', cls:'num mono', render:l=>money(l.unitPrice)},
+          {label:'Line total', cls:'num mono', render:l=>money(l.lineTotal)}
+        ], b.lines)
+        + `<div class="spread" style="border-top:2px solid var(--ink);margin-top:8px;padding-top:8px"><b>Total</b><b class="mono">${money(b.grandTotal)}</b></div>`;
+      openModal({
+        title: 'Monday Procurement Order', sub: 'Printable buyer\'s sheet for the foodbag purchase.',
+        wide: true,
+        body: html,
+        foot: `<button class="btn btn-sm btn-ghost" data-act="closeModal">Close</button>
+               <button class="btn btn-sm btn-primary" onclick="window.print()">Print</button>`
+      });
+    }
+  });
+}
+
+/* ============================================================
    handover_partners6.js - CareLink v6.3
    1. Delegation Plan, Scoped Reliever Access & Tri-Party Role
       Handover / Acceptance Protocol + EPPH v2.2 Leave Governance
@@ -51766,6 +52601,16 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.11.0', date:'2026-11-27', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Adds the Monday Procurement Protocol — the 180-patient weekly envelope, the alternate Bag 1 / Bag 2 issue, and an item-level foodbag budget the Procurement Office buys against — fixes a colour clash that made the current role chip unreadable on a dark console, and makes sign-in latency attributable instead of guessed at.',
+      changes:['Monday Procurement Protocol (new workspace): every Monday the Active Programme Register is counted after discharges, deaths and completions, taken off the 180-patient weekly envelope, and the remainder is that week\'s new-intake target; household and headcount are shown side by side because a couple household takes one Bag 2 rather than two Bag 1s',
+        'Alternate bag issue: Bag 1 and Bag 2 are bought and issued every week but each patient alternates, so no patient receives the same bag twice running; a patient in a hospital ward takes the bedside pack (milk and oranges) instead of a dry household bag',
+        'Item-level foodbag budget: per-bag item quantities multiplied by bags to issue, priced per unit, with both household baskets bought each week; a line reads "working" until Procurement keys the verified quotation price, and the sheet says which figures are which',
+        'Monday weeks can be closed and frozen, so a later price change cannot rewrite what was ordered; reopening is explicit and audited',
+        'Colour fix: a filled surface now takes both its fill and its ink from one solved pair (--console-cN-fill / --console-cN-ink), so the current role chip, the selected navigation tile, the "all" sheet chip, the quick button and the workspace mode segment can no longer end up with dark text on a dark highlight; three Admin Ops index badges were moved above 4.5:1 as well',
+        'Sign-in latency is now attributed: the server counts KV round-trips per request and reports stage timings for /api/auth/login when asked (?timing=1), so a slow sign-in can be measured rather than guessed at',
+        'A device that already holds the current document at the host revision no longer re-downloads the whole workspace on sign-in; the owner check makes sure another account\'s document is never reused',
+        'Admission no longer reconstructs an entire sharded workspace merely to read the device register'] },
     { tag:'v6.10.0', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Restored the console banner to its pre-6.9 height and finished the colour system it sits in: the role-tab strip is navigation below the banner again instead of content inside it, every accent is drawn from the console\'s own signature rather than a second fixed palette, and page changes, sheets and switches now animate.',
       changes:['The coloured introduction card ends after the greeting, the actions and the quick metrics; the role tabs and the Layout control are a tab bar directly below it, so the gradient stops at the line under the copy exactly as it did before the strip was folded in',
@@ -56055,6 +56900,6 @@ Object.assign(FORMS,{
   });
 })();
 </script>
-<!-- Build 2026-11-26 21:29 · CareLink C-DIMS v6.10.0 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build 2026-11-27 06:01 · CareLink C-DIMS v6.11.0 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>

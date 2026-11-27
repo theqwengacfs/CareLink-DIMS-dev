@@ -5,8 +5,8 @@
 > Re-read this at the start of every development round; items move off it only when
 > you say they are done.
 >
-> Last verified against the deployed system: **v6.10.0**, preferred host
-> `care-link-dims-dev-three.vercel.app` (`/api/health` reports `version 6.10.0`).
+> Last verified against the deployed system: **v6.11.0**, preferred host
+> `care-link-dims-dev-three.vercel.app` (`/api/health` reports `version 6.11.0`).
 
 ---
 
@@ -17,6 +17,8 @@
 | 1 | **Official 52-week calendar and boundary rule** — which Monday is week 1, how a 53-week year is handled | Every weekly report keeps the word **(provisional)** | A1, A4 |
 | 2 | **4,444-patient reconciliation** — the authorised private records, or a written instruction that the 4,000-patient contract stands | The register stays at 4,000. Fabricating patient rows is prohibited, so this cannot be worked around | B6 |
 | 3 | **16 → 11 department structure** — which of the 16 departments becomes which of the 11, and which 8 appear on the landing graphic | `D9` is the **only** requirement still recorded as *not captured*. Merging changes RBAC, reporting and palettes — it is not a rename | D9, D10 |
+| 3b | **Confirm the foodbag contents and prices** in the new Monday Procurement Protocol. The module ships the Foundation's standard baskets and working prices; the contents document you mentioned was not among the attachments, so Bag 1 / Bag 2 carry the items already used by the food budget | Every line says *working* until Procurement keys a verified quotation price on the Item Budget tab. If the baskets differ from the real ones, the quantities — and therefore the week budget — differ too | Procurement budget |
+| 3c | **Decide the Bag 1 / Bag 2 split** (default: 34% of the roster takes Bag 1, i.e. single/smaller households take Bag 1 and couple/larger households take Bag 2) | The split changes the money, not the headcount: both bags are bought every week because patients alternate. The percentage is editable on the Monday Arithmetic tab | Procurement budget |
 
 ## 2. Physical and account acceptance only you can perform
 
@@ -29,6 +31,8 @@
 | 8 | **Offline sign-in**: sign in online, tick *Remember this device*, turn the radio off, sign in offline | Credential expiry and refusals are tested; a real network going down is not (C1) |
 | 8a | **Look at the console banner on your own screen** and confirm it now ends at the divider under the greeting (v6.10.0). The role tabs and the `Layout` control sit on the page below it, not inside the gradient | The height was restored from the padding rules; only your eye can say it reads right at your zoom and font size |
 | 8b | **Let a page change, a sheet opening and a switch play once** with animation on, then once with *Interface animation* switched off, and once with your device set to reduce motion | The guards prove the rules are dropped; whether the motion itself is comfortable is your judgement (B3) |
+| 8c | **Look at the current role chip on the dark green MCM console** (v6.11.0). It used to be dark green text on the dark green highlight; it now takes its label colour from the fill it actually got | The fill/ink pair is solved and tested to 4.5:1 in code, but "is the selected tab obvious at a glance" is a judgement only your eye can make |
+| 8d | **Time one sign-in on the phone** and send me the figure. `/api/auth/login?timing=1` now returns where the seconds went (credential check, online-database read, session write, and the KV round-trip count) | A minute on the clock cannot be split into the server's part and the mobile-network part without that number. On a 15 kbps link a first sign-in legitimately takes ~50 s to download a large register; a *repeat* sign-in no longer re-downloads it |
 
 ## 3. Licences, suppliers and third parties
 

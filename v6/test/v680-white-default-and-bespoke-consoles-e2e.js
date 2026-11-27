@@ -9,6 +9,10 @@
       Compact 2x2 Sidebar Control Dock)
    4. 29+ Bespoke Departmental & Geographic-Scope Console Workbenches
    ============================================================================ */
+
+/* Read the version from the package, so a release bumps it in one place. */
+const PKG_VERSION = JSON.parse(require('fs').readFileSync(require('path').join(__dirname,'..','..','package.json'),'utf8')).version;
+
 const fs = require('fs');
 const path = require('path');
 const { makeCtx } = require('./dom');
@@ -46,7 +50,7 @@ const { makeCtx } = require('./dom');
     };
   })())`));
 
-  ok('APP.version is 6.10.0', themeAudit.appVersion === '6.10.0', themeAudit.appVersion);
+  ok(`APP.version is ${PKG_VERSION}`, themeAudit.appVersion === PKG_VERSION, themeAudit.appVersion);
   ok('Global Landing Default is the white-led LOMAMO letterhead with the restored workflow graphic',
     themeAudit.defaultLandingId === 'clinic' &&
     themeAudit.firstLanding.id === 'clinic' &&

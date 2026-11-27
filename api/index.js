@@ -788,7 +788,22 @@ async function deleteKvKey(key) {
 
 /* Atomic Redis commands back the individual online session leases. These
    commands deliberately use the writable primary, never a read replica. */
+/* Sign-in latency used to be unattributable: a minute on the clock told nobody
+   whether the wait was the credential check, the online database read, the
+   session lease or the client downloading its workspace. Every KV round-trip is
+   now counted on the request, and /api/auth/login reports the count and the
+   stage timings when asked (`?timing=1`), so a report of "it is slow" can be
+   answered with numbers instead of another guess. The counter is per-request
+   and never includes data. */
+function kvCallCounter() {
+  const ctx = requestSnapshot.getStore();
+  if (!ctx) return null;
+  ctx.kvCalls = (ctx.kvCalls || 0) + 1;
+  return ctx;
+}
+
 async function runKvCommand(args, timeoutMs = 10000, op = 'write') {
+  kvCallCounter();
   const candidates = boundRestCandidates({ allowReadOnlyFallback: false });
   const tcpCandidates = boundTcpCandidates();
   if (!candidates.length && !tcpCandidates.length) { if (requestSnapshot.getStore()?.storageId) throw new CloudStorageError('kv_unavailable', 'The selected online store is unavailable; retry the request.'); requireKv(); }
@@ -1044,7 +1059,7 @@ function overlayAuthoritativeHead(state, head, manifestRev = 0, manifestSaved = 
   }
   state.rev = targetRev;
   if (manifestSaved || head.saved) state.saved = manifestSaved || head.saved;
-  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.10.0' }, users: [], audit: [] };
+  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.11.0' }, users: [], audit: [] };
   if (Array.isArray(head.users) && head.users.length) {
     state.db.users = Array.isArray(state.db.users) ? state.db.users : [];
     for (const hu of head.users) {
@@ -3099,6 +3114,12 @@ function validTemporarySession(cred, sessionId, deviceId) {
 function temporaryMetadata(state,issuedBy) {
   return {issuedBy,issuedAt:nowISO(),expiresAt:Date.now()+systemConfig(state).temporaryPasswordDays*86400000,usedAt:null,sessionId:null,deviceId:null};
 }
+/* Device admission needs the full device register, which a sharded installation
+   keeps in its manifest head - so a sharded sign-in does NOT need to reconstruct
+   the whole workspace (all patient shards) just to read it. Only a legacy head
+   with no manifest has to fall back to a full read. This was the single largest
+   cost of signing in on a large installation: the login read every patient shard
+   twice, once for admission and once to write the session back. */
 async function hydrateSecurityState(state) {
   if (state._headOnly && !state._shardedManifest) {
     const full = (await loadCloudState()).state;
@@ -3375,7 +3396,7 @@ async function handleRequest(req, res) {
     ));
     return sendJson(res, 200, {
       ok: true,
-      version: '6.10.0',
+      version: '6.11.0',
       cloud: true,
       onlineDatabase: true,
       mode: TRIAL_MODE ? 'isolated-synthetic-trial' : 'online-site-db',
@@ -3583,7 +3604,7 @@ async function handleRequest(req, res) {
 
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
-    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.10.0' }, users: [], audit: [] });
+    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.11.0' }, users: [], audit: [] });
     // Setup has no authenticated mailbox attestation yet. A client-supplied or
     // guessed address is not evidence that an official work mailbox exists.
     const chiefEmail = '';
@@ -3908,6 +3929,15 @@ async function handleRequest(req, res) {
 
   /* 4. Authentication & DPA First-Login Password Replacement */
   if (route === 'auth/login' && method === 'POST') {
+    const loginStarted = Date.now();
+    let stageMark = loginStarted;
+    const stageTimes = {};
+    const mark = (name) => {
+      const now = Date.now();
+      stageTimes[name] = now - stageMark;
+      stageMark = now;
+    };
+    const wantsTiming = urlObj.searchParams.get('timing') === '1';
     const body = await readJsonBody(req);
     const rawId = String(body.username || '').trim().toLowerCase();
     const password = String(body.password || '');
@@ -3939,6 +3969,7 @@ async function handleRequest(req, res) {
         cred = chiefs[0];
       }
     }
+    mark('credential_lookup');
     const username = clipString(cred ? cred.username : rawId, 120);
     const lockMs = loginLockRemainingMs(state, username);
     if (lockMs > 0) {
@@ -3961,6 +3992,7 @@ async function handleRequest(req, res) {
         : 'Invalid username or password.';
       return sendJson(res, 401, { ok: false, code: 'invalid_credentials', error: preActHint });
     }
+    mark('password_verify');
     if (cred.revokedAt || cred.active === false) return sendJson(res, 403, { ok:false, code:'account_revoked', error:'This account has been revoked. Ask the Chief System Administrator.' });
     const candidateUser = (state.db && state.db.users || []).find(u => u && String(u.username || '').toLowerCase() === username);
     if (candidateUser && (candidateUser.unconfirmed || candidateUser.active === false || ['inactive','unconfirmed','revoked'].includes(candidateUser.status))) {
@@ -3968,6 +4000,7 @@ async function handleRequest(req, res) {
     }
     const admission = await admitLoginDevice(state, req, res, body, cred, {save:false});
     if (!admission.ok) return sendJson(res, 403, admission);
+    mark('device_admission');
     const sessionId = loginSessionId(username, body.loginAttemptId, admission.deviceId);
     if (cred.temporary && (Number(cred.temporary.expiresAt) <= Date.now() ||
         (cred.temporary.usedAt && (cred.temporary.sessionId !== sessionId || cred.temporary.deviceId !== sha256Hex(deviceProof(req)))))) {
@@ -4124,7 +4157,15 @@ async function handleRequest(req, res) {
     }
     try { await saveCloudAuthMetadata(state); }
     catch (error) { await releaseSessionLease(username, sessionId, cred.sessionEpoch).catch(()=>{}); throw error; }
+    mark('auth_metadata_saved');
+    if (wantsTiming) {
+      stageTimes.totalMs = Date.now() - loginStarted;
+      stageTimes.kvRoundTrips = (requestSnapshot.getStore() || {}).kvCalls || 0;
+      stageTimes.inlineStateBytes = inlineState ? Buffer.byteLength(JSON.stringify(inlineState)) : 0;
+      stageTimes.stateSharded = Boolean(state._shardedManifest);
+    }
     return sendJson(res, 200, {
+      ...(wantsTiming ? { timing: stageTimes } : {}),
       ok: true,
       token,
       rev: state.rev || 0,
@@ -4949,7 +4990,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 409, { ok:false, code:'rebuild_refresh_required', error:'The account hierarchy was rebuilt. Refresh the shared state before saving pending changes.' });
     }
     const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
-    state.db = state.db || { meta: { schema: 6, version: '6.10.0' } };
+    state.db = state.db || { meta: { schema: 6, version: '6.11.0' } };
     const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
     const applied = [];
     const rejected = [];

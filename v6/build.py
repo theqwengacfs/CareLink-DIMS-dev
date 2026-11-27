@@ -20,7 +20,7 @@ JS_ORDER = ["data.js", "data6.js", "inventory_data.js", "ink.js", "ink_pad.js", 
             "views_extra.js", "office_actions.js", "app.js",
             "pmi.js", "recognition.js", "workplace.js", "insight6.js", "indicators6.js", "hub6.js", "entry6.js",
             "org_teams.js", "household.js", "costing.js", "tb_dispensing.js", "master_registry.js", "master_analysis.js", "waiting_urgent.js", "portal_content.js",
-            "bmi_clinical6.js", "discharge_hardcopy6.js", "monday_procurement6.js", "handover_partners6.js", "care_review_ui.js",
+            "bmi_clinical6.js", "discharge_hardcopy6.js", "monday_procurement6.js", "monday_procurement_protocol6.js", "handover_partners6.js", "care_review_ui.js",
             "admin_workflows6.js", "dev_console6.js", "workflow_engine6.js", "visual_audit.js", "strategic_governance67.js", "role_consoles68.js", "security6.js"]
 
 def read(p):
@@ -45,7 +45,7 @@ def build():
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#202020">
-<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.10.0) - LOMAMO Foundation Kenya Data & Information Management System">
+<meta name="description" content="CareLink Operating System (CareLink C-DIMS v6.11.0) - LOMAMO Foundation Kenya Data & Information Management System">
 {pwa_head}<style>
 {css}
 </style>
@@ -63,7 +63,7 @@ window.BUILD_STAMP = "{stamp}";
 {js}
 </script>
 {pwa_install}
-<!-- Build {stamp} · CareLink C-DIMS v6.10.0 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
+<!-- Build {stamp} · CareLink C-DIMS v6.11.0 (formerly LOMAMO C-DIMS) · LOMAMO Foundation Kenya -->
 </body>
 </html>
 """

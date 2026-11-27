@@ -1190,6 +1190,16 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.11.0', date:'2026-11-27', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      summary:'Adds the Monday Procurement Protocol — the 180-patient weekly envelope, the alternate Bag 1 / Bag 2 issue, and an item-level foodbag budget the Procurement Office buys against — fixes a colour clash that made the current role chip unreadable on a dark console, and makes sign-in latency attributable instead of guessed at.',
+      changes:['Monday Procurement Protocol (new workspace): every Monday the Active Programme Register is counted after discharges, deaths and completions, taken off the 180-patient weekly envelope, and the remainder is that week\'s new-intake target; household and headcount are shown side by side because a couple household takes one Bag 2 rather than two Bag 1s',
+        'Alternate bag issue: Bag 1 and Bag 2 are bought and issued every week but each patient alternates, so no patient receives the same bag twice running; a patient in a hospital ward takes the bedside pack (milk and oranges) instead of a dry household bag',
+        'Item-level foodbag budget: per-bag item quantities multiplied by bags to issue, priced per unit, with both household baskets bought each week; a line reads "working" until Procurement keys the verified quotation price, and the sheet says which figures are which',
+        'Monday weeks can be closed and frozen, so a later price change cannot rewrite what was ordered; reopening is explicit and audited',
+        'Colour fix: a filled surface now takes both its fill and its ink from one solved pair (--console-cN-fill / --console-cN-ink), so the current role chip, the selected navigation tile, the "all" sheet chip, the quick button and the workspace mode segment can no longer end up with dark text on a dark highlight; three Admin Ops index badges were moved above 4.5:1 as well',
+        'Sign-in latency is now attributed: the server counts KV round-trips per request and reports stage timings for /api/auth/login when asked (?timing=1), so a slow sign-in can be measured rather than guessed at',
+        'A device that already holds the current document at the host revision no longer re-downloads the whole workspace on sign-in; the owner check makes sure another account\'s document is never reused',
+        'Admission no longer reconstructs an entire sharded workspace merely to read the device register'] },
     { tag:'v6.10.0', date:'2026-11-22', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       summary:'Restored the console banner to its pre-6.9 height and finished the colour system it sits in: the role-tab strip is navigation below the banner again instead of content inside it, every accent is drawn from the console\'s own signature rather than a second fixed palette, and page changes, sheets and switches now animate.',
       changes:['The coloured introduction card ends after the greeting, the actions and the quick metrics; the role tabs and the Layout control are a tab bar directly below it, so the gradient stops at the line under the copy exactly as it did before the strip was folded in',
