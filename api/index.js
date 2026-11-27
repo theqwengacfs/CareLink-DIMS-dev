@@ -570,6 +570,11 @@ async function fetchKvWithRetry(url, init = {}, timeoutMs = 8000) {
 }
 
 async function readKvStringFromCandidate(kv, key) {
+  /* Counted here too: this is the path a request takes BEFORE a storage store
+     is bound to it, which is exactly the path a cold sign-in walks. Without
+     this the KV round-trip figure reported by ?timing=1 omitted every read
+     that had not yet gone through runKvCommand. */
+  kvCallCounter();
   const isMock = isTestKvHost(kv.url);
   const hostHint = hostLabelOf(kv.url);
   const baseHeaders = isMock
@@ -672,6 +677,7 @@ async function readKvString(key) {
     }
     for (const tcpCfg of tcpCandidates) {
       try {
+        kvCallCounter();
         const rawVal = await execRedisTcpCommand(tcpCfg, ['GET', key]);
         const val = unwrapUpstashStringResult(rawVal);
         if (key === CLOUD_KEY && !isTestKvHost(`https://${tcpCfg.host}`)) {

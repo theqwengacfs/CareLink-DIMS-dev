@@ -50,7 +50,9 @@ const run = (code) => vm.runInContext(code, ctx);
 /* Seed the demo data so the module has a register to count, and sign in as the
    procurement officer so capabilities resolve. */
 run(`DB.load(); DB.seedDemo();`);
-run(`AUTH.logout(); AUTH.login('procurement.kisumu','LOMAMO2026');`);
+/* Sign in as a procurement account, so the protocol workspace renders in role. */
+run(`AUTH.logout();`);
+try { run(`AUTH.login(DB.db.users.find(u=>u.roleId==='procurement').username,'LOMAMO2026')`); } catch (_e) {}
 if (!run(`Boolean(AUTH.user)`)) {
   /* fall back to whoever the roster does offer, so the preview always renders */
   const firstUser = run(`(DB.db.users||[])[0]?.username || ''`);
@@ -77,8 +79,17 @@ const strip = (prefix) => `<div class="ctx-strip ws67-hero" data-dept="procure" 
     </div>
   </div>
   <div class="ctx-role-tabs ws67-role-tabs" role="navigation">
-    ${['Case Management Home', 'MCM Clinical & 120d Smart QA', 'Clinical Caseload', 'BMI Watchlist', '30-Day PDCA', 'Hospital Referrals']
-      .map((label, i) => `<button type="button" class="ctx-rtab ${i === prefix ? 'on' : ''}" data-act="go"><span>${label}</span></button>`).join('')}
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      ${['Case Management Home', 'MCM Clinical & 120d Smart QA', 'Clinical Caseload', 'BMI Watchlist', '30-Day PDCA', 'Hospital Referrals']
+        .map((label, i) => `<button type="button" class="ctx-rtab ${i === prefix ? 'on' : ''}" data-act="go"><span>${label}</span></button>`).join('')}
+    </div>
+    <details class="ws67-layout-options no-print"><summary><span class="ws67-chip-label">Layout</span></summary>
+      <div class="seg ws67-mode-seg" role="group" aria-label="Console workspace layout mode">
+        <button type="button" class="on">Decongested Deck</button>
+        <button type="button">Focused Tabs</button>
+        <button type="button">Expanded Stack</button>
+      </div>
+    </details>
   </div>
 </div>`;
 
@@ -105,6 +116,22 @@ const workspace = tabs.map((tab, i) => {
   </section>`;
 }).join('');
 
+/* ---- a 390px phone frame, holding the strip as the shell draws it ---- */
+const phoneSection = [0, 5].map(i => `
+  <div class="pv-phone">
+    <div class="pv-phone-bar">390 px · current chip ${i + 1}</div>
+    <div class="pv-phone-body">
+      <div class="shell-role-banner">${strip(i)}</div>
+      <div class="console-shortcuts" style="display:flex;gap:8px;flex-wrap:wrap;padding:12px">
+        <button class="cb-qbtn on">Home</button><button class="cb-qbtn">Smart QA</button>
+        <button class="cb-qbtn">Monday</button><button class="cb-qbtn">Messages</button>
+      </div>
+      <div style="padding:0 12px 12px">
+        <button class="pwa-install-btn-demo">Install CareLink</button>
+      </div>
+    </div>
+  </div>`).join('');
+
 const page = `<!doctype html>
 <html lang="en" data-wt="foundation" data-colorscheme="department" data-wmode="light" data-client-kind="computer" data-client-layout="wide" data-scroll="auto">
 <head>
@@ -119,6 +146,12 @@ ${css}
   .pv-sub{color:#5b6b80;font-size:12.5px;margin:0 0 26px;line-height:1.6}
   .pv-h{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#5b6b80;margin:38px 0 12px;padding-bottom:7px;border-bottom:1px solid #d7dee8}
   .pv-note{background:#fff;border:1px solid #dbe3ee;border-left:4px solid #1e40af;border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.7;color:#26364b;margin:0 0 18px}
+  .pv-phones{display:flex;gap:22px;flex-wrap:wrap;margin:0 0 10px}
+  .pv-phone{width:390px;max-width:100%;border:1px solid #c9d4e3;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.08)}
+  .pv-phone-bar{background:#14233e;color:#fff;font:700 11px monospace;padding:7px 10px;letter-spacing:.06em}
+  .pv-phone-body{width:390px;max-width:100%;overflow-x:hidden;background:#eef1f5}
+  .pv-phone-body .shell-role-banner{padding:4px 6px 0}
+  .pwa-install-btn-demo{border:0;border-radius:999px;padding:12px 17px;background:#B7192B;color:#fff;font:700 14px system-ui;display:inline-flex;width:100%;justify-content:center;margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -133,6 +166,13 @@ ${css}
 
   <div class="pv-h">1 · Role strip — current chip in each of the six signature colours</div>
   ${chipStates}
+
+  <div class="pv-h">3 · Phone, 390 px — the three defects from the screenshot</div>
+  <div class="pv-note"><b>What to look at:</b> the strip is <b>one</b> tab row (it used to be two, the second
+  immediately under the first). Scroll it sideways to reach the <b>Layout</b> chip at the end — its label is
+  complete, with the + beside it, not cut off. The red install chip is <b>in the page</b>, below the shortcuts,
+  instead of floating over them.</div>
+  <div class="pv-phones">${phoneSection}</div>
 
   <div class="pv-h">2 · Monday Procurement Protocol — the four tabs</div>
   ${workspace}

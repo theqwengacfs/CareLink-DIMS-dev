@@ -688,7 +688,7 @@ function renderShell(){
       </nav>
       ${!Store.durable?`<div class="alert warn no-print" style="margin-bottom:16px">${ic('info',18)}<div><b>Preview session</b>
         <span class="small">This browser has blocked persistent storage, so changes are held for this session only. Download the file and open it directly in Chrome or Edge for a persistent installation.</span></div></div>`:''}
-      <div class="workspace-view" id="workspaceView" tabindex="-1" data-landing>${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero)})}</div>
+      <div class="workspace-view" id="workspaceView" tabindex="-1" data-landing>${contentFor(view=APPX.view, APPX.params, user, {omitHomeHeader:Boolean(roleHero), bannerOwnsTabs:Boolean(roleHero)})}</div>
       ${PAGER.bar(user, here)}</main>
     ${(typeof CALLING!=='undefined' && CALLING.incomingBanner) ? CALLING.incomingBanner() : ''}
   </div>`;
@@ -727,7 +727,8 @@ function viewCrumb(){
 /* Photo-free contextual top strip: Silent Admin Override Banner + Demo Switch Banner +
    Admin/Intl Single-Operator Co-Work Lease Bar + Role-Scoped Context Strip.
    All console and module photographs & captions have been removed by design. */
-function workspaceHeroBanner(view, user){
+function workspaceHeroBanner(view, user, opts){
+  const bannerOwnsTabs = !!(opts && opts.bannerOwnsTabs);
   const isGlobalAct = (typeof PROD_SETUP!=='undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
   const overrideBar = (typeof SILENT_OVERRIDE!=='undefined' && SILENT_OVERRIDE.bannerHTML) ? SILENT_OVERRIDE.bannerHTML() : '';
   const trialActive = typeof trialEntryActive==='function' && trialEntryActive();
@@ -739,8 +740,12 @@ function workspaceHeroBanner(view, user){
   const coeditBar = (typeof DUALCHECK!=='undefined' && DUALCHECK.bannerHTML) ? DUALCHECK.bannerHTML(user) : '';
   const urgentCountyBar = (typeof COUNTY_URGENT_QUEUE!=='undefined' && COUNTY_URGENT_QUEUE.bannerHTML) ? COUNTY_URGENT_QUEUE.bannerHTML(user, view) : '';
   const dpaBar = (typeof CARELINK_GOVERNANCE!=='undefined' && CARELINK_GOVERNANCE.dpaBannerHTML) ? CARELINK_GOVERNANCE.dpaBannerHTML(view, user) : '';
-  /* Avoid stacking duplicate context + workflow banners on Console Home: ws67-hero provides a clean, unified Home header */
-  const ctxStrip = (view!=='home' && typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip) ? ROLE_CTX.contextStrip(user, view) : '';
+  /* Avoid stacking duplicate context + workflow banners on Console Home: ws67-hero provides a clean, unified Home header.
+     On every signed-in page the console banner above already renders the role tab
+     row, so the context strip drops its own copy of it rather than repeating the
+     same seven chips immediately underneath. */
+  const ctxStrip = (view!=='home' && typeof ROLE_CTX!=='undefined' && ROLE_CTX.contextStrip)
+    ? ROLE_CTX.contextStrip(user, view, { omitTabs: bannerOwnsTabs }) : '';
   return trialBar + overrideBar + globalActBar + demoBar + coeditBar + urgentCountyBar + dpaBar + ctxStrip;
 }
 function contentFor(view, params, user, options = {}){
@@ -865,7 +870,12 @@ function contentFor(view, params, user, options = {}){
     }
     })();
     if(String(html||'').includes('Access denied')) return html;
-    return workspaceHeroBanner(view, user) + html;
+    /* The shell renders the role strip above this content on every signed-in
+       page, so the banner it prefixes has to know that the tab row is already
+       spoken for. Asking for a duplicate here is what put two tab rows on one
+       phone screen. Content that renders its own banner passes the same flag. */
+    const bannerOwnsTabs = Boolean(options && (options.omitHomeHeader || options.bannerOwnsTabs !== false));
+    return workspaceHeroBanner(view, user, { bannerOwnsTabs }) + html;
   }catch(e){
     console.error(e);
     return `<div class="card"><div class="card-b">${emptyState('This view could not be rendered','An unexpected error occurred. The event has been logged.','alert')}

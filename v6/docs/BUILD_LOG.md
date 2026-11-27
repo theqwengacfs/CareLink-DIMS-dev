@@ -52,10 +52,40 @@ sharded workspace merely to read the device register. The dominant remaining
 cost is the mobile link itself: on the 15 kbps connection in the screenshot a
 first sign-in legitimately needs ~50 s to download a large register.
 
+**The three phone defects.** All three came from the screenshot and none of them
+was visible on a desktop: (1) every inner page rendered **two** role-tab rows —
+six chips in the banner and seven again in the context strip directly beneath
+it, because the strip kept its own copy of a tab bar the banner already draws;
+the strip now yields its tabs (`contextStrip(user, view, {omitTabs})`) and keeps
+only what is genuinely per-page. (2) The install prompt was `position:fixed` at
+bottom-right, so on a 390px phone it sat on the shortcuts; it is now a chip in
+document flow inside `main.content`, full width on a phone, and the update and
+offline notices move to the top edge instead of `bottom:76px`. (3) The `Layout`
+chip's label was a bare text node with a `::after` plus sign and no gap, so it
+clipped; the label is now its own element and the indicator is `flex:0 0 auto`.
+
+**Sign-in, measured on the wire at the contractual size** (4,000 patients,
+1,334 in the field officer's scope, real handler behind a real fetch):
+
+| | calls | downloaded |
+|---|---|---|
+| `auth/login` | 1 | **1.1 KB** |
+| plain snapshot | 1 | 0.41 MB |
+| compressed pack | 1 | **0.04 MB** (90.8% saving) |
+| no-op revision probe | 1 | 0.1 KB |
+
+Stages `credential_lookup 0 / password_verify 32 / device_admission 8 /
+auth_metadata_saved 27 ms`, `totalMs 67`, `kvRoundTrips 5` — the stages now sum
+to the reported total, and the KV round-trip count includes the cold read path
+(`readKvStringFromCandidate`), which it previously missed. The sign-in response
+never carried the workspace: the register is a separate request, where the
+compressed pack applies.
+
 **Checks.** `v6110-monday-procurement-protocol` (58), `v6110-active-tab-colour-
 coherence` (28, including the solver's maths run for real across 18 hues),
-`v6110-signin-latency` (24). `npm run test:all` exit 0. `views.js` renders 5051
-views without a fallback.
+`v6110-signin-latency` (24), `v6110-mobile-layout` (27),
+`v6110-signin-wire-cost` (11, measured at 4,000 patients). `npm run test:all`
+exit 0. `views.js` renders 5051 views without a fallback.
 
 ## Deployed state — v6.10.0, and what is still awaited
 
