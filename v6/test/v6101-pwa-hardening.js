@@ -112,11 +112,17 @@ function makeShellDom({ online = true, body = true, ios = false } = {}) {
   const button = late.appended.find(el => el.tagName === 'BUTTON' && /Install CareLink/.test(el.textContent));
   check('the install button is attached to the document and shown',
     !!button && /^(block|inline-flex)$/.test(button.style.display));
-  /* It used to be position:fixed bottom-right, which on a 390px phone sat
-     directly on top of the console's role strip and its Layout control - and
-     stayed there while the page scrolled. It is now in document flow. */
-  check('the install prompt is in document flow, so it cannot cover the workspace',
-    !!button && button.style.position !== 'fixed' && button.className === 'pwa-install-btn');
+  /* The pill floats at the bottom-right corner. That is the design that was
+     easy to see and easy to use, and being fixed it takes no room in the
+     document - which is what keeps the one-screen landing and sign-in pages
+     inside their viewport. Making it a flow element is what changed it. */
+  check('the install pill floats at the bottom-right, as it always did',
+    !!button && button.style.position === 'fixed' && button.style.right === '16px' &&
+    button.style.bottom === '16px' && button.className === 'pwa-install-btn');
+  check('the pill is a direct body child, so no page layout can reflow it',
+    !!button && button.parentNode === late.bodyEl);
+  check('the pill can never be wider than the screen',
+    !!button && /calc\(100vw - 32px\)/.test(String(button.style.maxWidth)));
   check('the install button is reachable by keyboard and pointer',
     button.type === 'button' && button['aria-label'] === 'Install CareLink on this device');
   check('the button lives inside the body, not in a detached node', button.parentNode === late.bodyEl);

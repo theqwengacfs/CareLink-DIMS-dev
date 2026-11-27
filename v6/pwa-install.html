@@ -24,22 +24,17 @@
     });
   }
 
-  /* ---- small notice strip ---------------------------------------------
-     Update and offline notices are fixed to the bottom of a large screen,
-     where they overlap nothing, but on a phone a fixed strip at bottom:76px
-     lands exactly on the workspace shortcuts and the console's role strip.
-     Below 760px it therefore becomes a sticky strip pinned to the TOP edge,
-     which is empty on every phone layout, and full width with side margins. */
+  /* ---- small notice strip ----------------------------------------------
+     Undisturbed: a fixed strip near the bottom edge, exactly where it has
+     always been. Being fixed, it takes no room in the page, so it cannot push
+     the one-screen landing or sign-in past their viewport - and a sticky strip
+     at the top would have done precisely that. */
   function strip(id) {
     let el = doc.getElementById(id);
     if (!el) {
       el = doc.createElement('div');
       el.id = id;
-      const narrow = (typeof window.innerWidth === 'number') && window.innerWidth <= 760;
-      Object.assign(el.style, narrow
-        ? { position: 'sticky', top: '0', left: '0', right: '0', zIndex: '10000' }
-        : { position: 'fixed', left: '12px', right: '12px', bottom: '76px', zIndex: '10000' },
-        {
+      Object.assign(el.style, { position: 'fixed', left: '12px', right: '12px', bottom: '76px', zIndex: '10000',
         display: 'none', gap: '10px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap',
         borderRadius: '12px', padding: '10px 13px', font: '600 13px system-ui', lineHeight: '1.35',
         boxShadow: '0 6px 20px rgba(15,23,42,.22)', maxWidth: '560px', margin: '0 auto' });
@@ -116,15 +111,16 @@
     b.textContent = 'Install CareLink';
     b.className = 'pwa-install-btn';
     b.setAttribute('aria-label', 'Install CareLink on this device');
-    /* A fixed bottom-right pill sat exactly on top of the workspace on a phone:
-       it covered the console's Layout control and the role strip, and because
-       it is fixed it stayed there while the page scrolled. It is now a chip
-       that belongs to the document flow at the end of the workspace, full
-       width on a phone, so it can never cover anything. */
-    Object.assign(b.style, { position: 'static', zIndex: '10', display: 'none',
+    /* The pill floats over the bottom-right corner, visible without scrolling
+       - that is what makes it findable, and it is not something to "improve".
+       Being fixed, it never enters the page flow, so it cannot push the
+       one-screen landing or sign-in past 100dvh: this was never the cause of
+       anything, and putting it in the flow is what made it look like a
+       different control. */
+    Object.assign(b.style, { position: 'fixed', right: '16px', bottom: '16px', zIndex: '10000', display: 'none',
       border: '0', borderRadius: '999px', padding: '12px 17px', background: '#B7192B', color: '#fff',
       font: '700 14px system-ui', boxShadow: '0 5px 18px rgba(15,23,42,.25)', cursor: 'pointer',
-      maxWidth: '100%', whiteSpace: 'nowrap' });
+      maxWidth: 'calc(100vw - 32px)' });
     b.addEventListener('click', async () => {
       if (installEvent) {
         installEvent.prompt();
@@ -140,16 +136,34 @@
   /* Append when the body exists. This script is injected as the last thing
      before </body> by build.py, but it is also inlined inside <head> by hosts
      that place it there, so never assume document.body is present. */
-  /* Where the chip lives: inside the workspace when there is one, so it reads
-     as part of the page and scrolls with it; otherwise at the end of the body.
-     It is explicitly NOT fixed - see makeButton. */
+  /* The pill always lives on the body and always floats: unchanged from the
+     design that was easy to see and easy to use. */
   function installHost() {
-    /* main.content survives page changes (only #workspaceView is re-rendered),
-       so the chip is not torn out of the DOM each time somebody moves page.
-       Hosts that inline this script into a minimal document may not offer
-       querySelector at all, so never assume a method exists. */
+    return doc.body;
+  }
+  /* The signed-in console owns the bottom edge of a phone screen - the console
+     shortcuts and the role strip sit there - so inside a console the pill
+     steps off it, clear of whatever the console actually draws there. The lift
+     is measured from the element that is in the way, not guessed: a short
+     phone must not turn it into a floating banner, and a tall one must not
+     tuck it back under the strip. When the elements cannot be measured at all
+     (a minimal host document) it falls back to the value a phone console
+     needs. */
+  function consoleClearance() {
     const pick = (sel) => (typeof doc.querySelector === 'function' ? doc.querySelector(sel) : null);
-    return pick('main.content') || pick('main') || doc.body;
+    const reach = (sel) => {
+      const el = pick(sel);
+      if (!el || typeof el.getBoundingClientRect !== 'function' || typeof window.innerHeight !== 'number') return 0;
+      const box = el.getBoundingClientRect();
+      if (!box || !box.height) return 0;
+      return Math.max(0, Math.round(window.innerHeight - box.top));
+    };
+    const needed = Math.max(reach('.console-shortcuts'), reach('.shell-role-banner'), reach('.cb-quick'));
+    return Math.min(160, Math.max(64, needed + 12));
+  }
+  function inConsole() {
+    const pick = (sel) => (typeof doc.querySelector === 'function' ? doc.querySelector(sel) : null);
+    return Boolean(pick('.app.shell') || pick('main.content') || pick('#workspaceView'));
   }
   function attachInstallButton() {
     if (!installButton) installButton = makeButton();
@@ -160,13 +174,14 @@
   }
   function showInstallButton() {
     if (!installButton) return;
-    const host = installHost();
-    if (!host) return;
     installButton.style.display = 'inline-flex';
     installButton.style.alignItems = 'center';
     installButton.style.justifyContent = 'center';
-    installButton.style.margin = '18px 0 4px';
-    installButton.style.width = (host.clientWidth && host.clientWidth < 620) ? '100%' : 'auto';
+    installButton.style.width = 'auto';
+    installButton.style.margin = '0';
+    /* Entry screens: the original bottom-right corner, exactly as it was.
+       Console: step above the shortcuts and role strip, and no further. */
+    installButton.style.bottom = inConsole() ? consoleClearance() : '16px';
   }
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();

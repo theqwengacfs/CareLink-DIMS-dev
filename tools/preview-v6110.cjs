@@ -126,9 +126,7 @@ const phoneSection = [0, 5].map(i => `
         <button class="cb-qbtn on">Home</button><button class="cb-qbtn">Smart QA</button>
         <button class="cb-qbtn">Monday</button><button class="cb-qbtn">Messages</button>
       </div>
-      <div style="padding:0 12px 12px">
-        <button class="pwa-install-btn-demo">Install CareLink</button>
-      </div>
+      <div class="pv-pill-demo">Install CareLink</div>
     </div>
   </div>`).join('');
 
@@ -151,7 +149,12 @@ ${css}
   .pv-phone-bar{background:#14233e;color:#fff;font:700 11px monospace;padding:7px 10px;letter-spacing:.06em}
   .pv-phone-body{width:390px;max-width:100%;overflow-x:hidden;background:#eef1f5}
   .pv-phone-body .shell-role-banner{padding:4px 6px 0}
-  .pwa-install-btn-demo{border:0;border-radius:999px;padding:12px 17px;background:#B7192B;color:#fff;font:700 14px system-ui;display:inline-flex;width:100%;justify-content:center;margin:6px 0 0}
+  .pv-phone-body{position:relative;min-height:430px}
+  .pv-pill-demo{position:absolute;right:16px;bottom:96px;z-index:10;border-radius:999px;padding:12px 17px;
+    background:#B7192B;color:#fff;font:700 14px system-ui;box-shadow:0 5px 18px rgba(15,23,42,.25);white-space:nowrap}
+  .pv-pill-orig{position:absolute;right:16px;bottom:16px;z-index:10;border-radius:999px;padding:12px 17px;
+    background:#B7192B;color:#fff;font:700 14px system-ui;box-shadow:0 5px 18px rgba(15,23,42,.25);white-space:nowrap;opacity:.55}
+  .pv-pill-label{position:absolute;right:16px;bottom:64px;font:600 10px/1.4 monospace;color:#7a1a26;text-align:right;max-width:200px}
 </style>
 </head>
 <body>
@@ -167,11 +170,13 @@ ${css}
   <div class="pv-h">1 · Role strip — current chip in each of the six signature colours</div>
   ${chipStates}
 
-  <div class="pv-h">3 · Phone, 390 px — the three defects from the screenshot</div>
+  <div class="pv-h">3 · Phone, 390 px — the strip, and the install pill restored</div>
   <div class="pv-note"><b>What to look at:</b> the strip is <b>one</b> tab row (it used to be two, the second
   immediately under the first). Scroll it sideways to reach the <b>Layout</b> chip at the end — its label is
-  complete, with the + beside it, not cut off. The red install chip is <b>in the page</b>, below the shortcuts,
-  instead of floating over them.</div>
+  complete, with the + beside it, not cut off.<br><br>
+  The red <b>Install CareLink</b> pill is back to exactly what it was: floating, bottom-right, visible without
+  scrolling. It sits above the console's shortcut row rather than on top of it, which is the one adjustment —
+  and because it floats, it adds <b>zero height</b> to the page.</div>
   <div class="pv-phones">${phoneSection}</div>
 
   <div class="pv-h">2 · Monday Procurement Protocol — the four tabs</div>
