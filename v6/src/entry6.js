@@ -69,6 +69,13 @@ async function hostProbe(){
    hosted browser with no health answer is pending/fail-closed, never a new
    demo installation. */
 function hostedEntryPending(){
+  if(typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  const isNative = typeof location !== 'undefined' && (
+    location.protocol === 'capacitor:' ||
+    location.protocol === 'file:' ||
+    (typeof window !== 'undefined' && (window.Capacitor || window.CapacitorCustomPlatform))
+  );
+  if(isNative) return false;
   return typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() &&
     !(typeof APPX !== 'undefined' && APPX.host) && !(SYNC.server);
 }
