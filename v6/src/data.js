@@ -25,8 +25,9 @@ const APP = {
   shortName: 'CareLink',
   formerName: 'LOMAMO C-DIMS',
   full: 'CareLink — LOMAMO Foundation Unified Operating System (CareLink C-DIMS)',
+  /* APP_VERSION - the single source of truth for the version number. */
   version: '6.11.4',
-  build: '2026.10.29',
+  build: '2026.11.28',
   schema: 6,
   org: 'LOMAMO Foundation Kenya',
   motto: 'Love Matters Most',

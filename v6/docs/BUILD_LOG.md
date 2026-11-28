@@ -14,6 +14,50 @@
 | Central database | `server.py` · SQLite · revision snapshots · 26/26 API checks |
 | Audit pass | 2026-10-18 — 14 defects found and fixed (docs/12 §9) |
 
+## v6.11.4a — one version number, everywhere
+
+**The report.** "Make sure everything including version number is accurately and
+truly updated."
+
+It was not. The version lived in eleven places and four of them had drifted:
+
+| where | was | consequence |
+|---|---|---|
+| `public/index.html` (the live entry page) | `?v=6.6.4` | every visitor got a cache-buster five releases stale |
+| `src/App.tsx` (the dist iframe) | `?v=6.9.4` | the shell was requested under an old key |
+| `vite.config.ts` (dist redirect stub) | `?v=6.9.4` | same |
+| `v6/src/data.js` `build:` | `2026.10.29` | the About panel reported an October build |
+
+The app itself was on 6.11.4, so the symptom was a user opening the live link
+and being served a shell from a stale cache key — which looks exactly like "the
+fix didn't ship".
+
+Three tests had *encoded* the drift rather than catching it: `workspace-
+navigation-audit` pinned `release=20261125-workspace-audit`, `canonical-host`
+listed the cache lineage up to `v16`, and `v6101-pwa-hardening` asserted
+`CACHE === 'carelink-shell-v16'`. A correct cache bump failed the suite, and a
+stale one passed it.
+
+**The fix.** All four references moved to 6.11.4, the build stamp to
+2026.11.28, and the service-worker cache to `carelink-shell-v17` so an already
+installed client actually takes the new shell. The three tests now **derive**
+their expectation — from `package.json` for the release tag, from the worker's
+own `CACHE` declaration for the lineage — so a future bump needs no test edit
+and an old value can no longer pass.
+
+**The guard.** `tools/audit-version.cjs` (`npm run test:version`, wired into
+`test:all`) reads the shipping number from `package.json` and checks
+
+    package.json, package-lock.json
+    v6/src/data.js, api/index.js
+    v6/build.py, tools/sync-lovable.mjs
+    index.html, public/index.html, src/App.tsx, vite.config.ts
+    both built bundles, BUILD_LOG.md
+
+and that the worker declares a versioned cache. **16 checks, all agree on
+6.11.4.** Release history in `dev_console6.js` is exempt by design — it is
+supposed to list old versions.
+
 ## v6.11.4 — the identity block, and saying when a table slides
 
 **The report.** Two layout faults in one screenshot:

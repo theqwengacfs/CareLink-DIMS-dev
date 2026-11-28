@@ -59,5 +59,15 @@ run(`globalThis.__focused=0;globalThis.__tabIndex='';
 assert.equal(run('__focused'),1);
 assert.equal(run('__tabIndex'),'-1');
 assert.match(fs.readFileSync('v6/src/app.js','utf8'),/priorContent!==document.querySelector\('#content'\)/);
-assert.match(fs.readFileSync('src/App.tsx','utf8'),/release=20261125-workspace-audit/);
+/* The dist iframe must bust the shell with the CURRENT version, not a release
+   tag frozen at the time this check was written. Read the version from
+   package.json and assert App.tsx agrees with it: a hardcoded tag here is how
+   the iframe ended up serving ?v=6.9.4 while the app was on 6.11.x. */
+const pkgVersion = JSON.parse(fs.readFileSync('package.json','utf8')).version;
+assert.match(fs.readFileSync('src/App.tsx','utf8'), new RegExp('\\?v=' + pkgVersion.replace(/\./g,'\\.')),
+  'src/App.tsx must load the shell with ?v=' + pkgVersion);
+assert.match(fs.readFileSync('vite.config.ts','utf8'), new RegExp("v=" + pkgVersion.replace(/\./g,'\\.')),
+  'the dist redirect stub must redirect to ?v=' + pkgVersion);
+assert.match(fs.readFileSync('public/index.html','utf8'), new RegExp("\\?v=" + pkgVersion.replace(/\./g,'\\.')),
+  'the public entry page must open ?v=' + pkgVersion);
 console.log('Workspace focus, replacement-content reveal and release refresh checks passed.');

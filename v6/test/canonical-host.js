@@ -102,7 +102,11 @@ function worker(scope) {
       skipWaiting: async () => { skipped++; }, clients: { claim: async () => { claimed++; } },
     },
     caches: {
-      keys: async () => ['carelink-shell-v5', 'carelink-shell-v6', 'carelink-shell-v7', 'carelink-shell-v8', 'carelink-shell-v9', 'carelink-shell-v10', 'carelink-shell-v11', 'carelink-shell-v12', 'carelink-shell-v13', 'carelink-shell-v14', 'carelink-shell-v15', 'carelink-shell-v16', 'unrelated-cache'],
+      /* The shell-cache lineage is DERIVED from the worker's own CACHE name,
+         not frozen at the version this check was written on. Hardcoding the
+         list here is how bumping the cache version silently broke the audit
+         while the worker itself was correct. */
+      keys: async () => [...SHELL_LINEAGE, 'unrelated-cache'],
       delete: async key => { deleted.push(key); return true; },
       open: async name => { opened.push(name); return { put: async (url, response) => { written.push({ url, status: response.status }); } }; },
       match: async url => { matched.push(url); return new Response('synthetic cached shell'); },
@@ -122,13 +126,24 @@ function worker(scope) {
 }
 const request = (url, { method = 'GET', mode = 'cors', headers = {} } = {}) => ({ url, method, mode, headers: new Headers(headers) });
 
+/* The cache lineage, read out of the worker that ships. Every shell cache from
+   v5 up to the one the worker currently declares, so a future bump needs no
+   edit here and an old cache is never left behind unnoticed. */
+const CURRENT_CACHE = (/const CACHE = '([^']+)'/.exec(read('public/sw.js')) || [])[1];
+const SHELL_LINEAGE = (() => {
+  const out = [];
+  for (let v = 5; v <= Number((/carelink-shell-v(\d+)/.exec(CURRENT_CACHE) || [])[1]); v++) out.push('carelink-shell-v' + v);
+  return out;
+})();
+assert.ok(CURRENT_CACHE && SHELL_LINEAGE.length, 'public/sw.js must declare a versioned shell cache');
+
 async function checkWorkers() {
   const retired = worker(PAGES);
   await retired.dispatch('install').done;
   await retired.dispatch('activate').done;
   assert.equal(retired.skipped(), 1);
   assert.equal(retired.claimed(), 1);
-  assert.deepEqual(retired.deleted, ['carelink-shell-v5', 'carelink-shell-v6', 'carelink-shell-v7', 'carelink-shell-v8', 'carelink-shell-v9', 'carelink-shell-v10', 'carelink-shell-v11', 'carelink-shell-v12', 'carelink-shell-v13', 'carelink-shell-v14', 'carelink-shell-v15', 'carelink-shell-v16'], 'only retired CareLink shell caches are removed');
+  assert.deepEqual(retired.deleted, SHELL_LINEAGE, 'only retired CareLink shell caches are removed');
   const redirect = await retired.dispatch('fetch', request(PAGES + 'carelink-v6.html?fixture=synthetic', { mode: 'navigate' })).response;
   assert.equal(redirect.status, 302);
   assert.equal(redirect.headers.get('location'), OFFICIAL);
@@ -142,7 +157,7 @@ async function checkWorkers() {
     assert.equal(active.fetched.length, 5, 'the active host can still install its own shell');
     assert.ok(active.fetched.every(url => new URL(url).origin === new URL(origin).origin), 'install fetches never change origin');
     await active.dispatch('activate').done;
-    assert.deepEqual(active.deleted, ['carelink-shell-v5', 'carelink-shell-v6', 'carelink-shell-v7', 'carelink-shell-v8', 'carelink-shell-v9', 'carelink-shell-v10', 'carelink-shell-v11', 'carelink-shell-v12', 'carelink-shell-v13', 'carelink-shell-v14', 'carelink-shell-v15'], 'keep the current shell and unrelated caches');
+    assert.deepEqual(active.deleted, SHELL_LINEAGE.filter(k => k !== CURRENT_CACHE), 'keep the current shell and unrelated caches');
     const before = [active.fetched.length, active.opened.length, active.written.length, active.matched.length];
     for (const input of [
       request(origin + 'api/state'),
