@@ -2,17 +2,80 @@
 
 | Field | Value |
 |---|---|
-| Application | CareLink DIMS v6.11.3 |
+| Application | CareLink DIMS v6.11.4 |
 | Organisation | LOMAMO Foundation Kenya |
 | Build date | 2026-11-27 |
 | Database schema | 6 |
 | Artefact | `LOMAMO-CareLink-DIMS-v5.0.html` (one file, no dependencies) |
 | Source modules | 11 (`src/`) |
 | Offline tooling | `tools/import_engine.py`, `tools/make_master_template.py`, `tools/gen_rbac.py` |
-| Test suites | 115 test files in `v6/test/`; `npm run test:all` → EXIT=0, 0 failures |
+| Test suites | 116 test files in `v6/test/`; `npm run test:all` → EXIT=0, 0 failures |
 | Authorisation controls verified | 13 / 13 |
 | Central database | `server.py` · SQLite · revision snapshots · 26/26 API checks |
 | Audit pass | 2026-10-18 — 14 defects found and fixed (docs/12 §9) |
+
+## v6.11.4 — the identity block, and saying when a table slides
+
+**The report.** Two layout faults in one screenshot:
+
+1. the top-left block of every console was badly composed — the console name
+   rendered as *"Ministry Area …"*, the role name was pushed into the bottom
+   corner, and *"Signed in as Catherine Awuor Obila"* was squeezed into a
+   column too narrow for it;
+2. wide tables, registers and reports slid sideways with nothing to say so:
+   *"ensure that new users aren't confused when rows need sliding left and
+   right to view more information."*
+
+**The identity block was a structural fault, not a cosmetic one.** The
+coloured tag, the logo, the identity column and the close control were four
+flex **siblings in one row**. On a 300 px pane each starved the others: the tag
+took ~120 px, the title column got what was left and clipped to an ellipsis,
+and the account band was crammed under the role name.
+
+It is now three stacked bands, each owning its own row:
+
+| band | contents |
+|---|---|
+| 1 | the coloured department tag, with the close control opposite it |
+| 2 | the logo, then the console name (two-line clamp, wrapping) and the role |
+| 3 | "Signed in as · name" on its own rule, full pane width |
+
+The title is allowed to wrap to two lines instead of being cut. `overflow-wrap:
+anywhere` means a long name breaks rather than overflows. The folded icon rail
+hides all three bands — a 64 px rail has room for the logo only — and every
+colour is still a chrome token, so all 45 themes inherit the layout.
+
+`v6/test/v6114-identity-and-scrollers.js` checks the structure on the rendered
+shell **and sweeps every seeded account**, so the fix is not specific to the
+ministry console in the screenshot.
+
+**The scroll affordance.** A wide table looks finished: the header stops at the
+panel edge, the last visible column has a border, and a phone shows no
+scrollbar at all. `v6/src/table_hints.js` decorates every scrolling table
+family (`.tbl-wrap`, `.tbl-scroll`, `.reg-tbl-wrap`, `.reg-table-wrap`,
+`.chart-tbl-wrap`, `.monday-review-ledger`) from **measurement**, never from a
+breakpoint:
+
+* an **edge fade** on the side that still has content — so the cut reads as a
+  cut, and a sheet that fits has no fade at all;
+* a **"Slide to see all 8 columns"** pill, which names the count, is
+  `aria-hidden`, and is **spent** the first time the reader slides;
+* a **position rail** whose thumb is the visible fraction (430/1200 → 36 %),
+  draggable, so the reader can see and control how much is hidden.
+
+The scroller is focusable and labelled from the table's caption, panel heading
+or first column, with *"slide to see every column"* in its accessible name —
+the same instruction the pill gives. A swipe inside the sheet does not scroll
+the console behind it. Print shows the whole sheet with no controls; reduced
+motion drops the nudge.
+
+The same reasoning is applied to the other strips that scroll with no visible
+scrollbar: the role tabs under the banner, the sheet toolbar, and the console
+tool row now fade at their cut, and snap.
+
+**Verified.** `npm run test:all` EXIT=0, including 32 new checks
+(`npm run test:layout`). The mechanism was exercised against real numbers:
+770 px of overflow, a 36 % thumb, and the at-end state after a slide.
 
 ## v6.11.3 — text on a tinted panel, the corner tab, and the themes as real choices
 

@@ -216,3 +216,350 @@
   .wt-prev { height: 92px; }
   .wt-banner { min-height: 34px; padding: 5px; }
 }
+
+/* =====================================================================
+   4. The identity block, laid out as three bands
+
+   The screenshot showed the top-left block with the coloured tag sitting
+   BESIDE the logo, the title truncated to "Ministry Area ...", the role name
+   shoved into the bottom corner and "Signed in as" wrapped over two lines in a
+   space too narrow for it. The fault was structural, not cosmetic: the tag, the
+   logo, the identity column and the close control were four flex siblings in
+   one row, so on a 300px pane every one of them starved the others.
+
+   Three bands now, each owning its own row, so nothing can squeeze anything:
+
+     band 1  the coloured tag, with the close control opposite it;
+     band 2  the logo and the console title + role, at full pane width;
+     band 3  "Signed in as" + the account name, full width, its own rule above.
+
+   The bands are declared here rather than in console51.css so that they win
+   over the legacy one-row rules without an !important arms race, and every
+   colour is still a chrome token, so all 45 themes inherit it.
+   ===================================================================== */
+.app.shell .npane .np-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 14px 14px 16px;
+}
+.app.shell .npane .np-brand .np-brand-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+/* The tag keeps the left corner of the pane; it is the thing the screenshot
+   asked for, so it never shrinks below its own label. */
+.app.shell .npane .np-brand .np-corr-tag {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  align-self: flex-start;
+}
+.app.shell .npane .np-brand .np-brand-top .np-x {
+  flex: none;
+  margin: -2px -2px 0 0;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--chrome-muted, var(--chrome-ink));
+  cursor: pointer;
+}
+.app.shell .npane .np-brand .np-brand-top .np-x:hover {
+  background: color-mix(in srgb, var(--chrome-ink) 16%, transparent);
+  color: var(--chrome-ink);
+}
+.app.shell .npane .np-brand .np-brand-id {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+.app.shell .npane .np-brand .np-brand-id > img {
+  width: 40px;
+  height: 40px;
+  flex: none;
+}
+/* The title is allowed to wrap to two lines. Truncating a role name to
+   "Ministry Area ..." tells the user nothing; a wrapped name is longer but it
+   is the truth, and the band is full width now, so it rarely needs two lines. */
+.app.shell .npane .np-brand .np-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 3px;
+}
+.app.shell .npane .np-brand .np-id > .np-os {
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-weight: 800;
+  opacity: .92;
+}
+.app.shell .npane .np-brand .np-id > b {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  font-size: 15px;
+  line-height: 1.32;
+}
+/* The dot belongs to the role name; both stay on the identity's baseline. */
+.app.shell .npane .np-brand .np-id .np-role-name {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  overflow: visible;
+  white-space: normal;
+  padding: 0;
+  margin-top: 1px;
+}
+.app.shell .npane .np-brand .np-id .np-role-name > span {
+  font-size: 11.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.app.shell .npane .np-brand .np-id .np-role-name .np-dot {
+  margin-top: 4px;
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+  box-shadow: none;
+}
+/* The signed-in band: its own row, its own rule, nothing can crowd it. */
+.app.shell .npane .np-brand .np-account-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 11px 0 0;
+  border-top: 1px solid var(--chrome-line, color-mix(in srgb, var(--chrome-ink) 26%, transparent));
+  min-width: 0;
+}
+.app.shell .npane .np-brand .np-account-name > span {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  min-width: 0;
+}
+.app.shell .npane .np-brand .np-account-name small {
+  font-size: 10px;
+  letter-spacing: .03em;
+  opacity: .82;
+}
+.app.shell .npane .np-brand .np-account-name small::after { content: '·'; margin-inline-start: 6px; opacity: .6; }
+.app.shell .npane .np-brand .np-account-name strong {
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+/* Folded to the icon rail there is no room for any of the three bands. */
+.app.shell .npane.np-rail .np-brand,
+.app.shell .np-rail .np-brand {
+  padding: 10px 0;
+  gap: 0;
+  align-items: center;
+}
+.app.shell .npane.np-rail .np-brand .np-brand-top,
+.app.shell .npane.np-rail .np-brand .np-account-name,
+.app.shell .np-rail .np-brand .np-brand-top,
+.app.shell .np-rail .np-brand .np-account-name { display: none; }
+.app.shell .npane.np-rail .np-brand .np-brand-id,
+.app.shell .np-rail .np-brand .np-brand-id { justify-content: center; }
+.app.shell .npane.np-rail .np-brand::before,
+.app.shell .np-rail .np-brand::before { display: none; }
+@media print {
+  .app.shell .npane .np-brand .np-account-name { border-top-color: #ccc; }
+}
+
+/* =====================================================================
+   5. Tables and registers: say when there is more to the right
+
+   "Ensure that new users aren't confused when rows need sliding left and right
+   to view more information."
+
+   A wide table on a narrow panel is a horizontal scroller, and everything
+   about it looks complete: the header stops at the panel edge, the last
+   visible column has a border, and a phone shows no scrollbar at all. These
+   rules make the cut visible and give the reader a way to measure it.
+
+   The classes are set by table_hints.js from measurements - never from a
+   breakpoint alone - so a table that fits is not decorated at all.
+   ===================================================================== */
+/* The host is the immediate parent (the card or the section that holds the
+   sheet), and it is the positioning context for the pill and the rail. */
+.th-host { position: relative; }
+.th-sheet {
+  scroll-behavior: smooth;
+  scroll-padding-inline: 2px;
+  /* Keeps a swipe inside the table instead of scrolling the console behind it. */
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2, var(--line)) transparent;
+}
+.th-sheet:focus-visible {
+  outline: 2px solid var(--accent-fg, var(--accent));
+  outline-offset: 2px;
+}
+/* Edge fades: the one on the trailing edge says "there is more", the one on
+   the leading edge says "you are not at the beginning". They are a mask on the
+   sheet itself, so no column moves by a pixel and nothing is added to the
+   scroll width. The mask follows the measured classes, so a table that fits
+   has no fade at all and a sheet scrolled to the end loses the right fade. */
+.th-sheet.th-scroll { position: relative; }
+.th-sheet.th-scroll.th-at-start:not(.th-at-end) {
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 34px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 34px), transparent 100%);
+}
+.th-sheet.th-scroll.th-at-end:not(.th-at-start) {
+  mask-image: linear-gradient(to right, transparent 0, #000 34px, #000 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 34px, #000 100%);
+}
+.th-sheet.th-scroll:not(.th-at-start):not(.th-at-end) {
+  mask-image: linear-gradient(to right, transparent 0, #000 34px, #000 calc(100% - 34px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 34px, #000 calc(100% - 34px), transparent 100%);
+}
+.th-host-on .th-sheet::-webkit-scrollbar { height: 8px; }
+.th-host-on .th-sheet::-webkit-scrollbar-thumb {
+  background: var(--line-2, var(--line));
+  border-radius: 999px;
+}
+/* The pill. Bottom-right of the sheet, quiet, and gone as soon as the reader
+   slides. `pointer-events:none` so it can never eat a tap meant for a cell. */
+.th-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  border-radius: 999px;
+  background: var(--ink, #111827);
+  color: var(--surface, #fff);
+  font-size: 10.8px;
+  font-weight: 650;
+  letter-spacing: .01em;
+  line-height: 1.3;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .16s ease, transform .16s ease;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(10, 20, 35, .22);
+}
+.th-hint.th-on { opacity: 1; transform: none; }
+.th-hint-ico {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  font-size: 11px;
+  animation: th-nudge 2.4s ease-in-out 2;
+}
+@keyframes th-nudge {
+  0%, 60%, 100% { transform: translateX(0); }
+  20% { transform: translateX(3px); }
+  40% { transform: translateX(0); }
+}
+/* The position rail: a hairline track with a thumb the width of the visible
+   fraction. It is a control, so it is taller than a hairline and it takes a
+   pointer; it is also aria-hidden, because the scroller itself is labelled. */
+.th-rail {
+  position: relative;
+  height: 5px;
+  margin: 7px 12px 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink, #111827) 12%, transparent);
+  cursor: grab;
+  touch-action: none;
+  transition: opacity .16s ease;
+}
+.th-rail:active { cursor: grabbing; }
+.th-rail > i {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  min-width: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-fg, var(--accent, #1E3A8A)) 78%, var(--ink, #111827));
+}
+/* A dark theme needs the track to lighten, not darken. */
+html[data-wmode="dark"] .th-rail { background: color-mix(in srgb, var(--surface) 22%, transparent); }
+html[data-wmode="dark"] .th-hint { background: var(--surface); color: var(--ink); }
+/* Print: the whole sheet, no controls. */
+@media print {
+  .th-hint, .th-rail { display: none !important; }
+  .th-sheet { overflow: visible !important; mask-image: none !important; -webkit-mask-image: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .th-hint { transition: none; }
+  .th-hint-ico { animation: none; }
+  .th-sheet { scroll-behavior: auto; }
+}
+
+/* =====================================================================
+   6. Every horizontal strip says that it is a strip
+
+   The role tabs under the banner, the sheet toolbar and the console tool row
+   all scroll sideways on a narrow screen, with `scrollbar-width:none`, which
+   makes them look like a row that simply ends. A soft fade on the trailing
+   edge is the cheapest honest signal there is, and it costs no layout.
+
+   The mask is applied only where the strip can actually overflow, so a row
+   that fits on a desktop is untouched and no tab is ever dimmed.
+   ===================================================================== */
+@media (max-width: 900px) {
+  .app.shell .shell-role-banner .ws67-role-tabs > .row {
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 22px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 22px), transparent 100%);
+    scroll-snap-type: x proximity;
+  }
+  .app.shell .shell-role-banner .ws67-role-tabs > .row > * { scroll-snap-align: start; }
+  .app.shell .sheet {
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 20px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 20px), transparent 100%);
+  }
+  .app.shell > .cbar > .tb-actions {
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
+  }
+  /* A swipe inside a strip scrolls the strip, not the console behind it. */
+  .app.shell :is(.ws67-role-tabs > .row, .sheet, .tabs) {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+@media print {
+  .app.shell :is(.ws67-role-tabs > .row, .sheet, .tbar, .tabs) {
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+  }
+}
+
+/* The legacy Foundation rule forces 24px block padding on the identity block,
+   which was right for a two-item row and is too tall for three bands. */
+html[data-wt="foundation"] .shell .npane .np-brand,
+html[data-colorscheme]:not([data-colorscheme="public"]) .shell .npane .np-brand {
+  padding-block: 14px !important;
+}
+@media (max-width: 760px) {
+  html[data-wt="foundation"] .shell .npane .np-brand { padding-block: 12px !important; }
+}

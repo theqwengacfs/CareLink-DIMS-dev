@@ -1065,7 +1065,7 @@ function overlayAuthoritativeHead(state, head, manifestRev = 0, manifestSaved = 
   }
   state.rev = targetRev;
   if (manifestSaved || head.saved) state.saved = manifestSaved || head.saved;
-  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.11.3' }, users: [], audit: [] };
+  state.db = state.db && typeof state.db === 'object' ? state.db : { meta: { schema: 6, version: '6.11.4' }, users: [], audit: [] };
   if (Array.isArray(head.users) && head.users.length) {
     state.db.users = Array.isArray(state.db.users) ? state.db.users : [];
     for (const hu of head.users) {
@@ -3402,7 +3402,7 @@ async function handleRequest(req, res) {
     ));
     return sendJson(res, 200, {
       ok: true,
-      version: '6.11.3',
+      version: '6.11.4',
       cloud: true,
       onlineDatabase: true,
       mode: TRIAL_MODE ? 'isolated-synthetic-trial' : 'online-site-db',
@@ -3610,7 +3610,7 @@ async function handleRequest(req, res) {
 
     const { salt, digest } = hashPassword(admin.password);
     state.org = body.org || state.org;
-    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.11.3' }, users: [], audit: [] });
+    state.db = sanitizeDbForClient(body.db || { meta: { schema: 6, version: '6.11.4' }, users: [], audit: [] });
     // Setup has no authenticated mailbox attestation yet. A client-supplied or
     // guessed address is not evidence that an official work mailbox exists.
     const chiefEmail = '';
@@ -4996,7 +4996,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 409, { ok:false, code:'rebuild_refresh_required', error:'The account hierarchy was rebuilt. Refresh the shared state before saving pending changes.' });
     }
     const patches = (Array.isArray(body.patches) ? body.patches : []).slice(0, MAX_PATCHES_PER_WRITE);
-    state.db = state.db || { meta: { schema: 6, version: '6.11.3' } };
+    state.db = state.db || { meta: { schema: 6, version: '6.11.4' } };
     const canAdminAccounts = ACCOUNT_ADMIN_ROLES.has(sess.roleId);
     const applied = [];
     const rejected = [];

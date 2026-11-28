@@ -1,4 +1,4 @@
-/* Render a static, self-contained preview of the v6.11.3 work so the result can
+/* Render a static, self-contained preview of the v6.11.4 work so the result can
    be looked at in a browser instead of only asserted in a test:
      - the role strip's chips in all six signature colours, on the dark-green
        console from the screenshot, current chip included;
@@ -135,7 +135,7 @@ const page = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CareLink v6.11.3 — visual preview</title>
+<title>CareLink v6.11.4 — visual preview</title>
 ${css}
 <style>
   body{background:#eef1f5;margin:0;padding:26px 20px 60px;font-family:var(--font,"Inter",system-ui,sans-serif);}
@@ -159,7 +159,7 @@ ${css}
 </head>
 <body>
 <div class="wrap">
-  <h1 class="pv">CareLink v6.11.3 — visual preview</h1>
+  <h1 class="pv">CareLink v6.11.4 — visual preview</h1>
   <p class="pv-sub">Two things to look at. First, the current role chip: it was dark-on-dark on a green console.
   Second, the new Monday Procurement Protocol workspace, all four tabs, rendered from the real source.</p>
 
