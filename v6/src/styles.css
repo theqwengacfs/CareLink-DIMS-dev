@@ -23,9 +23,12 @@
   --accent:#1E3A8A; --accent-soft:#EFF6FF;
   --tap:44px;
 }
-html,body{height:100%}
+html,body{height:100%;overscroll-behavior-y:none;-webkit-touch-callout:none}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--ink);
-  -webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5;overscroll-behavior:none}
+  -webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5;overscroll-behavior:none;
+  padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+button,.btn,.nav,.header,.card-h,.tab,.np-i,.wt-card,[role="button"]{
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 h1,h2,h3,h4,h5{margin:0;font-weight:650;letter-spacing:-.015em;line-height:1.25}
 p{margin:0 0 10px}
 a{color:var(--info);text-decoration:none}

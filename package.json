@@ -2,7 +2,7 @@
   "name": "lomamo-carelink-dims-v6",
   "private": true,
   "version": "6.11.3",
-  "description": "CareLink C-DIMS v6.11.3 \u00b7 LOMAMO Foundation Unified Operating System",
+  "description": "CareLink C-DIMS v6.11.3 · LOMAMO Foundation Unified Operating System",
   "type": "module",
   "scripts": {
     "predev": "node tools/sync-lovable.mjs",
@@ -33,6 +33,9 @@
     "test:workspace-identity": "node v6/test/workspace-identity-bands.js"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.3",
+    "@capacitor/cli": "^8.6.3",
+    "@capacitor/core": "^8.6.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

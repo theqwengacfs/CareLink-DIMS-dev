@@ -269,6 +269,30 @@ async function boot(){
   window.addEventListener('offline', refreshChipOnNetworkChange);
   if(typeof NAVP!=='undefined' && NAVP.installAutoFoldListeners) NAVP.installAutoFoldListeners();
 
+  /* Native Android Hardware Back Button / Gesture Navigation Integration */
+  if(typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+    try{
+      window.Capacitor.Plugins.App.addListener('backButton', ()=>{
+        try{
+          const activeModal = document.querySelector('.modal-backdrop, .dialog-backdrop, [role="dialog"]');
+          if(activeModal){
+            const closeBtn = activeModal.querySelector('.modal-close, [data-act="close"], .btn-close');
+            if(closeBtn && typeof closeBtn.click === 'function'){
+              closeBtn.click();
+              return;
+            }
+          }
+          if(typeof NAVH !== 'undefined' && NAVH.canGoBack && NAVH.canGoBack()){
+            NAVH.pop();
+            render();
+            return;
+          }
+          window.Capacitor.Plugins.App.minimizeApp();
+        }catch(_e){}
+      });
+    }catch(_e){}
+  }
+
   /* Respect explicit #/setup, #/onboard, #/login or #/architecture deep links at 0 ms */
   if(location.hash) parseHash();
   if(!AUTH.user && /^#\/?(setup|onboard)\b/i.test(location.hash||'')){
