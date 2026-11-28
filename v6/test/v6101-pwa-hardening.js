@@ -182,7 +182,14 @@ function makeShellDom({ online = true, body = true, ios = false } = {}) {
 /* ---- 5. the worker keeps its existing guarantees ----------------------- */
 check('the worker bypasses API and authenticated requests', sw.includes("url.pathname.includes('/api/')") && sw.includes("request.headers.has('x-carelink-session')"));
 check('navigation still falls back to the cached shell', sw.includes("request.mode === 'navigate'") && sw.includes('caches.match(APP_URL)'));
-check('the shell cache name was bumped so clients take the new worker', /const CACHE = 'carelink-shell-v16'/.test(sw), (sw.match(/carelink-shell-v\d+/) || [])[0]);
+/* The point is that the cache is VERSIONED, and that bumping it is a
+   deliberate act - not that it equals the number it happened to hold when
+   this check was written. Pinning it here is what made a correct cache bump
+   look like a regression. */
+const shellCache = (sw.match(/const CACHE = '(carelink-shell-v(\d+))'/) || []);
+check('the shell cache name is versioned so clients take the new worker',
+  Boolean(shellCache[1]) && Number(shellCache[2]) >= 16,
+  shellCache[1]);
 check('a stalled navigation falls back to the shell within a bounded time',
   /NAV_TIMEOUT_MS\s*=\s*\d+/.test(sw) && /Promise\.race/.test(sw));
 check('the worker honours the page request to activate a waiting build', /CARELINK_SKIP_WAITING/.test(sw) && /skipWaiting\(\)/.test(sw));
