@@ -1190,6 +1190,8 @@ const SILENT_OVERRIDE = {
 /* ---------------- 2b. System Administrator Version Control Engine ---------------- */
 const VERSION_CONTROL = {
   RELEASES: [
+    { tag:'v6.11.4', date:'2026-11-28', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
+      notes:'The identity block is three bands, so a role name is never cut to "Ministry Area ..."; wide tables, registers and reports say when they slide and show how much is off-screen.'},
     { tag:'v6.11.3', date:'2026-11-27', channel:'Production', schema:6, author:'CareLink OS Core Engineering',
       notes:'Text on a tinted panel gets its own solved ink; Foundation White keeps its default with a coloured corner tab and a scrolling banner; the fifteen institutional themes carry their own palettes.'},
     { tag:'v6.11.2', date:'2026-11-27', channel:'Production', schema:6, author:'CareLink OS Core Engineering',

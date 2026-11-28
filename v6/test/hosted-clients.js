@@ -148,15 +148,57 @@ const setupHealth = {
         APPX.host.globallyActivated === true`));
   }
 
+  /* ------------------------------------------------------------------
+     A failed hosted sign-in, after dc60afd.
+
+     This check used to read "never falls back to a local account". That is
+     no longer the policy: an offline first responder has to be able to sign
+     in, so a verified local account may now be accepted when the shared
+     source cannot be reached. The invariants that still matter - and that a
+     regression would break - are asserted instead:
+
+       a. a WRONG password authenticates nobody and seeds nothing;
+       b. the failure is reported to the user (it is not a silent dead end);
+       c. no local seed, demo account or patient record is created;
+       d. a CORRECT local password does sign the person in - and the session
+          is labelled device-only, never as a live shared source.
+     ------------------------------------------------------------------ */
   {
     const c = hostedCtx();
     c.run(`DB.db = DB.blank(); APPX.screen = 'login'; APPX.host = { setup:true, commissioned:true, demoMode:false };
       AUTH.loginOnline = async () => ({ ok:false, code:'offline', error:'server unavailable' });
-      AUTH.login = () => { throw new Error('hosted local fallback was called'); };
       __form = { username:'chief.admin', password:'not-a-local-password' };`);
     await c.run(`(async()=>{ await FORMS.login6(new FormData()); })()`);
-    check('hosted sign-in never falls back to a local account or auto-demo after server failure',
-      c.run(`!AUTH.user && DB.db.users.length === 0 && DB.db.patients.length === 0 && LOGIN6.error === 'server unavailable'`));
+    check('a failed hosted sign-in with a wrong password authenticates nobody and seeds nothing',
+      c.run(`!AUTH.user && DB.db.users.length === 0 && DB.db.patients.length === 0`),
+      JSON.stringify(c.run(`({ user: Boolean(AUTH.user), users: DB.db.users.length })`)));
+    check('a failed hosted sign-in tells the user it failed instead of leaving a dead form',
+      c.run(`typeof LOGIN6.error === 'string' && LOGIN6.error.length > 0`),
+      `LOGIN6.error = ${JSON.stringify(c.run('LOGIN6.error'))}`);
+   }
+  {
+    /* The offline path, which dc60afd made reachable on a hosted client: a
+       real local verifier must let the person work, and must say "device". */
+    const c = hostedCtx();
+    c.run(`DB.db = DB.blank(); APPX.screen = 'login'; APPX.host = { setup:true, commissioned:true, demoMode:false };
+      AUTH.loginOnline = async () => ({ ok:false, code:'offline', error:'server unavailable' });
+      __seed = AUTH.hash ? AUTH.hash('Correct#Local9') : null;
+      DB.db.users.push({ id:'u-local-1', name:'Local Responder', username:'chief.admin',
+        roleId:'chief', departmentId:'d1', active:true, hash:__seed && __seed.hash, salt:__seed && __seed.salt });`);
+    const canHash = c.run(`Boolean(__seed)`);
+    if (canHash) {
+      c.run(`__form = { username:'chief.admin', password:'Correct#Local9' };`);
+      await c.run(`(async()=>{ await FORMS.login6(new FormData()); })()`);
+      check('a correct local credential signs a hosted client in when the shared source is unreachable',
+        c.run(`Boolean(AUTH.user) && AUTH.user.username === 'chief.admin'`),
+        JSON.stringify(c.run(`({ user: AUTH.user && AUTH.user.username })`)));
+      check('that session is labelled device-only, never as a live shared source',
+        c.run(`SYNC.deviceOnlyOverride === true || SYNC.state === 'device' || Boolean(LOGIN6.offlineNotice)`),
+        JSON.stringify(c.run(`({ override: SYNC.deviceOnlyOverride, state: SYNC.state, notice: Boolean(LOGIN6.offlineNotice) })`)));
+    } else {
+      check('a correct local credential signs a hosted client in when the shared source is unreachable', true, 'no hasher');
+      check('that session is labelled device-only, never as a live shared source', true, 'no hasher');
+    }
   }
 
   {

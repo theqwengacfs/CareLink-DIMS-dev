@@ -303,17 +303,29 @@ const NAVP = {
     return `<nav class="npane" id="npane" aria-label="Pages in this console" data-rail="${effRail?1:0}" data-autofold="${autoActive?1:0}">
       <div class="np-brand">
         ${(()=>{
-          /* The coloured corner tab: which department, which console. Painted
-             from the console's solved fill/ink pair so it cannot become
-             white-on-pale in any theme. */
+          /* Three stacked bands, each one owning its own row. Before this the
+             coloured tag was a FLEX SIBLING of the logo and the identity text,
+             so on a 300px pane it stole ~120px from the title column and
+             "Ministry Area Console" collapsed to "Ministry Area ...". The tag
+             now has its own strip with the close control opposite it, the
+             identity gets the full width, and the signed-in band gets a row of
+             its own instead of being squeezed under the title. */
           const tag = (dept && (dept.short || dept.name)) || role.dept || 'Console';
-          return `<span class="np-corr-tag" title="${esc(String(dept && dept.name || tag))} · ${esc(String(role.consoleTitle||role.name||''))}">${ic('building',10)}<span>${esc(String(tag))}</span></span>`;
+          const tagFull = String(dept && dept.name || tag);
+          return `<div class="np-brand-top">
+            <span class="np-corr-tag" title="${esc(tagFull)} · ${esc(String(role.consoleTitle||role.name||''))}">${ic('building',10)}<span>${esc(String(tag))}</span></span>
+            <button class="np-x" data-act="nav-close" aria-label="Close navigation">${ic('x',16)}</button>
+          </div>`;
         })()}
-        <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
-        <div class="np-id"><div class="np-os">CareLink OS</div><b>${esc(role.consoleTitle||role.name||'Console')}</b>
-          <span class="np-role-name"><i class="np-dot" aria-hidden="true" style="background:${esc(dept.accent)}"></i><span>${esc(role.name||'')}</span></span>
-          <span class="np-account-name">${ic('user',13)}<span><small>Signed in as</small><strong>${esc(user.name.replace(/^Demo - /,''))}</strong></span></span></div>
-        <button class="np-x" data-act="nav-close" aria-label="Close navigation">${ic('x',18)}</button>
+        <div class="np-brand-id">
+          <img src="${window.LOGO||''}" alt="LOMAMO Foundation">
+          <div class="np-id">
+            <div class="np-os">CareLink OS</div>
+            <b>${esc(role.consoleTitle||role.name||'Console')}</b>
+            <span class="np-role-name"><i class="np-dot" aria-hidden="true" style="background:${esc(dept.accent)}"></i><span>${esc(role.name||'')}</span></span>
+          </div>
+        </div>
+        <div class="np-account-name">${ic('user',14)}<span><small>Signed in as</small><strong>${esc(user.name.replace(/^Demo - /,''))}</strong></span></div>
       </div>
       <div class="np-scroll">${body}</div>
       <div class="np-foot">
