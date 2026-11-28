@@ -1314,9 +1314,8 @@ Object.assign(FORMS, {
       let res = await AUTH.loginOnline(username, password, CLIENT_UI.snapshot(), { takeover: Boolean(LOGIN6.takeover) });
       if(!res.ok){
         /* When online login fails (offline, network error, host unreachable),
-           attempt offline sign-in via stored PBKDF2 device credentials. */
-        const hostUnprovisioned = !APPX.host || !APPX.host.setup;
-        const isGloballyActive = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
+           attempt offline sign-in via stored PBKDF2 device credentials,
+           falling back to local database account verifiers. */
         const off = await OFFLINE_SIGNIN.attempt(username, password, { db: DB.db });
         if (off.ok) {
           res = { ok: true, offline: true, user: off.user, mustChange: false, daysLeft: off.daysLeft };
@@ -1327,15 +1326,19 @@ Object.assign(FORMS, {
             SYNC.message = 'Offline session — records are held on this device';
             SYNC.bump();
           }
-        } else if(!hosted) {
-          const localCandidate = (DB.db && Array.isArray(DB.db.users))
-            ? DB.db.users.find(x => x.username.toLowerCase()===username || String(x.email||'').toLowerCase()===username || ((username==='system.admin'||username==='chief.admin') && x.roleId==='chief'))
-            : null;
-          if(!(res.ok && res.offline) && ((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned)){
-            const local = AUTH.login(username, password);
-            res = local.ok
-              ? { ok:true, user:local.user, mustChange:Boolean(local.user.mustChange || local.user.mustChangePassword) }
-              : { ok:false, error: local.msg };
+        } else {
+          const local = AUTH.login(username, password);
+          if (local.ok) {
+            res = { ok: true, offline: true, user: local.user, mustChange: Boolean(local.user.mustChange || local.user.mustChangePassword) };
+            LOGIN6.offlineNotice = { title: 'Offline session', body: 'Signed in using local database credentials.', tone: 'warn' };
+            if (typeof SYNC !== 'undefined') {
+              SYNC.deviceOnlyOverride = true;
+              SYNC.state = 'device';
+              SYNC.message = 'Offline session — records are held on this device';
+              SYNC.bump();
+            }
+          } else {
+            LOGIN6.error = local.msg || off.msg || res.error || 'The shared online source could not be reached.';
           }
         }
       }
