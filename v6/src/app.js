@@ -242,18 +242,56 @@ async function boot(){
     try{ if(AUTH.user && typeof SYNC!=='undefined') SYNC.retryNow(); }catch(e){}
   });
   window.addEventListener('carelink:open-sync', ()=>{ try{ if(AUTH.user && typeof openSyncModal==='function') openSyncModal(); }catch(e){} });
-  /* Redraw the chip on a plain network change so the console states the truth
-     immediately instead of waiting for a request to fail. */
+  /* Redraw chip and trigger sync alert/prompt when network connection resumes. */
   const refreshChipOnNetworkChange = ()=>{
     try{
       document.querySelectorAll('[data-network-indicator]').forEach(el=>{ el.hidden = navigator.onLine !== false; });
       if(typeof SYNC==='undefined' || !AUTH.user) return;
-      if(SYNC.state==='error' || SYNC.state==='idle' || SYNC.state==='connected') SYNC.bump();
+      if(navigator.onLine){
+        if(SYNC.deviceOnlyOverride){
+          SYNC.deviceOnlyOverride = false;
+        }
+        const held = typeof SYNC.heldOutbox === 'function' ? SYNC.heldOutbox() : 0;
+        if(typeof toast === 'function'){
+          if(held > 0){
+            toast('Network Connection Restored', `Connection resumed with ${held} pending offline change${held === 1 ? '' : 's'}. Syncing with server now...`, 'ok');
+          } else {
+            toast('Network Connection Restored', 'Online connection resumed. Shared online sync active.', 'ok');
+          }
+        }
+        if(typeof SYNC.attemptOutbox === 'function') SYNC.attemptOutbox();
+        if(typeof SYNC.retryNow === 'function') SYNC.retryNow();
+      }
+      if(SYNC.state==='error' || SYNC.state==='idle' || SYNC.state==='connected' || SYNC.state==='device') SYNC.bump();
     }catch(e){}
   };
   window.addEventListener('online', refreshChipOnNetworkChange);
   window.addEventListener('offline', refreshChipOnNetworkChange);
   if(typeof NAVP!=='undefined' && NAVP.installAutoFoldListeners) NAVP.installAutoFoldListeners();
+
+  /* Native Android Hardware Back Button / Gesture Navigation Integration */
+  if(typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+    try{
+      window.Capacitor.Plugins.App.addListener('backButton', ()=>{
+        try{
+          const activeModal = document.querySelector('.modal-backdrop, .dialog-backdrop, [role="dialog"]');
+          if(activeModal){
+            const closeBtn = activeModal.querySelector('.modal-close, [data-act="close"], .btn-close');
+            if(closeBtn && typeof closeBtn.click === 'function'){
+              closeBtn.click();
+              return;
+            }
+          }
+          if(typeof NAVH !== 'undefined' && NAVH.canGoBack && NAVH.canGoBack()){
+            NAVH.pop();
+            render();
+            return;
+          }
+          window.Capacitor.Plugins.App.minimizeApp();
+        }catch(_e){}
+      });
+    }catch(_e){}
+  }
 
   /* Respect explicit #/setup, #/onboard, #/login or #/architecture deep links at 0 ms */
   if(location.hash) parseHash();

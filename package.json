@@ -34,6 +34,9 @@
     "test:workspace-identity": "node v6/test/workspace-identity-bands.js"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.3",
+    "@capacitor/cli": "^8.6.3",
+    "@capacitor/core": "^8.6.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

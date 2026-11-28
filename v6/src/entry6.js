@@ -69,6 +69,13 @@ async function hostProbe(){
    hosted browser with no health answer is pending/fail-closed, never a new
    demo installation. */
 function hostedEntryPending(){
+  if(typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  const isNative = typeof location !== 'undefined' && (
+    location.protocol === 'capacitor:' ||
+    location.protocol === 'file:' ||
+    (typeof window !== 'undefined' && (window.Capacitor || window.CapacitorCustomPlatform))
+  );
+  if(isNative) return false;
   return typeof SYNC !== 'undefined' && SYNC.available && SYNC.available() &&
     !(typeof APPX !== 'undefined' && APPX.host) && !(SYNC.server);
 }
@@ -1305,31 +1312,34 @@ Object.assign(FORMS, {
       // Device admission is tied to the server-issued cookie and approval code,
       // not a label typed at sign-in. Do not require staff to name their device.
       let res = await AUTH.loginOnline(username, password, CLIENT_UI.snapshot(), { takeover: Boolean(LOGIN6.takeover) });
-      if(!res.ok && !hosted){
-        /* Local PBKDF2/hash sign-in is exclusively an offline/static-file
-           feature.  A Vercel client never turns a failed server login into a
-           device-local account or an automatic demo installation. */
-        const hostUnprovisioned = !APPX.host || !APPX.host.setup;
-        const isGloballyActive = (typeof PROD_SETUP !== 'undefined' && PROD_SETUP.isGloballyActivated && PROD_SETUP.isGloballyActivated());
-        /* Offline sign-in comes first, and only for a device that was explicitly
-           told to remember this account. It verifies against its own credential, so
-           a failed server call never becomes a local account and a local digest is
-           never consulted for an account nobody remembered. */
-        if (isGloballyActive || (res.code === 'offline') || res.status === 0) {
-          const off = await OFFLINE_SIGNIN.attempt(username, password, { db: DB.db });
-          if (off.ok) {
-            res = { ok: true, offline: true, user: off.user, mustChange: false, daysLeft: off.daysLeft };
-            LOGIN6.offlineNotice = OFFLINE_SIGNIN.banner(off.daysLeft);
+      if(!res.ok){
+        /* When online login fails (offline, network error, host unreachable),
+           attempt offline sign-in via stored PBKDF2 device credentials,
+           falling back to local database account verifiers. */
+        const off = await OFFLINE_SIGNIN.attempt(username, password, { db: DB.db });
+        if (off.ok) {
+          res = { ok: true, offline: true, user: off.user, mustChange: false, daysLeft: off.daysLeft };
+          LOGIN6.offlineNotice = OFFLINE_SIGNIN.banner(off.daysLeft);
+          if (typeof SYNC !== 'undefined') {
+            SYNC.deviceOnlyOverride = true;
+            SYNC.state = 'device';
+            SYNC.message = 'Offline session — records are held on this device';
+            SYNC.bump();
           }
-        }
-        const localCandidate = (DB.db && Array.isArray(DB.db.users))
-          ? DB.db.users.find(x => x.username.toLowerCase()===username || String(x.email||'').toLowerCase()===username || ((username==='system.admin'||username==='chief.admin') && x.roleId==='chief'))
-          : null;
-        if(!(res.ok && res.offline) && ((localCandidate && localCandidate.hash && localCandidate.salt) || res.code==='offline' || res.code==='failed' || res.status===0 || hostUnprovisioned)){
+        } else {
           const local = AUTH.login(username, password);
-          res = local.ok
-            ? { ok:true, user:local.user, mustChange:Boolean(local.user.mustChange || local.user.mustChangePassword) }
-            : { ok:false, error: local.msg };
+          if (local.ok) {
+            res = { ok: true, offline: true, user: local.user, mustChange: Boolean(local.user.mustChange || local.user.mustChangePassword) };
+            LOGIN6.offlineNotice = { title: 'Offline session', body: 'Signed in using local database credentials.', tone: 'warn' };
+            if (typeof SYNC !== 'undefined') {
+              SYNC.deviceOnlyOverride = true;
+              SYNC.state = 'device';
+              SYNC.message = 'Offline session — records are held on this device';
+              SYNC.bump();
+            }
+          } else {
+            LOGIN6.error = local.msg || off.msg || res.error || 'The shared online source could not be reached.';
+          }
         }
       }
       LOGIN6.busy = false;
