@@ -43,8 +43,12 @@ const SYNC = {
   available(){
     try{
       if(this.deviceOnlyOverride) return false;
-      if(typeof fetch!=='function' || typeof location==='undefined' || !/^https?:$/.test(location.protocol)) return false;
+      if(typeof fetch!=='function' || typeof location==='undefined') return false;
       if(/\.github\.io$/i.test(String(location.hostname||''))) return false;
+      const isNative = location.protocol === 'capacitor:' ||
+        location.protocol === 'file:' ||
+        (typeof window !== 'undefined' && (window.Capacitor || window.CapacitorCustomPlatform));
+      if(!isNative && !/^https?:$/.test(location.protocol)) return false;
       return true;
     }
     catch(e){ return false; }
@@ -52,7 +56,18 @@ const SYNC = {
 
   resolveApiUrl(url){
     try{
-      const s = String(url || '');
+      let s = String(url || '');
+      if(s.startsWith('/api/')) s = s.slice(1);
+      const origin = (typeof CANONICAL_HOST !== 'undefined' && CANONICAL_HOST.origin) ? CANONICAL_HOST.origin : 'https://care-link-dims-dev-three.vercel.app';
+      const isNative = typeof location !== 'undefined' && (
+        location.protocol === 'capacitor:' ||
+        location.protocol === 'file:' ||
+        (typeof window !== 'undefined' && (window.Capacitor || window.CapacitorCustomPlatform)) ||
+        (location.hostname === 'localhost' && location.port !== '3000' && location.port !== '5173')
+      );
+      if(isNative && /^api\//.test(s)){
+        return origin + '/' + s;
+      }
       if(/^api\//.test(s) && typeof location !== 'undefined' && typeof location.pathname === 'string' && /\/public\/[^/]*$/.test(location.pathname)){
         return '../' + s;
       }
